@@ -13,9 +13,9 @@
     "postpack": "rm ./README.md"
   },
   "source": "./src/index.tsx",
-  "main": "./lib/commonjs/index.js",
-  "module": "./lib/module/index.js",
-  "types": "./lib/typescript/commonjs/index.d.ts",
+  "main": "./lib/commonjs/runtime/index.js",
+  "module": "./lib/module/runtime/index.js",
+  "types": "./lib/typescript/commonjs/runtime/index.d.ts",
   "exports": {
     ".": {
       "import": {
@@ -80,11 +80,22 @@
         "types": "./lib/typescript/commonjs/jsx/jsx-runtime-dev.d.ts",
         "default": "./lib/commonjs/jsx/jsx-runtime-dev.js"
       }
+    },
+    "./react-env": {
+      "import": {
+        "types": "./react-env.d.ts",
+        "default": null
+      },
+      "require": {
+        "types": "./react-env.d.ts",
+        "default": null
+      }
     }
   },
   "files": [
     "lib",
-    "src"
+    "src",
+    "react-env.d.ts"
   ],
   "react-native-builder-bob": {
     "source": "src",

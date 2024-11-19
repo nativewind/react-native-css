@@ -5,5 +5,6 @@
   },
   "include": [
     "src/**/*",
+    "react-env.d.ts",
   ]
 }
