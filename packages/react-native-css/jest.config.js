@@ -4,7 +4,7 @@ module.exports = {
   setupFiles: ["<rootDir>/src/jest/setup.ts"],
   setupFilesAfterEnv: ["<rootDir>/src/jest/setupAfterEnv.ts"],
   moduleNameMapper: {
-    "^react-native-css$": "<rootDir>/src/jest",
-    "^react-native-css/(.*)$": "<rootDir>/src/jest/$1",
+    "^react-native-css/jsx-runtime$": "<rootDir>/src/jsx/jsx-runtime",
+    "^react-native-css/(.*)$": "<rootDir>/src/$1",
   },
 };

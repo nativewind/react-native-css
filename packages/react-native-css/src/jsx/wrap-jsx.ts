@@ -1,5 +1,4 @@
-import type { JSXFunction } from "../runtime";
-import { interopComponents } from "../runtime";
+import { interopComponents, type JSXFunction } from "../runtime";
 import { maybeHijackSafeAreaProvider } from "../third-party/react-native-safe-area-context";
 
 /**

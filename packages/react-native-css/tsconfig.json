@@ -1,10 +1,17 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "rootDir": "./src",
+    "paths": {
+      "react-native-css/jest": [
+        "./src/jest"
+      ],
+      "react-native-css/jsx-runtime": [
+        "./src/jsx/jsx-runtime"
+      ]
+    }
   },
   "include": [
     "src/**/*",
     "react-env.d.ts",
-  ]
+  ],
 }
