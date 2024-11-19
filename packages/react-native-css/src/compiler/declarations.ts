@@ -48,13 +48,13 @@ import type {
 
 import {
   FeatureFlagRecord,
-  isStyleDescriptorArray,
   StyleDescriptor,
   StyleFunction,
 } from "../runtime";
 import { AddFn } from "./add";
 import { parseEasingFunction, parseIterationCount } from "./keyframes";
 import { toRNProperty } from "./selectors";
+import { isStyleDescriptorArray } from "../runtime/utils";
 
 const propertyRename: Record<string, string> = {
   "margin-inline-start": "margin-start",

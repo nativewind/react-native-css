@@ -1,4 +1,4 @@
-import { SpecificityArray } from "./runtime.types";
+import { SpecificityArray } from "../runtime.types";
 
 export const Specificity = {
   Order: 0,

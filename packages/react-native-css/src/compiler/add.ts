@@ -7,14 +7,13 @@ import {
 
 import {
   EasingFunction,
-  isStyleDescriptorArray,
-  StyleDeclaration,
   StyleDescriptor,
   StyleFunction,
   StyleRule,
 } from "../runtime";
 import { CompilerCollection, StyleRuleMapping } from "./compiler.types";
 import { toRNProperty } from "./selectors";
+import { isStyleDescriptorArray } from "../runtime/utils";
 
 // import { CompilerCollection } from "../runtime/pure/compiler/types";
 // import { EasingFunction } from "../runtime/pure/reanimated";

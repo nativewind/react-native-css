@@ -19,7 +19,6 @@ import {
   StyleRule,
   StyleRuleSet,
 } from "../runtime";
-import { Specificity } from "../runtime/specificity";
 import { buildAddFn } from "./add";
 import {
   CompilerCollection,
@@ -34,6 +33,7 @@ import {
 import { defaultFeatureFlags } from "./feature-flags";
 import { extractKeyFrames } from "./keyframes";
 import { normalizeSelectors, toRNProperty } from "./selectors";
+import { Specificity } from "../runtime/utils";
 
 // import { isDeepEqual } from "../util/isDeepEqual";
 

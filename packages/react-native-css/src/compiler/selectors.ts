@@ -11,7 +11,7 @@ import type {
   SpecificityArray,
   StyleRule,
 } from "../runtime";
-import { Specificity } from "../runtime/specificity";
+import { Specificity } from "../runtime/utils";
 import type { CompilerCollection } from "./compiler.types";
 
 export type NormalizeSelector =

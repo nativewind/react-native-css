@@ -1,4 +1,2 @@
 export * from "./runtime";
-export * from "./runtime.types";
-
-export * from "./utils";
+export type * from "./runtime.types";
