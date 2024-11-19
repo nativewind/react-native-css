@@ -1,0 +1,85 @@
+{
+  "name": "react-native-css",
+  "version": "1.0.0",
+  "description": "",
+  "source": "./src/index.tsx",
+  "main": "./lib/commonjs/index.js",
+  "module": "./lib/module/index.js",
+  "types": "./lib/typescript/commonjs/src/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./lib/typescript/module/src/index.d.ts",
+        "default": "./lib/module/index.js"
+      },
+      "require": {
+        "types": "./lib/typescript/commonjs/src/index.d.ts",
+        "default": "./lib/commonjs/index.js"
+      }
+    }
+  },
+  "files": [
+    "lib",
+    "src"
+  ],
+  "scripts": {
+    "test": "jest",
+    "build": "bob build",
+    "prepublishOnly": "npm run build",
+    "prepack": "cp ../../README.md ./README.md",
+    "postpack": "rm ./README.md"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "debug": "^4.3.7",
+    "semver": "^7.6.3"
+  },
+  "devDependencies": {
+    "@react-native-community/cli": "^15.1.2",
+    "@types/debug": "^4.1.12",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.9.0",
+    "@types/semver": "^7.5.8",
+    "expo": "^52.0.7",
+    "jest": "^29.7.0",
+    "jest-expo": "^52.0.2",
+    "lightningcss": "^1.28.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-native": "^0.76.2",
+    "react-native-builder-bob": "0.31.0",
+    "react-native-reanimated": "^3.16.1",
+    "typescript": "^5.6.3"
+  },
+  "peerDependencies": {
+    "lightningcss": "^1.28.1",
+    "react-native-reanimated": "^3.16.1"
+  },
+  "react-native-builder-bob": {
+    "source": "src",
+    "output": "lib",
+    "targets": [
+      [
+        "commonjs",
+        {
+          "esm": true
+        }
+      ],
+      [
+        "module",
+        {
+          "esm": true
+        }
+      ],
+      [
+        "typescript",
+        {
+          "esm": true,
+          "tsc": "../../node_modules/.bin/tsc"
+        }
+      ]
+    ]
+  }
+}

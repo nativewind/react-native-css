@@ -1,4 +1,8 @@
-module.exports = {
+module.exports = (api) => {
+  return api.env("test") ? jest : build;
+};
+
+const jest = {
   presets: ["module:babel-preset-expo"],
   plugins: [
     [
@@ -9,3 +13,5 @@ module.exports = {
     ],
   ],
 };
+
+const build = {};
