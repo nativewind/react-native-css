@@ -3,10 +3,10 @@ import { versions } from "node:process";
 import { debug as debugFn } from "debug";
 import {
   ContainerRule,
+  MediaQuery as CSSMediaQuery,
   Declaration,
   DeclarationBlock,
   transform as lightningcss,
-  MediaQuery,
   MediaRule,
   Rule,
   SelectorList,
@@ -15,6 +15,7 @@ import {
 
 import {
   InjectStylesOptions,
+  MediaQuery,
   SpecificityArray,
   StyleRule,
   StyleRuleSet,
@@ -30,9 +31,11 @@ import {
   AddWarningFn,
   parseDeclaration,
   ParseDeclarationOptions,
+  ParserOptions,
 } from "./declarations";
 import { defaultFeatureFlags } from "./feature-flags";
 import { extractKeyFrames } from "./keyframes";
+import { parseMediaQuery } from "./media-query";
 import { normalizeSelectors, toRNProperty } from "./selectors";
 
 type CSSInteropAtRule = {
@@ -328,7 +331,7 @@ function extractCSSInteropFlag(
  */
 function extractMedia(mediaRule: MediaRule, collection: CompilerCollection) {
   // Initialize an empty array to store screen media queries
-  const media: MediaQuery[] = [];
+  const media: CSSMediaQuery[] = [];
 
   // Iterate over all media queries in the mediaRule
   for (const mediaQuery of mediaRule.query.mediaQueries) {
@@ -351,9 +354,18 @@ function extractMedia(mediaRule: MediaRule, collection: CompilerCollection) {
     return;
   }
 
+  const options: ParserOptions = {
+    add: () => {},
+    addWarning: () => {},
+  };
+
+  const m = media
+    .map((m) => parseMediaQuery(m, options))
+    .filter((m): m is MediaQuery => m !== undefined);
+
   // Iterate over all rules in the mediaRule and extract their styles using the updated CompilerCollection
   for (const rule of mediaRule.rules) {
-    extractRule(rule, collection, { m: media });
+    extractRule(rule, collection, { m });
   }
 }
 

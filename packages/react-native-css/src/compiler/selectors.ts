@@ -1,12 +1,8 @@
-import type {
-  MediaQuery,
-  Selector,
-  SelectorComponent,
-  SelectorList,
-} from "lightningcss";
+import type { Selector, SelectorComponent, SelectorList } from "lightningcss";
 
 import type {
   AttributeCondition,
+  MediaQuery,
   PseudoClassesQuery,
   SpecificityArray,
   StyleRule,
@@ -114,19 +110,7 @@ export function normalizeSelectors(
         collection,
         selectors,
         {
-          media: [
-            {
-              mediaType: "all",
-              condition: {
-                type: "feature",
-                value: {
-                  type: "plain",
-                  name: "prefers-color-scheme",
-                  value: { type: "ident", value: "dark" },
-                },
-              },
-            },
-          ],
+          media: [["plain", "prefers-color-scheme", "dark"]],
         },
       );
     } else if (
@@ -136,19 +120,7 @@ export function normalizeSelectors(
       const [first] = cssSelector;
 
       normalizeSelectors(extractedStyle, [[first]], collection, selectors, {
-        media: [
-          {
-            mediaType: "all",
-            condition: {
-              type: "feature",
-              value: {
-                type: "plain",
-                name: "prefers-color-scheme",
-                value: { type: "ident", value: "dark" },
-              },
-            },
-          },
-        ],
+        media: [["plain", "prefers-color-scheme", "dark"]],
       });
     } else {
       const selector = reduceSelector(
@@ -199,16 +171,7 @@ function reduceSelector(
             component.operation?.operator === "equal"
           ) {
             acc.media ??= [];
-            acc.media.push({
-              mediaType: "all",
-              condition: {
-                type: "feature",
-                value: {
-                  type: "boolean",
-                  name: component.operation.value,
-                },
-              },
-            });
+            acc.media.push(["boolean", component.operation.value]);
           } else {
             return null;
           }
@@ -329,17 +292,7 @@ function reduceSelector(
         if (component.kind === "is") {
           if (isDarkUniversalSelector(component.selectors[0], collection)) {
             acc.media ??= [];
-            acc.media.push({
-              mediaType: "all",
-              condition: {
-                type: "feature",
-                value: {
-                  type: "plain",
-                  name: "prefers-color-scheme",
-                  value: { type: "ident", value: "dark" },
-                },
-              },
-            });
+            acc.media.push(["plain", "prefers-color-scheme", "dark"]);
             break;
           }
         }
@@ -417,12 +370,12 @@ function isIsPseudoClass(
 }
 
 function isDarkModeMediaQuery(query?: MediaQuery): boolean {
-  return Boolean(
-    query?.condition &&
-      query.condition.type === "feature" &&
-      query.condition.value.type === "plain" &&
-      query.condition.value.name === "prefers-color-scheme" &&
-      query.condition.value.value.value === "dark",
+  if (!query) return false;
+
+  return (
+    query[0] === "plain" &&
+    query[1] === "prefers-color-scheme" &&
+    query[2] === "dark"
   );
 }
 

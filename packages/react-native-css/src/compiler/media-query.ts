@@ -1,0 +1,217 @@
+import {
+  CalcFor_Length,
+  MediaCondition as CSSMediaCondition,
+  MediaFeatureComparison as CSSMediaFeatureComparison,
+  MediaFeatureValue as CSSMediaFeatureValue,
+  MediaQuery as CSSMediaQuery,
+  QueryFeatureFor_MediaFeatureId,
+} from "lightningcss";
+
+import {
+  MediaFeatureComparison,
+  MediaQuery,
+  StyleDescriptor,
+} from "../runtime";
+import { parseLength, ParserOptions } from "./declarations";
+
+export function parseMediaQuery(
+  query: CSSMediaQuery,
+  options: ParserOptions,
+): MediaQuery | undefined {
+  if (!query.condition) {
+    return;
+  }
+
+  let mediaQuery = parseMediaQueryCondition(query.condition, options);
+
+  // If any of these are undefined, the media query is invalid
+  if (!mediaQuery || mediaQuery.some((v) => v === undefined)) {
+    return;
+  }
+
+  if (query.qualifier === "not") {
+    mediaQuery = ["!", mediaQuery];
+  }
+
+  return mediaQuery;
+}
+
+function parseMediaQueryCondition(
+  query: CSSMediaCondition,
+  options: ParserOptions,
+): MediaQuery | undefined {
+  switch (query.type) {
+    case "feature":
+      return parseFeature(query.value, options);
+    case "not":
+      const mediaQuery = parseMediaQueryCondition(query.value, options);
+      return mediaQuery ? ["!", mediaQuery] : undefined;
+    case "operation":
+      const mediaQueries = query.conditions
+        .map((c) => parseMediaQueryCondition(c, options))
+        .filter((v): v is MediaQuery => !!v);
+
+      if (mediaQueries.length === 0) {
+        return;
+      }
+
+      switch (query.operator) {
+        case "and":
+          return ["&", mediaQueries];
+        case "or":
+          return ["|", mediaQueries];
+        default:
+          query.operator satisfies never;
+          return;
+      }
+    default:
+      query satisfies never;
+  }
+}
+
+function parseFeature(
+  feature: QueryFeatureFor_MediaFeatureId,
+  options: ParserOptions,
+): MediaQuery | undefined {
+  switch (feature.type) {
+    case "boolean":
+      return ["!!", feature.name];
+    case "plain":
+      return ["=", feature.name, parseValue(feature.value, options)];
+    case "range":
+      return [
+        "==",
+        feature.name,
+        parseValue(feature.value, options),
+        parseOperator(feature.operator),
+      ];
+    case "interval":
+      return [
+        "[]",
+        feature.name,
+        parseValue(feature.start, options),
+        parseOperator(feature.startOperator),
+        parseValue(feature.end, options),
+        parseOperator(feature.endOperator),
+      ];
+    default:
+      feature satisfies never;
+  }
+  return;
+}
+
+function parseValue(
+  value: CSSMediaFeatureValue,
+  options: ParserOptions,
+): StyleDescriptor {
+  switch (value.type) {
+    case "boolean":
+    case "ident":
+    case "integer":
+    case "number":
+      return value.value;
+    case "length":
+      switch (value.value.type) {
+        case "value":
+          return parseLength(value.value.value, options);
+        case "calc":
+          return parseCalcFn(value.value.value, options);
+      }
+    case "resolution":
+      switch (value.value.type) {
+        case "dpi":
+          // Mobile devices use 160 as a standard
+          return value.value.value / 160;
+        case "dpcm":
+          // There are 1in = ~2.54cm
+          return value.value.value / (160 * 2.54);
+        case "dppx":
+          return value.value.value;
+        default:
+          value.value satisfies never;
+          return undefined;
+      }
+    case "ratio":
+    case "env":
+  }
+
+  return;
+}
+
+function parseOperator(
+  operator: CSSMediaFeatureComparison,
+): MediaFeatureComparison {
+  switch (operator) {
+    case "equal":
+      return "=";
+    case "greater-than":
+      return ">";
+    case "greater-than-equal":
+      return ">=";
+    case "less-than":
+      return "<";
+    case "less-than-equal":
+      return "<=";
+    default:
+      operator satisfies never;
+      throw new Error(`Unknown MediaFeatureComparison operator ${operator}`);
+  }
+}
+
+function parseCalcFn(
+  calc: CalcFor_Length,
+  options: ParserOptions,
+): StyleDescriptor {
+  switch (calc.type) {
+    case "number":
+      return calc.value;
+    case "value":
+      return parseLength(calc.value, options);
+    case "sum":
+      return [{}, "sum", calc.value.map((c) => parseCalcFn(c, options))];
+    case "product":
+      return [
+        {},
+        "product",
+        [calc.value[0], parseCalcFn(calc.value[1], options)],
+      ];
+    case "function":
+      switch (calc.value.type) {
+        case "calc":
+          return parseCalcFn(calc.value.value, options);
+        case "min":
+        case "max":
+        case "clamp":
+        case "rem":
+        case "mod":
+        case "hypot":
+          return [
+            {},
+            calc.value.type,
+            calc.value.value.map((c) => parseCalcFn(c, options)),
+          ];
+        case "abs":
+        case "sign":
+          return [
+            {},
+            calc.value.type,
+            [parseCalcFn(calc.value.value, options)],
+          ];
+        case "round":
+          return [
+            {},
+            calc.value.type,
+            [
+              calc.value.value[0],
+              parseCalcFn(calc.value.value[1], options),
+              parseCalcFn(calc.value.value[2], options),
+            ],
+          ];
+        default:
+          calc.value satisfies never;
+          return;
+      }
+    default:
+      calc satisfies never;
+  }
+}

@@ -35,6 +35,9 @@ export type Observable<Value = unknown, Args extends unknown[] = never[]> = {
   remove(effect: Effect): void;
   // Set, but add the effects to a batch to be run later
   batch(batch: Set<Effect>, ...value: Args): void;
+
+  onChange(callback: (set: Set<Effect>) => void): void;
+  recalculate(set: Set<Effect>): void;
 };
 
 type Read<Value> = (get: Getter) => Value;
@@ -82,35 +85,36 @@ export function observable<Value, Args extends unknown[]>(
   write?: Write<Value, Args>,
   equality: Equality<Value> = Object.is,
 ): Observable<Value, Args> {
-  const effects = new Set<Effect>();
+  const dependents = new Set<Effect>();
+  const onChangeSubscribers = new Set<(set: Set<Effect>) => void>();
 
+  let init: Value | Read<Value> | undefined | null = null;
   let value: Value | undefined;
-  let init = false;
-
-  const isReadOnly = typeof read === "function" && !write;
 
   const obs: Observable<Value, Args> = {
-    get(effect) {
+    get(dependent) {
       /**
        * Observables with read functions are lazy and only run the read function once.
-       *
-       * We also need to re-run the read function if this is a new effect
-       * to ensure that the effect is subscribed to this observable's dependents.
        */
-      if (!init || (effect && read && !effects.has(effect))) {
-        init = true;
+      if (init === null) {
         value =
           typeof read === "function"
-            ? (read as Read<Value>)((observable) => observable.get(effect))
+            ? (read as Read<Value>)((observable) => {
+                // Subscribe to the observable
+                observable.onChange(obs.recalculate);
+                // Get the parent without the effect subscribing to it
+                return observable.get();
+              })
             : read;
+        init = value;
       }
 
       /**
        * Subscribe the effect to the observable if it is not read-only.
        */
-      if (effect && !isReadOnly) {
-        effects.add(effect);
-        effect.dependencies.add(obs);
+      if (dependent) {
+        dependents.add(dependent);
+        dependent.dependencies.add(obs);
       }
 
       return value as Value;
@@ -135,16 +139,20 @@ export function observable<Value, Args extends unknown[]>(
       }
 
       value = nextValue;
-      init = true;
+      init = value;
 
-      if (effects.size > 0) {
-        for (const effect of effects) {
-          effect.run();
-        }
+      for (const subscriber of onChangeSubscribers) {
+        subscriber(dependents);
+      }
+
+      onChangeSubscribers.clear();
+
+      for (const effect of dependents) {
+        effect.run();
       }
     },
     remove(effect) {
-      effects.delete(effect);
+      dependents.delete(effect);
     },
     /**
      * batch() accepts a Set<Effect> and instead of running the effects immediately,
@@ -174,8 +182,33 @@ export function observable<Value, Args extends unknown[]>(
       }
 
       value = nextValue;
-      for (const effect of effects) {
+
+      for (const effect of dependents) {
         batch.add(effect);
+      }
+    },
+
+    onChange(callback) {
+      onChangeSubscribers.add(callback);
+    },
+
+    recalculate(set) {
+      if (typeof read !== "function") {
+        return;
+      }
+
+      const nextValue = (read as Read<Value>)((observable) => {
+        observable.onChange(obs.recalculate);
+        return observable.get();
+      });
+
+      if (equality(value as Value, nextValue)) {
+        return;
+      }
+
+      init = null;
+      for (const effect of dependents) {
+        set.add(effect);
       }
     },
   };
@@ -226,6 +259,8 @@ export function mutable<Value, Args extends unknown[]>(
       return this.set(...args);
     },
     remove() {},
+    onChange() {},
+    recalculate() {},
   };
 }
 

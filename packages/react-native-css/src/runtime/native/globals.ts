@@ -55,9 +55,8 @@ const buildGlobalVariableFamily = () => {
 export const rootVariables = buildGlobalVariableFamily();
 export const universalVariables = buildGlobalVariableFamily();
 
-/**
- * Interactivity
- */
+/****************************** Pseudo Classes ********************************/
+
 export const hoverFamily = weakFamily(() => {
   return observable<boolean>(false);
 });
@@ -70,16 +69,14 @@ export const focusFamily = weakFamily(() => {
   return observable<boolean>(false);
 });
 
-/**
- * Dimensions
- */
-const dimensions = observable(Dimensions.get("window"));
+/******************************* Dimensions ***********************************/
+
+export const dimensions = observable(Dimensions.get("window"));
 export const vw = observable((read) => read(dimensions).width);
 export const vh = observable((read) => read(dimensions).height);
 
-/**
- * Color schemes
- */
+/******************************* Color Scheme *********************************/
+
 export const systemColorScheme = observable<ColorSchemeName>();
 export const appColorScheme = observable(
   (get) => {
@@ -94,9 +91,8 @@ export const appColorScheme = observable(
   },
 );
 
-/**
- * Containers
- */
+/******************************* Containers ***********************************/
+
 export const containerLayoutFamily = weakFamily(() => {
   return observable<LayoutRectangle>();
 });
@@ -112,3 +108,18 @@ export const containerHeightFamily = weakFamily((key) => {
     return get(containerLayoutFamily(key))?.width || 0;
   });
 });
+
+/***************************** Reduced Motion *********************************/
+
+declare global {
+  /**
+   * React Native does off AccessibilityInfo.isReduceMotionEnabled but this returns
+   * a promise. If an app supports reduced motion, its probably just for animations
+   * so the app most likely has the reanimated library installed.
+   *
+   * @see https://github.com/software-mansion/react-native-reanimated/blob/6fad03e080c8ea4919f35fefab659078b0f08e51/packages/react-native-reanimated/src/ReducedMotion.ts#L7-L13
+   */
+  var _REANIMATED_IS_REDUCED_MOTION: boolean;
+}
+
+export const prefersReducedMotion = globalThis._REANIMATED_IS_REDUCED_MOTION;

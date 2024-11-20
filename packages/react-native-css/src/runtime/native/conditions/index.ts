@@ -1,6 +1,7 @@
 import type { PseudoClassesQuery, StyleRule } from "../../runtime.types";
 import { activeFamily, focusFamily, hoverFamily } from "../globals";
 import type { Effect } from "../utils/observable";
+import { testMediaQueries } from "./media-query";
 
 export function testRule(
   styleRule: StyleRule,
@@ -8,6 +9,9 @@ export function testRule(
   effect: Effect,
 ) {
   if (styleRule.p && !testPseudoClasses(styleRule.p, weakKey, effect)) {
+    return false;
+  }
+  if (styleRule.m && !testMediaQueries(styleRule.m, weakKey, effect)) {
     return false;
   }
   return true;

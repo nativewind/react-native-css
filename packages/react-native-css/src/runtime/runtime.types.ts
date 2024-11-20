@@ -1,5 +1,10 @@
 import { ComponentProps, ComponentType } from "react";
-import type { ImageStyle, TextStyle, ViewStyle } from "react-native";
+import type {
+  ColorSchemeName,
+  ImageStyle,
+  TextStyle,
+  ViewStyle,
+} from "react-native";
 
 import type {
   AnimationDirection,
@@ -8,6 +13,10 @@ import type {
   ContainerCondition,
   MediaQuery as CSSMediaQuery,
   Declaration,
+  MediaFeatureId,
+  MediaFeatureNameFor_MediaFeatureId,
+  Operator,
+  Qualifier,
   SelectorComponent,
 } from "lightningcss";
 import type { makeMutable, SharedValue } from "react-native-reanimated";
@@ -266,7 +275,35 @@ export type TransitionAttributes = {
 
 /******************************    Conditions    ******************************/
 
-export type MediaQuery = CSSMediaQuery;
+export type MediaQuery =
+  // Boolean
+  | ["!!", MediaFeatureNameFor_MediaFeatureId]
+  // Not
+  | ["!", MediaQuery]
+  // And
+  | ["&", MediaQuery[]]
+  // Or
+  | ["|", MediaQuery[]]
+  // Plain
+  | ["=", MediaFeatureNameFor_MediaFeatureId, StyleDescriptor]
+  // Comparison
+  | [
+      "==",
+      MediaFeatureNameFor_MediaFeatureId,
+      StyleDescriptor,
+      MediaFeatureComparison,
+    ]
+  // [Start, End]
+  | [
+      "[]",
+      MediaFeatureNameFor_MediaFeatureId,
+      StyleDescriptor, // Start
+      MediaFeatureComparison, // Start comparison
+      StyleDescriptor, // End
+      MediaFeatureComparison, // End comparison
+    ];
+
+export type MediaFeatureComparison = "=" | ">" | ">=" | "<" | "<=";
 
 export interface PseudoClassesQuery {
   /** Hover */
@@ -389,3 +426,10 @@ export type JSXFunction = (
 export type Props = Record<string, any> | undefined | null;
 export type Callback = () => void;
 export type RNStyle = ViewStyle & TextStyle & ImageStyle;
+
+/********************************    Globals    ********************************/
+
+export type ColorScheme = {
+  get: () => ColorSchemeName;
+  set: (value: ColorSchemeName) => void;
+};

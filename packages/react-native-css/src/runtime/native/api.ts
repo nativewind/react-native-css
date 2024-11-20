@@ -1,6 +1,7 @@
 import { forwardRef } from "react";
 
-import type { JSXFunction, Styled } from "../runtime.types";
+import type { ColorScheme, JSXFunction, Styled } from "../runtime.types";
+import { appColorScheme } from "./globals";
 import { getUseInteropOptions, useInterop } from "./useInterop";
 
 export const interopComponents = new Map<
@@ -50,3 +51,12 @@ function getComponentType(component: any) {
       return "unknown";
   }
 }
+
+export const colorScheme: ColorScheme = {
+  get() {
+    return appColorScheme.get();
+  },
+  set(value) {
+    return appColorScheme.set(value);
+  },
+};

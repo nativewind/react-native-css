@@ -46,15 +46,11 @@ import type {
   VerticalAlign,
 } from "lightningcss";
 
-import {
-  FeatureFlagRecord,
-  StyleDescriptor,
-  StyleFunction,
-} from "../runtime";
+import { FeatureFlagRecord, StyleDescriptor, StyleFunction } from "../runtime";
+import { isStyleDescriptorArray } from "../runtime/utils";
 import { AddFn } from "./add";
 import { parseEasingFunction, parseIterationCount } from "./keyframes";
 import { toRNProperty } from "./selectors";
-import { isStyleDescriptorArray } from "../runtime/utils";
 
 const propertyRename: Record<string, string> = {
   "margin-inline-start": "margin-start",
@@ -228,7 +224,7 @@ export interface ParseDeclarationOptions {
   allowAuto?: boolean;
 }
 
-interface ParserOptions extends ParseDeclarationOptions {
+export interface ParserOptions extends ParseDeclarationOptions {
   add: AddFn;
   addWarning: AddWarningShort;
 }
@@ -2743,7 +2739,7 @@ function parseEnv(
   }
 }
 
-function parseCalcFn(
+export function parseCalcFn(
   name: string,
   tokens: TokenOrValue[],
   options: ParserOptions,

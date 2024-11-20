@@ -1,5 +1,12 @@
+import { Dimensions } from "react-native";
+
 import { InjectStylesOptions } from "../runtime.types";
-import { animationFamily, styleFamily } from "./globals";
+import {
+  animationFamily,
+  dimensions,
+  styleFamily,
+  systemColorScheme,
+} from "./globals";
 import { Effect } from "./utils/observable";
 
 export function injectData(options: InjectStylesOptions) {
@@ -25,4 +32,7 @@ export function injectData(options: InjectStylesOptions) {
 
 export function resetData() {
   styleFamily.clear();
+  systemColorScheme.set(undefined);
+  const a = Dimensions.get("window");
+  dimensions.set(a);
 }
