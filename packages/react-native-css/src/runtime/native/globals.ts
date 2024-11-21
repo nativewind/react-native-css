@@ -16,6 +16,8 @@ export const styleFamily = family(() => {
     : observable<StyleRuleSet>(undefined, undefined, isDeepEqual);
 });
 
+export const inlineStylesMap = new WeakMap<WeakKey, StyleRuleSet>();
+
 export const animationFamily = family(() => {
   return process.env.NODE_ENV === "production"
     ? mutable(undefined, writeAnimation, isDeepEqual)

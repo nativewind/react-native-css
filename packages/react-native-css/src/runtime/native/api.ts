@@ -1,7 +1,13 @@
 import { forwardRef } from "react";
 
-import type { ColorScheme, JSXFunction, Styled } from "../runtime.types";
-import { appColorScheme } from "./globals";
+import type {
+  ColorScheme,
+  JSXFunction,
+  Styled,
+  StyleDescriptor,
+} from "../runtime.types";
+import { inlineSpecificity } from "../utils";
+import { appColorScheme, inlineStylesMap } from "./globals";
 import { getUseInteropOptions, useInterop } from "./useInterop";
 
 export const interopComponents = new Map<
@@ -60,3 +66,21 @@ export const colorScheme: ColorScheme = {
     return appColorScheme.set(value);
   },
 };
+
+export function vars(variables: Record<string, StyleDescriptor>) {
+  const style = Object.freeze({});
+
+  inlineStylesMap.set(style, [
+    [
+      {
+        s: inlineSpecificity,
+        v: Object.entries(variables).map(([name, value]) => {
+          return [name.startsWith("--") ? name.slice(2) : name, value];
+        }),
+      },
+    ],
+  ]);
+
+  // Purposely return an empty object to prevent people from using this as a style object
+  return style;
+}

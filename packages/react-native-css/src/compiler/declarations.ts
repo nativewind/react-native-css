@@ -1731,7 +1731,7 @@ function parseUnparsed(
       return parseUnresolvedColor(tokenOrValue.value, options);
     }
     case "var": {
-      const args: StyleDescriptor[] = [tokenOrValue.value.name.ident];
+      const args: StyleDescriptor[] = [tokenOrValue.value.name.ident.slice(2)];
       const fallback = parseUnparsed(tokenOrValue.value.fallback, options);
       if (fallback !== undefined) {
         args.push(fallback);

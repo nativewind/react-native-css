@@ -1,4 +1,5 @@
 import type {
+  InlineStyle,
   Props,
   StyleRule,
   TransitionAttributes,
@@ -7,7 +8,7 @@ import type {
 } from "../runtime.types";
 import { testRule } from "./conditions";
 import type { VariableContextValue } from "./contexts";
-import { styleFamily } from "./globals";
+import { inlineStylesMap, styleFamily } from "./globals";
 import type { RenderGuard, SideEffect } from "./native.types";
 import { buildAnimationSideEffects } from "./reanimated";
 import type { ConfigReducerState } from "./reducer";
@@ -19,6 +20,7 @@ export type Declarations = Effect &
     epoch: number;
     normal?: StyleRule[];
     important?: StyleRule[];
+    inline?: InlineStyle;
     variables?: VariableDescriptor[][];
     guards: RenderGuard[];
     animation?: NonNullable<StyleRule["a"]>[];
@@ -40,10 +42,20 @@ export function buildDeclarations(
 ): Declarations {
   const previous = state.declarations;
   const source = props?.[state.source] as string | undefined;
+  const target: InlineStyle =
+    typeof state.target === "string" ? props?.[state.target] : undefined;
+
+  const guards: RenderGuard[] = [
+    { type: "prop", name: state.source, value: source },
+  ];
+
+  if (state.target !== false) {
+    guards.push({ type: "prop", name: state.target, value: target });
+  }
 
   const next: Declarations = {
     epoch: previous?.epoch ?? 0,
-    guards: [{ type: "prop", name: state.source, value: source }],
+    guards,
     run: () => {
       componentState.dispatch([
         { action: { type: "update-definitions" }, index: state.index },
@@ -69,19 +81,29 @@ export function buildDeclarations(
 
     updates = collectRules(
       "normal",
-      state,
       componentState,
       updates,
       styleRuleSet[0],
       next,
       previous,
     );
+
     updates = collectRules(
       "important",
-      state,
       componentState,
       updates,
       styleRuleSet[1],
+      next,
+      previous,
+    );
+  }
+
+  if (typeof target === "object") {
+    updates = collectRules(
+      "inline",
+      componentState,
+      updates,
+      target,
       next,
       previous,
     );
@@ -112,14 +134,20 @@ export function buildDeclarations(
  * @returns
  */
 function collectRules(
-  key: "normal" | "important",
-  state: ConfigReducerState,
+  key: "normal" | "inline" | "important",
   componentState: UseInteropState,
   updates: DeclarationUpdates | undefined,
-  styleRules: StyleRule[] | undefined,
+  styleRules: StyleRule[] | InlineStyle | undefined,
   next: Declarations,
   previous: Declarations | undefined,
 ) {
+  if (key === "inline") {
+    styleRules = extractInlineStyleRules(styleRules as InlineStyle);
+    key = "normal";
+  } else {
+    styleRules = styleRules as StyleRule[];
+  }
+
   if (!styleRules) {
     if (previous?.[key] !== undefined) {
       updates ??= {};
@@ -128,7 +156,7 @@ function collectRules(
     return updates;
   }
 
-  let dIndex = next[key] ? Math.max(0, next[key].length - 1) : 0;
+  let dIndex = next[key] ? Math.max(0, next[key]!.length - 1) : 0;
   let aIndex = next.animation ? Math.max(0, next.animation.length - 1) : 0;
   let vIndex = next.variables ? Math.max(0, next.variables.length - 1) : 0;
 
@@ -157,7 +185,7 @@ function collectRules(
 
     if (rule.d) {
       next[key] ??= [];
-      next[key].push(rule);
+      next[key]!.push(rule);
       updates ??= {};
       updates.d ||= !Object.is(previous?.[key]?.[dIndex], rule);
       dIndex++;
@@ -173,4 +201,28 @@ function collectRules(
   }
 
   return updates;
+}
+
+function extractInlineStyleRules(
+  inline: InlineStyle,
+  collection: StyleRule[] = [],
+): StyleRule[] {
+  if (typeof inline !== "object" || !inline) {
+    return collection;
+  }
+
+  if (!Array.isArray(inline)) {
+    const styleRule = inlineStylesMap.get(inline);
+    if (styleRule) {
+      if (styleRule[0]) collection.push(...styleRule[0]);
+      if (styleRule[1]) collection.push(...styleRule[1]);
+    }
+    return collection;
+  }
+
+  for (const item of inline) {
+    extractInlineStyleRules(item, collection);
+  }
+
+  return collection;
 }

@@ -115,7 +115,8 @@ export type InlineStyle =
   | Record<string, unknown>
   | undefined
   | null
-  | (Record<string, unknown> | undefined | null)[];
+  | (Record<string, unknown> | undefined | null)[]
+  | (() => unknown);
 
 /***************************    Style Injection    ****************************/
 

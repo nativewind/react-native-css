@@ -11,16 +11,9 @@ import {
   StyleFunction,
   StyleRule,
 } from "../runtime";
+import { isStyleDescriptorArray } from "../runtime/utils";
 import { CompilerCollection, StyleRuleMapping } from "./compiler.types";
 import { toRNProperty } from "./selectors";
-import { isStyleDescriptorArray } from "../runtime/utils";
-
-// import { CompilerCollection } from "../runtime/pure/compiler/types";
-// import { EasingFunction } from "../runtime/pure/reanimated";
-// import { StyleFunction, StyleRule } from "../runtime/pure/types";
-// import { isDescriptorArray } from "../shared";
-// import { MoveTokenRecord, StyleDescriptor } from "../types";
-// import { toRNProperty } from "./normalize-selectors";
 
 export type AddFn = ReturnType<typeof buildAddFn>;
 
@@ -157,7 +150,7 @@ export function buildAddFn(
             return;
           }
           rule.v ??= [];
-          rule.v.push([property, value]);
+          rule.v.push([property.slice(2), value]);
           return;
         }
 
