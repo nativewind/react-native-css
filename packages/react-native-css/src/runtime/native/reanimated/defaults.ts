@@ -1,10 +1,10 @@
-import { Animation, AnimationKeyframes } from "../../runtime.types";
+import { AnimationKeyframes, KeyFramesWithStyles } from "../../runtime.types";
 import { defaultValues, setValue } from "../utils/properties";
 
 export function writeAnimation(
   _: unknown,
   animation: AnimationKeyframes,
-): Animation {
+): KeyFramesWithStyles {
   const baseStyles: Record<string, any> = {};
 
   for (const frame of animation[0]) {

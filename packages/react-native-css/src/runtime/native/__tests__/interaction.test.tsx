@@ -10,16 +10,16 @@ setupAllComponents();
 
 test("hover", () => {
   registerCSS(`
-    .text-blue-500 {
+    .text-color {
       color: blue;
     }
 
-    .text-blue-500:hover {
+    .text-color:hover {
       color: red;
     }
   `);
 
-  render(<View testID={testID} className="text-blue-500 hover:text-red-500" />);
+  render(<View testID={testID} className="text-color" />);
   const component = screen.getByTestId(testID);
 
   expect(component.props).toStrictEqual({

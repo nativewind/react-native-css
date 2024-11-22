@@ -69,15 +69,12 @@ function shimFactory(type: ComponentType<any>) {
       //     : parentVarContext;
 
       const value = useMemo<VariableContextValue>(
-        () => [
-          // ...parentVars,
-          {
-            "--___css-interop___safe-area-inset-bottom": insets.bottom,
-            "--___css-interop___safe-area-inset-left": insets.left,
-            "--___css-interop___safe-area-inset-right": insets.right,
-            "--___css-interop___safe-area-inset-top": insets.top,
-          },
-        ],
+        () => ({
+          "___css-interop___safe-area-inset-bottom": insets.bottom,
+          "--___css-interop___safe-area-inset-left": insets.left,
+          "--___css-interop___safe-area-inset-right": insets.right,
+          "--___css-interop___safe-area-inset-top": insets.top,
+        }),
         [parentVarContext, insets],
       );
 

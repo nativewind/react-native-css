@@ -27,7 +27,8 @@ import {
   type ConfigReducerState,
 } from "./reducer";
 import { useHandlers } from "./useHandlers";
-import { cleanupEffect, DraftableArray } from "./utils/observable";
+import { ProduceRecord } from "./utils/immutability";
+import { cleanupEffect } from "./utils/observable";
 
 export type UseInteropState = Readonly<{
   key: WeakKey;
@@ -105,13 +106,7 @@ export function useInterop(
   let state = reducerState[0];
   let dispatch = reducerState[1];
 
-  maybeRerenderComponent(
-    state,
-    dispatch,
-    props,
-    inheritedVariables,
-    inheritedContainers,
-  );
+  maybeRerenderComponent(state, dispatch, props, inheritedVariables);
 
   /**
    * The declarations and styles need to be cleaned up when the component
@@ -173,7 +168,6 @@ function maybeRerenderComponent(
   dispatch: Dispatch<PerformConfigReducerAction[]>,
   props: Props,
   variables: VariableContextValue,
-  containers: ContainerContextValue,
 ) {
   const declarationSet = new Set<ConfigReducerState>();
   const styleSet = new Set<ConfigReducerState>();
@@ -181,19 +175,16 @@ function maybeRerenderComponent(
   for (const configState of state.configStates) {
     const shouldRerenderDeclarations = configState.declarations?.guards?.some(
       (guard) => {
-        switch (guard.type) {
-          case "prop":
-            return props?.[guard.name] !== guard.value;
-          case "variable":
-            return variables.find((variable) => {
-              return (
-                guard.name in variable && variable[guard.name] !== guard.value
-              );
-            });
-          case "container":
-            return containers[guard.name] !== guard.value;
+        switch (guard[0]) {
+          case "a":
+            return props?.[guard[1]] !== guard[2];
+          case "d":
+            return props?.dataSet?.[guard[1]] !== guard[2];
+          case "v":
+            return variables[guard[1]] !== guard[2];
           default:
             guard satisfies never;
+            return false;
         }
       },
     );
@@ -206,17 +197,16 @@ function maybeRerenderComponent(
       configState.styles?.guards &&
       configState.styles.guards.length > 0 &&
       configState.styles.guards.some((guard) => {
-        switch (guard.type) {
-          case "prop":
-            return props?.[guard.name] !== guard.value;
-          case "variable":
-            return variables.find((variable) => {
-              return (
-                guard.name in variable && variable[guard.name] !== guard.value
-              );
-            });
-          case "container":
-            return containers[guard.name] !== guard.value;
+        switch (guard[0]) {
+          case "a":
+            return props?.[guard[1]] !== guard[2];
+          case "d":
+            return props?.dataSet?.[guard[1]] !== guard[2];
+          case "v":
+            return variables[guard[1]] !== guard[2];
+          default:
+            guard satisfies never;
+            return false;
         }
       });
 
@@ -326,11 +316,11 @@ export function performConfigReducerActions(
   let baseStyles: UseInteropState["baseStyles"];
   let props: UseInteropState["props"];
 
-  const variableDraft = new DraftableArray(previous.variables);
+  const variableDraft = new ProduceRecord(previous.variables);
 
   for (const state of configStates) {
     if (state.variables) {
-      variableDraft.push(state.variables);
+      variableDraft.assign(state.variables);
     }
 
     if (state.containers) {

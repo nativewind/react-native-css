@@ -1,10 +1,11 @@
-import type {
-  InlineStyle,
-  Props,
-  StyleRule,
-  TransitionAttributes,
-  TransitionDeclarations,
-  VariableDescriptor,
+import {
+  Mutable,
+  type AnimationRule,
+  type InlineStyle,
+  type Props,
+  type StyleRule,
+  type TransitionAttributes,
+  type VariableDescriptor,
 } from "../runtime.types";
 import { testRule } from "./conditions";
 import type { VariableContextValue } from "./contexts";
@@ -13,25 +14,20 @@ import type { RenderGuard, SideEffect } from "./native.types";
 import { buildAnimationSideEffects } from "./reanimated";
 import type { ConfigReducerState } from "./reducer";
 import type { UseInteropState } from "./useInterop";
-import type { Effect } from "./utils/observable";
+import { ProduceArray, ProduceRecord } from "./utils/immutability";
+import { type Effect } from "./utils/observable";
 
-export type Declarations = Effect &
-  TransitionDeclarations & {
-    epoch: number;
-    normal?: StyleRule[];
-    important?: StyleRule[];
-    inline?: InlineStyle;
-    variables?: VariableDescriptor[][];
-    guards: RenderGuard[];
-    animation?: NonNullable<StyleRule["a"]>[];
-    sideEffects?: SideEffect[];
-  };
-
-type DeclarationUpdates = {
-  d?: boolean;
-  a?: boolean;
-  t?: TransitionAttributes[];
-  v?: boolean;
+export type Declarations = Effect & {
+  transition?: TransitionAttributes;
+  sharedValues?: Map<string, Mutable<any>>;
+  epoch: number;
+  normal?: StyleRule[];
+  important?: StyleRule[];
+  inline?: InlineStyle;
+  variables?: VariableDescriptor[];
+  guards: RenderGuard[];
+  animation?: NonNullable<StyleRule["a"]>[];
+  sideEffects?: SideEffect[];
 };
 
 export function buildDeclarations(
@@ -45,17 +41,20 @@ export function buildDeclarations(
   const target: InlineStyle =
     typeof state.target === "string" ? props?.[state.target] : undefined;
 
-  const guards: RenderGuard[] = [
-    { type: "prop", name: state.source, value: source },
-  ];
+  // Setup the default guards
+  const guards = new ProduceArray(previous?.guards || [], (a, b) => {
+    return a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
+  });
+
+  guards.push(["a", state.source, source]);
 
   if (state.target !== false) {
-    guards.push({ type: "prop", name: state.target, value: target });
+    guards.push(["a", state.target, target]);
   }
 
   const next: Declarations = {
     epoch: previous?.epoch ?? 0,
-    guards,
+    guards: [], // Placeholder will be changed later
     run: () => {
       componentState.dispatch([
         { action: { type: "update-definitions" }, index: state.index },
@@ -68,10 +67,15 @@ export function buildDeclarations(
   };
 
   if (!source) {
+    next.guards = guards.commit();
     return next;
   }
 
-  let updates: DeclarationUpdates | undefined;
+  const normal = new ProduceArray(previous?.normal);
+  const important = new ProduceArray(previous?.important);
+  const variables = new ProduceArray(previous?.variables);
+  const animation = new ProduceArray(previous?.animation);
+  const transition = new ProduceRecord(previous?.transition);
 
   for (const className of source.split(/\s+/)) {
     const styleRuleSet = next.get(styleFamily(className));
@@ -79,49 +83,67 @@ export function buildDeclarations(
       continue;
     }
 
-    updates = collectRules(
-      "normal",
-      componentState,
-      updates,
+    collectRules(
+      normal,
       styleRuleSet[0],
-      next,
-      previous,
-    );
-
-    updates = collectRules(
-      "important",
+      guards,
+      variables,
+      animation,
+      transition,
       componentState,
-      updates,
-      styleRuleSet[1],
       next,
-      previous,
+      props,
+    );
+    collectRules(
+      important,
+      styleRuleSet[1],
+      guards,
+      variables,
+      animation,
+      transition,
+      componentState,
+      next,
+      props,
     );
   }
 
   if (typeof target === "object") {
-    updates = collectRules(
-      "inline",
-      componentState,
-      updates,
+    collectRules(
+      normal,
       target,
+      guards,
+      variables,
+      animation,
+      transition,
+      componentState,
       next,
-      previous,
+      props,
+      true,
     );
   }
 
-  if (updates) {
+  next.animation = animation.commit();
+  next.important = important.commit();
+  next.normal = normal.commit();
+  next.transition = transition.commit();
+  next.variables = variables.commit();
+
+  if (next.animation !== previous?.animation) {
+    buildAnimationSideEffects(next, previous, inheritedVariables, guards);
+  }
+
+  next.guards = guards.commit();
+
+  if (
+    next.normal !== previous?.normal ||
+    next.important !== previous?.important ||
+    next.variables !== previous?.variables ||
+    next.animation !== previous?.animation ||
+    next.transition !== previous?.transition ||
+    next.guards !== previous?.guards
+  ) {
     // If a rule or animation property changed, increment the epoch
     next.epoch++;
-
-    // If the animation's changed, then we need to update the animation side effects
-    if (updates.a) {
-      buildAnimationSideEffects(next, previous, inheritedVariables);
-    }
-
-    if (updates.t?.length) {
-      // Flatten the transition attributes
-      next.transition = Object.assign({}, ...updates.t);
-    }
   }
 
   return next;
@@ -134,73 +156,46 @@ export function buildDeclarations(
  * @returns
  */
 function collectRules(
-  key: "normal" | "inline" | "important",
-  componentState: UseInteropState,
-  updates: DeclarationUpdates | undefined,
+  collection: ProduceArray<StyleRule[] | undefined>,
   styleRules: StyleRule[] | InlineStyle | undefined,
+  guards: ProduceArray<RenderGuard[]>,
+  variables: ProduceArray<VariableDescriptor[] | undefined>,
+  animations: ProduceArray<AnimationRule[] | undefined>,
+  transition: ProduceRecord<TransitionAttributes | undefined>,
+  componentState: UseInteropState,
   next: Declarations,
-  previous: Declarations | undefined,
+  props: Props,
+  isInline = false,
 ) {
-  if (key === "inline") {
+  if (isInline) {
     styleRules = extractInlineStyleRules(styleRules as InlineStyle);
-    key = "normal";
   } else {
     styleRules = styleRules as StyleRule[];
   }
 
   if (!styleRules) {
-    if (previous?.[key] !== undefined) {
-      updates ??= {};
-      updates.d = true;
-    }
-    return updates;
+    return;
   }
 
-  let dIndex = next[key] ? Math.max(0, next[key]!.length - 1) : 0;
-  let aIndex = next.animation ? Math.max(0, next.animation.length - 1) : 0;
-  let vIndex = next.variables ? Math.max(0, next.variables.length - 1) : 0;
-
   for (const rule of styleRules) {
-    if (!testRule(rule, componentState.key, next)) continue;
+    if (!testRule(rule, componentState.key, next, props, guards)) continue;
 
     if (rule.a) {
-      next.animation ??= [];
-      next.animation.push(rule.a);
-      /**
-       * Changing any animation property will restart all animations
-       * TODO: This is not entirely accurate, Chrome does not restart animations
-       *       This is fine during this experimental stage, but we should fix this in the future
-       */
-      updates ??= {};
-      updates.a ||= !Object.is(previous?.animation?.[aIndex], rule.a);
-      aIndex++;
+      animations.push(rule.a);
     }
 
     if (rule.t) {
-      updates ??= {};
-      updates.t ||= [];
-      updates.t.push(rule.t);
-      aIndex++;
+      transition.assign(rule.t);
     }
 
     if (rule.d) {
-      next[key] ??= [];
-      next[key]!.push(rule);
-      updates ??= {};
-      updates.d ||= !Object.is(previous?.[key]?.[dIndex], rule);
-      dIndex++;
+      collection.push(rule);
     }
 
     if (rule.v) {
-      next.variables ??= [];
-      next.variables.push(rule.v);
-      updates ??= {};
-      updates.v ||= !Object.is(previous?.variables?.[vIndex], rule);
-      vIndex++;
+      variables.pushAll(rule.v);
     }
   }
-
-  return updates;
 }
 
 function extractInlineStyleRules(

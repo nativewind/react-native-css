@@ -13,7 +13,8 @@ import { applyAnimation, getTransitionSideEffect } from "./reanimated";
 import type { ConfigReducerState } from "./reducer";
 import type { ResolveOptions } from "./resolvers";
 import { resolveValue } from "./resolvers";
-import { DraftableRecord, Effect } from "./utils/observable";
+import { ProduceArray } from "./utils/immutability";
+import { Effect } from "./utils/observable";
 import { defaultValues, setBaseValue, setValue } from "./utils/properties";
 
 export type Styles = Effect & {
@@ -37,7 +38,7 @@ export function buildStyles(
 ) {
   let styles: Styles = {
     epoch: previous.styles ? previous.styles.epoch : -1,
-    guards: [],
+    guards: [], // Placeholder will be changed later
     run,
     dependencies: new Set(),
     get(readable) {
@@ -51,23 +52,19 @@ export function buildStyles(
 
   const delayedStyles: Callback[] = [];
 
-  const variables = new DraftableRecord(previous.variables)
-    .assignAll(previous.declarations?.variables)
-    .commit();
+  const guards = new ProduceArray(previous.styles?.guards || [], (a, b) => {
+    return a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
+  });
 
   const next: StateWithStyles = {
     ...previous,
     styles,
-    variables,
+    variables: Object.fromEntries(previous.declarations?.variables ?? []),
   };
 
   const options: ResolveOptions = {
     getProp: (name: string) => {
-      styles.guards?.push({
-        type: "prop",
-        name: name,
-        value: incomingProps?.[name],
-      });
+      guards?.push(["a", name, incomingProps?.[name]]);
       return incomingProps?.[name] as StyleDescriptor;
     },
     getVariable: (name: string) => {
@@ -83,25 +80,15 @@ export function buildStyles(
 
       // Check if the variable is inherited
       if (value === undefined) {
-        for (const inherited of inheritedVariables) {
-          if (name in inherited) {
-            value = resolveValue(inherited[name], options);
-            if (value !== undefined) {
-              break;
-            }
-          }
+        if (name in inheritedVariables) {
+          value = resolveValue(inheritedVariables[name], options);
         }
 
         /**
          * Create a rerender guard incase the variable changes
          */
-        styles.guards?.push({
-          type: "variable",
-          name: name,
-          value,
-        });
+        guards?.push(["v", name, inheritedVariables[name]]);
       }
-
       // This is a bit redundant as inheritedVariables probably is rootVariables,
       // but this ensures a subscription is created for Fast Refresh
       value ??= next.styles.get(rootVariables(name));
@@ -110,7 +97,10 @@ export function buildStyles(
     },
     getContainer: (name: string) => {
       const value = inheritedContainers[name];
-      styles.guards?.push({ type: "container", name: name, value });
+      // guards?.push(
+      //   ["c", name, value],
+      //   (a, b) => a[1] === b[1] && a[2] === b[2],
+      // );
       return value;
     },
     previousTransitions: new Set(previous.styles?.transitions?.keys()),

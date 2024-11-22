@@ -5,8 +5,8 @@ import type { StyleDescriptor } from "../runtime.types";
 /**
  * Variables
  */
-export type VariableContextValue = Record<string, StyleDescriptor>[];
-export const VariableContext = createContext<VariableContextValue>([]);
+export type VariableContextValue = Record<string, StyleDescriptor>;
+export const VariableContext = createContext<VariableContextValue>({});
 
 /**
  * Containers

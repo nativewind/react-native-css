@@ -468,7 +468,7 @@ function setStyleForSelectorList(
         // Add the conditions to the declarations object
         addDeclaration(declarations, groupClassName, {
           s: specificity,
-          ac: attrs,
+          aq: attrs,
           d: [],
           // c: {
           //   names: [groupClassName],
@@ -494,7 +494,7 @@ function setStyleForSelectorList(
       };
 
       if (pseudoClasses) rule.p = pseudoClasses;
-      if (attrs) rule.ac = attrs;
+      if (attrs) rule.aq = attrs;
 
       addDeclaration(declarations, className, rule);
     }

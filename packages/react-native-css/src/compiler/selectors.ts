@@ -1,7 +1,8 @@
 import type { Selector, SelectorComponent, SelectorList } from "lightningcss";
 
 import type {
-  AttributeCondition,
+  AttributeQuery,
+  AttrSelectorOperator,
   MediaQuery,
   PseudoClassesQuery,
   SpecificityArray,
@@ -22,8 +23,8 @@ export type NormalizeSelector =
       groupClassName?: string;
       pseudoClasses?: PseudoClassesQuery;
       groupPseudoClasses?: PseudoClassesQuery;
-      groupAttrs?: AttributeCondition[];
-      attrs?: AttributeCondition[];
+      groupAttrs?: AttributeQuery[];
+      attrs?: AttributeQuery[];
       specificity: SpecificityArray;
     };
 
@@ -110,7 +111,7 @@ export function normalizeSelectors(
         collection,
         selectors,
         {
-          media: [["plain", "prefers-color-scheme", "dark"]],
+          media: [["=", "prefers-color-scheme", "dark"]],
         },
       );
     } else if (
@@ -120,7 +121,7 @@ export function normalizeSelectors(
       const [first] = cssSelector;
 
       normalizeSelectors(extractedStyle, [[first]], collection, selectors, {
-        media: [["plain", "prefers-color-scheme", "dark"]],
+        media: [["=", "prefers-color-scheme", "dark"]],
       });
     } else {
       const selector = reduceSelector(
@@ -171,7 +172,7 @@ function reduceSelector(
             component.operation?.operator === "equal"
           ) {
             acc.media ??= [];
-            acc.media.push(["boolean", component.operation.value]);
+            acc.media.push(["!!", component.operation.value]);
           } else {
             return null;
           }
@@ -182,7 +183,7 @@ function reduceSelector(
         acc.specificity[Specificity.ClassName] =
           (acc.specificity[Specificity.ClassName] ?? 0) + 1;
 
-        let attrs: AttributeCondition[];
+        let attrs: AttributeQuery[];
         if (inGroup) {
           acc.groupAttrs ??= [];
           attrs = acc.groupAttrs;
@@ -191,15 +192,46 @@ function reduceSelector(
           attrs = acc.attrs;
         }
 
-        if (component.name.startsWith("data-")) {
-          attrs.push({
-            ...component,
-            name: toRNProperty(component.name.replace("data-", "")),
-            type: "data-attribute",
-          });
-        } else {
-          attrs.push(component);
+        const attributeQuery: AttributeQuery = component.name.startsWith(
+          "data-",
+        )
+          ? ["d", toRNProperty(component.name.replace("data-", ""))]
+          : ["a", toRNProperty(component.name)];
+
+        if (component.operation) {
+          let operator: AttrSelectorOperator | undefined;
+
+          switch (component.operation.operator) {
+            case "equal":
+              operator = "=";
+              break;
+            case "includes":
+              operator = "~=";
+              break;
+            case "dash-match":
+              operator = "|=";
+              break;
+            case "prefix":
+              operator = "^=";
+              break;
+            case "substring":
+              operator = "*=";
+              break;
+            case "suffix":
+              operator = "$=";
+              break;
+            default:
+              component.operation.operator satisfies never;
+              break;
+          }
+
+          if (operator) {
+            attributeQuery.push(operator, component.operation.value);
+          }
         }
+
+        attrs.push(attributeQuery);
+
         break;
       }
       case "type": {
@@ -252,7 +284,6 @@ function reduceSelector(
                 // Otherwise make the current className the group
                 acc.groupClassName = component.name;
                 acc.groupPseudoClasses = acc.pseudoClasses;
-                acc.pseudoClasses = {};
                 inGroup = true;
               } else if (!acc.className) {
                 acc.className = component.name;
@@ -270,11 +301,7 @@ function reduceSelector(
 
             // We are in a group selector, so any additional classes are groupAttributes
             acc.groupAttrs ??= [];
-            acc.groupAttrs.push({
-              type: "attribute",
-              name: "className",
-              operation: { operator: "includes", value: component.name },
-            });
+            acc.groupAttrs.push(["a", "className", "*=", component.name]);
             break;
           }
           default: {
@@ -287,29 +314,27 @@ function reduceSelector(
         acc.specificity[Specificity.ClassName] =
           (acc.specificity[Specificity.ClassName] ?? 0) + 1;
 
-        let pseudoClasses: PseudoClassesQuery;
-        let attrs: AttributeCondition[];
+        let attrs: AttributeQuery[];
         if (component.kind === "is") {
           if (isDarkUniversalSelector(component.selectors[0], collection)) {
             acc.media ??= [];
-            acc.media.push(["plain", "prefers-color-scheme", "dark"]);
+            acc.media.push(["=", "prefers-color-scheme", "dark"]);
             break;
           }
         }
+
+        let pseudoClassesTarget: keyof typeof acc;
+        let accTarget: keyof typeof acc;
 
         switch (previousType) {
           case "pseudo-class":
           case "class": {
             if (acc.className) {
-              acc.pseudoClasses ??= {};
-              pseudoClasses = acc.pseudoClasses;
-              acc.attrs ??= [];
-              attrs = acc.attrs;
+              pseudoClassesTarget = "pseudoClasses";
+              accTarget = "attrs";
             } else if (acc.groupClassName) {
-              acc.groupPseudoClasses ??= {};
-              pseudoClasses = acc.groupPseudoClasses;
-              acc.groupAttrs ??= [];
-              attrs = acc.groupAttrs;
+              pseudoClassesTarget = "groupPseudoClasses";
+              accTarget = "groupAttrs";
             } else {
               return null;
             }
@@ -322,32 +347,24 @@ function reduceSelector(
 
         switch (component.kind) {
           case "hover":
-            pseudoClasses ??= {};
-            pseudoClasses.h = 1;
+            acc[pseudoClassesTarget] ??= {};
+            acc[pseudoClassesTarget]!.h = 1;
             break;
           case "active":
-            pseudoClasses ??= {};
-            pseudoClasses.a = 1;
+            acc[pseudoClassesTarget] ??= {};
+            acc[pseudoClassesTarget]!.a = 1;
             break;
           case "focus":
-            pseudoClasses ??= {};
-            pseudoClasses.f = 1;
+            acc[pseudoClassesTarget] ??= {};
+            acc[pseudoClassesTarget]!.f = 1;
             break;
           case "disabled":
-            attrs ??= [];
-            attrs.push({
-              type: "attribute",
-              name: "disabled",
-              operation: { operator: "truthy" },
-            });
+            acc[accTarget] ??= [];
+            acc[accTarget]!.push(["a", "disabled"]);
             break;
           case "empty":
-            attrs ??= [];
-            attrs.push({
-              type: "attribute",
-              name: "children",
-              operation: { operator: "empty" },
-            });
+            acc[accTarget] ??= [];
+            acc[accTarget]!.push(["a", "children", "!"]);
             break;
         }
       }
@@ -373,7 +390,7 @@ function isDarkModeMediaQuery(query?: MediaQuery): boolean {
   if (!query) return false;
 
   return (
-    query[0] === "plain" &&
+    query[0] === "=" &&
     query[1] === "prefers-color-scheme" &&
     query[2] === "dark"
   );

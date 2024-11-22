@@ -67,8 +67,10 @@ export const colorScheme: ColorScheme = {
   },
 };
 
+let test = 1;
+
 export function vars(variables: Record<string, StyleDescriptor>) {
-  const style = Object.freeze({});
+  const style = Object.freeze({ test: test++ });
 
   inlineStylesMap.set(style, [
     [
@@ -82,5 +84,5 @@ export function vars(variables: Record<string, StyleDescriptor>) {
   ]);
 
   // Purposely return an empty object to prevent people from using this as a style object
-  return style;
+  return style as any;
 }

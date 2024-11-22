@@ -11,13 +11,8 @@ import type {
   AnimationFillMode,
   AnimationPlayState,
   ContainerCondition,
-  MediaQuery as CSSMediaQuery,
   Declaration,
-  MediaFeatureId,
   MediaFeatureNameFor_MediaFeatureId,
-  Operator,
-  Qualifier,
-  SelectorComponent,
 } from "lightningcss";
 import type { makeMutable, SharedValue } from "react-native-reanimated";
 
@@ -61,18 +56,18 @@ export interface StyleRule {
   /** PseudoClassesQuery */
   p?: PseudoClassesQuery;
   /** Container Query */
-  q?: ContainerQuery[];
+  c?: ContainerQuery[];
   /** Attribute Conditions */
-  ac?: AttributeCondition[];
+  aq?: AttributeQuery[];
 
   /**
    * Animations and Transitions
    */
 
   /** Animations */
-  a?: [AnimationAttributes] | [AnimationAttributes, StyleFunction];
+  a?: AnimationRule;
   /** Transitions */
-  t?: TransitionAttributes;
+  t?: TransitionRule;
 }
 
 export type StyleDeclaration =
@@ -183,10 +178,14 @@ export type AnimationAttributes = {
   e?: EasingFunction[];
 };
 
+export type AnimationRule =
+  | [AnimationAttributes]
+  | [AnimationAttributes, StyleFunction];
+
 export type Mutable<Value> = ReturnType<typeof makeMutable<Value>>;
 export type AnimationMutable = Mutable<number>;
 
-export type Animation = {
+export type KeyFramesWithStyles = {
   animation: AnimationKeyframes;
   baseStyles: Record<string, any>;
 };
@@ -250,10 +249,7 @@ export type EasingFunction =
 
 export type Transition = [string | string[], Mutable<any>];
 
-export type TransitionDeclarations = {
-  transition?: TransitionAttributes;
-  sharedValues?: Map<string, Mutable<any>>;
-};
+export type TransitionRule = TransitionAttributes;
 
 export type TransitionAttributes = {
   /**
@@ -315,34 +311,23 @@ export interface PseudoClassesQuery {
   f?: 1;
 }
 
+export type AttributeQuery =
+  | ["a" | "d", string] // Exists
+  | ["a" | "d", string, "!"] // Falsy
+  | ["a" | "d", string, AttrSelectorOperator, string] // Use operator
+  | ["a" | "d", string, AttrSelectorOperator, string, "i" | "s"]; // Case sensitivity
+
+export type AttrSelectorOperator = "=" | "~=" | "|=" | "^=" | "$=" | "*=";
+
+/******************************    Containers    *****************************/
+
 export interface ContainerQuery {
   /** Name */
   n?: string | null;
-  /** Conditions */
   c?: ContainerCondition<Declaration>;
-  /** PseudoClassesQuery */
   p?: PseudoClassesQuery;
-  /** Attribute conditions */
-  a?: AttributeCondition[];
+  a?: AttributeQuery[];
 }
-
-export type AttributeCondition = PropCondition | DataAttributeCondition;
-
-type AttributeSelectorComponent = Extract<
-  SelectorComponent,
-  { type: "attribute" }
->;
-export type PropCondition = Omit<AttributeSelectorComponent, "operation"> & {
-  operation?:
-    | AttributeSelectorComponent["operation"]
-    | {
-        operator: "empty" | "truthy";
-      };
-};
-
-export type DataAttributeCondition = Omit<PropCondition, "type"> & {
-  type: "data-attribute";
-};
 
 /******************************    Specificity    *****************************/
 

@@ -10,7 +10,7 @@ import {
 import { VariableContextValue } from "../contexts";
 import type { Declarations } from "../declarations";
 import { animationFamily, rootVariables, universalVariables } from "../globals";
-import { SideEffect } from "../native.types";
+import { ImmutableGuards, SideEffect } from "../native.types";
 import type { ConfigReducerState } from "../reducer";
 import { ResolveOptions, resolveValue } from "../resolvers";
 import type { StateWithStyles } from "../styles";
@@ -24,6 +24,7 @@ export function buildAnimationSideEffects(
   next: Declarations,
   previous: Declarations | undefined,
   inheritedVariables: VariableContextValue,
+  guards: ImmutableGuards,
 ) {
   if (!next.animation) return next;
 
@@ -41,7 +42,7 @@ export function buildAnimationSideEffects(
     }
 
     if (next.variables) {
-      variables = Object.fromEntries(next.variables.flat(1));
+      variables = Object.fromEntries(next.variables);
     }
 
     const shorthandAttributes = getAnimationAttributes(
@@ -49,6 +50,7 @@ export function buildAnimationSideEffects(
       next,
       variables,
       inheritedVariables,
+      guards,
     );
 
     // Make sure more specific attributes override the shorthand
@@ -369,6 +371,7 @@ function getAnimationAttributes(
   next: Declarations,
   variables: Record<string, StyleDescriptor>,
   inheritedVariables: VariableContextValue,
+  guards: ImmutableGuards,
 ) {
   const options: ResolveOptions = {
     castToArray: true,
@@ -385,23 +388,14 @@ function getAnimationAttributes(
 
       // Check if the variable is inherited
       if (value === undefined) {
-        for (const inherited of inheritedVariables) {
-          if (name in inherited) {
-            value = resolveValue(inherited[name], options);
-            if (value !== undefined) {
-              break;
-            }
-          }
+        if (name in inheritedVariables) {
+          value = resolveValue(inheritedVariables[name], options);
         }
 
         /**
          * Create a rerender guard incase the variable changes
          */
-        next.guards?.push({
-          type: "variable",
-          name: name,
-          value,
-        });
+        guards.push(["v", name, value]);
       }
 
       // This is a bit redundant as inheritedVariables probably is rootVariables,
@@ -412,5 +406,11 @@ function getAnimationAttributes(
     },
   };
 
-  return Object.fromEntries(resolveValue(func, options));
+  const resolved = resolveValue(func, options);
+
+  if (!Array.isArray(resolved)) {
+    return;
+  }
+
+  return Object.fromEntries(resolved);
 }

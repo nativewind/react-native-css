@@ -1,4 +1,5 @@
-import type { Callback } from "../runtime.types";
+import type { Callback, StyleDescriptor } from "../runtime.types";
+import { ProduceArray } from "./utils/immutability";
 
 export type Config = {
   target: string | false;
@@ -9,7 +10,9 @@ export type Config = {
 // Side effects are things that cannot be performed during a render. They will be invoked during an useEffect
 export type SideEffect = Callback;
 
+export type ImmutableGuards = ProduceArray<RenderGuard[]>;
+
 export type RenderGuard =
-  | { type: "prop"; name: string; value: unknown }
-  | { type: "variable"; name: string; value: unknown; global?: boolean }
-  | { type: "container"; name: string; value: unknown };
+  | ["a", string, any]
+  | ["d", string, any]
+  | ["v", string, StyleDescriptor];
