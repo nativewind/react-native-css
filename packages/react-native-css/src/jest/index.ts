@@ -11,7 +11,6 @@ declare global {
 }
 
 export * from "@testing-library/react-native";
-export * from "../runtime";
 export const testID = "react-native-css";
 
 beforeEach(() => {

@@ -1,6 +1,8 @@
 import type { StyleValueSubResolver } from ".";
 import { StyleFunction } from "../../runtime.types";
 import { animationShorthand } from "./animation";
+import { calc } from "./calc";
+import { em } from "./em";
 import { resolveVariable } from "./variable";
 
 export const resolveRuntimeFunction: StyleValueSubResolver<StyleFunction> = (
@@ -16,12 +18,12 @@ export const resolveRuntimeFunction: StyleValueSubResolver<StyleFunction> = (
     case "var": {
       return resolveVariable(resolveValue, func, options);
     }
-    // case "vh": {
-    //   // 50vh = 50% of the viewport height
-    //   const value = resolveValue(state, func[2]?.[0], options);
-    //   const vhValue = vh.get(options.effect) / 100;
-    //   return typeof value === "number" ? round(vhValue * value) : undefined;
-    // }
+    case "calc": {
+      return calc(resolveValue, func, options);
+    }
+    case "em": {
+      return em(resolveValue, func, options);
+    }
     default: {
       const args = resolveValue(func[2], options);
 

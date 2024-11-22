@@ -7,7 +7,7 @@ import {
   Transition,
 } from "../runtime.types";
 import type { ContainerContextValue, VariableContextValue } from "./contexts";
-import { rootVariables, universalVariables } from "./globals";
+import { rem, rootVariables, universalVariables } from "./globals";
 import { RenderGuard, SideEffect } from "./native.types";
 import { applyAnimation, getTransitionSideEffect } from "./reanimated";
 import type { ConfigReducerState } from "./reducer";
@@ -102,6 +102,10 @@ export function buildStyles(
       //   (a, b) => a[1] === b[1] && a[2] === b[2],
       // );
       return value;
+    },
+    getEm() {
+      if (next.target === false) return rem.get();
+      return next.styles.props?.[next.target]?.fontSize;
     },
     previousTransitions: new Set(previous.styles?.transitions?.keys()),
   };

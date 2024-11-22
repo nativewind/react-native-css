@@ -2,7 +2,9 @@
 import { View } from "react-native";
 
 import { render, screen } from "@testing-library/react-native";
-import { registerCSS, styled, testID } from "react-native-css/jest";
+import { registerCSS, testID } from "react-native-css/jest";
+
+import { styled } from "../api";
 
 const children = undefined;
 
