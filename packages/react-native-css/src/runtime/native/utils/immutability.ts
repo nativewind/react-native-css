@@ -17,7 +17,8 @@ export class ProduceRecord<Value extends object | undefined> {
     this.draft = this.record;
   }
 
-  assign(value: Value) {
+  assign(value?: Value) {
+    if (!value) return this;
     this.draft = Object.assign({}, this.draft, value);
     return this;
   }

@@ -17,6 +17,8 @@ export default function wrapJSX(jsx: JSXFunction): JSXFunction {
     // This call also need to be inside the JSX transform to avoid circular dependencies
     if (process.env.NODE_ENV !== "test") require("./components");
 
+    if (process.env.NODE_ENV === "test") props = Object.freeze(props);
+
     type = maybeHijackSafeAreaProvider(type);
 
     // You can disable the css interop by setting `cssInterop` to false

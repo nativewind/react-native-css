@@ -1,4 +1,4 @@
-import { forwardRef } from "react";
+import { forwardRef, useContext } from "react";
 
 import type {
   ColorScheme,
@@ -7,7 +7,15 @@ import type {
   StyleDescriptor,
 } from "../runtime.types";
 import { inlineSpecificity } from "../utils";
-import { appColorScheme, inlineStylesMap } from "./globals";
+import { VariableContext } from "./contexts";
+import {
+  appColorScheme,
+  inlineStylesMap,
+  rootVariables,
+  universalVariables,
+} from "./globals";
+import { ResolveOptions, resolveValue } from "./resolvers";
+import { resolveVariable } from "./resolvers/variable";
 import { getUseInteropOptions, useInterop } from "./useInterop";
 
 export const interopComponents = new Map<
@@ -67,10 +75,23 @@ export const colorScheme: ColorScheme = {
   },
 };
 
-let test = 1;
+export function useUnstableNativeVariable(name: string) {
+  const variables = useContext(VariableContext);
+
+  const options: ResolveOptions = {
+    getVariable(name) {
+      let value = resolveValue(variables?.[name], options);
+      value ??= resolveValue(universalVariables(name).get(), options);
+      value ??= resolveValue(rootVariables(name).get(), options);
+      return value;
+    },
+  };
+
+  return options.getVariable(name.startsWith("--") ? name.slice(2) : name);
+}
 
 export function vars(variables: Record<string, StyleDescriptor>) {
-  const style = Object.freeze({ test: test++ });
+  const style = Object.freeze({});
 
   inlineStylesMap.set(style, [
     [

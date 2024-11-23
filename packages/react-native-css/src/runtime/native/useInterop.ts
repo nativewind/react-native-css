@@ -243,7 +243,6 @@ export function initUseInterop(
   actions: Readonly<PerformConfigReducerAction[]>,
   incomingProps: Props,
   inheritedVariables: VariableContextValue,
-  universalVariables: VariableContextValue,
   inheritedContainers: ContainerContextValue,
 ): UseInteropState {
   return performConfigReducerActions(
@@ -308,7 +307,6 @@ export function performConfigReducerActions(
     configStates[index] = configState;
   }
 
-  let containers: UseInteropState["containers"];
   let sideEffects: UseInteropState["sideEffects"];
   let sharedValues: UseInteropState["sharedValues"];
   let animations: UseInteropState["animations"];
@@ -316,16 +314,23 @@ export function performConfigReducerActions(
   let baseStyles: UseInteropState["baseStyles"];
   let props: UseInteropState["props"];
 
-  const variableDraft = new ProduceRecord(previous.variables);
+  let variableDraft: ProduceRecord<typeof inheritedVariables> | undefined;
+  let containerDraft: ProduceRecord<typeof inheritedContainers> | undefined;
 
   for (const state of configStates) {
     if (state.variables) {
+      variableDraft ??= new ProduceRecord(inheritedVariables).assign(
+        previous.variables,
+      );
+
       variableDraft.assign(state.variables);
     }
 
     if (state.containers) {
-      containers ??= {};
-      Object.assign(containers, state.containers);
+      containerDraft ??= new ProduceRecord(inheritedContainers).assign(
+        previous.containers,
+      );
+      containerDraft.assign(state.containers);
     }
 
     if (state.declarations?.sideEffects) {
@@ -371,9 +376,12 @@ export function performConfigReducerActions(
       ? animatedComponent(previous.type)
       : previous.type;
 
+  const variables = variableDraft?.commit() ?? previous.variables;
+  const containers = containerDraft?.commit() ?? previous.containers;
+
   const next: UseInteropState = {
     ...previous,
-    variables: variableDraft.commit(),
+    variables,
     type,
     baseStyles,
     props,

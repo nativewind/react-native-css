@@ -87,7 +87,7 @@ export function buildStyles(
         /**
          * Create a rerender guard incase the variable changes
          */
-        guards?.push(["v", name, inheritedVariables[name]]);
+        guards.push(["v", name, inheritedVariables[name]]);
       }
       // This is a bit redundant as inheritedVariables probably is rootVariables,
       // but this ensures a subscription is created for Fast Refresh
@@ -157,6 +157,7 @@ export function buildStyles(
   }
 
   styles.epoch++;
+  styles.guards = guards.commit();
   return next;
 }
 

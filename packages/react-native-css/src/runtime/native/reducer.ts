@@ -15,7 +15,7 @@ export type ConfigReducerState = Config &
     // The styles from the declarations
     styles?: Styles;
     // The containers produced by the config
-    containers?: Record<string, unknown>;
+    containers?: ContainerContextValue;
     // The containers produced by the config
     variables?: Record<string, StyleDescriptor>;
   }>;
