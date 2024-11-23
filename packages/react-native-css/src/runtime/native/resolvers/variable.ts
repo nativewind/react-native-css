@@ -1,7 +1,6 @@
-import type { StyleValueSubResolver } from ".";
-import type { StyleFunction } from "../../runtime.types";
+import type { StyleFunctionResolver } from ".";
 
-export const resolveVariable: StyleValueSubResolver<StyleFunction> = (
+export const resolveVariable: StyleFunctionResolver = (
   resolveValue,
   func,
   options,

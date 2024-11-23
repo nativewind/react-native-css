@@ -68,7 +68,7 @@ export function buildStyles(
       return incomingProps?.[name] as StyleDescriptor;
     },
     getVariable: (name: string) => {
-      let value = resolveValue(next.variables?.[name], options);
+      let value = resolveValue(next.variables?.[name], options, next.styles);
 
       // If the value is already defined, we don't need to look it up
       if (value !== undefined) {
@@ -76,12 +76,16 @@ export function buildStyles(
       }
 
       // Is there a universal variable?
-      value = resolveValue(next.styles.get(universalVariables(name)), options);
+      value = resolveValue(
+        next.styles.get(universalVariables(name)),
+        options,
+        next.styles,
+      );
 
       // Check if the variable is inherited
       if (value === undefined) {
         if (name in inheritedVariables) {
-          value = resolveValue(inheritedVariables[name], options);
+          value = resolveValue(inheritedVariables[name], options, next.styles);
         }
 
         /**
@@ -215,7 +219,7 @@ function applyStyles(
               value = {};
               delayedStyles.push(() => {
                 const placeholder = value;
-                value = resolveValue(originalValue, options);
+                value = resolveValue(originalValue, options, next.styles);
                 if (transitionFn) {
                   next.styles.sideEffects ??= [];
                   next.styles.sideEffects.push(transitionFn(value));
@@ -224,7 +228,7 @@ function applyStyles(
                 }
               });
             } else {
-              value = resolveValue(value, options);
+              value = resolveValue(value, options, next.styles);
             }
           }
 

@@ -4,6 +4,7 @@ import { InjectStylesOptions } from "../runtime.types";
 import {
   animationFamily,
   dimensions,
+  rem,
   rootVariables,
   styleFamily,
   systemColorScheme,
@@ -42,11 +43,4 @@ export function injectData(options: InjectStylesOptions) {
   for (const effect of batch) {
     effect.run();
   }
-}
-
-export function resetData() {
-  styleFamily.clear();
-  systemColorScheme.set(undefined);
-  const a = Dimensions.get("window");
-  dimensions.set(a);
 }

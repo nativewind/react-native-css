@@ -1,5 +1,4 @@
-import type { StyleValueSubResolver } from ".";
-import type { StyleFunction } from "../../runtime.types";
+import type { StyleFunctionResolver } from ".";
 import { defaultValues } from "../utils/properties";
 
 type ShorthandType =
@@ -23,11 +22,7 @@ export function shorthandHandler(
   mappings: ShorthandRequiredValue[][],
   defaults: ShorthandDefaultValue[],
 ) {
-  const resolveFn: StyleValueSubResolver<StyleFunction> = (
-    resolveValue,
-    func,
-    options,
-  ) => {
+  const resolveFn: StyleFunctionResolver = (resolveValue, func, options) => {
     const args = func[2] || [];
 
     const resolved = args.flatMap((value) => {

@@ -1,6 +1,10 @@
 import { StyleDescriptor, StyleFunction } from "../../runtime.types";
 import type { ContainerContextRecord } from "../contexts";
-import { resolveRuntimeFunction } from "./functions";
+import { Effect } from "../utils/observable";
+import { animationShorthand } from "./animation";
+import { calc } from "./calc";
+import { em, remResolver, vhResolver, vwResolver } from "./units";
+import { resolveVariable } from "./variable";
 
 export type ResolveOptions = {
   getProp?: (name: string) => StyleDescriptor;
@@ -12,21 +16,34 @@ export type ResolveOptions = {
 };
 
 export type StyleValueResolver = (
-  value: unknown,
+  value: StyleDescriptor,
   options: ResolveOptions,
+  effect?: Effect,
 ) => any;
 
-export type StyleValueSubResolver<T = unknown> = (
+export type StyleFunctionResolver = (
   resolveValue: StyleValueResolver,
-  value: T,
+  value: StyleFunction,
   options: ResolveOptions,
+  effect?: Effect,
 ) => any;
 
-export const resolveValue: StyleValueResolver = (value, options) => {
+const functions: Record<string, StyleFunctionResolver> = {
+  "@animation": animationShorthand,
+  calc,
+  em,
+  rem: remResolver,
+  var: resolveVariable,
+  vh: vhResolver,
+  vw: vwResolver,
+};
+
+export const resolveValue: StyleValueResolver = (value, options, effect) => {
   switch (typeof value) {
     case "bigint":
     case "symbol":
     case "undefined":
+    case "function":
       // These types are not supported
       return;
     case "number":
@@ -36,8 +53,6 @@ export const resolveValue: StyleValueResolver = (value, options) => {
       return value.endsWith("px") // Inline vars() might set a value with a px suffix
         ? parseInt(value.slice(0, -2), 10)
         : value;
-    case "function":
-      return resolveValue(value(), options);
     case "object": {
       if (!Array.isArray(value)) {
         return value;
@@ -45,7 +60,7 @@ export const resolveValue: StyleValueResolver = (value, options) => {
 
       if (isDescriptorArray(value)) {
         value = value.flatMap((d) => {
-          const value = resolveValue(d, options);
+          const value = resolveValue(d, options, effect);
           return value === undefined ? [] : value;
         }) as StyleDescriptor[];
 
@@ -56,11 +71,26 @@ export const resolveValue: StyleValueResolver = (value, options) => {
         }
       }
 
-      value = resolveRuntimeFunction(
-        resolveValue,
-        value as StyleFunction,
-        options,
-      );
+      const name = value[1];
+
+      if (name in functions) {
+        value = functions[name](
+          resolveValue,
+          value as StyleFunction,
+          options,
+          effect,
+        );
+      } else {
+        const args = resolveValue(value[2], options, effect);
+
+        if (args === undefined) {
+          return;
+        } else if (Array.isArray(args)) {
+          value = `${name}(${args.join(", ")})`;
+        } else {
+          value = `${name}(${args})`;
+        }
+      }
 
       return options.castToArray && value && !Array.isArray(value)
         ? [value]
@@ -72,14 +102,9 @@ export const resolveValue: StyleValueResolver = (value, options) => {
 function isDescriptorArray(
   value: StyleDescriptor | StyleDescriptor[],
 ): value is StyleDescriptor[] {
-  if (Array.isArray(value)) {
-    /**
-     * StyleFunction's always have an object at index 0.
-     * We purposefully don't allow StyleDescriptor with an object at index 0
-     * because it would be ambiguous with StyleFunction
-     */
-    return typeof value[0] === "object" ? Array.isArray(value[0]) : true;
-  }
-
-  return false;
+  return (
+    Array.isArray(value) &&
+    typeof value[0] === "object" &&
+    Array.isArray(value[0])
+  );
 }

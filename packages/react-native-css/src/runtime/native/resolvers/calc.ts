@@ -1,5 +1,4 @@
-import { StyleValueSubResolver } from ".";
-import { StyleFunction } from "../../runtime.types";
+import { StyleFunctionResolver } from ".";
 
 const calcPrecedence: Record<string, number> = {
   "+": 1,
@@ -8,11 +7,7 @@ const calcPrecedence: Record<string, number> = {
   "/": 2,
 };
 
-export const calc: StyleValueSubResolver<StyleFunction> = (
-  resolveValue,
-  func,
-  options,
-) => {
+export const calc: StyleFunctionResolver = (resolveValue, func, options) => {
   let mode: "number" | "percentage" | undefined;
   const values: number[] = [];
   const ops: string[] = [];

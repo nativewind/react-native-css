@@ -1,5 +1,13 @@
+import { Dimensions } from "react-native";
+
 import { compile, CompilerOptions } from "../compiler";
-import { injectData, resetData } from "../runtime/native/stylesheet";
+import {
+  dimensions,
+  rem,
+  styleFamily,
+  systemColorScheme,
+} from "../runtime/native/globals";
+import { injectData } from "../runtime/native/stylesheet";
 
 declare global {
   namespace jest {
@@ -14,7 +22,10 @@ export * from "@testing-library/react-native";
 export const testID = "react-native-css";
 
 beforeEach(() => {
-  resetData();
+  styleFamily.clear();
+  systemColorScheme.set(undefined);
+  dimensions.set(Dimensions.get("window"));
+  rem.set(14);
 });
 
 export function registerCSS(
