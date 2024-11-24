@@ -17,7 +17,7 @@ const easing = [
   "ease",
 ] as const;
 
-export const animationShorthand = shorthandHandler(
+export const animation = shorthandHandler(
   [
     [name],
     [duration, name],

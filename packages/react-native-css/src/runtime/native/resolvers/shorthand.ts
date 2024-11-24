@@ -1,4 +1,5 @@
 import type { StyleFunctionResolver } from ".";
+import { StyleDescriptor } from "../../runtime.types";
 import { defaultValues } from "../utils/properties";
 
 type ShorthandType =
@@ -17,6 +18,8 @@ type ShorthandDefaultValue = readonly [
   ShorthandType,
   any,
 ];
+
+export const ShortHandSymbol = Symbol();
 
 export function shorthandHandler(
   mappings: ShorthandRequiredValue[][],
@@ -59,28 +62,31 @@ export function shorthandHandler(
 
     const seenDefaults = new Set(defaults);
 
-    return [
-      ...match.map((map, index) => {
-        if (map.length === 3) {
-          seenDefaults.delete(map);
-        }
+    return Object.assign(
+      [
+        ...match.map((map, index): StyleDescriptor => {
+          if (map.length === 3) {
+            seenDefaults.delete(map);
+          }
 
-        let value = resolved[index];
-        if (options.castToArray && value && !Array.isArray(value)) {
-          value = [value];
-        }
+          let value = resolved[index];
+          if (options.castToArray && value && !Array.isArray(value)) {
+            value = [value];
+          }
 
-        return [map[0], value] as const;
-      }),
-      ...Array.from(seenDefaults).map((map) => {
-        let value = defaultValues[map[2]] ?? map[2];
-        if (options.castToArray && value && !Array.isArray(value)) {
-          value = [value];
-        }
+          return [value, map[0]];
+        }),
+        ...Array.from(seenDefaults).map((map): StyleDescriptor => {
+          let value = defaultValues[map[2]] ?? map[2];
+          if (options.castToArray && value && !Array.isArray(value)) {
+            value = [value];
+          }
 
-        return [map[0], value] as const;
-      }),
-    ];
+          return [value, map[0]];
+        }),
+      ],
+      { [ShortHandSymbol]: true },
+    );
   };
 
   return resolveFn;

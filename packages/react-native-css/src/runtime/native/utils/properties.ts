@@ -133,7 +133,11 @@ function setFinalValue(
       return;
     }
 
-    props[path] = value;
+    if (value === undefined) {
+      delete props[path];
+    } else {
+      props[path] = value;
+    }
   }
 }
 

@@ -1,8 +1,9 @@
 import { StyleDescriptor, StyleFunction } from "../../runtime.types";
 import type { ContainerContextRecord } from "../contexts";
 import { Effect } from "../utils/observable";
-import { animationShorthand } from "./animation";
+import { animation } from "./animation";
 import { calc } from "./calc";
+import { textShadow } from "./text-shadow";
 import { em, remResolver, vhResolver, vwResolver } from "./units";
 import { resolveVariable } from "./variable";
 
@@ -29,7 +30,8 @@ export type StyleFunctionResolver = (
 ) => any;
 
 const functions: Record<string, StyleFunctionResolver> = {
-  "@animation": animationShorthand,
+  "@animation": animation,
+  "@textShadow": textShadow,
   calc,
   em,
   rem: remResolver,
