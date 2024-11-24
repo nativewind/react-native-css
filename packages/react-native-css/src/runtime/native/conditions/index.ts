@@ -1,12 +1,13 @@
 import type {
   AttributeQuery,
+  InlineStyle,
   Props,
   PseudoClassesQuery,
   StyleRule,
 } from "../../runtime.types";
 import { Declarations } from "../declarations";
 import { activeFamily, focusFamily, hoverFamily } from "../globals";
-import { ImmutableGuards, RenderGuard } from "../native.types";
+import { ImmutableGuards } from "../native.types";
 import { testMediaQueries } from "./media-query";
 
 export function testRule(
@@ -19,7 +20,7 @@ export function testRule(
   if (styleRule.p && !testPseudoClasses(styleRule.p, weakKey, next)) {
     return false;
   }
-  if (styleRule.m && !testMediaQueries(styleRule.m, weakKey, next)) {
+  if (styleRule?.m && !testMediaQueries(styleRule.m, weakKey, next)) {
     return false;
   }
   if (styleRule.aq && !testAttributes(styleRule.aq, props, guards)) {

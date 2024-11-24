@@ -106,8 +106,13 @@ export type StyleFunction =
       1, // Should process after styles have been calculated
     ];
 
+export type InlineStyleRecord = Record<string, unknown> & {
+  // Used to differentiate between InlineStyleRecord and StyleRule
+  s?: never;
+};
+
 export type InlineStyle =
-  | Record<string, unknown>
+  | InlineStyleRecord
   | undefined
   | null
   | (Record<string, unknown> | undefined | null)[]
@@ -343,10 +348,11 @@ export type SpecificityValue = number | undefined;
 
 export type Styled = <
   const C extends ReactComponent<any>,
-  const M extends StyledOptions<C>,
+  const M extends StyledConfiguration<C>,
 >(
   component: C,
-  mapping: M & StyledOptions<C>,
+  mapping: M & StyledConfiguration<C>,
+  options?: StyledOptions,
 ) => ComponentType<
   ComponentProps<C> & {
     [K in keyof M as K extends string
@@ -368,7 +374,7 @@ export type Styled = <
   }
 >;
 
-export type StyledOptions<C extends ReactComponent<any>> = Record<
+export type StyledConfiguration<C extends ReactComponent<any>> = Record<
   string,
   | boolean
   | FlattenComponentProps<C>
@@ -395,6 +401,10 @@ export type StyledOptions<C extends ReactComponent<any>> = Record<
       };
     }
 >;
+
+export type StyledOptions = {
+  passThrough?: boolean;
+};
 
 /*********************************    JSX    **********************************/
 

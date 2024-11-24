@@ -74,6 +74,7 @@ export class ProduceArray<Value extends any[] | undefined> {
     for (const value of values) {
       this.push(value);
     }
+    return this;
   }
 
   commit() {

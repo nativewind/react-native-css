@@ -2,6 +2,7 @@ import { Appearance, Dimensions } from "react-native";
 import type { ColorSchemeName, LayoutRectangle } from "react-native";
 
 import { StyleDescriptor, StyleRuleSet } from "../runtime.types";
+import { Config } from "./native.types";
 import { writeAnimation } from "./reanimated";
 import { isDeepEqual } from "./utils/equality";
 import { family, mutable, observable, weakFamily } from "./utils/observable";
@@ -16,7 +17,10 @@ export const styleFamily = family(() => {
     : observable<StyleRuleSet>(undefined, undefined, isDeepEqual);
 });
 
-export const inlineStylesMap = new WeakMap<WeakKey, StyleRuleSet>();
+export const inlineStylesMap = new WeakMap<
+  WeakKey,
+  StyleRuleSet | { classNames: string[]; config: Config }
+>();
 
 export const animationFamily = family(() => {
   return process.env.NODE_ENV === "production"

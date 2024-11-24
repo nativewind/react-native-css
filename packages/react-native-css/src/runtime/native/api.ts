@@ -17,6 +17,7 @@ import {
 import { ResolveOptions, resolveValue } from "./resolvers";
 import { resolveVariable } from "./resolvers/variable";
 import { getUseInteropOptions, useInterop } from "./useInterop";
+import { usePassThrough } from "./usePassThrough";
 
 export const interopComponents = new Map<
   object | string,
@@ -29,20 +30,39 @@ export const interopComponents = new Map<
  * @param baseComponent
  * @param mapping
  */
-export const styled: Styled = (baseComponent, mapping) => {
-  const { configs, initialActions } = getUseInteropOptions(mapping);
+export const styled: Styled = (baseComponent, mapping, options) => {
+  const { configStates, initialActions, configs } =
+    getUseInteropOptions(mapping);
 
   let component: any;
   const type = getComponentType(baseComponent);
 
-  if (type === "function") {
-    component = (props: Record<string, any>) => {
-      return useInterop(baseComponent, configs, initialActions, props);
-    };
+  if (options?.passThrough) {
+    if (type === "function") {
+      component = (props: Record<string, any>) => {
+        return usePassThrough(baseComponent, configs, props);
+      };
+    } else {
+      component = forwardRef((props, ref) => {
+        return usePassThrough(baseComponent, configs, props, ref);
+      });
+    }
   } else {
-    component = forwardRef((props, ref) => {
-      return useInterop(baseComponent, configs, initialActions, props, ref);
-    });
+    if (type === "function") {
+      component = (props: Record<string, any>) => {
+        return useInterop(baseComponent, configStates, initialActions, props);
+      };
+    } else {
+      component = forwardRef((props, ref) => {
+        return useInterop(
+          baseComponent,
+          configStates,
+          initialActions,
+          props,
+          ref,
+        );
+      });
+    }
   }
 
   const name = baseComponent.displayName ?? baseComponent.name ?? "unknown";

@@ -14,7 +14,7 @@ import type { SharedValue } from "react-native-reanimated";
 import type {
   Props,
   SharedValueInterpolation,
-  StyledOptions,
+  StyledConfiguration,
   Transition,
 } from "../runtime";
 import type { ContainerContextValue, VariableContextValue } from "./contexts";
@@ -396,11 +396,14 @@ export function performConfigReducerActions(
   return next;
 }
 
-export function getUseInteropOptions(options: StyledOptions<any>) {
-  const configs: ConfigReducerState[] = [];
+export function getUseInteropOptions(options: StyledConfiguration<any>) {
+  const configs: Config[] = [];
+  const configStates: ConfigReducerState[] = [];
   const initialActions: PerformConfigReducerAction[] = [];
 
-  Object.entries(options).forEach(([source, config], index) => {
+  const configEntries = Object.entries(options);
+
+  configEntries.forEach(([source, config], index) => {
     let target = typeof config === "object" ? config.target : config;
 
     if (target === true) {
@@ -417,12 +420,18 @@ export function getUseInteropOptions(options: StyledOptions<any>) {
       );
     }
 
-    configs[index] = {
+    configStates[index] = {
       index,
       source,
       target,
       nativeStyleToProp,
     };
+
+    configs.push({
+      source,
+      target,
+      nativeStyleToProp,
+    });
 
     initialActions.push({
       action: { type: "update-definitions" },
@@ -430,5 +439,5 @@ export function getUseInteropOptions(options: StyledOptions<any>) {
     });
   });
 
-  return { configs, initialActions };
+  return { configStates, initialActions, configs };
 }

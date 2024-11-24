@@ -1,4 +1,5 @@
 import {
+  InlineStyleRecord,
   Mutable,
   type AnimationRule,
   type InlineStyle,
@@ -7,6 +8,7 @@ import {
   type TransitionAttributes,
   type VariableDescriptor,
 } from "../runtime.types";
+import { specificityCompareFn } from "../utils";
 import { testRule } from "./conditions";
 import type { VariableContextValue } from "./contexts";
 import { inlineStylesMap, styleFamily } from "./globals";
@@ -21,9 +23,8 @@ export type Declarations = Effect & {
   transition?: TransitionAttributes;
   sharedValues?: Map<string, Mutable<any>>;
   epoch: number;
-  normal?: StyleRule[];
+  normal?: (StyleRule | InlineStyleRecord)[];
   important?: StyleRule[];
-  inline?: InlineStyle;
   variables?: VariableDescriptor[];
   guards: RenderGuard[];
   animation?: NonNullable<StyleRule["a"]>[];
@@ -66,25 +67,26 @@ export function buildDeclarations(
     },
   };
 
-  if (!source) {
-    next.guards = guards.commit();
-    return next;
-  }
-
-  const normal = new ProduceArray(previous?.normal);
+  const normal = new ProduceArray<
+    (StyleRule | InlineStyleRecord)[] | undefined
+  >(previous?.normal);
   const important = new ProduceArray(previous?.important);
   const variables = new ProduceArray(previous?.variables);
   const animation = new ProduceArray(previous?.animation);
   const transition = new ProduceRecord(previous?.transition);
 
-  for (const className of source.split(/\s+/)) {
+  const unsortedNormal: (StyleRule | InlineStyleRecord)[] = [];
+  const unsortedImportant: StyleRule[] = [];
+
+  function collectClassName(className: string) {
     const styleRuleSet = next.get(styleFamily(className));
     if (!styleRuleSet) {
-      continue;
+      return;
     }
 
     collectRules(
-      normal,
+      collectClassName,
+      unsortedNormal,
       styleRuleSet[0],
       guards,
       variables,
@@ -95,7 +97,8 @@ export function buildDeclarations(
       props,
     );
     collectRules(
-      important,
+      collectClassName,
+      unsortedImportant,
       styleRuleSet[1],
       guards,
       variables,
@@ -107,9 +110,16 @@ export function buildDeclarations(
     );
   }
 
+  if (typeof source === "string") {
+    for (const className of source.split(/\s+/)) {
+      collectClassName(className);
+    }
+  }
+
   if (typeof target === "object") {
     collectRules(
-      normal,
+      collectClassName,
+      unsortedNormal,
       target,
       guards,
       variables,
@@ -122,9 +132,14 @@ export function buildDeclarations(
     );
   }
 
+  next.normal = normal
+    .pushAll(unsortedNormal.sort(specificityCompareFn))
+    .commit();
+  next.important = important
+    .pushAll(unsortedImportant.sort(specificityCompareFn))
+    .commit();
+
   next.animation = animation.commit();
-  next.important = important.commit();
-  next.normal = normal.commit();
   next.transition = transition.commit();
   next.variables = variables.commit();
 
@@ -156,8 +171,9 @@ export function buildDeclarations(
  * @returns
  */
 function collectRules(
-  collection: ProduceArray<StyleRule[] | undefined>,
-  styleRules: StyleRule[] | InlineStyle | undefined,
+  collectClassName: (className: string) => void,
+  collection: (StyleRule | InlineStyleRecord)[],
+  styleRules: (StyleRule | InlineStyleRecord)[] | InlineStyle | undefined,
   guards: ProduceArray<RenderGuard[]>,
   variables: ProduceArray<VariableDescriptor[] | undefined>,
   animations: ProduceArray<AnimationRule[] | undefined>,
@@ -168,7 +184,10 @@ function collectRules(
   isInline = false,
 ) {
   if (isInline) {
-    styleRules = extractInlineStyleRules(styleRules as InlineStyle);
+    styleRules = extractInlineStyleRules(
+      collectClassName,
+      styleRules as InlineStyle,
+    );
   } else {
     styleRules = styleRules as StyleRule[];
   }
@@ -178,7 +197,16 @@ function collectRules(
   }
 
   for (const rule of styleRules) {
-    if (!testRule(rule, componentState.key, next, props, guards)) continue;
+    if (!rule?.s) {
+      // Add inline styles
+      collection.push(rule);
+      continue;
+    }
+
+    if (!testRule(rule, componentState.key, next, props, guards)) {
+      // Skip the rule if it doesn't match the conditions
+      continue;
+    }
 
     if (rule.a) {
       animations.push(rule.a);
@@ -199,25 +227,36 @@ function collectRules(
 }
 
 function extractInlineStyleRules(
+  collectClassName: (className: string) => void,
   inline: InlineStyle,
-  collection: StyleRule[] = [],
-): StyleRule[] {
+  styleRules: (StyleRule | InlineStyleRecord)[] = [],
+) {
   if (typeof inline !== "object" || !inline) {
-    return collection;
+    return styleRules;
   }
 
-  if (!Array.isArray(inline)) {
-    const styleRule = inlineStylesMap.get(inline);
-    if (styleRule) {
-      if (styleRule[0]) collection.push(...styleRule[0]);
-      if (styleRule[1]) collection.push(...styleRule[1]);
+  if (Array.isArray(inline)) {
+    for (const item of inline) {
+      extractInlineStyleRules(collectClassName, item, styleRules);
     }
-    return collection;
+    return styleRules;
   }
 
-  for (const item of inline) {
-    extractInlineStyleRules(item, collection);
+  const styleRule = inlineStylesMap.get(inline);
+  if (!styleRule) {
+    styleRules.push(inline);
+    return styleRules;
   }
 
-  return collection;
+  if ("config" in styleRule) {
+    for (const className of styleRule.classNames) {
+      collectClassName(className);
+    }
+  } else {
+    if (Array.isArray(styleRule[0])) {
+      styleRules.push(...styleRule[0]);
+    }
+  }
+
+  return styleRules;
 }

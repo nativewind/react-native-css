@@ -102,9 +102,7 @@ export const resolveValue: StyleValueResolver = (value, options, effect) => {
 function isDescriptorArray(
   value: StyleDescriptor | StyleDescriptor[],
 ): value is StyleDescriptor[] {
-  return (
-    Array.isArray(value) &&
-    typeof value[0] === "object" &&
-    Array.isArray(value[0])
-  );
+  return Array.isArray(value) && typeof value[0] === "object"
+    ? Array.isArray(value[0])
+    : true;
 }

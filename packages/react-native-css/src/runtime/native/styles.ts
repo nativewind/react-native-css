@@ -1,5 +1,6 @@
 import {
   Callback,
+  InlineStyleRecord,
   Props,
   SharedValueInterpolation,
   StyleDescriptor,
@@ -171,15 +172,29 @@ export function buildStyles(
 function applyStyles(
   next: StateWithStyles,
   previous: ConfigReducerState,
-  styleRules: StyleRule[],
+  styleRules: (StyleRule | InlineStyleRecord)[],
   delayedStyles: Callback[],
   options: ResolveOptions,
 ) {
   let props = next.styles.props;
 
-  for (const styleRule of styleRules) {
-    if (styleRule.d) {
-      for (let declaration of styleRule.d) {
+  for (const rule of styleRules) {
+    if (!rule.s) {
+      props ??= {};
+
+      // Inline styles require a target
+      if (!next.target) {
+        continue;
+      }
+
+      props[next.target] ??= {};
+      Object.assign(props[next.target], rule);
+
+      continue;
+    }
+
+    if (rule.d) {
+      for (let declaration of rule.d) {
         if (Array.isArray(declaration)) {
           let value: any = declaration[0];
           let propPath = declaration[1];
