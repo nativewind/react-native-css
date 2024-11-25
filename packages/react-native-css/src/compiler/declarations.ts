@@ -2732,7 +2732,7 @@ function parseEnv(
             {},
             "var",
             [
-              `--___css-interop___${value.name.value}`,
+              `--react-native-css-${value.name.value}`,
               parseUnparsed(value.fallback, options),
             ],
             1,

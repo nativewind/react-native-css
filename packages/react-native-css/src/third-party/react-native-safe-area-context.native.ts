@@ -63,17 +63,13 @@ function shimFactory(type: ComponentType<any>) {
       const insets = useSafeAreaInsets();
       const parentVarContext = useContext(VariableContext);
 
-      // const parentVars: VariableContextValue =
-      //   parentVarContext instanceof Map
-      //     ? Object.fromEntries(parentVarContext.entries())
-      //     : parentVarContext;
-
       const value = useMemo<VariableContextValue>(
         () => ({
-          "___css-interop___safe-area-inset-bottom": insets.bottom,
-          "--___css-interop___safe-area-inset-left": insets.left,
-          "--___css-interop___safe-area-inset-right": insets.right,
-          "--___css-interop___safe-area-inset-top": insets.top,
+          ...parentVarContext,
+          "--react-native-css-safe-area-inset-bottom": insets.bottom,
+          "--react-native-css-safe-area-inset-left": insets.left,
+          "--react-native-css-safe-area-inset-right": insets.right,
+          "--react-native-css-safe-area-inset-top": insets.top,
         }),
         [parentVarContext, insets],
       );
