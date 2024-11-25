@@ -2,6 +2,9 @@ import {
   AnimationDirection,
   AnimationFillMode,
   AnimationPlayState,
+  Container,
+  ContainerNameList,
+  ContainerType,
   Animation as CSSAnimation,
 } from "lightningcss";
 
@@ -24,6 +27,11 @@ export function buildAddFn(
 ) {
   let staticDeclarations: Record<string, StyleDescriptor> | undefined;
 
+  function Add(
+    type: "container",
+    property: "container-name",
+    value: string[] | false,
+  ): void;
   function Add(
     type: "transform",
     property: string,
@@ -72,6 +80,11 @@ export function buildAddFn(
     }
 
     switch (type) {
+      case "container": {
+        rule.c ??= [];
+        rule.c.push(...(value as string[]));
+        break;
+      }
       case "transform":
         return;
       case "transition":

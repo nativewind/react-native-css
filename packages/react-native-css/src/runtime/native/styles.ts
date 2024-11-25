@@ -8,7 +8,7 @@ import {
   StyleRule,
   Transition,
 } from "../runtime.types";
-import type { ContainerContextValue, VariableContextValue } from "./contexts";
+import type { VariableContextValue } from "./contexts";
 import { rem, rootVariables, universalVariables } from "./globals";
 import { RenderGuard, SideEffect } from "./native.types";
 import { applyAnimation, getTransitionSideEffect } from "./reanimated";
@@ -36,7 +36,6 @@ export function buildStyles(
   previous: ConfigReducerState,
   incomingProps: Props,
   inheritedVariables: VariableContextValue,
-  inheritedContainers: ContainerContextValue,
   run: () => void,
 ) {
   let styles: Styles = {
@@ -100,14 +99,6 @@ export function buildStyles(
       // but this ensures a subscription is created for Fast Refresh
       value ??= next.styles.get(rootVariables(name));
 
-      return value;
-    },
-    getContainer: (name: string) => {
-      const value = inheritedContainers[name];
-      // guards?.push(
-      //   ["c", name, value],
-      //   (a, b) => a[1] === b[1] && a[2] === b[2],
-      // );
       return value;
     },
     getEm() {
@@ -258,7 +249,7 @@ function applyDeclaration(
           const placeholder = value;
           value = resolveValue(originalValue, options, next.styles);
 
-          if (ShortHandSymbol in value) {
+          if (value && typeof value === "object" && ShortHandSymbol in value) {
             applyShortHand(
               next,
               previous,
@@ -280,7 +271,7 @@ function applyDeclaration(
       } else {
         value = resolveValue(value, options, next.styles);
 
-        if (ShortHandSymbol in value) {
+        if (value && typeof value === "object" && ShortHandSymbol in value) {
           applyShortHand(next, previous, props, value, delayedStyles, options);
           return props;
         }

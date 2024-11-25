@@ -1475,10 +1475,21 @@ export function parseDeclaration(
       }
       return;
     case "container-type":
-    case "container-name":
-    case "container":
       return;
-    // return addContainerProp(declaration);
+    case "container-name":
+      return add(
+        "container",
+        declaration.property,
+        declaration.value.type === "none" ? false : declaration.value.value,
+      );
+    case "container":
+      return add(
+        "container",
+        "container-name",
+        declaration.value.name.type === "none"
+          ? false
+          : declaration.value.name.value,
+      );
     case "text-decoration-style":
       return add(
         "style",

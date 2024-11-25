@@ -1,19 +1,21 @@
 import { PixelRatio, Platform } from "react-native";
 
-import { MediaFeatureComparison, MediaQuery } from "../../runtime.types";
+import { MediaCondition } from "../../runtime.types";
 import { appColorScheme, vh, vw } from "../globals";
 import { Effect } from "../utils/observable";
 
-export function testMediaQueries(
-  mediaQueries: MediaQuery[],
+export function testMediaQuery(
+  mediaQueries: MediaCondition[],
   weakKey: WeakKey,
   effect: Effect,
 ) {
-  return mediaQueries.every((query) => testMediaQuery(query, weakKey, effect));
+  return mediaQueries.every((query) => {
+    return testMediaQueryCondition(query, weakKey, effect);
+  });
 }
 
-function testMediaQuery(
-  mediaQuery: MediaQuery,
+function testMediaQueryCondition(
+  mediaQuery: MediaCondition,
   weakKey: WeakKey,
   effect: Effect,
 ): Boolean {
@@ -24,14 +26,14 @@ function testMediaQuery(
     case "!!":
       return false;
     case "!":
-      return !testMediaQuery(mediaQuery[1], weakKey, effect);
+      return !testMediaQueryCondition(mediaQuery[1], weakKey, effect);
     case "&":
       return mediaQuery[1].every((query) => {
-        return testMediaQuery(query, weakKey, effect);
+        return testMediaQueryCondition(query, weakKey, effect);
       });
     case "|":
       return mediaQuery[1].some((query) => {
-        return testMediaQuery(query, weakKey, effect);
+        return testMediaQueryCondition(query, weakKey, effect);
       });
     default:
       return testPlain(mediaQuery, effect);
@@ -39,7 +41,7 @@ function testMediaQuery(
 }
 
 function testPlain(
-  mediaQuery: Extract<MediaQuery, ["=", ...any[]]>,
+  mediaQuery: Extract<MediaCondition, ["=", ...any[]]>,
   effect: Effect,
 ) {
   const value = mediaQuery[2];
@@ -75,7 +77,7 @@ function testPlain(
 }
 
 function testRange(
-  mediaQuery: Extract<MediaQuery, ["==", ...any[]]>,
+  mediaQuery: Extract<MediaCondition, ["==", ...any[]]>,
   effect: Effect,
 ) {
   const right = mediaQuery[2];
@@ -99,15 +101,7 @@ function testRange(
       return false;
   }
 
-  return testComparison(mediaQuery[3], left, right);
-}
-
-function testComparison(
-  comparison: MediaFeatureComparison,
-  left: number,
-  right: number,
-) {
-  switch (comparison) {
+  switch (mediaQuery[3]) {
     case "=":
       return left === right;
     case ">":
@@ -119,7 +113,7 @@ function testComparison(
     case "<=":
       return left <= right;
     default:
-      comparison satisfies never;
+      mediaQuery[3] satisfies never;
       return false;
   }
 }

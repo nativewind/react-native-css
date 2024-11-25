@@ -412,5 +412,11 @@ function getAnimationAttributes(
     return;
   }
 
-  return Object.fromEntries(resolved);
+  const animation: Partial<AnimationAttributes> = {};
+
+  for (const entry of resolved as [any, keyof AnimationAttributes][]) {
+    animation[entry[1]] = entry[0];
+  }
+
+  return animation;
 }

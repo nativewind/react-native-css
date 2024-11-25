@@ -17,8 +17,10 @@ import type {
   StyledConfiguration,
   Transition,
 } from "../runtime";
+import { DEFAULT_CONTAINER_NAME } from "./conditions/container-query";
 import type { ContainerContextValue, VariableContextValue } from "./contexts";
 import { ContainerContext, VariableContext } from "./contexts";
+import { containerLayoutFamily } from "./globals";
 import type { Config, SideEffect } from "./native.types";
 import { animatedComponent } from "./reanimated";
 import {
@@ -326,11 +328,12 @@ export function performConfigReducerActions(
       variableDraft.assign(state.variables);
     }
 
-    if (state.containers) {
+    if (state.declarations?.containers) {
       containerDraft ??= new ProduceRecord(inheritedContainers).assign(
         previous.containers,
       );
-      containerDraft.assign(state.containers);
+      containerDraft.assign(state.declarations.containers);
+      containerDraft.assign({ [DEFAULT_CONTAINER_NAME]: previous.key });
     }
 
     if (state.declarations?.sideEffects) {
@@ -392,6 +395,28 @@ export function performConfigReducerActions(
     sharedValues,
     sideEffects,
   };
+
+  /**
+   * If we're a container and we have a width or height, update the layout
+   * This ensures the values are set before the children are rendered
+   */
+  if (containers && next.props?.style) {
+    if (next.props.style.width || next.props.style.height) {
+      const layout = Object.assign({}, containerLayoutFamily(next.key).get());
+      if (next.props.style.width) {
+        layout.width = next.props.style.width;
+      }
+      if (next.props.style.height) {
+        layout.height = next.props.style.height;
+      }
+
+      /**
+       * Set the value but ignore any effects.
+       * Rerenders will handled by React Context / onLayout updating
+       */
+      containerLayoutFamily(next.key).batch(undefined, layout);
+    }
+  }
 
   return next;
 }

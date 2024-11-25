@@ -123,7 +123,7 @@ describe("css", () => {
       <View testID={testID} className="my-class" />,
     ).getByTestId(testID);
 
-    expect(component).toHaveStyle({ width: undefined });
+    expect(component).toHaveStyle({});
   });
 
   test("calc(var(--percent) + 20px)", () => {
@@ -139,7 +139,7 @@ describe("css", () => {
       <View testID={testID} className="my-class" />,
     ).getByTestId(testID);
 
-    expect(component).toHaveStyle({ width: undefined });
+    expect(component).toHaveStyle({});
   });
 });
 

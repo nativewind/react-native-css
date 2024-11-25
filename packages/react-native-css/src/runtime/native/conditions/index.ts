@@ -1,14 +1,15 @@
 import type {
   AttributeQuery,
-  InlineStyle,
   Props,
   PseudoClassesQuery,
   StyleRule,
 } from "../../runtime.types";
+import { ContainerContextValue } from "../contexts";
 import { Declarations } from "../declarations";
 import { activeFamily, focusFamily, hoverFamily } from "../globals";
 import { ImmutableGuards } from "../native.types";
-import { testMediaQueries } from "./media-query";
+import { testContainerQuery } from "./container-query";
+import { testMediaQuery } from "./media-query";
 
 export function testRule(
   styleRule: StyleRule,
@@ -16,11 +17,18 @@ export function testRule(
   next: Declarations,
   props: Props,
   guards: ImmutableGuards,
+  inheritedContainers: ContainerContextValue,
 ) {
   if (styleRule.p && !testPseudoClasses(styleRule.p, weakKey, next)) {
     return false;
   }
-  if (styleRule?.m && !testMediaQueries(styleRule.m, weakKey, next)) {
+  if (styleRule?.m && !testMediaQuery(styleRule.m, weakKey, next)) {
+    return false;
+  }
+  if (
+    styleRule?.cq &&
+    !testContainerQuery(styleRule.cq, inheritedContainers, next)
+  ) {
     return false;
   }
   if (styleRule.aq && !testAttributes(styleRule.aq, props, guards)) {

@@ -33,7 +33,7 @@ export type Observable<Value = unknown, Args extends unknown[] = never[]> = {
   // Remove the effect from the observable
   remove(effect: Effect): void;
   // Set, but add the effects to a batch to be run later
-  batch(batch: Set<Effect>, ...value: Args): void;
+  batch(batch?: Set<Effect>, ...value: Args): void;
 
   onChange(callback: (set: Set<Effect>) => void): void;
   recalculate(set: Set<Effect>): void;
@@ -183,7 +183,7 @@ export function observable<Value, Args extends unknown[]>(
       value = nextValue;
 
       for (const effect of dependents) {
-        batch.add(effect);
+        batch?.add(effect);
       }
     },
 

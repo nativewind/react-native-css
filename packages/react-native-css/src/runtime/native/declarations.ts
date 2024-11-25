@@ -10,7 +10,7 @@ import {
 } from "../runtime.types";
 import { specificityCompareFn } from "../utils";
 import { testRule } from "./conditions";
-import type { VariableContextValue } from "./contexts";
+import type { ContainerContextValue, VariableContextValue } from "./contexts";
 import { inlineStylesMap, styleFamily } from "./globals";
 import type { RenderGuard, SideEffect } from "./native.types";
 import { buildAnimationSideEffects } from "./reanimated";
@@ -26,6 +26,7 @@ export type Declarations = Effect & {
   normal?: (StyleRule | InlineStyleRecord)[];
   important?: StyleRule[];
   variables?: VariableDescriptor[];
+  containers?: ContainerContextValue;
   guards: RenderGuard[];
   animation?: NonNullable<StyleRule["a"]>[];
   sideEffects?: SideEffect[];
@@ -36,6 +37,7 @@ export function buildDeclarations(
   componentState: UseInteropState,
   props: Props,
   inheritedVariables: VariableContextValue,
+  inheritedContainers: ContainerContextValue,
 ): Declarations {
   const previous = state.declarations;
   const source = props?.[state.source] as string | undefined;
@@ -72,6 +74,7 @@ export function buildDeclarations(
   >(previous?.normal);
   const important = new ProduceArray(previous?.important);
   const variables = new ProduceArray(previous?.variables);
+  const containers = new ProduceRecord(previous?.containers);
   const animation = new ProduceArray(previous?.animation);
   const transition = new ProduceRecord(previous?.transition);
 
@@ -90,10 +93,12 @@ export function buildDeclarations(
       styleRuleSet[0],
       guards,
       variables,
+      containers,
       animation,
       transition,
       componentState,
       next,
+      inheritedContainers,
       props,
     );
     collectRules(
@@ -102,10 +107,12 @@ export function buildDeclarations(
       styleRuleSet[1],
       guards,
       variables,
+      containers,
       animation,
       transition,
       componentState,
       next,
+      inheritedContainers,
       props,
     );
   }
@@ -123,10 +130,12 @@ export function buildDeclarations(
       target,
       guards,
       variables,
+      containers,
       animation,
       transition,
       componentState,
       next,
+      inheritedContainers,
       props,
       true,
     );
@@ -142,6 +151,7 @@ export function buildDeclarations(
   next.animation = animation.commit();
   next.transition = transition.commit();
   next.variables = variables.commit();
+  next.containers = containers.commit();
 
   if (next.animation !== previous?.animation) {
     buildAnimationSideEffects(next, previous, inheritedVariables, guards);
@@ -153,6 +163,7 @@ export function buildDeclarations(
     next.normal !== previous?.normal ||
     next.important !== previous?.important ||
     next.variables !== previous?.variables ||
+    next.containers !== previous?.containers ||
     next.animation !== previous?.animation ||
     next.transition !== previous?.transition ||
     next.guards !== previous?.guards
@@ -176,10 +187,12 @@ function collectRules(
   styleRules: (StyleRule | InlineStyleRecord)[] | InlineStyle | undefined,
   guards: ProduceArray<RenderGuard[]>,
   variables: ProduceArray<VariableDescriptor[] | undefined>,
+  containers: ProduceRecord<ContainerContextValue | undefined>,
   animations: ProduceArray<AnimationRule[] | undefined>,
   transition: ProduceRecord<TransitionAttributes | undefined>,
   componentState: UseInteropState,
   next: Declarations,
+  inheritedContainers: ContainerContextValue,
   props: Props,
   isInline = false,
 ) {
@@ -203,7 +216,16 @@ function collectRules(
       continue;
     }
 
-    if (!testRule(rule, componentState.key, next, props, guards)) {
+    if (
+      !testRule(
+        rule,
+        componentState.key,
+        next,
+        props,
+        guards,
+        inheritedContainers,
+      )
+    ) {
       // Skip the rule if it doesn't match the conditions
       continue;
     }
@@ -222,6 +244,12 @@ function collectRules(
 
     if (rule.v) {
       variables.pushAll(rule.v);
+    }
+
+    if (rule.c) {
+      containers.assignAll(
+        rule.c.map((c) => ({ [`c:${c}`]: componentState.key })),
+      );
     }
   }
 }

@@ -3,7 +3,7 @@ import type { Selector, SelectorComponent, SelectorList } from "lightningcss";
 import type {
   AttributeQuery,
   AttrSelectorOperator,
-  MediaQuery,
+  MediaCondition,
   PseudoClassesQuery,
   SpecificityArray,
   StyleRule,
@@ -19,7 +19,7 @@ export type NormalizeSelector =
   | {
       type: "className";
       className: string;
-      media?: MediaQuery[];
+      media?: MediaCondition[];
       groupClassName?: string;
       pseudoClasses?: PseudoClassesQuery;
       groupPseudoClasses?: PseudoClassesQuery;
@@ -386,7 +386,7 @@ function isIsPseudoClass(
   );
 }
 
-function isDarkModeMediaQuery(query?: MediaQuery): boolean {
+function isDarkModeMediaQuery(query?: MediaCondition): boolean {
   if (!query) return false;
 
   return (

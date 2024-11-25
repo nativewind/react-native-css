@@ -15,8 +15,7 @@ export type ConfigReducerState = Config &
     // The styles from the declarations
     styles?: Styles;
     // The containers produced by the config
-    containers?: ContainerContextValue;
-    // The containers produced by the config
+    // TODO: remove this?
     variables?: Record<string, StyleDescriptor>;
   }>;
 
@@ -39,6 +38,7 @@ export function configReducer(
         componentState,
         incomingProps,
         inheritedVariables,
+        inheritedContainers,
       );
       return Object.is(state, nextState)
         ? state
@@ -47,7 +47,6 @@ export function configReducer(
             componentState,
             incomingProps,
             inheritedVariables,
-            inheritedContainers,
           );
     }
     case "update-styles": {
@@ -56,7 +55,6 @@ export function configReducer(
         componentState,
         incomingProps,
         inheritedVariables,
-        inheritedContainers,
       );
     }
     default: {
@@ -71,6 +69,7 @@ function updateDefinitions(
   componentState: UseInteropState,
   props: Props,
   inheritedVariables: VariableContextValue,
+  inheritedContainers: ContainerContextValue,
 ): ConfigReducerState {
   const source = props?.[state.source] as string | undefined;
 
@@ -92,6 +91,7 @@ function updateDefinitions(
     componentState,
     props,
     inheritedVariables,
+    inheritedContainers,
   );
 
   /*
@@ -117,23 +117,16 @@ function updateStyles(
   componentState: UseInteropState,
   incomingProps: Props,
   inheritedVariables: VariableContextValue,
-  inheritedContainers: ContainerContextValue,
 ) {
   /**
    * Currently the styles will always be updated, but in the future we can
    * optimize this to only update when the props have changed.
    */
-  const next = buildStyles(
-    previous,
-    incomingProps,
-    inheritedVariables,
-    inheritedContainers,
-    () => {
-      componentState.dispatch([
-        { action: { type: "update-styles" }, index: previous.index },
-      ]);
-    },
-  );
+  const next = buildStyles(previous, incomingProps, inheritedVariables, () => {
+    componentState.dispatch([
+      { action: { type: "update-styles" }, index: previous.index },
+    ]);
+  });
 
   if (next.styles?.epoch === previous?.styles?.epoch) {
     /*

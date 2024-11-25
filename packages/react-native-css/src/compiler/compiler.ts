@@ -14,8 +14,9 @@ import {
 } from "lightningcss";
 
 import {
+  ContainerQuery,
   InjectStylesOptions,
-  MediaQuery,
+  MediaCondition,
   SpecificityArray,
   StyleRule,
   StyleRuleSet,
@@ -27,6 +28,7 @@ import {
   CompilerOptions,
   StyleRuleMapping,
 } from "./compiler.types";
+import { parseContainerCondition } from "./container-query";
 import {
   AddWarningFn,
   parseDeclaration,
@@ -361,7 +363,7 @@ function extractMedia(mediaRule: MediaRule, collection: CompilerCollection) {
 
   const m = media
     .map((m) => parseMediaQuery(m, options))
-    .filter((m): m is MediaQuery => m !== undefined);
+    .filter((m): m is MediaCondition => m !== undefined);
 
   // Iterate over all rules in the mediaRule and extract their styles using the updated CompilerCollection
   for (const rule of mediaRule.rules) {
@@ -378,18 +380,23 @@ function extractedContainer(
   containerRule: ContainerRule,
   collection: CompilerCollection,
 ) {
-  return;
+  const options: ParserOptions = {
+    add: () => {},
+    addWarning: () => {},
+  };
+
   // Iterate over all rules inside the containerRule and extract their styles using the updated CompilerCollection
-  // for (const rule of containerRule.rules) {
-  //   extractRule(rule, collection, {
-  //     c: [
-  //       {
-  //         n: containerRule.name,
-  //         // condition: containerRule.condition,
-  //       },
-  //     ],
-  //   });
-  // }
+  for (const rule of containerRule.rules) {
+    const query: ContainerQuery = {
+      c: parseContainerCondition(containerRule.condition, options),
+    };
+
+    if (containerRule.name) {
+      query.n = containerRule.name;
+    }
+
+    extractRule(rule, collection, { cq: query });
+  }
 }
 
 /**

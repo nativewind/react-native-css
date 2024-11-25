@@ -1,10 +1,19 @@
 import { useCallback } from "react";
+import { LayoutChangeEvent } from "react-native";
 
 import type { Props } from "../runtime.types";
-import { activeFamily, focusFamily, hoverFamily } from "./globals";
+import {
+  activeFamily,
+  containerHeightFamily,
+  containerLayoutFamily,
+  containerWidthFamily,
+  focusFamily,
+  hoverFamily,
+} from "./globals";
 import { UseInteropState } from "./useInterop";
 
 type InteractionType =
+  | "onLayout"
   | "onHoverIn"
   | "onHoverOut"
   | "onPress"
@@ -33,6 +42,7 @@ export function handlerFamily(
       onPress: (event) => mainHandler("onPress", event),
       onPressIn: (event) => mainHandler("onPressIn", event),
       onPressOut: (event) => mainHandler("onPressOut", event),
+      onLayout: (event) => mainHandler("onLayout", event),
     };
     weakMap.set(mainHandler, handlers);
   }
@@ -50,6 +60,12 @@ export function useHandlers(state: UseInteropState, props?: Props) {
   const handler = useCallback(
     (type: InteractionType, event: unknown) => {
       switch (type) {
+        case "onLayout":
+          props?.onLayout?.(event);
+          containerLayoutFamily(state.key).set(
+            (event as LayoutChangeEvent).nativeEvent.layout,
+          );
+          break;
         case "onHoverIn":
           props?.onHover?.(event);
           hoverFamily(state.key).set(true);
@@ -99,6 +115,14 @@ export function useHandlers(state: UseInteropState, props?: Props) {
     if (!newProps) newProps = {};
     newProps.onBlur = handlerFamily("onBlur", handler);
     newProps.onFocus = handlerFamily("onFocus", handler);
+  }
+
+  if (
+    containerWidthFamily.has(state.key) ||
+    containerHeightFamily.has(state.key)
+  ) {
+    if (!newProps) newProps = {};
+    newProps.onLayout = handlerFamily("onLayout", handler);
   }
 
   return newProps;

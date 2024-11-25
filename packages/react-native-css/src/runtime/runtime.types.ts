@@ -10,8 +10,7 @@ import type {
   AnimationDirection,
   AnimationFillMode,
   AnimationPlayState,
-  ContainerCondition,
-  Declaration,
+  MediaFeatureNameFor_ContainerSizeFeatureId,
   MediaFeatureNameFor_MediaFeatureId,
 } from "lightningcss";
 import type { makeMutable, SharedValue } from "react-native-reanimated";
@@ -45,18 +44,18 @@ export interface StyleRule {
   /** Variables */
   v?: VariableDescriptor[];
   /** Named Containers */
-  // c?: Container[];
+  c?: string[];
 
   /**
    * Conditionals
    */
 
   /** MediaQuery */
-  m?: MediaQuery[];
+  m?: MediaCondition[];
   /** PseudoClassesQuery */
   p?: PseudoClassesQuery;
   /** Container Query */
-  c?: ContainerQuery[];
+  cq?: ContainerQuery;
   /** Attribute Conditions */
   aq?: AttributeQuery[];
 
@@ -277,15 +276,15 @@ export type TransitionAttributes = {
 
 /******************************    Conditions    ******************************/
 
-export type MediaQuery =
+export type MediaCondition =
   // Boolean
   | ["!!", MediaFeatureNameFor_MediaFeatureId]
   // Not
-  | ["!", MediaQuery]
+  | ["!", MediaCondition]
   // And
-  | ["&", MediaQuery[]]
+  | ["&", MediaCondition[]]
   // Or
-  | ["|", MediaQuery[]]
+  | ["|", MediaCondition[]]
   // Plain
   | ["=", MediaFeatureNameFor_MediaFeatureId, StyleDescriptor]
   // Comparison
@@ -316,11 +315,15 @@ export interface PseudoClassesQuery {
   f?: 1;
 }
 
+type AttributeQueryType =
+  | "a" // Attribute
+  | "d"; // Data-Attribute
+
 export type AttributeQuery =
-  | ["a" | "d", string] // Exists
-  | ["a" | "d", string, "!"] // Falsy
-  | ["a" | "d", string, AttrSelectorOperator, string] // Use operator
-  | ["a" | "d", string, AttrSelectorOperator, string, "i" | "s"]; // Case sensitivity
+  | [AttributeQueryType, string] // Exists
+  | [AttributeQueryType, string, "!"] // Falsy
+  | [AttributeQueryType, string, AttrSelectorOperator, string] // Use operator
+  | [AttributeQueryType, string, AttrSelectorOperator, string, "i" | "s"]; // Case sensitivity
 
 export type AttrSelectorOperator = "=" | "~=" | "|=" | "^=" | "$=" | "*=";
 
@@ -329,10 +332,35 @@ export type AttrSelectorOperator = "=" | "~=" | "|=" | "^=" | "$=" | "*=";
 export interface ContainerQuery {
   /** Name */
   n?: string | null;
-  c?: ContainerCondition<Declaration>;
+  c?: ContainerCondition;
   p?: PseudoClassesQuery;
   a?: AttributeQuery[];
 }
+
+export type ContainerCondition =
+  // Boolean
+  | ["!!", MediaFeatureNameFor_ContainerSizeFeatureId]
+  // Not
+  | ["!", ContainerCondition]
+  // And
+  | ["&", ContainerCondition[]]
+  // Or
+  | ["|", ContainerCondition[]]
+  // Comparison
+  | [
+      MediaFeatureComparison,
+      MediaFeatureNameFor_ContainerSizeFeatureId,
+      StyleDescriptor,
+    ]
+  // [Start, End]
+  | [
+      "[]",
+      MediaFeatureNameFor_ContainerSizeFeatureId,
+      StyleDescriptor, // Start
+      MediaFeatureComparison, // Start comparison
+      StyleDescriptor, // End
+      MediaFeatureComparison, // End comparison
+    ];
 
 /******************************    Specificity    *****************************/
 

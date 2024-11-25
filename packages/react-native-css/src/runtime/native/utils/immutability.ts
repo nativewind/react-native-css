@@ -23,7 +23,7 @@ export class ProduceRecord<Value extends object | undefined> {
     return this;
   }
 
-  assignAll(...values: Value[]) {
+  assignAll(values: Value[]) {
     this.draft = Object.assign({}, this.draft, ...values);
     return this;
   }

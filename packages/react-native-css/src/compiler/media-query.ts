@@ -8,8 +8,8 @@ import {
 } from "lightningcss";
 
 import {
+  MediaCondition,
   MediaFeatureComparison,
-  MediaQuery,
   StyleDescriptor,
 } from "../runtime";
 import { parseLength, ParserOptions } from "./declarations";
@@ -17,7 +17,7 @@ import { parseLength, ParserOptions } from "./declarations";
 export function parseMediaQuery(
   query: CSSMediaQuery,
   options: ParserOptions,
-): MediaQuery | undefined {
+): MediaCondition | undefined {
   if (!query.condition) {
     return;
   }
@@ -39,7 +39,7 @@ export function parseMediaQuery(
 function parseMediaQueryCondition(
   query: CSSMediaCondition,
   options: ParserOptions,
-): MediaQuery | undefined {
+): MediaCondition | undefined {
   switch (query.type) {
     case "feature":
       return parseFeature(query.value, options);
@@ -49,7 +49,7 @@ function parseMediaQueryCondition(
     case "operation":
       const mediaQueries = query.conditions
         .map((c) => parseMediaQueryCondition(c, options))
-        .filter((v): v is MediaQuery => !!v);
+        .filter((v): v is MediaCondition => !!v);
 
       if (mediaQueries.length === 0) {
         return;
@@ -72,27 +72,31 @@ function parseMediaQueryCondition(
 function parseFeature(
   feature: QueryFeatureFor_MediaFeatureId,
   options: ParserOptions,
-): MediaQuery | undefined {
+): MediaCondition | undefined {
   switch (feature.type) {
     case "boolean":
       return ["!!", feature.name];
     case "plain":
-      return ["=", feature.name, parseValue(feature.value, options)];
+      return [
+        "=",
+        feature.name,
+        parseMediaFeatureValue(feature.value, options),
+      ];
     case "range":
       return [
         "==",
         feature.name,
-        parseValue(feature.value, options),
-        parseOperator(feature.operator),
+        parseMediaFeatureValue(feature.value, options),
+        parseMediaFeatureOperator(feature.operator),
       ];
     case "interval":
       return [
         "[]",
         feature.name,
-        parseValue(feature.start, options),
-        parseOperator(feature.startOperator),
-        parseValue(feature.end, options),
-        parseOperator(feature.endOperator),
+        parseMediaFeatureValue(feature.start, options),
+        parseMediaFeatureOperator(feature.startOperator),
+        parseMediaFeatureValue(feature.end, options),
+        parseMediaFeatureOperator(feature.endOperator),
       ];
     default:
       feature satisfies never;
@@ -100,7 +104,7 @@ function parseFeature(
   return;
 }
 
-function parseValue(
+export function parseMediaFeatureValue(
   value: CSSMediaFeatureValue,
   options: ParserOptions,
 ): StyleDescriptor {
@@ -116,6 +120,9 @@ function parseValue(
           return parseLength(value.value.value, options);
         case "calc":
           return parseCalcFn(value.value.value, options);
+        default:
+          value.value satisfies never;
+          return;
       }
     case "resolution":
       switch (value.value.type) {
@@ -138,7 +145,7 @@ function parseValue(
   return;
 }
 
-function parseOperator(
+export function parseMediaFeatureOperator(
   operator: CSSMediaFeatureComparison,
 ): MediaFeatureComparison {
   switch (operator) {

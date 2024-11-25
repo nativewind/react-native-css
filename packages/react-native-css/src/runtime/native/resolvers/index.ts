@@ -10,7 +10,6 @@ import { resolveVariable } from "./variable";
 export type ResolveOptions = {
   getProp?: (name: string) => StyleDescriptor;
   getVariable: (name: string) => StyleDescriptor;
-  getContainer?: (name: string) => ContainerContextRecord | undefined;
   getEm?: () => number;
   castToArray?: boolean;
   previousTransitions?: Set<string | string[]>;
