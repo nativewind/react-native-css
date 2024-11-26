@@ -1407,24 +1407,44 @@ export function parseDeclaration(
     }
     case "translate":
       add(
-        "style",
+        "transform",
         "translateX",
         parseTranslate(declaration.value, "x", parseOptions),
       );
       add(
-        "style",
-        "translateX",
+        "transform",
+        "translateY",
         parseTranslate(declaration.value, "y", parseOptions),
       );
       return;
     case "rotate":
-      add("style", "rotateX", parseAngle(declaration.value.x, parseOptions));
-      add("style", "rotateY", parseAngle(declaration.value.y, parseOptions));
-      add("style", "rotateZ", parseAngle(declaration.value.z, parseOptions));
+      add(
+        "transform",
+        "rotateX",
+        parseAngle(declaration.value.x, parseOptions),
+      );
+      add(
+        "transform",
+        "rotateY",
+        parseAngle(declaration.value.y, parseOptions),
+      );
+      add(
+        "transform",
+        "rotateZ",
+        parseAngle(declaration.value.z, parseOptions),
+      );
       return;
     case "scale":
-      add("style", "scaleX", parseScale(declaration.value, "x", parseOptions));
-      add("style", "scaleY", parseScale(declaration.value, "y", parseOptions));
+      add(
+        "transform",
+        "scaleX",
+        parseScale(declaration.value, "x", parseOptions),
+      );
+      add(
+        "transform",
+        "scaleY",
+        parseScale(declaration.value, "y", parseOptions),
+      );
       return;
     case "text-transform":
       return add("style", declaration.property, declaration.value.case);
@@ -3067,4 +3087,4 @@ function kebabCase(str: string) {
   );
 }
 
-const runtimeShorthands = new Set(["animation", "text-shadow"]);
+const runtimeShorthands = new Set(["animation", "text-shadow", "transform"]);

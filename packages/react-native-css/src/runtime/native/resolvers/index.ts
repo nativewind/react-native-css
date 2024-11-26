@@ -1,9 +1,14 @@
-import { StyleDescriptor, StyleFunction } from "../../runtime.types";
-import type { ContainerContextRecord } from "../contexts";
+import {
+  StyleAttribute,
+  StyleDescriptor,
+  StyleFunction,
+} from "../../runtime.types";
 import { Effect } from "../utils/observable";
+import { transformKeys } from "../utils/properties";
 import { animation } from "./animation";
 import { calc } from "./calc";
 import { textShadow } from "./text-shadow";
+import { transform } from "./transform";
 import { em, remResolver, vhResolver, vwResolver } from "./units";
 import { resolveVariable } from "./variable";
 
@@ -19,6 +24,7 @@ export type StyleValueResolver = (
   value: StyleDescriptor,
   options: ResolveOptions,
   effect?: Effect,
+  propPath?: StyleAttribute,
 ) => any;
 
 export type StyleFunctionResolver = (
@@ -31,6 +37,7 @@ export type StyleFunctionResolver = (
 const functions: Record<string, StyleFunctionResolver> = {
   "@animation": animation,
   "@textShadow": textShadow,
+  "@transform": transform,
   calc,
   em,
   rem: remResolver,
@@ -81,6 +88,15 @@ export const resolveValue: StyleValueResolver = (value, options, effect) => {
           options,
           effect,
         );
+      } else if (transformKeys.has(name)) {
+        const args = resolveValue(value[2], options, effect);
+        if (Array.isArray(args) && args.length === 1) {
+          return [args[0], name];
+        }
+        return;
+      } else if (name === "translate") {
+        const [x, y] = resolveValue(value[2], options, effect);
+        return [{ translateX: x }, { translateY: y }];
       } else {
         const args = resolveValue(value[2], options, effect);
 

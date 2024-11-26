@@ -15,7 +15,11 @@ import {
   StyleRule,
 } from "../runtime";
 import { isStyleDescriptorArray } from "../runtime/utils";
-import { CompilerCollection, StyleRuleMapping } from "./compiler.types";
+import {
+  CompilerCollection,
+  PathTokens,
+  StyleRuleMapping,
+} from "./compiler.types";
 import { toRNProperty } from "./selectors";
 
 export type AddFn = ReturnType<typeof buildAddFn>;
@@ -27,22 +31,22 @@ export function buildAddFn(
 ) {
   let staticDeclarations: Record<string, StyleDescriptor> | undefined;
 
-  function Add(
+  function add(
     type: "container",
     property: "container-name",
     value: string[] | false,
   ): void;
-  function Add(
+  function add(
     type: "transform",
     property: string,
     value: StyleDescriptor,
   ): void;
-  function Add(
+  function add(
     type: "animation",
     property: "animation-timing-function",
     value: EasingFunction[],
   ): void;
-  function Add(
+  function add(
     type: "animation",
     property:
       | "unparsed-animation"
@@ -56,12 +60,12 @@ export function buildAddFn(
       | keyof CSSAnimation,
     value: StyleDescriptor,
   ): void;
-  function Add(
+  function add(
     type: "transition",
     property: "transition-timing-function",
     value: EasingFunction[],
   ): void;
-  function Add(
+  function add(
     type: "transition",
     property:
       | "transition-delay"
@@ -69,8 +73,8 @@ export function buildAddFn(
       | "transition-property",
     value: StyleDescriptor,
   ): void;
-  function Add(type: "style", property: string, value: StyleDescriptor): void;
-  function Add(
+  function add(type: "style", property: string, value: StyleDescriptor): void;
+  function add(
     type: string,
     property: string,
     value: StyleDescriptor | EasingFunction[],
@@ -79,14 +83,14 @@ export function buildAddFn(
       return;
     }
 
+    let forceTuple = false;
+
     switch (type) {
       case "container": {
         rule.c ??= [];
         rule.c.push(...(value as string[]));
         break;
       }
-      case "transform":
-        return;
       case "transition":
         switch (property) {
           case "transition-timing-function":
@@ -151,6 +155,8 @@ export function buildAddFn(
         }
 
         return;
+      case "transform":
+        forceTuple = true;
       case "style": {
         value = value as StyleDescriptor;
 
@@ -185,11 +191,11 @@ export function buildAddFn(
             rule.d.push([strippedValue as StyleFunction, rename || property]);
           }
         } else if (
-          rename &&
-          (rename.length > 1 || !rename[0].startsWith("^"))
+          forceTuple ||
+          (rename && (rename.length > 1 || !rename[0].startsWith("^")))
         ) {
           rule.d ??= [];
-          rule.d.push([value, rename]);
+          rule.d.push([value, rename || property]);
         } else {
           if (rename) {
             property = rename[0].slice(1);
@@ -206,7 +212,7 @@ export function buildAddFn(
     }
   }
 
-  return Add;
+  return add;
 }
 
 function stripDelay(value: StyleDescriptor): [StyleDescriptor, boolean] {

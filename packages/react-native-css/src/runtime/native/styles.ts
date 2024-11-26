@@ -250,9 +250,14 @@ function applyDeclaration(
         value = {};
         delayedStyles.push(() => {
           const placeholder = value;
-          value = resolveValue(originalValue, options, next.styles);
+          value = resolveValue(originalValue, options, next.styles, propPath);
 
-          if (value && typeof value === "object" && ShortHandSymbol in value) {
+          if (
+            typeof value === "object" &&
+            value !== null &&
+            ShortHandSymbol in value
+          ) {
+            setValue(props, propPath, undefined, target);
             applyShortHand(
               next,
               previous,
@@ -261,7 +266,6 @@ function applyDeclaration(
               delayedStyles,
               options,
             );
-            setValue(props, propPath, undefined, target);
           } else {
             if (transitionFn) {
               next.styles.sideEffects ??= [];
@@ -274,7 +278,11 @@ function applyDeclaration(
       } else {
         value = resolveValue(value, options, next.styles);
 
-        if (value && typeof value === "object" && ShortHandSymbol in value) {
+        if (
+          typeof value === "object" &&
+          value !== null &&
+          ShortHandSymbol in value
+        ) {
           applyShortHand(next, previous, props, value, delayedStyles, options);
           return props;
         }
