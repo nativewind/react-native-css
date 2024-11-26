@@ -14,9 +14,6 @@ export type ConfigReducerState = Config &
     declarations?: Declarations;
     // The styles from the declarations
     styles?: Styles;
-    // The containers produced by the config
-    // TODO: remove this?
-    variables?: Record<string, StyleDescriptor>;
   }>;
 
 export type ConfigReducerAction = Readonly<

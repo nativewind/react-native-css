@@ -61,7 +61,6 @@ export function buildStyles(
   const next: StateWithStyles = {
     ...previous,
     styles,
-    variables: Object.fromEntries(previous.declarations?.variables ?? []),
   };
 
   const options: ResolveOptions = {
@@ -70,7 +69,11 @@ export function buildStyles(
       return incomingProps?.[name] as StyleDescriptor;
     },
     getVariable: (name: string) => {
-      let value = resolveValue(next.variables?.[name], options, next.styles);
+      let value = resolveValue(
+        next.declarations?.variables?.[name],
+        options,
+        next.styles,
+      );
 
       // If the value is already defined, we don't need to look it up
       if (value !== undefined) {

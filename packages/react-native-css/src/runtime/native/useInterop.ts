@@ -320,12 +320,12 @@ export function performConfigReducerActions(
   let containerDraft: ProduceRecord<typeof inheritedContainers> | undefined;
 
   for (const state of configStates) {
-    if (state.variables) {
+    if (state.declarations?.variables) {
       variableDraft ??= new ProduceRecord(inheritedVariables).assign(
         previous.variables,
       );
 
-      variableDraft.assign(state.variables);
+      variableDraft.assign(state.declarations.variables);
     }
 
     if (state.declarations?.containers) {

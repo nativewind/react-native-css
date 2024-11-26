@@ -41,14 +41,10 @@ export function buildAnimationSideEffects(
       return Object.assign(acc, current[0]);
     }
 
-    if (next.variables) {
-      variables = Object.fromEntries(next.variables);
-    }
-
     const shorthandAttributes = getAnimationAttributes(
       current[1],
       next,
-      variables,
+      next.variables,
       inheritedVariables,
       guards,
     );
@@ -369,7 +365,7 @@ export function getTransitionSideEffect(
 function getAnimationAttributes(
   func: StyleFunction,
   next: Declarations,
-  variables: Record<string, StyleDescriptor>,
+  variables: VariableContextValue | undefined,
   inheritedVariables: VariableContextValue,
   guards: ImmutableGuards,
 ) {

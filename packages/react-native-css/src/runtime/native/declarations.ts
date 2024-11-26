@@ -25,7 +25,7 @@ export type Declarations = Effect & {
   epoch: number;
   normal?: (StyleRule | InlineStyleRecord)[];
   important?: StyleRule[];
-  variables?: VariableDescriptor[];
+  variables?: VariableContextValue;
   containers?: ContainerContextValue;
   guards: RenderGuard[];
   animation?: NonNullable<StyleRule["a"]>[];
@@ -73,7 +73,7 @@ export function buildDeclarations(
     (StyleRule | InlineStyleRecord)[] | undefined
   >(previous?.normal);
   const important = new ProduceArray(previous?.important);
-  const variables = new ProduceArray(previous?.variables);
+  const variables = new ProduceRecord(previous?.variables);
   const containers = new ProduceRecord(previous?.containers);
   const animation = new ProduceArray(previous?.animation);
   const transition = new ProduceRecord(previous?.transition);
@@ -186,7 +186,7 @@ function collectRules(
   collection: (StyleRule | InlineStyleRecord)[],
   styleRules: (StyleRule | InlineStyleRecord)[] | InlineStyle | undefined,
   guards: ProduceArray<RenderGuard[]>,
-  variables: ProduceArray<VariableDescriptor[] | undefined>,
+  variables: ProduceRecord<VariableContextValue | undefined>,
   containers: ProduceRecord<ContainerContextValue | undefined>,
   animations: ProduceArray<AnimationRule[] | undefined>,
   transition: ProduceRecord<TransitionAttributes | undefined>,
@@ -243,7 +243,7 @@ function collectRules(
     }
 
     if (rule.v) {
-      variables.pushAll(rule.v);
+      variables.assign(Object.fromEntries(rule.v));
     }
 
     if (rule.c) {
