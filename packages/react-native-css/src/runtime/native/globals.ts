@@ -1,11 +1,15 @@
 import { Appearance, Dimensions } from "react-native";
 import type { ColorSchemeName, LayoutRectangle } from "react-native";
 
-import { StyleDescriptor, StyleRuleSet } from "../runtime.types";
+import {
+  LightDarkVariable,
+  StyleDescriptor,
+  StyleRuleSet,
+} from "../runtime.types";
 import { Config } from "./native.types";
 import { writeAnimation } from "./reanimated";
 import { isDeepEqual } from "./utils/equality";
-import { family, mutable, observable, weakFamily } from "./utils/observable";
+import { family, observable, weakFamily } from "./utils/observable";
 
 /**
  * In development, these are observable to allow for hot-reloading.
@@ -28,9 +32,7 @@ export const inlineStylesMap = new WeakMap<
 >();
 
 export const animationFamily = family(() => {
-  return process.env.NODE_ENV === "production"
-    ? mutable(undefined, writeAnimation, isDeepEqual)
-    : observable(undefined, writeAnimation, isDeepEqual);
+  return observable(undefined, writeAnimation, isDeepEqual);
 });
 
 export const rem = observable(14);
@@ -40,19 +42,16 @@ rem.name = "rem";
 
 const buildGlobalVariableFamily = (type: "root" | "universal") => {
   return family((name) => {
-    let light: StyleDescriptor | undefined;
-    let dark: StyleDescriptor | undefined;
+    let light: StyleDescriptor;
+    let dark: StyleDescriptor;
 
-    const obs = observable<
-      StyleDescriptor,
-      [light: StyleDescriptor, dark: StyleDescriptor]
-    >(
+    const obs = observable(
       (get) => {
         return get(appColorScheme) === "dark" ? (dark ?? light) : light;
       },
-      (utils, lightValue: StyleDescriptor, darkValue: StyleDescriptor) => {
-        light = lightValue;
-        dark = darkValue;
+      (utils, values: LightDarkVariable) => {
+        light = values[0];
+        dark = values[1];
         return utils.get(appColorScheme) === "dark" ? dark : light;
       },
     );

@@ -448,14 +448,12 @@ function setStyleForSelectorList(
       collection[type] ??= {};
       for (const [name, value] of style.v) {
         collection[type] ??= {};
-        collection[type][name] ??= [];
+        collection[type][name] ??= [undefined];
         if (subtype === "light") {
           collection[type][name][0] = value;
         } else {
           collection[type][name][1] = value;
         }
-
-        //   collection[type][name][subtype] = value as any;
       }
       continue;
     } else if (selector.type === "className") {

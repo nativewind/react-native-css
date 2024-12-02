@@ -128,9 +128,9 @@ export interface InjectStylesOptions {
   /** KeyFrames */
   k?: [string, AnimationKeyframes][];
   /** Root Variables */
-  vr?: [string, StyleDescriptor[]][];
+  vr?: [string, LightDarkVariable][];
   /** Universal Variables */
-  vu?: [string, StyleDescriptor[]][];
+  vu?: [string, LightDarkVariable][];
 }
 
 type FeatureFlags = "";
@@ -138,8 +138,12 @@ export type FeatureFlagRecord = Partial<Record<FeatureFlags, boolean>>;
 
 /******************************    Variables    *******************************/
 
-export type VariableRecord = Record<string, StyleDescriptor[]>;
+export type VariableRecord = Record<string, LightDarkVariable>;
 export type VariableDescriptor = [string, StyleDescriptor];
+
+export type LightDarkVariable =
+  | [StyleDescriptor]
+  | [StyleDescriptor, StyleDescriptor];
 
 /******************************    Animations    ******************************/
 

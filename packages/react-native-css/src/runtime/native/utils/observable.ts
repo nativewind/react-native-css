@@ -4,11 +4,9 @@
  * When the observable changes, the effect will run.
  */
 export type Effect = {
-  dependencies: Set<Observable<any, any[]>>;
+  dependencies: Set<Observable<any, any>>;
   run(): void;
-  get<Value, Args extends unknown[]>(
-    readable: Observable<Value, Args> | Mutable<Value, Args>,
-  ): Value;
+  get<Value, Arg>(readable: Observable<Value, Arg>): Value;
 };
 
 export function cleanupEffect(effect?: Effect) {
@@ -25,15 +23,15 @@ export function cleanupEffect(effect?: Effect) {
  * An observable is a value that when read by an effect, will subscribe
  * the effect to the observable.
  */
-export type Observable<Value = unknown, Args extends unknown[] = never[]> = {
+export type Observable<Value = unknown, Arg = never> = {
   // Get the current value of the observable. If you provide an Effect, it will be subscribed to the observable.
   get(effect?: Effect): Value;
   // Set the value and rerun all subscribed Effects
-  set(...value: Args): void;
+  set(value: Arg): void;
   // Remove the effect from the observable
   remove(effect: Effect): void;
   // Set, but add the effects to a batch to be run later
-  batch(batch?: Set<Effect>, ...value: Args): void;
+  batch(batch: Set<Effect> | undefined, value: Arg): void;
 
   onChange(observable: Observable<any, any>): void;
   recalculate(set: Set<Effect>): void;
@@ -42,50 +40,45 @@ export type Observable<Value = unknown, Args extends unknown[] = never[]> = {
 };
 
 type Read<Value> = (get: Getter) => Value;
-type Write<Value, Args extends unknown[]> = (
+type Write<Value, Arg> = (
   utils: { set: Setter; get: Getter },
-  ...args: Args
+  arg: Arg,
 ) => Value;
-type MutableWrite<Value, Args extends unknown[]> = (
-  _: void,
-  ...args: Args
-) => Value;
+type MutableWrite<Value, Arg> = (_: void, arg: Arg) => Value;
 type Equality<Value> = ((left: Value, right: Value) => Boolean) | boolean;
-type Getter = <Value, Args extends unknown[]>(
-  observable: Observable<Value, Args>,
-) => Value;
-type Setter = <Value, Args extends unknown[]>(
-  observable: Observable<Value, Args>,
-  ...args: Args
+type Getter = <Value, Arg>(observable: Observable<Value, Arg>) => Value;
+type Setter = <Value, Arg>(
+  observable: Observable<Value, Arg>,
+  arg: Arg,
 ) => void;
 
 export function observable<Value>(
   read: undefined,
   write: undefined,
   equality?: Equality<Value>,
-): Observable<Value | undefined, [Value]>;
-export function observable<Value, Args extends unknown[]>(
+): Observable<Value | undefined, Value>;
+export function observable<Value, Arg>(
   read: undefined,
-  write?: Write<Value, Args>,
+  write?: Write<Value, Arg>,
   equality?: Equality<Value>,
-): Observable<Value | undefined, Args>;
-export function observable<Value, Args extends unknown[]>(
+): Observable<Value | undefined, Arg>;
+export function observable<Value, Arg>(
   read: Value | Read<Value>,
-  write: Write<Value, Args>,
+  write: Write<Value, Arg>,
   equality?: Equality<Value>,
-): Observable<Value, Args>;
+): Observable<Value, Arg>;
 export function observable<Value>(
   read: Value | Read<Value>,
-): Observable<Value, [Value]>;
+): Observable<Value, Value>;
 export function observable<Value>(): Observable<
   Value | undefined,
-  [Value | undefined]
+  Value | undefined
 >;
-export function observable<Value, Args extends unknown[]>(
+export function observable<Value, Arg>(
   read?: Value | Read<Value>,
-  write?: Write<Value, Args>,
+  write?: Write<Value, Arg>,
   equality: Equality<Value> = Object.is,
-): Observable<Value, Args> {
+): Observable<Value, Arg> {
   const dependentEffects = new Set<Effect>();
   const dependentObs = new Set<Observable>();
 
@@ -97,14 +90,14 @@ export function observable<Value, Args extends unknown[]>(
     return observable.get();
   };
 
-  const setter: Setter = (observable, ...args) => {
+  const setter: Setter = (observable, arg) => {
     observable.onChange(obs);
-    observable.set(...args);
+    observable.set(arg);
   };
 
   const utils = { get: getter, set: setter };
 
-  const obs: Observable<Value, Args> = {
+  const obs: Observable<Value, Arg> = {
     get(dependent) {
       /**
        * Observables with read functions are lazy and only run the read function once.
@@ -129,11 +122,11 @@ export function observable<Value, Args extends unknown[]>(
      * Sets the value of the observable and immediately runs all subscribed effects.
      * If you are setting multiple observables in succession, use batch() instead.
      */
-    set(...args) {
+    set(arg) {
       const nextValue =
         typeof write === "function"
-          ? write(utils, ...(args as Args))
-          : (args[0] as Value);
+          ? write(utils, arg)
+          : (arg as unknown as Value);
 
       const isEqual =
         typeof equality === "function"
@@ -168,11 +161,11 @@ export function observable<Value, Args extends unknown[]>(
      *
      * It it up to the caller to run the effects in the Set.
      */
-    batch(batch, ...args) {
+    batch(batch, arg) {
       const nextValue =
         typeof write === "function"
-          ? write(utils, ...(args as Args))
-          : (args[0] as Value);
+          ? write(utils, arg)
+          : (arg as unknown as Value);
 
       const isEqual =
         typeof equality === "function"
@@ -234,77 +227,22 @@ export function observable<Value, Args extends unknown[]>(
   return obs;
 }
 
-/********************************    Mutable   ********************************/
-
-/**
- * An "observable" that does not observe anything.
- *
- * This is used in production for things that cannot change.
- */
-export type Mutable<Value, Args extends unknown[]> = Observable<Value, Args>;
-
-export function mutable<Value>(
-  read: undefined,
-  write: undefined,
-  equality?: Equality<Value>,
-): Mutable<Value | undefined, never[]>;
-export function mutable<Value>(): Mutable<Value | undefined, never[]>;
-export function mutable<Value, Args extends unknown[]>(
-  value: undefined,
-  write?: MutableWrite<Value, Args>,
-  equality?: Equality<Value>,
-): Mutable<Value | undefined, Args>;
-export function mutable<Value, Args extends unknown[]>(
-  value?: Value,
-  write?: MutableWrite<Value, Args>,
-  equality: Equality<Value> = Object.is,
-): Mutable<Value, Args> {
-  return {
-    get() {
-      return value as Value;
-    },
-    set(...args) {
-      const nextValue =
-        typeof write === "function"
-          ? write(undefined, ...(args as Args))
-          : (args[0] as Value);
-
-      const isEqual =
-        typeof equality === "function"
-          ? equality(value as Value, nextValue)
-          : equality;
-
-      if (!isEqual) {
-        value = nextValue;
-      }
-    },
-    batch(_, ...args) {
-      return this.set(...args);
-    },
-    remove() {},
-    onChange() {},
-    recalculate() {},
-  };
-}
-
 /********************************    Family    ********************************/
 
-export type Family<Value, Args extends unknown[] = never[]> = ReturnType<
-  typeof family<Value, Args>
+export type Family<Value, Arg = never[]> = ReturnType<
+  typeof family<Value, Arg>
 >;
 
 /**
  * Utility around Map that creates a new value if it doesn't exist.
  */
-export function family<Value, Args extends unknown[]>(
-  fn: (name: string, ...args: Args) => Value,
-) {
+export function family<Value, Arg>(fn: (name: string, arg?: Arg) => Value) {
   const map = new Map<string, Value>();
   return Object.assign(
-    (name: string, ...args: Args) => {
+    (name: string, arg?: Arg) => {
       let result = map.get(name);
       if (!result) {
-        result = fn(name, ...args);
+        result = fn(name, arg);
         map.set(name, result);
       }
       return result!;
