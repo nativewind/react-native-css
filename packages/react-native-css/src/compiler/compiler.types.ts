@@ -82,7 +82,7 @@ export interface StyleRule {
    */
 
   /** Animations */
-  a?: AnimationRule;
+  a?: AnimationWithDefault;
   /** Transitions */
   t?: TransitionRule;
 }
@@ -133,11 +133,17 @@ export type LightDarkVariable =
 
 /******************************    Animations    ******************************/
 
-export type AnimationRule =
-  | [AnimationAttributes]
-  | [AnimationAttributes, StyleFunction];
+/**
+ * An animation with a fallback style value
+ */
+export type AnimationWithDefault =
+  | [AnimationRule]
+  | [AnimationRule, StyleFunction];
 
-export type AnimationAttributes = {
+/**
+ * A CSS Animation rule
+ */
+export interface AnimationRule {
   /**
    * The animation delay.
    */
@@ -174,7 +180,7 @@ export type AnimationAttributes = {
    * The easing function for the animation.
    */
   e?: EasingFunction[];
-};
+}
 
 export type AnimationKeyframes =
   | [AnimationInterpolation[]]

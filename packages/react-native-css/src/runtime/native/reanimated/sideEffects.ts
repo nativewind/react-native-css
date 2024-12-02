@@ -1,5 +1,5 @@
 import type {
-  AnimationAttributes,
+  AnimationRule,
   EasingFunction,
   StyleDescriptor,
   StyleFunction,
@@ -53,7 +53,7 @@ export function buildAnimationSideEffects(
 
     // Make sure more specific attributes override the shorthand
     return Object.assign(acc, shorthandAttributes, current[0]);
-  }, {} as Partial<AnimationAttributes>);
+  }, {} as Partial<AnimationRule>);
 
   if (!names.length) return next;
 
@@ -274,7 +274,7 @@ export function getEasing(
   }
 }
 
-const defaultAnimation: Required<AnimationAttributes> = {
+const defaultAnimation: Required<AnimationRule> = {
   n: ["none"],
   di: ["normal"],
   de: [0],
@@ -410,9 +410,9 @@ function getAnimationAttributes(
     return;
   }
 
-  const animation: Partial<AnimationAttributes> = {};
+  const animation: Partial<AnimationRule> = {};
 
-  for (const entry of resolved as [any, keyof AnimationAttributes][]) {
+  for (const entry of resolved as [any, keyof AnimationRule][]) {
     animation[entry[1]] = entry[0];
   }
 

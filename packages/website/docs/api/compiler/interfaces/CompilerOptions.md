@@ -10,7 +10,7 @@ optional features: Partial<Record<"", boolean>>;
 
 #### Defined in
 
-[compiler/compiler.types.ts:14](https://github.com/nativewind/react-native-css/blob/a400e1318389c5ae2af21e895162179d7418d761/packages/react-native-css/src/compiler/compiler.types.ts#L14)
+[compiler/compiler.types.ts:14](https://github.com/nativewind/react-native-css/blob/83125aa9006bd52788fb23ba03d168e1262bcadb/packages/react-native-css/src/compiler/compiler.types.ts#L14)
 
 ---
 
@@ -22,7 +22,7 @@ optional grouping: (string | RegExp)[];
 
 #### Defined in
 
-[compiler/compiler.types.ts:11](https://github.com/nativewind/react-native-css/blob/a400e1318389c5ae2af21e895162179d7418d761/packages/react-native-css/src/compiler/compiler.types.ts#L11)
+[compiler/compiler.types.ts:11](https://github.com/nativewind/react-native-css/blob/83125aa9006bd52788fb23ba03d168e1262bcadb/packages/react-native-css/src/compiler/compiler.types.ts#L11)
 
 ---
 
@@ -34,7 +34,7 @@ optional inlineRem: number | false;
 
 #### Defined in
 
-[compiler/compiler.types.ts:10](https://github.com/nativewind/react-native-css/blob/a400e1318389c5ae2af21e895162179d7418d761/packages/react-native-css/src/compiler/compiler.types.ts#L10)
+[compiler/compiler.types.ts:10](https://github.com/nativewind/react-native-css/blob/83125aa9006bd52788fb23ba03d168e1262bcadb/packages/react-native-css/src/compiler/compiler.types.ts#L10)
 
 ---
 
@@ -56,7 +56,7 @@ optional logger: (message) => void;
 
 #### Defined in
 
-[compiler/compiler.types.ts:15](https://github.com/nativewind/react-native-css/blob/a400e1318389c5ae2af21e895162179d7418d761/packages/react-native-css/src/compiler/compiler.types.ts#L15)
+[compiler/compiler.types.ts:15](https://github.com/nativewind/react-native-css/blob/83125aa9006bd52788fb23ba03d168e1262bcadb/packages/react-native-css/src/compiler/compiler.types.ts#L15)
 
 ---
 
@@ -68,7 +68,7 @@ optional selectorPrefix: string;
 
 #### Defined in
 
-[compiler/compiler.types.ts:12](https://github.com/nativewind/react-native-css/blob/a400e1318389c5ae2af21e895162179d7418d761/packages/react-native-css/src/compiler/compiler.types.ts#L12)
+[compiler/compiler.types.ts:12](https://github.com/nativewind/react-native-css/blob/83125aa9006bd52788fb23ba03d168e1262bcadb/packages/react-native-css/src/compiler/compiler.types.ts#L12)
 
 ---
 
@@ -80,4 +80,4 @@ optional stylesheetOrder: number;
 
 #### Defined in
 
-[compiler/compiler.types.ts:13](https://github.com/nativewind/react-native-css/blob/a400e1318389c5ae2af21e895162179d7418d761/packages/react-native-css/src/compiler/compiler.types.ts#L13)
+[compiler/compiler.types.ts:13](https://github.com/nativewind/react-native-css/blob/83125aa9006bd52788fb23ba03d168e1262bcadb/packages/react-native-css/src/compiler/compiler.types.ts#L13)

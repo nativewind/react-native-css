@@ -1,4 +1,8 @@
-import type { AnimationRule, StyleRule, TransitionRule } from "../../compiler";
+import type {
+  AnimationWithDefault,
+  StyleRule,
+  TransitionRule,
+} from "../../compiler";
 import type {
   InlineStyle,
   InlineStyleRecord,
@@ -185,7 +189,7 @@ function collectRules(
   guards: ProduceArray<RenderGuard[]>,
   variables: ProduceRecord<VariableContextValue | undefined>,
   containers: ProduceRecord<ContainerContextValue | undefined>,
-  animations: ProduceArray<AnimationRule[] | undefined>,
+  animations: ProduceArray<AnimationWithDefault[] | undefined>,
   transition: ProduceRecord<TransitionRule | undefined>,
   componentState: UseInteropState,
   next: Declarations,

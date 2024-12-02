@@ -33,4 +33,4 @@ options?): ComponentType<ComponentProps<C> & { [K in string | number | symbol as
 
 ## Defined in
 
-[runtime/web/index.ts:13](https://github.com/nativewind/react-native-css/blob/a400e1318389c5ae2af21e895162179d7418d761/packages/react-native-css/src/runtime/web/index.ts#L13)
+[runtime/web/index.ts:13](https://github.com/nativewind/react-native-css/blob/83125aa9006bd52788fb23ba03d168e1262bcadb/packages/react-native-css/src/runtime/web/index.ts#L13)

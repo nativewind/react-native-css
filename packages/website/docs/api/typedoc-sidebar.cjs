@@ -11,6 +11,11 @@ const typedocSidebar = { items: [
         "items": [
           {
             "type": "doc",
+            "id": "api/compiler/interfaces/AnimationRule",
+            "label": "AnimationRule"
+          },
+          {
+            "type": "doc",
             "id": "api/compiler/interfaces/CompilerOptions",
             "label": "CompilerOptions"
           },
@@ -42,11 +47,6 @@ const typedocSidebar = { items: [
         "items": [
           {
             "type": "doc",
-            "id": "api/compiler/type-aliases/AnimationAttributes",
-            "label": "AnimationAttributes"
-          },
-          {
-            "type": "doc",
             "id": "api/compiler/type-aliases/AnimationEasing",
             "label": "AnimationEasing"
           },
@@ -67,8 +67,8 @@ const typedocSidebar = { items: [
           },
           {
             "type": "doc",
-            "id": "api/compiler/type-aliases/AnimationRule",
-            "label": "AnimationRule"
+            "id": "api/compiler/type-aliases/AnimationWithDefault",
+            "label": "AnimationWithDefault"
           },
           {
             "type": "doc",

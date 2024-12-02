@@ -5,14 +5,14 @@
 ### a?
 
 ```ts
-optional a: AnimationRule;
+optional a: AnimationWithDefault;
 ```
 
 Animations
 
 #### Defined in
 
-[compiler/compiler.types.ts:85](https://github.com/nativewind/react-native-css/blob/a400e1318389c5ae2af21e895162179d7418d761/packages/react-native-css/src/compiler/compiler.types.ts#L85)
+[compiler/compiler.types.ts:85](https://github.com/nativewind/react-native-css/blob/83125aa9006bd52788fb23ba03d168e1262bcadb/packages/react-native-css/src/compiler/compiler.types.ts#L85)
 
 ---
 
@@ -26,7 +26,7 @@ Attribute Conditions
 
 #### Defined in
 
-[compiler/compiler.types.ts:78](https://github.com/nativewind/react-native-css/blob/a400e1318389c5ae2af21e895162179d7418d761/packages/react-native-css/src/compiler/compiler.types.ts#L78)
+[compiler/compiler.types.ts:78](https://github.com/nativewind/react-native-css/blob/83125aa9006bd52788fb23ba03d168e1262bcadb/packages/react-native-css/src/compiler/compiler.types.ts#L78)
 
 ---
 
@@ -40,7 +40,7 @@ Named Containers
 
 #### Defined in
 
-[compiler/compiler.types.ts:65](https://github.com/nativewind/react-native-css/blob/a400e1318389c5ae2af21e895162179d7418d761/packages/react-native-css/src/compiler/compiler.types.ts#L65)
+[compiler/compiler.types.ts:65](https://github.com/nativewind/react-native-css/blob/83125aa9006bd52788fb23ba03d168e1262bcadb/packages/react-native-css/src/compiler/compiler.types.ts#L65)
 
 ---
 
@@ -54,7 +54,7 @@ Container Query
 
 #### Defined in
 
-[compiler/compiler.types.ts:76](https://github.com/nativewind/react-native-css/blob/a400e1318389c5ae2af21e895162179d7418d761/packages/react-native-css/src/compiler/compiler.types.ts#L76)
+[compiler/compiler.types.ts:76](https://github.com/nativewind/react-native-css/blob/83125aa9006bd52788fb23ba03d168e1262bcadb/packages/react-native-css/src/compiler/compiler.types.ts#L76)
 
 ---
 
@@ -68,7 +68,7 @@ Declarations
 
 #### Defined in
 
-[compiler/compiler.types.ts:61](https://github.com/nativewind/react-native-css/blob/a400e1318389c5ae2af21e895162179d7418d761/packages/react-native-css/src/compiler/compiler.types.ts#L61)
+[compiler/compiler.types.ts:61](https://github.com/nativewind/react-native-css/blob/83125aa9006bd52788fb23ba03d168e1262bcadb/packages/react-native-css/src/compiler/compiler.types.ts#L61)
 
 ---
 
@@ -82,7 +82,7 @@ MediaQuery
 
 #### Defined in
 
-[compiler/compiler.types.ts:72](https://github.com/nativewind/react-native-css/blob/a400e1318389c5ae2af21e895162179d7418d761/packages/react-native-css/src/compiler/compiler.types.ts#L72)
+[compiler/compiler.types.ts:72](https://github.com/nativewind/react-native-css/blob/83125aa9006bd52788fb23ba03d168e1262bcadb/packages/react-native-css/src/compiler/compiler.types.ts#L72)
 
 ---
 
@@ -96,7 +96,7 @@ PseudoClassesQuery
 
 #### Defined in
 
-[compiler/compiler.types.ts:74](https://github.com/nativewind/react-native-css/blob/a400e1318389c5ae2af21e895162179d7418d761/packages/react-native-css/src/compiler/compiler.types.ts#L74)
+[compiler/compiler.types.ts:74](https://github.com/nativewind/react-native-css/blob/83125aa9006bd52788fb23ba03d168e1262bcadb/packages/react-native-css/src/compiler/compiler.types.ts#L74)
 
 ---
 
@@ -110,7 +110,7 @@ Specificity
 
 #### Defined in
 
-[compiler/compiler.types.ts:59](https://github.com/nativewind/react-native-css/blob/a400e1318389c5ae2af21e895162179d7418d761/packages/react-native-css/src/compiler/compiler.types.ts#L59)
+[compiler/compiler.types.ts:59](https://github.com/nativewind/react-native-css/blob/83125aa9006bd52788fb23ba03d168e1262bcadb/packages/react-native-css/src/compiler/compiler.types.ts#L59)
 
 ---
 
@@ -124,7 +124,7 @@ Transitions
 
 #### Defined in
 
-[compiler/compiler.types.ts:87](https://github.com/nativewind/react-native-css/blob/a400e1318389c5ae2af21e895162179d7418d761/packages/react-native-css/src/compiler/compiler.types.ts#L87)
+[compiler/compiler.types.ts:87](https://github.com/nativewind/react-native-css/blob/83125aa9006bd52788fb23ba03d168e1262bcadb/packages/react-native-css/src/compiler/compiler.types.ts#L87)
 
 ---
 
@@ -138,4 +138,4 @@ Variables
 
 #### Defined in
 
-[compiler/compiler.types.ts:63](https://github.com/nativewind/react-native-css/blob/a400e1318389c5ae2af21e895162179d7418d761/packages/react-native-css/src/compiler/compiler.types.ts#L63)
+[compiler/compiler.types.ts:63](https://github.com/nativewind/react-native-css/blob/83125aa9006bd52788fb23ba03d168e1262bcadb/packages/react-native-css/src/compiler/compiler.types.ts#L63)

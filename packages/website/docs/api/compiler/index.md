@@ -8,6 +8,7 @@ A CSS-to-JSON compiler for React Native focusing on minimal output.
 
 | Interface                                                          | Description                                                                  |
 | ------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| [AnimationRule](interfaces/AnimationRule.md)                       | A CSS Animation rule                                                         |
 | [CompilerOptions](interfaces/CompilerOptions.md)                   | -                                                                            |
 | [ContainerQuery](interfaces/ContainerQuery.md)                     | ************\*\*\*\************* Containers ************\*\*\*\************* |
 | [PseudoClassesQuery](interfaces/PseudoClassesQuery.md)             | -                                                                            |
@@ -18,12 +19,11 @@ A CSS-to-JSON compiler for React Native focusing on minimal output.
 
 | Type alias                                                               | Description                                                                   |
 | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
-| [AnimationAttributes](type-aliases/AnimationAttributes.md)               | -                                                                             |
 | [AnimationEasing](type-aliases/AnimationEasing.md)                       | -                                                                             |
 | [AnimationInterpolation](type-aliases/AnimationInterpolation.md)         | -                                                                             |
 | [AnimationInterpolationType](type-aliases/AnimationInterpolationType.md) | -                                                                             |
 | [AnimationKeyframes](type-aliases/AnimationKeyframes.md)                 | -                                                                             |
-| [AnimationRule](type-aliases/AnimationRule.md)                           | ************\*\*\*\************* Animations **************\***************    |
+| [AnimationWithDefault](type-aliases/AnimationWithDefault.md)             | An animation with a fallback style value                                      |
 | [AttributeQuery](type-aliases/AttributeQuery.md)                         | -                                                                             |
 | [AttrSelectorOperator](type-aliases/AttrSelectorOperator.md)             | -                                                                             |
 | [ContainerCondition](type-aliases/ContainerCondition.md)                 | -                                                                             |

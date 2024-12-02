@@ -49,12 +49,11 @@ type CSSInteropAtRule = {
 /**
  * Converts a CSS file to a collection of style declarations that can be used with the StyleSheet API
  *
- * @param {Buffer|string} code - The CSS file contents111
- * @param {CssToReactNativeRuntimeOptions} options - (Optional) Options for the conversion process
- * @returns An object containing the extracted style declarations and animations
+ * @param code - The CSS file contents
+ * @param options - Compiler options
+ * @returns A `ReactNativeCssStyleSheet` that can be passed to `StyleSheet.register` or used with a custom runtime
  */
 export function compile(
-  /** test */
   code: Buffer | string,
   { logger = debug("react-native-css"), ...options }: CompilerOptions = {},
 ): ReactNativeCssStyleSheet {

@@ -12,7 +12,7 @@ Active
 
 #### Defined in
 
-[compiler/compiler.types.ts:286](https://github.com/nativewind/react-native-css/blob/a400e1318389c5ae2af21e895162179d7418d761/packages/react-native-css/src/compiler/compiler.types.ts#L286)
+[compiler/compiler.types.ts:292](https://github.com/nativewind/react-native-css/blob/83125aa9006bd52788fb23ba03d168e1262bcadb/packages/react-native-css/src/compiler/compiler.types.ts#L292)
 
 ---
 
@@ -26,7 +26,7 @@ Focus
 
 #### Defined in
 
-[compiler/compiler.types.ts:288](https://github.com/nativewind/react-native-css/blob/a400e1318389c5ae2af21e895162179d7418d761/packages/react-native-css/src/compiler/compiler.types.ts#L288)
+[compiler/compiler.types.ts:294](https://github.com/nativewind/react-native-css/blob/83125aa9006bd52788fb23ba03d168e1262bcadb/packages/react-native-css/src/compiler/compiler.types.ts#L294)
 
 ---
 
@@ -40,4 +40,4 @@ Hover
 
 #### Defined in
 
-[compiler/compiler.types.ts:284](https://github.com/nativewind/react-native-css/blob/a400e1318389c5ae2af21e895162179d7418d761/packages/react-native-css/src/compiler/compiler.types.ts#L284)
+[compiler/compiler.types.ts:290](https://github.com/nativewind/react-native-css/blob/83125aa9006bd52788fb23ba03d168e1262bcadb/packages/react-native-css/src/compiler/compiler.types.ts#L290)

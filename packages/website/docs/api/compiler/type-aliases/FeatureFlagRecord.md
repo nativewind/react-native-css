@@ -6,4 +6,4 @@ type FeatureFlagRecord: Partial<Record<FeatureFlags, boolean>>;
 
 ## Defined in
 
-[compiler/compiler.types.ts:351](https://github.com/nativewind/react-native-css/blob/a400e1318389c5ae2af21e895162179d7418d761/packages/react-native-css/src/compiler/compiler.types.ts#L351)
+[compiler/compiler.types.ts:357](https://github.com/nativewind/react-native-css/blob/83125aa9006bd52788fb23ba03d168e1262bcadb/packages/react-native-css/src/compiler/compiler.types.ts#L357)
