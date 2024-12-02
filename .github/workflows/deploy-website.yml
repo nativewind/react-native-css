@@ -29,9 +29,8 @@ jobs:
 
       - name: Upload Build Artifact
         uses: actions/upload-pages-artifact@v3
-        working-directory: ./packages/website
         with:
-          path: build
+          path: ./packages/website/build
 
   deploy:
     name: Deploy to GitHub Pages
@@ -51,5 +50,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        working-directory: ./packages/website
         uses: actions/deploy-pages@v4
