@@ -6,7 +6,6 @@ import {
   type Props,
   type StyleRule,
   type TransitionAttributes,
-  type VariableDescriptor,
 } from "../runtime.types";
 import { specificityCompareFn } from "../utils";
 import { testRule } from "./conditions";

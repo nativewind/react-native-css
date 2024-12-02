@@ -2,10 +2,10 @@ import { Dimensions } from "react-native";
 
 import { compile, CompilerOptions } from "../compiler";
 import {
+  appColorScheme,
   dimensions,
   rem,
   styleFamily,
-  systemColorScheme,
 } from "../runtime/native/globals";
 import { injectData } from "../runtime/native/stylesheet";
 
@@ -23,7 +23,7 @@ export const testID = "react-native-css";
 
 beforeEach(() => {
   styleFamily.clear();
-  systemColorScheme.set(undefined);
+  appColorScheme.set(null);
   dimensions.set(Dimensions.get("window"));
   rem.set(14);
 });

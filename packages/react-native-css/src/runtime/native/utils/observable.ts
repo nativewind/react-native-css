@@ -35,20 +35,22 @@ export type Observable<Value = unknown, Args extends unknown[] = never[]> = {
   // Set, but add the effects to a batch to be run later
   batch(batch?: Set<Effect>, ...value: Args): void;
 
-  onChange(callback: (set: Set<Effect>) => void): void;
+  onChange(observable: Observable<any, any>): void;
   recalculate(set: Set<Effect>): void;
+
+  name?: string;
 };
 
 type Read<Value> = (get: Getter) => Value;
 type Write<Value, Args extends unknown[]> = (
-  set: Setter,
+  utils: { set: Setter; get: Getter },
   ...args: Args
 ) => Value;
 type MutableWrite<Value, Args extends unknown[]> = (
   _: void,
   ...args: Args
 ) => Value;
-type Equality<Value> = (left: Value, right: Value) => Boolean;
+type Equality<Value> = ((left: Value, right: Value) => Boolean) | boolean;
 type Getter = <Value, Args extends unknown[]>(
   observable: Observable<Value, Args>,
 ) => Value;
@@ -84,11 +86,23 @@ export function observable<Value, Args extends unknown[]>(
   write?: Write<Value, Args>,
   equality: Equality<Value> = Object.is,
 ): Observable<Value, Args> {
-  const dependents = new Set<Effect>();
-  const onChangeSubscribers = new Set<(set: Set<Effect>) => void>();
+  const dependentEffects = new Set<Effect>();
+  const dependentObs = new Set<Observable>();
 
   let init: Value | Read<Value> | undefined | null = null;
   let value: Value | undefined;
+
+  const getter: Getter = (observable) => {
+    observable.onChange(obs);
+    return observable.get();
+  };
+
+  const setter: Setter = (observable, ...args) => {
+    observable.onChange(obs);
+    observable.set(...args);
+  };
+
+  const utils = { get: getter, set: setter };
 
   const obs: Observable<Value, Args> = {
     get(dependent) {
@@ -97,14 +111,7 @@ export function observable<Value, Args extends unknown[]>(
        */
       if (init === null) {
         value =
-          typeof read === "function"
-            ? (read as Read<Value>)((observable) => {
-                // Subscribe to the observable
-                observable.onChange(obs.recalculate);
-                // Get the parent without the effect subscribing to it
-                return observable.get();
-              })
-            : read;
+          typeof read === "function" ? (read as Read<Value>)(getter) : read;
         init = value;
       }
 
@@ -112,7 +119,7 @@ export function observable<Value, Args extends unknown[]>(
        * Subscribe the effect to the observable if it is not read-only.
        */
       if (dependent) {
-        dependents.add(dependent);
+        dependentEffects.add(dependent);
         dependent.dependencies.add(obs);
       }
 
@@ -125,33 +132,35 @@ export function observable<Value, Args extends unknown[]>(
     set(...args) {
       const nextValue =
         typeof write === "function"
-          ? write(
-              (observable, ...args) => {
-                return observable.set(...args);
-              },
-              ...(args as Args),
-            )
+          ? write(utils, ...(args as Args))
           : (args[0] as Value);
 
-      if (equality(value as Value, nextValue)) {
+      const isEqual =
+        typeof equality === "function"
+          ? equality(value as Value, nextValue)
+          : equality;
+
+      if (isEqual) {
         return;
       }
 
       value = nextValue;
       init = value;
 
-      for (const subscriber of onChangeSubscribers) {
-        subscriber(dependents);
+      const effects = new Set(dependentEffects);
+      const dependentObsArray = Array.from(dependentObs);
+      dependentObs.clear();
+
+      for (const observable of dependentObsArray) {
+        observable.recalculate(effects);
       }
 
-      onChangeSubscribers.clear();
-
-      for (const effect of dependents) {
+      for (const effect of effects) {
         effect.run();
       }
     },
     remove(effect) {
-      dependents.delete(effect);
+      dependentEffects.delete(effect);
     },
     /**
      * batch() accepts a Set<Effect> and instead of running the effects immediately,
@@ -162,15 +171,15 @@ export function observable<Value, Args extends unknown[]>(
     batch(batch, ...args) {
       const nextValue =
         typeof write === "function"
-          ? write(
-              (observable, ...args) => {
-                return observable.batch(batch, ...args);
-              },
-              ...(args as Args),
-            )
+          ? write(utils, ...(args as Args))
           : (args[0] as Value);
 
-      if (equality(value as Value, nextValue)) {
+      const isEqual =
+        typeof equality === "function"
+          ? equality(value as Value, nextValue)
+          : equality;
+
+      if (isEqual) {
         return;
       }
 
@@ -182,13 +191,13 @@ export function observable<Value, Args extends unknown[]>(
 
       value = nextValue;
 
-      for (const effect of dependents) {
+      for (const effect of dependentEffects) {
         batch?.add(effect);
       }
     },
 
-    onChange(callback) {
-      onChangeSubscribers.add(callback);
+    onChange(observable) {
+      dependentObs.add(observable);
     },
 
     recalculate(set) {
@@ -196,17 +205,27 @@ export function observable<Value, Args extends unknown[]>(
         return;
       }
 
-      const nextValue = (read as Read<Value>)((observable) => {
-        observable.onChange(obs.recalculate);
-        return observable.get();
-      });
+      const nextValue = (read as Read<Value>)(getter);
 
-      if (equality(value as Value, nextValue)) {
+      const isEqual =
+        typeof equality === "function"
+          ? equality(value as Value, nextValue)
+          : equality;
+
+      if (isEqual) {
         return;
       }
 
-      init = null;
-      for (const effect of dependents) {
+      value = nextValue;
+
+      const dependentObsArray = Array.from(dependentObs);
+      dependentObs.clear();
+
+      for (const observable of dependentObsArray) {
+        observable.recalculate(set);
+      }
+
+      for (const effect of dependentEffects) {
         set.add(effect);
       }
     },
@@ -250,7 +269,12 @@ export function mutable<Value, Args extends unknown[]>(
           ? write(undefined, ...(args as Args))
           : (args[0] as Value);
 
-      if (!equality(value as Value, nextValue)) {
+      const isEqual =
+        typeof equality === "function"
+          ? equality(value as Value, nextValue)
+          : equality;
+
+      if (!isEqual) {
         value = nextValue;
       }
     },

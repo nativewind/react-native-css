@@ -11,10 +11,15 @@ import { family, mutable, observable, weakFamily } from "./utils/observable";
  * In development, these are observable to allow for hot-reloading.
  * In production these will be static StyleRuleSets.
  */
-export const styleFamily = family(() => {
-  return process.env.NODE_ENV === "production"
-    ? undefined //mutable<StyleRuleSet>(undefined, undefined, isDeepEqual)
-    : observable<StyleRuleSet>(undefined, undefined, isDeepEqual);
+export const styleFamily = family((name) => {
+  if (process.env.NODE_ENV === "production") {
+    return undefined;
+  }
+
+  const obs = observable<StyleRuleSet>(undefined, undefined, isDeepEqual);
+  obs.name = name;
+
+  return obs;
 });
 
 export const inlineStylesMap = new WeakMap<
@@ -29,37 +34,36 @@ export const animationFamily = family(() => {
 });
 
 export const rem = observable(14);
+rem.name = "rem";
 
 /********************************* Variables **********************************/
 
-const buildGlobalVariableFamily = () => {
-  return family(() => {
-    const lightObs = observable<StyleDescriptor>();
-    const darkObs = observable<StyleDescriptor>();
+const buildGlobalVariableFamily = (type: "root" | "universal") => {
+  return family((name) => {
+    let light: StyleDescriptor | undefined;
+    let dark: StyleDescriptor | undefined;
 
-    return observable<
+    const obs = observable<
       StyleDescriptor,
       [light: StyleDescriptor, dark: StyleDescriptor]
     >(
       (get) => {
-        const colorScheme = get(appColorScheme);
-        return colorScheme === "dark" ? get(darkObs) : get(lightObs);
+        return get(appColorScheme) === "dark" ? (dark ?? light) : light;
       },
-      (set, light: StyleDescriptor, dark: StyleDescriptor) => {
-        set(lightObs, light);
-        set(darkObs, dark);
-        return light;
+      (utils, lightValue: StyleDescriptor, darkValue: StyleDescriptor) => {
+        light = lightValue;
+        dark = darkValue;
+        return utils.get(appColorScheme) === "dark" ? dark : light;
       },
-      /**
-       * This observable is only used for setting the values of other observables.
-       * Ignore any write values
-       */
-      () => true,
     );
+
+    obs.name = `${type}[${name}]`;
+
+    return obs;
   });
 };
-export const rootVariables = buildGlobalVariableFamily();
-export const universalVariables = buildGlobalVariableFamily();
+export const rootVariables = buildGlobalVariableFamily("root");
+export const universalVariables = buildGlobalVariableFamily("universal");
 
 /****************************** Pseudo Classes ********************************/
 
@@ -78,24 +82,24 @@ export const focusFamily = weakFamily(() => {
 /******************************* Dimensions ***********************************/
 
 export const dimensions = observable(Dimensions.get("window"));
+dimensions.name = "dimensions";
 export const vw = observable((read) => read(dimensions).width);
+vw.name = "vw";
 export const vh = observable((read) => read(dimensions).height);
+vh.name = "vh";
 
 /******************************* Color Scheme *********************************/
 
-export const systemColorScheme = observable<ColorSchemeName>();
 export const appColorScheme = observable(
-  (get) => {
-    const value = get(systemColorScheme);
-    return get(systemColorScheme) === undefined
-      ? Appearance.getColorScheme()
-      : value;
+  () => {
+    return Appearance.getColorScheme();
   },
-  (set, value: ColorSchemeName) => {
-    set(systemColorScheme, value);
-    return value === undefined ? Appearance.getColorScheme() : value;
+  (_, value: ColorSchemeName) => {
+    Appearance.setColorScheme(value);
+    return value ?? Appearance.getColorScheme();
   },
 );
+appColorScheme.name = "appColorScheme";
 
 /******************************* Containers ***********************************/
 
