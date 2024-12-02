@@ -5,13 +5,12 @@ import {
   KeyframesRule,
 } from "lightningcss";
 
+import { AnimationInterpolation, AnimationInterpolationType } from "../runtime";
 import {
-  AnimationInterpolation,
-  AnimationInterpolationType,
+  CompilerCollection,
   EasingFunction,
   StyleDescriptor,
-} from "../runtime";
-import { CompilerCollection } from "./compiler.types";
+} from "./compiler.types";
 import { parseDeclaration } from "./declarations";
 import { toRNProperty } from "./selectors";
 

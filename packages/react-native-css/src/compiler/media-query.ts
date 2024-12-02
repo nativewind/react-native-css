@@ -11,7 +11,7 @@ import {
   MediaCondition,
   MediaFeatureComparison,
   StyleDescriptor,
-} from "../runtime";
+} from "./compiler.types";
 import { parseLength, ParserOptions } from "./declarations";
 
 export function parseMediaQuery(

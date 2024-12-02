@@ -1,4 +1,5 @@
-import { AnimationKeyframes, KeyFramesWithStyles } from "../../runtime.types";
+import type { AnimationKeyframes } from "../../../compiler";
+import type { KeyFramesWithStyles } from "../../runtime.types";
 import { defaultValues, setValue } from "../utils/properties";
 
 export function writeAnimation(

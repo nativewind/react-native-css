@@ -1,5 +1,5 @@
 import type { StyleFunctionResolver } from ".";
-import { StyleDescriptor } from "../../runtime.types";
+import { StyleDescriptor } from "../../../compiler";
 import { defaultValues } from "../utils/properties";
 
 type ShorthandType =

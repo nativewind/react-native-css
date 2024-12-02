@@ -17,8 +17,8 @@ const config: Config = {
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
-  organizationName: "facebook", // Usually your GitHub org/user name.
-  projectName: "docusaurus", // Usually your repo name.
+  organizationName: "nativewind", // Usually your GitHub org/user name.
+  projectName: "react-native-css", // Usually your repo name.
 
   onBrokenLinks: "throw",
   onBrokenMarkdownLinks: "warn",
@@ -34,12 +34,26 @@ const config: Config = {
   plugins: [
     [
       "docusaurus-plugin-typedoc",
-
-      // Options
       {
-        entryPoints: ["../react-native-css/src/runtime/index.ts"],
+        entryPoints: [
+          "../react-native-css/src/runtime/index.ts",
+          "../react-native-css/src/compiler/index.ts",
+          // "../react-native-css/src/metro/index.ts",
+          // "../react-native-css/src/jest/index.ts",
+        ],
+        textContentMappings: {
+          "title.indexPage": "API",
+          "title.memberPage": "{name}",
+        },
+        excludeInternal: true,
+        formatWithPrettier: true,
         githubPages: true,
+        indexFormat: "table",
+        readme: "none",
+        sanitizeComments: true,
+        sidebar: { pretty: true },
         tsconfig: "../react-native-css/tsconfig.json",
+        useCodeBlocks: true,
       },
     ],
   ],
@@ -53,7 +67,7 @@ const config: Config = {
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
           editUrl:
-            "https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/",
+            "https://github.com/nativewind/react-native-css/tree/main/packages/website/",
         },
         blog: {
           showReadingTime: true,
@@ -89,7 +103,7 @@ const config: Config = {
       items: [
         {
           type: "docSidebar",
-          sidebarId: "tutorialSidebar",
+          sidebarId: "mySidebar",
           position: "left",
           label: "Tutorial",
         },
@@ -144,7 +158,7 @@ const config: Config = {
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} My Project, Inc. Built with Docusaurus.`,
+      copyright: `Copyright © ${new Date().getFullYear()} Mark Lawlor. Built with Docusaurus.`,
     },
     prism: {
       theme: prismThemes.github,

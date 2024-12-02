@@ -2,22 +2,16 @@ import {
   AnimationDirection,
   AnimationFillMode,
   AnimationPlayState,
-  Container,
-  ContainerNameList,
-  ContainerType,
   Animation as CSSAnimation,
 } from "lightningcss";
 
+import { isStyleDescriptorArray } from "../runtime/utils";
 import {
+  CompilerCollection,
   EasingFunction,
   StyleDescriptor,
   StyleFunction,
   StyleRule,
-} from "../runtime";
-import { isStyleDescriptorArray } from "../runtime/utils";
-import {
-  CompilerCollection,
-  PathTokens,
   StyleRuleMapping,
 } from "./compiler.types";
 import { toRNProperty } from "./selectors";

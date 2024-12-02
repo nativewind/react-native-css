@@ -1,4 +1,5 @@
-import type { Callback, StyleDescriptor } from "../runtime.types";
+import type { StyleDescriptor } from "../../compiler";
+import type { Callback } from "../runtime.types";
 import { ProduceArray } from "./utils/immutability";
 
 export type Config = {

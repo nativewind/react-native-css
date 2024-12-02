@@ -1,4 +1,4 @@
-import type { InlineStyle, StyleDescriptor } from "../../runtime";
+import type { StyleDescriptor } from "../../../compiler";
 import type { ConfigReducerState } from "../reducer";
 
 export function getValue(

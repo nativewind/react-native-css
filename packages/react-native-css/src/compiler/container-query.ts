@@ -3,7 +3,7 @@ import {
   QueryFeatureFor_ContainerSizeFeatureId,
 } from "lightningcss";
 
-import { ContainerCondition } from "../runtime";
+import { ContainerCondition } from "./compiler.types";
 import { ParserOptions } from "./declarations";
 import {
   parseMediaFeatureOperator,

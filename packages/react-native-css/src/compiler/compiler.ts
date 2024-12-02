@@ -1,6 +1,6 @@
 import { versions } from "node:process";
 
-import { debug as debugFn } from "debug";
+import { debug } from "debug";
 import {
   ContainerRule,
   MediaQuery as CSSMediaQuery,
@@ -13,20 +13,18 @@ import {
   TokenOrValue,
 } from "lightningcss";
 
-import {
-  ContainerQuery,
-  InjectStylesOptions,
-  MediaCondition,
-  SpecificityArray,
-  StyleRule,
-  StyleRuleSet,
-} from "../runtime";
 import { Specificity } from "../runtime/utils";
 import { buildAddFn } from "./add";
 import {
   CompilerCollection,
   CompilerOptions,
+  ContainerQuery,
+  MediaCondition,
+  ReactNativeCssStyleSheet,
+  SpecificityArray,
+  StyleRule,
   StyleRuleMapping,
+  StyleRuleSet,
 } from "./compiler.types";
 import { parseContainerCondition } from "./container-query";
 import {
@@ -51,21 +49,21 @@ type CSSInteropAtRule = {
 /**
  * Converts a CSS file to a collection of style declarations that can be used with the StyleSheet API
  *
- * @param {Buffer|string} code - The CSS file contents
+ * @param {Buffer|string} code - The CSS file contents111
  * @param {CssToReactNativeRuntimeOptions} options - (Optional) Options for the conversion process
- * @returns {StyleSheetRegisterOptions} - An object containing the extracted style declarations and animations
+ * @returns An object containing the extracted style declarations and animations
  */
 export function compile(
+  /** test */
   code: Buffer | string,
-  options: CompilerOptions = {},
-  debug = debugFn("react-native-css-interop"),
-): InjectStylesOptions {
+  { logger = debug("react-native-css"), ...options }: CompilerOptions = {},
+): ReactNativeCssStyleSheet {
   const features = Object.assign({}, defaultFeatureFlags, options.features);
 
-  debug(`Features ${JSON.stringify(features)}`);
+  logger(`Features ${JSON.stringify(features)}`);
 
   if (Number(versions.node.split(".")[0]) < 18) {
-    throw new Error("react-native-css-interop only supports NodeJS >18");
+    throw new Error("react-native-css only supports NodeJS >18");
   }
 
   // Parse the grouping options to create an array of regular expressions
@@ -74,7 +72,7 @@ export function compile(
       return typeof value === "string" ? new RegExp(value) : value;
     }) ?? [];
 
-  debug(`Grouping ${grouping}`);
+  logger(`Grouping ${grouping}`);
 
   // These will by mutated by `extractRule`
   const collection: CompilerCollection = {
@@ -91,7 +89,7 @@ export function compile(
     varUsageCount: new Map(),
   };
 
-  debug(`Start lightningcss`);
+  logger(`Start lightningcss`);
 
   const onVarUsage = (token: TokenOrValue) => {
     if (token.type === "function") {
@@ -122,7 +120,7 @@ export function compile(
         decl.value.value.forEach((varObj) => onVarUsage(varObj));
       },
       StyleSheetExit(sheet) {
-        debug(`Found ${sheet.rules.length} rules to process`);
+        logger(`Found ${sheet.rules.length} rules to process`);
 
         for (const rule of sheet.rules) {
           // Extract the style declarations and animations from the current rule
@@ -130,7 +128,7 @@ export function compile(
           // We have processed this rule, so now delete it from the AST
         }
 
-        debug(`Exiting lightningcss`);
+        logger(`Exiting lightningcss`);
       },
     },
     customAtRules: {
@@ -143,7 +141,7 @@ export function compile(
     },
   });
 
-  debug(`Found ${collection.rules.size} valid rules`);
+  logger(`Found ${collection.rules.size} valid rules`);
 
   const ruleSets = new Map<string, StyleRuleSet>();
   for (const [name, styles] of collection.rules) {
@@ -169,7 +167,7 @@ export function compile(
     ruleSets.set(name, styleRuleSet);
   }
 
-  const stylesheetOptions: InjectStylesOptions = {};
+  const stylesheetOptions: ReactNativeCssStyleSheet = {};
 
   if (Object.keys(collection.flags).length) {
     stylesheetOptions.f = collection.flags;

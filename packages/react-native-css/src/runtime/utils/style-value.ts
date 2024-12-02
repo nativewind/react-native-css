@@ -1,4 +1,4 @@
-import { StyleDescriptor } from "../runtime.types";
+import { StyleDescriptor } from "../../compiler";
 
 export function isStyleDescriptorArray(
   value: StyleDescriptor | StyleDescriptor[],

@@ -1,11 +1,7 @@
 import { forwardRef, useContext } from "react";
 
-import type {
-  ColorScheme,
-  JSXFunction,
-  Styled,
-  StyleDescriptor,
-} from "../runtime.types";
+import type { StyleDescriptor } from "../../compiler";
+import type { ColorScheme, JSXFunction, Styled } from "../runtime.types";
 import { inlineSpecificity } from "../utils";
 import { VariableContext } from "./contexts";
 import {
@@ -15,7 +11,6 @@ import {
   universalVariables,
 } from "./globals";
 import { ResolveOptions, resolveValue } from "./resolvers";
-import { resolveVariable } from "./resolvers/variable";
 import { getUseInteropOptions, useInterop } from "./useInterop";
 import { usePassThrough } from "./usePassThrough";
 

@@ -4,7 +4,7 @@ import {
   ContainerCondition,
   ContainerQuery,
   StyleDescriptor,
-} from "../../runtime.types";
+} from "../../../compiler";
 import { ContainerContextValue } from "../contexts";
 import { containerHeightFamily, containerWidthFamily } from "../globals";
 import { Effect } from "../utils/observable";

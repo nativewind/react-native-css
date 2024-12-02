@@ -1,4 +1,4 @@
-import { InjectStylesOptions } from "../runtime.types";
+import { ReactNativeCssStyleSheet } from "../../compiler";
 import {
   animationFamily,
   rootVariables,
@@ -7,7 +7,7 @@ import {
 } from "./globals";
 import { Effect } from "./utils/observable";
 
-export function injectData(options: InjectStylesOptions) {
+export function injectData(options: ReactNativeCssStyleSheet) {
   const batch = new Set<Effect>();
 
   if (options.s) {

@@ -1,9 +1,9 @@
-import {
+import type {
   StyleAttribute,
   StyleDescriptor,
   StyleFunction,
-} from "../../runtime.types";
-import { Effect } from "../utils/observable";
+} from "../../../compiler";
+import type { Effect } from "../utils/observable";
 import { transformKeys } from "../utils/properties";
 import { animation } from "./animation";
 import { calc } from "./calc";

@@ -1,11 +1,11 @@
 import { Appearance, Dimensions } from "react-native";
 import type { ColorSchemeName, LayoutRectangle } from "react-native";
 
-import {
+import type {
   LightDarkVariable,
   StyleDescriptor,
   StyleRuleSet,
-} from "../runtime.types";
+} from "../../compiler";
 import { Config } from "./native.types";
 import { writeAnimation } from "./reanimated";
 import { isDeepEqual } from "./utils/equality";

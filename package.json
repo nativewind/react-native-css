@@ -5,6 +5,7 @@
   "private": "true",
   "scripts": {
     "test": "npm run test --ws --",
+    "website": "npm run start --workspace=website --",
     "build": "npm run build --ws --",
     "clean": "find . -name 'node_modules' -type d -prune -exec rm -rf '{}' +; npm ci"
   },
@@ -15,8 +16,11 @@
     "@ianvs/prettier-plugin-sort-imports": "^4.4.0",
     "@react-native-community/cli": "^15.1.2",
     "@tsconfig/react-native": "^3.0.5",
+    "docusaurus-plugin-typedoc": "^1.1.0",
     "eslint": "^9.15.0",
-    "prettier": "^3.3.3",
+    "prettier": "^3.4.1",
+    "typedoc": "^0.27.2",
+    "typedoc-plugin-markdown": "^4.3.1",
     "typescript": "^5.6.3"
   },
   "dependencies": {

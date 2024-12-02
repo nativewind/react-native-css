@@ -46,9 +46,13 @@ import type {
   VerticalAlign,
 } from "lightningcss";
 
-import { FeatureFlagRecord, StyleDescriptor, StyleFunction } from "../runtime";
 import { isStyleDescriptorArray } from "../runtime/utils";
 import { AddFn } from "./add";
+import {
+  FeatureFlagRecord,
+  StyleDescriptor,
+  StyleFunction,
+} from "./compiler.types";
 import { parseEasingFunction, parseIterationCount } from "./keyframes";
 import { toRNProperty } from "./selectors";
 

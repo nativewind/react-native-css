@@ -1,4 +1,4 @@
-import type { InlineStyle, Props, StyleDescriptor } from "../runtime.types";
+import type { InlineStyle, Props } from "../runtime.types";
 import type { ContainerContextValue, VariableContextValue } from "./contexts";
 import { buildDeclarations, type Declarations } from "./declarations";
 import type { Config } from "./native.types";

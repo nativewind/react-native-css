@@ -1,6 +1,7 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
+    "removeComments": true,
     "paths": {
       "react-native-css/jest": [
         "./src/jest"

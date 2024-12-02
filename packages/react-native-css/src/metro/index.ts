@@ -3,13 +3,13 @@ import fsPromise from "fs/promises";
 import path from "path";
 
 import connect from "connect";
-import { debug as debugFn, Debugger } from "debug";
+import { debug } from "debug";
 import type { MetroConfig } from "metro-config";
 import type { FileSystem } from "metro-file-map";
 import type MetroServer from "metro/src/Server";
 
+import { compile, CompilerOptions, LoggerOptions } from "../compiler";
 import { expoColorSchemeWarning } from "./expo";
-import { compile, CompilerOptions } from "../compiler";
 
 /**
  * Injects the CSS into the React Native runtime.
@@ -59,11 +59,13 @@ export type WithCssInteropOptions = CompilerOptions & {
   /** Force load styles from the filesystem, used to test production style loading. Disables Fast Refresh of styles. */
   forceWriteFileSystem?: boolean;
   getCSSForPlatform: GetCSSForPlatform;
-  parent?: {
-    name: string;
-    debug: string;
-  };
 };
+
+/**
+ * @internal
+ */
+export type WithCssInteropOptionsWithLogger = WithCssInteropOptions &
+  LoggerOptions;
 
 export type GetCSSForPlatform = (
   platform: string,
@@ -99,12 +101,18 @@ export function withCssInterop(
 
 function getConfig(
   config: MetroConfig,
-  options: WithCssInteropOptions,
+  interopOptions: WithCssInteropOptions,
 ): MetroConfig {
-  const debug = debugFn(options.parent?.name || "react-native-css-interop");
-  debug("withCssInterop");
-  debug(`outputDirectory ${outputDirectory}`);
-  debug(`isRadonIDE: ${isRadonIDE}`);
+  const logger = interopOptions.logger ?? debug("react-native-css");
+
+  const options = {
+    logger,
+    ...interopOptions,
+  };
+
+  logger("withCssInterop");
+  logger(`outputDirectory ${outputDirectory}`);
+  logger(`isRadonIDE: ${isRadonIDE}`);
 
   expoColorSchemeWarning();
 
@@ -139,9 +147,9 @@ function getConfig(
         transformOptions,
         getDependenciesOf,
       ) {
-        debug(`getTransformOptions.dev ${transformOptions.dev}`);
-        debug(`getTransformOptions.platform ${transformOptions.platform}`);
-        debug(
+        logger(`getTransformOptions.dev ${transformOptions.dev}`);
+        logger(`getTransformOptions.platform ${transformOptions.platform}`);
+        logger(
           `getTransformOptions.virtualModulesPossible ${Boolean(virtualModulesPossible)}`,
         );
 
@@ -155,7 +163,6 @@ function getConfig(
             platform,
             transformOptions.dev,
             options,
-            debug,
           );
         }
 
@@ -163,10 +170,10 @@ function getConfig(
         const writeToFileSystem =
           !virtualModulesPossible || !transformOptions.dev;
 
-        debug(`getTransformOptions.writeToFileSystem ${writeToFileSystem}`);
+        logger(`getTransformOptions.writeToFileSystem ${writeToFileSystem}`);
 
         if (writeToFileSystem) {
-          debug(`getTransformOptions.output ${filePath}`);
+          logger(`getTransformOptions.output ${filePath}`);
 
           // Radon IDE needs to watch the file system for changes, so we need to write the file
           const watchFn = isRadonIDE
@@ -174,10 +181,7 @@ function getConfig(
                 const output =
                   platform === "web"
                     ? css.toString()
-                    : getNativeJS(
-                        compile(css, options, debug),
-                        debug,
-                      );
+                    : getNativeJS(compile(css, options), options);
 
                 await fsPromise.writeFile(filePath, output);
               }
@@ -188,10 +192,7 @@ function getConfig(
           const output =
             platform === "web"
               ? css.toString("utf-8")
-              : getNativeJS(
-                  compile(css, options, debug),
-                  debug,
-                );
+              : getNativeJS(compile(css, options), options);
 
           await fsPromise.mkdir(outputDirectory, { recursive: true });
           await fsPromise.writeFile(filePath, output);
@@ -199,7 +200,7 @@ function getConfig(
             await fsPromise.writeFile(filePath.replace(/\.js$/, ".map"), "");
           }
 
-          debug(`getTransformOptions.finished`);
+          logger(`getTransformOptions.finished`);
         }
 
         return Object.assign(
@@ -215,12 +216,12 @@ function getConfig(
     server: {
       ...config.server,
       enhanceMiddleware: (middleware, metroServer) => {
-        debug(`enhanceMiddleware.setup`);
+        logger(`enhanceMiddleware.setup`);
         const server = connect();
         const bundler = metroServer.getBundler().getBundler();
 
         if (options.forceWriteFileSystem) {
-          debug(`forceWriteFileSystem true`);
+          logger(`forceWriteFileSystem true`);
         } else {
           if (!isRadonIDE) {
             virtualModulesPossible = bundler
@@ -269,13 +270,13 @@ function getConfig(
         const development = (context as any).isDev || (context as any).dev;
         const isWebProduction = !development && platform === "web";
 
-        debug(`resolveRequest.input ${resolved.filePath}`);
-        debug(`resolveRequest.resolvedTo: ${filePath}`);
-        debug(`resolveRequest.development: ${development}`);
-        debug(`resolveRequest.platform: ${platform}`);
+        logger(`resolveRequest.input ${resolved.filePath}`);
+        logger(`resolveRequest.resolvedTo: ${filePath}`);
+        logger(`resolveRequest.development: ${development}`);
+        logger(`resolveRequest.platform: ${platform}`);
 
         if (virtualModulesPossible && !isWebProduction) {
-          startCSSProcessor(filePath, platform, development, options, debug);
+          startCSSProcessor(filePath, platform, development, options);
         }
 
         return {
@@ -291,8 +292,7 @@ async function startCSSProcessor(
   filePath: string,
   platform: string,
   isDev: boolean,
-  { input, getCSSForPlatform, ...options }: WithCssInteropOptions,
-  debug: Debugger,
+  { input, getCSSForPlatform, ...options }: WithCssInteropOptionsWithLogger,
 ) {
   // Ensure that we only start the processor once per file
   if (virtualModules.has(filePath)) {
@@ -310,7 +310,7 @@ async function startCSSProcessor(
       getCSSForPlatform(platform).then((css) => {
         return platform === "web"
           ? css
-          : getNativeJS(compile(css, options), debug);
+          : getNativeJS(compile(css, options), options);
       }),
     );
   } else {
@@ -325,7 +325,7 @@ async function startCSSProcessor(
           Promise.resolve(
             platform === "web"
               ? css
-              : getNativeJS(compile(css, options), debug),
+              : getNativeJS(compile(css, options), options),
           ),
         );
 
@@ -347,7 +347,7 @@ async function startCSSProcessor(
         debug(`virtualStyles.initial ${platform}`);
         return platform === "web"
           ? css
-          : getNativeJS(compile(css, options), debug);
+          : getNativeJS(compile(css, options), options);
       }),
     );
   }
@@ -407,10 +407,10 @@ function ensureBundlerPatched(
   bundler.transformFile.__css_interop__patched = true;
 }
 
-function getNativeJS(data = {}, debug: Debugger): string {
-  debug("Start stringify");
+function getNativeJS(data = {}, { logger }: LoggerOptions): string {
+  logger("Start stringify");
   const output = `(${stringify(data)})`;
-  debug(`Output size: ${Buffer.byteLength(output, "utf8")} bytes`);
+  logger(`Output size: ${Buffer.byteLength(output, "utf8")} bytes`);
   return output;
 }
 

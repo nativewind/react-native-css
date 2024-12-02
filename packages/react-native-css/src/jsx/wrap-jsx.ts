@@ -1,5 +1,5 @@
 import { interopComponents, type JSXFunction } from "../runtime";
-import { maybeHijackSafeAreaProvider } from "../third-party/react-native-safe-area-context";
+import { maybeHijackSafeAreaProvider } from "../runtime/third-party/react-native-safe-area-context";
 
 /**
  * Create a new JSX function that swaps the component type being rendered with

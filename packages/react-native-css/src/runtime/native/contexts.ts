@@ -1,6 +1,6 @@
 import { createContext } from "react";
 
-import type { StyleDescriptor } from "../runtime.types";
+import type { StyleDescriptor } from "../../compiler";
 
 /**
  * Variables

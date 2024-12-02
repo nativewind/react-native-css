@@ -1,11 +1,13 @@
+import type {
+  StyleDeclaration,
+  StyleDescriptor,
+  StyleRule,
+} from "../../compiler";
 import {
   Callback,
   InlineStyleRecord,
   Props,
   SharedValueInterpolation,
-  StyleDeclaration,
-  StyleDescriptor,
-  StyleRule,
   Transition,
 } from "../runtime.types";
 import type { VariableContextValue } from "./contexts";

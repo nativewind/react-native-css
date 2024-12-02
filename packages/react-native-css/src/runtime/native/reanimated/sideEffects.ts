@@ -1,11 +1,13 @@
-import {
+import type {
   AnimationAttributes,
-  AnimationEasing,
-  AnimationMutable,
   EasingFunction,
-  Mutable,
   StyleDescriptor,
   StyleFunction,
+} from "../../../compiler";
+import {
+  AnimationEasing,
+  AnimationMutable,
+  Mutable,
 } from "../../runtime.types";
 import { VariableContextValue } from "../contexts";
 import type { Declarations } from "../declarations";

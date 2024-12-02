@@ -1,9 +1,9 @@
-import type {
+import {
   AttributeQuery,
-  Props,
   PseudoClassesQuery,
   StyleRule,
-} from "../../runtime.types";
+} from "../../../compiler";
+import type { Props } from "../../runtime.types";
 import { ContainerContextValue } from "../contexts";
 import { Declarations } from "../declarations";
 import { activeFamily, focusFamily, hoverFamily } from "../globals";

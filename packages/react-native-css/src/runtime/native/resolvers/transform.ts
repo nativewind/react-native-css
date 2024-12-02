@@ -1,5 +1,5 @@
 import { StyleFunctionResolver } from ".";
-import { StyleDescriptor } from "../../runtime.types";
+import { StyleDescriptor } from "../../../compiler";
 import { transformKeys } from "../utils/properties";
 import { ShortHandSymbol } from "./shorthand";
 

@@ -1,6 +1,6 @@
 import { PixelRatio, Platform } from "react-native";
 
-import { MediaCondition } from "../../runtime.types";
+import type { MediaCondition } from "../../../compiler";
 import { appColorScheme, vh, vw } from "../globals";
 import { Effect } from "../utils/observable";
 

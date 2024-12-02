@@ -1,11 +1,9 @@
-import {
+import type { AnimationRule, StyleRule, TransitionRule } from "../../compiler";
+import type {
+  InlineStyle,
   InlineStyleRecord,
   Mutable,
-  type AnimationRule,
-  type InlineStyle,
-  type Props,
-  type StyleRule,
-  type TransitionAttributes,
+  Props,
 } from "../runtime.types";
 import { specificityCompareFn } from "../utils";
 import { testRule } from "./conditions";
@@ -19,7 +17,7 @@ import { ProduceArray, ProduceRecord } from "./utils/immutability";
 import { type Effect } from "./utils/observable";
 
 export type Declarations = Effect & {
-  transition?: TransitionAttributes;
+  transition?: TransitionRule;
   sharedValues?: Map<string, Mutable<any>>;
   epoch: number;
   normal?: (StyleRule | InlineStyleRecord)[];
@@ -188,7 +186,7 @@ function collectRules(
   variables: ProduceRecord<VariableContextValue | undefined>,
   containers: ProduceRecord<ContainerContextValue | undefined>,
   animations: ProduceArray<AnimationRule[] | undefined>,
-  transition: ProduceRecord<TransitionAttributes | undefined>,
+  transition: ProduceRecord<TransitionRule | undefined>,
   componentState: UseInteropState,
   next: Declarations,
   inheritedContainers: ContainerContextValue,

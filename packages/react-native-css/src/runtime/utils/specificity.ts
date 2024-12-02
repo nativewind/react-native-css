@@ -1,8 +1,5 @@
-import type {
-  InlineStyleRecord,
-  SpecificityArray,
-  StyleRule,
-} from "../runtime.types";
+import type { SpecificityArray, StyleRule } from "../../compiler";
+import type { InlineStyleRecord } from "../runtime.types";
 
 export const Specificity = {
   Order: 0,

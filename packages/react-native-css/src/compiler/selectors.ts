@@ -1,15 +1,15 @@
 import type { Selector, SelectorComponent, SelectorList } from "lightningcss";
 
+import { Specificity } from "../runtime/utils";
 import type {
   AttributeQuery,
   AttrSelectorOperator,
+  CompilerCollection,
   MediaCondition,
   PseudoClassesQuery,
   SpecificityArray,
   StyleRule,
-} from "../runtime";
-import { Specificity } from "../runtime/utils";
-import type { CompilerCollection } from "./compiler.types";
+} from "./compiler.types";
 
 export type NormalizeSelector =
   | {
