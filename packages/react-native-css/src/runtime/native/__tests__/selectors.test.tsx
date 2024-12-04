@@ -50,13 +50,18 @@ test(':root[class="dark"]', () => {
 });
 
 test(':root[class~="dark"]', () => {
-  registerCSS(`@cssInterop set darkMode class dark;
-:root[class~="dark"] {
-  --my-var: red;
-}
-.my-class { 
-  color: var(--my-var); 
-}`);
+  registerCSS(`
+    @react-native config {
+      darkMode: dark;
+    }
+
+    :root[class~="dark"] {
+      --my-var: red;
+    }
+    .my-class { 
+      color: var(--my-var); 
+    }
+  `);
 
   render(<View testID={testID} className="my-class" />);
 

@@ -8,6 +8,7 @@ import {
   DeclarationBlock,
   transform as lightningcss,
   MediaRule,
+  ParsedComponent,
   Rule,
   SelectorList,
   TokenOrValue,
@@ -38,11 +39,17 @@ import { extractKeyFrames } from "./keyframes";
 import { parseMediaQuery } from "./media-query";
 import { normalizeSelectors, toRNProperty } from "./selectors";
 
-type CSSInteropAtRule = {
+type ReactNativeAtRule = {
   type: "custom";
   value: {
-    name: string;
-    prelude: { value: { components: Array<{ value: string }> } };
+    name: "react-native";
+    prelude: null | Extract<ParsedComponent, { type: "repeated" }>;
+    body: {
+      type: "declaration-list";
+      value: DeclarationBlock & {
+        importantDeclarations: never;
+      };
+    };
   };
 };
 
@@ -75,7 +82,7 @@ export function compile(
 
   // These will by mutated by `extractRule`
   const collection: CompilerCollection = {
-    darkMode: ["media"],
+    darkMode: "dark",
     rules: new Map(),
     keyframes: new Map(),
     rootVariables: {},
@@ -131,11 +138,9 @@ export function compile(
       },
     },
     customAtRules: {
-      cssInterop: {
+      "react-native": {
         prelude: "<custom-ident>+",
-      },
-      "rn-move": {
-        prelude: "<custom-ident>+",
+        body: "declaration-list",
       },
     },
   });
@@ -188,6 +193,8 @@ export function compile(
   return stylesheetOptions;
 }
 
+type ExtractableRules = Rule | ReactNativeAtRule;
+
 /**
  * Extracts style declarations and animations from a given CSS rule, based on its type.
  *
@@ -196,7 +203,7 @@ export function compile(
  * @param {CssToReactNativeRuntimeOptions} parseOptions - Options for parsing the CSS code, such as grouping related rules together.
  */
 function extractRule(
-  rule: Rule | CSSInteropAtRule,
+  rule: ExtractableRules,
   collection: CompilerCollection,
   partialStyle: Partial<StyleRule> = {},
 ) {
@@ -223,7 +230,7 @@ function extractRule(
         for (const style of getExtractedStyles(
           rule.value.declarations,
           collection,
-          getRnMoveMapping(rule.value.rules),
+          parseReactNativeStyleAtRule(rule.value.rules),
         )) {
           setStyleForSelectorList(
             { ...partialStyle, ...style },
@@ -236,9 +243,41 @@ function extractRule(
       break;
     }
     case "custom": {
-      if (rule.value && rule.value?.name === "cssInterop") {
-        extractCSSInteropFlag(rule, collection);
+      if (isReactNativeAtRule(rule)) {
+        extractReactNativeOptions(rule, collection);
       }
+    }
+  }
+}
+
+function isReactNativeAtRule(
+  rule: ExtractableRules,
+): rule is ReactNativeAtRule {
+  return rule.type === "custom" && rule.value?.name === "react-native";
+}
+
+function extractReactNativeOptions(
+  rule: ReactNativeAtRule,
+  collection: CompilerCollection,
+) {
+  const { declarations } = rule.value.body.value;
+  if (!declarations) return;
+
+  for (const declaration of declarations) {
+    if (declaration.property !== "custom") continue;
+
+    switch (declaration.value.name) {
+      case "preserve-variables": {
+        declaration.value.value.forEach((token) => {
+          if (token.type !== "dashed-ident") {
+            return;
+          }
+          collection.varUsageCount.set(token.value, 1);
+        });
+        break;
+      }
+      default:
+        break;
     }
   }
 }
@@ -247,35 +286,68 @@ function extractRule(
  * @rn-move is a custom at-rule that allows you to move a style property to a different prop/location
  * Its a placeholder concept until we improve the LightningCSS parsing
  */
-function getRnMoveMapping<D, M>(rules?: any[]): StyleRuleMapping {
-  if (!rules) return {};
+function parseReactNativeStyleAtRule<D, M>(
+  rules?: (Rule | ReactNativeAtRule)[],
+) {
   const mapping: StyleRuleMapping = {};
 
+  if (!rules) return mapping;
+
   for (const rule of rules) {
-    if (rule.type !== "custom" && rule.value.name !== "rn-move") continue;
+    if (!isReactNativeAtRule(rule)) continue;
+    if (!rule.value.prelude) continue;
 
-    /**
-     * - is a special character that indicates that the style should be hoisted
-     * Otherwise, keep it on the 'style' prop
-     */
-    let [first, tokens] = rule.value.prelude.value.components.map(
-      (c: any) => c.value,
-    );
+    if (rule.value.prelude.value.components[0].value !== "rename") {
+      continue;
+    }
 
-    if (tokens) {
-      if (tokens.startsWith("&")) {
-        mapping[toRNProperty(first)] = [
-          "style",
-          ...tokens.replace("&", "").split(".").map(toRNProperty),
-        ];
-      } else {
-        mapping[toRNProperty(first)] = tokens.split(".").map(toRNProperty);
+    const { declarations } = rule.value.body.value;
+
+    if (!declarations) continue;
+
+    for (const declaration of declarations) {
+      if (declaration.property !== "custom") continue;
+
+      let values: string[] = [];
+
+      for (const [index, value] of declaration.value.value.entries()) {
+        if (value.type !== "token") {
+          values = [];
+          break;
+        }
+
+        const token = value.value;
+
+        if (token.type === "delim") {
+          // Ignore the dot
+          if (token.value === ".") {
+            continue;
+          }
+
+          if (token.value === "^" && index === 0) {
+            continue;
+          }
+
+          // Any other delim is invalid
+          values = [];
+          break;
+        }
+
+        if (token.type !== "ident") {
+          // Only ident is allowed
+          values = [];
+          break;
+        }
+
+        if (index === 0) {
+          values.push("style");
+        }
+
+        values.push(toRNProperty(token.value));
       }
-    } else {
-      if (first.startsWith("&")) {
-        mapping["*"] = ["style", toRNProperty(first.replace("&", ""))];
-      } else {
-        mapping["*"] = [toRNProperty(first)];
+
+      if (values.length > 0) {
+        mapping[toRNProperty(declaration.value.name)] = values;
       }
     }
   }
@@ -283,40 +355,40 @@ function getRnMoveMapping<D, M>(rules?: any[]): StyleRuleMapping {
   return mapping;
 }
 
-function extractCSSInteropFlag(
-  rule: CSSInteropAtRule,
-  collection: CompilerCollection,
-) {
-  if (rule.value.prelude.value.components[0].value !== "set") {
-    return;
-  }
-  const [_, name, type, ...other] = rule.value.prelude.value.components.map(
-    (c) => c.value,
-  );
+// function extractCSSInteropFlag(
+//   rule: CSSInteropAtRule,
+//   collection: CompilerCollection,
+// ) {
+//   if (rule.value.prelude.value.components[0].value !== "set") {
+//     return;
+//   }
+//   const [_, name, type, ...other] = rule.value.prelude.value.components.map(
+//     (c) => c.value,
+//   );
 
-  if (name === "darkMode") {
-    let value: string | undefined;
+//   if (name === "darkMode") {
+//     let value: string | undefined;
 
-    if (other.length === 0 || other[0] === "media") {
-      collection.darkMode = ["media"];
-    } else {
-      value = other[0];
+//     if (other.length === 0 || other[0] === "media") {
+//       collection.darkMode = ["media"];
+//     } else {
+//       value = other[0];
 
-      if (value.startsWith(".")) {
-        value = value.slice(1);
-        collection.darkMode = ["class", value];
-      } else if (value.startsWith("[")) {
-        collection.darkMode = ["attribute", value];
-      } else if (value === "dark") {
-        collection.darkMode = ["class", value];
-      }
-    }
-    collection.flags.darkMode = `${type} ${value}`.trim();
-  } else {
-    const value = other.length === 0 ? "true" : other;
-    collection.flags[name] = value;
-  }
-}
+//       if (value.startsWith(".")) {
+//         value = value.slice(1);
+//         collection.darkMode = ["class", value];
+//       } else if (value.startsWith("[")) {
+//         collection.darkMode = ["attribute", value];
+//       } else if (value === "dark") {
+//         collection.darkMode = ["class", value];
+//       }
+//     }
+//     collection.flags.darkMode = `${type} ${value}`.trim();
+//   } else {
+//     const value = other.length === 0 ? "true" : other;
+//     collection.flags[name] = value;
+//   }
+// }
 
 /**
  * This function takes in a MediaRule object, an CompilerCollection object and a CssToReactNativeRuntimeOptions object,

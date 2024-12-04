@@ -356,8 +356,6 @@ export type SpecificityValue = number | undefined;
 type FeatureFlags = "";
 export type FeatureFlagRecord = Partial<Record<FeatureFlags, boolean>>;
 
-type DarkMode = ["media"] | ["class", string] | ["attribute", string];
-
 /** @internal */
 export type PathTokens = string | string[];
 /** @internal */
@@ -377,7 +375,7 @@ export interface CompilerCollection extends CompilerOptions {
   rules: Map<string, StyleRule[]>;
   keyframes: Map<string, AnimationKeyframes>;
   grouping: RegExp[];
-  darkMode?: DarkMode;
+  darkMode?: string | null;
   rootVariables: VariableRecord;
   universalVariables: VariableRecord;
   flags: Record<string, unknown>;

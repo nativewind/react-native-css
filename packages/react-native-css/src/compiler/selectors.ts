@@ -382,7 +382,7 @@ function isIsPseudoClass(
   return (
     selector.length === 1 &&
     selector[0].type === "pseudo-class" &&
-    selector[0].kind === "is"
+    (selector[0].kind === "is" || selector[0].kind === "where")
   );
 }
 
@@ -401,7 +401,7 @@ function isDarkClassSelector(
   [first, second, third]: Selector,
   collection: CompilerCollection,
 ) {
-  if (collection.darkMode?.[0] !== "class" || !collection.darkMode[1]) {
+  if (!collection.darkMode) {
     return false;
   }
 
@@ -415,7 +415,7 @@ function isDarkClassSelector(
     second.selectors.length === 1 &&
     second.selectors[0].length === 3 &&
     second.selectors[0][0].type === "class" &&
-    second.selectors[0][0].name === collection.darkMode[1] &&
+    second.selectors[0][0].name === collection.darkMode &&
     second.selectors[0][1].type === "combinator" &&
     second.selectors[0][1].value === "descendant" &&
     second.selectors[0][2].type === "universal"
@@ -427,7 +427,7 @@ function isDarkClassLegacySelector(
   [first, second, third]: Selector,
   collection: CompilerCollection,
 ) {
-  if (collection.darkMode?.[0] !== "class" || !collection.darkMode[1]) {
+  if (!collection.darkMode) {
     return false;
   }
 
@@ -436,7 +436,7 @@ function isDarkClassLegacySelector(
     second &&
     third &&
     first.type === "class" &&
-    first.name === collection.darkMode[1] &&
+    first.name === collection.darkMode &&
     second.type === "combinator" &&
     second.value === "descendant" &&
     third.type === "class"
@@ -460,13 +460,15 @@ function isRootDarkVariableSelector(
   [first, second]: Selector,
   collection: CompilerCollection,
 ) {
+  if (!collection.darkMode) {
+    return false;
+  }
   return (
     first &&
     second &&
-    collection.darkMode?.[0] === "class" &&
     // .dark:root {}
     ((first.type === "class" &&
-      first.name === collection.darkMode[1] &&
+      first.name === collection.darkMode &&
       second.type === "pseudo-class" &&
       second.kind === "root") ||
       // :root[class~=dark] {}
@@ -475,7 +477,7 @@ function isRootDarkVariableSelector(
         second.type === "attribute" &&
         second.name === "class" &&
         second.operation &&
-        second.operation.value === collection.darkMode[1] &&
+        second.operation.value === collection.darkMode &&
         ["includes", "equal"].includes(second.operation.operator)))
   );
 }
@@ -485,13 +487,15 @@ function isDarkUniversalSelector(
   [first, second, third]: Selector,
   collection: CompilerCollection,
 ) {
+  if (!collection.darkMode) {
+    return false;
+  }
   return (
-    collection.darkMode?.[0] === "class" &&
     first &&
     second &&
     third &&
     first.type === "class" &&
-    first.name === collection.darkMode[1] &&
+    first.name === collection.darkMode &&
     second.type === "combinator" &&
     second.value === "descendant" &&
     third.type === "universal"
