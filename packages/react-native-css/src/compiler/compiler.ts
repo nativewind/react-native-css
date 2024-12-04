@@ -37,7 +37,7 @@ import {
 import { defaultFeatureFlags } from "./feature-flags";
 import { extractKeyFrames } from "./keyframes";
 import { parseMediaQuery } from "./media-query";
-import { normalizeSelectors, toRNProperty } from "./selectors";
+import { getSelectors, toRNProperty } from "./selectors";
 
 type ReactNativeAtRule = {
   type: "custom";
@@ -72,14 +72,6 @@ export function compile(
     throw new Error("react-native-css only supports NodeJS >18");
   }
 
-  // Parse the grouping options to create an array of regular expressions
-  const grouping =
-    options.grouping?.map((value) => {
-      return typeof value === "string" ? new RegExp(value) : value;
-    }) ?? [];
-
-  logger(`Grouping ${grouping}`);
-
   // These will by mutated by `extractRule`
   const collection: CompilerCollection = {
     darkMode: "dark",
@@ -91,7 +83,6 @@ export function compile(
     appearanceOrder: 1,
     ...options,
     features,
-    grouping,
     varUsageCount: new Map(),
   };
 
@@ -480,13 +471,21 @@ function setStyleForSelectorList(
 ) {
   const { rules: declarations } = collection;
 
-  for (const selector of normalizeSelectors(
-    extractedStyle,
-    selectorList,
-    collection,
-  )) {
+  const selectors = getSelectors(extractedStyle, selectorList, collection);
+
+  if (
+    !(
+      extractedStyle.d ||
+      extractedStyle.a ||
+      extractedStyle.v ||
+      extractedStyle.t
+    )
+  ) {
+    return;
+  }
+
+  for (const selector of selectors) {
     const style: StyleRule = { ...extractedStyle };
-    if (!(style.d || style.a || style.v || style.t)) continue;
 
     if (
       selector.type === "rootVariables" || // :root
@@ -526,10 +525,12 @@ function setStyleForSelectorList(
       }
       continue;
     } else if (selector.type === "className") {
-      const { className, groupClassName, pseudoClasses, attrs, media } =
-        selector;
-
       const specificity: SpecificityArray = [];
+
+      if (selector.classNames.length === 0) {
+        continue;
+      }
+
       for (let index = 0; index < 5; index++) {
         const value =
           (extractedStyle.s[index] ?? 0) + (selector.specificity[index] ?? 0);
@@ -538,28 +539,19 @@ function setStyleForSelectorList(
         }
       }
 
-      if (groupClassName) {
+      const primarySelector = selector.classNames.pop()!;
+
+      for (const [group, conditions = {}] of selector.classNames) {
         // Add the conditions to the declarations object
-        addDeclaration(declarations, groupClassName, {
+        addDeclaration(declarations, group, {
           s: specificity,
-          aq: attrs,
-          d: [],
-          // c: {
-          //   names: [groupClassName],
-          // },
+          c: [`g:${group}`],
+          ...conditions,
         });
 
-        // style.c ??= [];
-        // style.c.push({
-        //   name: groupClassName,
-        //   pseudoClasses: groupPseudoClasses,
-        //   attrs: groupAttrs,
-        // });
-      }
-
-      if (media) {
-        style.m ??= [];
-        style.m.push(...media);
+        primarySelector[1] ??= {};
+        primarySelector[1].c ??= [];
+        primarySelector[1].c.push(`g:${group}`);
       }
 
       const rule: StyleRule = {
@@ -567,10 +559,30 @@ function setStyleForSelectorList(
         s: specificity,
       };
 
-      if (pseudoClasses) rule.p = pseudoClasses;
-      if (attrs) rule.aq = attrs;
+      const conditions = primarySelector[1];
 
-      addDeclaration(declarations, className, rule);
+      if (conditions) {
+        if (conditions.c) {
+          rule.c ??= [];
+          rule.c.push(...conditions.c);
+        }
+
+        if (conditions.m) {
+          rule.m ??= [];
+          rule.m.push(...conditions.m);
+        }
+
+        if (conditions.p) {
+          rule.p = Object.assign({}, rule.p, conditions.p);
+        }
+
+        if (conditions.aq) {
+          rule.aq ??= [];
+          rule.aq.push(...conditions.aq);
+        }
+      }
+
+      addDeclaration(declarations, primarySelector[0], rule);
     }
   }
 }

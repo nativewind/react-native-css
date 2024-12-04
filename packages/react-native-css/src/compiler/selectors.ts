@@ -6,7 +6,6 @@ import type {
   AttrSelectorOperator,
   CompilerCollection,
   MediaCondition,
-  PseudoClassesQuery,
   SpecificityArray,
   StyleRule,
 } from "./compiler.types";
@@ -18,30 +17,24 @@ export type NormalizeSelector =
     }
   | {
       type: "className";
-      className: string;
-      media?: MediaCondition[];
-      groupClassName?: string;
-      pseudoClasses?: PseudoClassesQuery;
-      groupPseudoClasses?: PseudoClassesQuery;
-      groupAttrs?: AttributeQuery[];
-      attrs?: AttributeQuery[];
       specificity: SpecificityArray;
+      classNames: ([string] | [string, Partial<StyleRule>])[];
     };
 
 /**
  * Turns a CSS selector into a `react-native-css-interop` selector.
  */
-export function normalizeSelectors(
+export function getSelectors(
   extractedStyle: StyleRule,
   selectorList: SelectorList,
   collection: CompilerCollection,
   selectors: NormalizeSelector[] = [],
-  defaults: Partial<NormalizeSelector> = {},
+  mediaQuery: MediaCondition[] = [],
 ) {
   for (let cssSelector of selectorList) {
     // Ignore `:is()`, and just process its selectors
     if (isIsPseudoClass(cssSelector)) {
-      normalizeSelectors(
+      getSelectors(
         extractedStyle,
         cssSelector[0].selectors,
         collection,
@@ -105,38 +98,39 @@ export function normalizeSelectors(
     ) {
       const [_, __, third, ...rest] = cssSelector;
 
-      normalizeSelectors(
-        extractedStyle,
-        [[third, ...rest]],
-        collection,
-        selectors,
-        {
-          media: [["=", "prefers-color-scheme", "dark"]],
-        },
-      );
+      getSelectors(extractedStyle, [[third, ...rest]], collection, selectors, [
+        ["=", "prefers-color-scheme", "dark"],
+      ]);
     } else if (
       // Matches:  <selector>:is(.dark *) {}
       isDarkClassSelector(cssSelector, collection)
     ) {
       const [first] = cssSelector;
 
-      normalizeSelectors(extractedStyle, [[first]], collection, selectors, {
-        media: [["=", "prefers-color-scheme", "dark"]],
-      });
+      getSelectors(extractedStyle, [[first]], collection, selectors, [
+        ["=", "prefers-color-scheme", "dark"],
+      ]);
     } else {
       const selector = reduceSelector(
         {
-          ...defaults,
           type: "className",
-          className: "",
           specificity: [],
+          classNames: [],
         },
         cssSelector,
         collection,
+        mediaQuery,
       );
 
-      if (selector === null || !selector.className) {
+      if (selector === null || selector.classNames.length === 0) {
         continue;
+      }
+
+      if (selector.type === "className" && mediaQuery.length > 0) {
+        const lastClass = selector.classNames[selector.classNames.length - 1];
+        lastClass[1] ??= {};
+        lastClass[1].m ??= [];
+        lastClass[1].m.push(...mediaQuery);
       }
 
       selectors.push(selector);
@@ -150,9 +144,10 @@ function reduceSelector(
   acc: Extract<NormalizeSelector, { type: "className" }>,
   selectorComponents: Selector,
   collection: CompilerCollection,
+  mediaQuery: MediaCondition[],
 ) {
-  let previousType: SelectorComponent["type"] = "combinator";
-  let inGroup = false;
+  let previousType: SelectorComponent["type"] | undefined;
+
   /*
    * Loop over each token and the cssSelector and parse it into a `react-native-css-interop` selector
    */
@@ -166,31 +161,23 @@ function reduceSelector(
         // We don't support these selectors at all
         return null;
       case "attribute": {
-        if (!acc.groupClassName && !acc.className) {
+        if (acc.classNames.length === 0) {
           if (
             component.name === "dir" &&
             component.operation?.operator === "equal"
           ) {
-            acc.media ??= [];
-            acc.media.push(["!!", component.operation.value]);
-          } else {
-            return null;
+            mediaQuery ??= [];
+            mediaQuery.push(["!!", component.operation.value]);
+            break;
           }
-          break;
+
+          // Ignore any other attributes that are not part of a class selector
+          return null;
         }
 
         // Turn attribute selectors into AttributeConditions
         acc.specificity[Specificity.ClassName] =
           (acc.specificity[Specificity.ClassName] ?? 0) + 1;
-
-        let attrs: AttributeQuery[];
-        if (inGroup) {
-          acc.groupAttrs ??= [];
-          attrs = acc.groupAttrs;
-        } else {
-          acc.attrs ??= [];
-          attrs = acc.attrs;
-        }
 
         const attributeQuery: AttributeQuery = component.name.startsWith(
           "data-",
@@ -230,8 +217,10 @@ function reduceSelector(
           }
         }
 
-        attrs.push(attributeQuery);
-
+        const lastGroup = acc.classNames[acc.classNames.length - 1];
+        lastGroup[1] ??= {};
+        lastGroup[1].aq ??= [];
+        lastGroup[1].aq.push(attributeQuery);
         break;
       }
       case "type": {
@@ -247,61 +236,36 @@ function reduceSelector(
         break;
       }
       case "combinator": {
-        // We only support the descendant combinator, this is used for groups
+        // We only support the descendant combinator
         if (component.value !== "descendant") {
           return null;
         }
-
-        inGroup = false;
-
         break;
       }
       case "class": {
         acc.specificity[Specificity.ClassName] =
           (acc.specificity[Specificity.ClassName] ?? 0) + 1;
 
-        // .class.otherClass is only valid if the previous class was a valid group, or the last token was a combinator
         switch (previousType) {
           // <something> .class
+          case undefined:
           case "combinator": {
-            // We can only have two classnames in a selector if the first one is a valid group
-            if (acc.className) {
-              // .className .otherClassName
-              // This will only occur if the first className is not a group
-              return null;
-            } else if (component.name === collection.selectorPrefix?.slice(1)) {
+            if (component.name === collection.selectorPrefix?.slice(1)) {
               // If the name matches the selectorPrefix, just ignore it!
               // E.g .dark .myClass
               break;
-            } else {
-              const groupingValid =
-                !acc.groupClassName &&
-                collection.grouping.some((group) => {
-                  return group.test(component.name);
-                });
-
-              if (groupingValid) {
-                // Otherwise make the current className the group
-                acc.groupClassName = component.name;
-                acc.groupPseudoClasses = acc.pseudoClasses;
-                inGroup = true;
-              } else if (!acc.className) {
-                acc.className = component.name;
-              } else {
-                return null;
-              }
             }
+
+            acc.classNames.push([component.name]);
+
             break;
           }
           // .class.otherClass
           case "class": {
-            if (!inGroup) {
-              return null;
-            }
-
-            // We are in a group selector, so any additional classes are groupAttributes
-            acc.groupAttrs ??= [];
-            acc.groupAttrs.push(["a", "className", "*=", component.name]);
+            const lastGroup = acc.classNames[acc.classNames.length - 1];
+            lastGroup[1] ??= {};
+            lastGroup[1].aq ??= [];
+            lastGroup[1].aq.push(["a", "className", "*=", component.name]);
             break;
           }
           default: {
@@ -314,58 +278,52 @@ function reduceSelector(
         acc.specificity[Specificity.ClassName] =
           (acc.specificity[Specificity.ClassName] ?? 0) + 1;
 
-        let attrs: AttributeQuery[];
         if (component.kind === "is") {
           if (isDarkUniversalSelector(component.selectors[0], collection)) {
-            acc.media ??= [];
-            acc.media.push(["=", "prefers-color-scheme", "dark"]);
+            const lastGroup = acc.classNames[acc.classNames.length - 1];
+            lastGroup[1] ??= {};
+            lastGroup[1].m ??= [];
+            lastGroup[1].m.push(["=", "prefers-color-scheme", "dark"]);
             break;
-          }
-        }
-
-        let pseudoClassesTarget: keyof typeof acc;
-        let accTarget: keyof typeof acc;
-
-        switch (previousType) {
-          case "pseudo-class":
-          case "class": {
-            if (acc.className) {
-              pseudoClassesTarget = "pseudoClasses";
-              accTarget = "attrs";
-            } else if (acc.groupClassName) {
-              pseudoClassesTarget = "groupPseudoClasses";
-              accTarget = "groupAttrs";
-            } else {
-              return null;
-            }
-            break;
-          }
-          default: {
-            return null;
           }
         }
 
         switch (component.kind) {
-          case "hover":
-            acc[pseudoClassesTarget] ??= {};
-            acc[pseudoClassesTarget]!.h = 1;
+          case "hover": {
+            const lastGroup = acc.classNames[acc.classNames.length - 1];
+            lastGroup[1] ??= {};
+            lastGroup[1].p ??= {};
+            lastGroup[1].p.h = 1;
             break;
-          case "active":
-            acc[pseudoClassesTarget] ??= {};
-            acc[pseudoClassesTarget]!.a = 1;
+          }
+          case "active": {
+            const lastGroup = acc.classNames[acc.classNames.length - 1];
+            lastGroup[1] ??= {};
+            lastGroup[1].p ??= {};
+            lastGroup[1].p.a = 1;
             break;
-          case "focus":
-            acc[pseudoClassesTarget] ??= {};
-            acc[pseudoClassesTarget]!.f = 1;
+          }
+          case "focus": {
+            const lastGroup = acc.classNames[acc.classNames.length - 1];
+            lastGroup[1] ??= {};
+            lastGroup[1].p ??= {};
+            lastGroup[1].p.f = 1;
             break;
-          case "disabled":
-            acc[accTarget] ??= [];
-            acc[accTarget]!.push(["a", "disabled"]);
+          }
+          case "disabled": {
+            const lastGroup = acc.classNames[acc.classNames.length - 1];
+            lastGroup[1] ??= {};
+            lastGroup[1].aq ??= [];
+            lastGroup[1].aq.push(["a", "disabled"]);
             break;
-          case "empty":
-            acc[accTarget] ??= [];
-            acc[accTarget]!.push(["a", "children", "!"]);
+          }
+          case "empty": {
+            const lastGroup = acc.classNames[acc.classNames.length - 1];
+            lastGroup[1] ??= {};
+            lastGroup[1].aq ??= [];
+            lastGroup[1].aq.push(["a", "children", "!"]);
             break;
+          }
         }
       }
     }
@@ -382,7 +340,7 @@ function isIsPseudoClass(
   return (
     selector.length === 1 &&
     selector[0].type === "pseudo-class" &&
-    (selector[0].kind === "is" || selector[0].kind === "where")
+    selector[0].kind === "is"
   );
 }
 

@@ -374,7 +374,6 @@ export type LoggerOptions = {
 export interface CompilerCollection extends CompilerOptions {
   rules: Map<string, StyleRule[]>;
   keyframes: Map<string, AnimationKeyframes>;
-  grouping: RegExp[];
   darkMode?: string | null;
   rootVariables: VariableRecord;
   universalVariables: VariableRecord;
