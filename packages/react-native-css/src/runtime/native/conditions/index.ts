@@ -8,7 +8,7 @@ import { ContainerContextValue } from "../contexts";
 import { Declarations } from "../declarations";
 import { activeFamily, focusFamily, hoverFamily } from "../globals";
 import { ImmutableGuards } from "../native.types";
-import { testContainerQuery } from "./container-query";
+import { testContainerQueries } from "./container-query";
 import { testMediaQuery } from "./media-query";
 
 export function testRule(
@@ -22,12 +22,12 @@ export function testRule(
   if (styleRule.p && !testPseudoClasses(styleRule.p, weakKey, next)) {
     return false;
   }
-  if (styleRule?.m && !testMediaQuery(styleRule.m, weakKey, next)) {
+  if (styleRule.m && !testMediaQuery(styleRule.m, weakKey, next)) {
     return false;
   }
   if (
-    styleRule?.cq &&
-    !testContainerQuery(styleRule.cq, inheritedContainers, next)
+    styleRule.cq &&
+    !testContainerQueries(styleRule.cq, inheritedContainers, guards, next)
   ) {
     return false;
   }

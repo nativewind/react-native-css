@@ -1220,33 +1220,11 @@ export function parseDeclaration(
         parseVerticalAlign(declaration.value, parseOptions),
       );
     case "transition-property":
-      return add(
-        "transition",
-        declaration.property,
-        declaration.value.map((v) => v.property),
-      );
     case "transition-duration":
-      return add(
-        "transition",
-        declaration.property,
-        declaration.value.map((t) => parseTime(t)),
-      );
     case "transition-delay":
-      return add(
-        "transition",
-        declaration.property,
-        declaration.value.map((t) => parseTime(t)),
-      );
     case "transition-timing-function":
-      return add(
-        "transition",
-        declaration.property,
-        parseEasingFunction(declaration.value),
-      );
     case "transition":
-      // TODO
-      return;
-    // return add("transition", declaration);
+      return addTransitionValue(declaration, parseOptions);
     case "animation-duration":
     case "animation-timing-function":
     case "animation-iteration-count":
@@ -2998,6 +2976,62 @@ function equal(a: unknown, b: unknown) {
 
 function parseTime(time: Time) {
   return time.type === "milliseconds" ? time.value : time.value * 1000;
+}
+
+function addTransitionValue(
+  declaration: Extract<
+    Declaration,
+    { property: `transition${string}` | "transition" }
+  >,
+  options: ParserOptions,
+) {
+  switch (declaration.property) {
+    case "transition":
+      const grouped: Record<string, any[]> = {};
+
+      for (const animation of declaration.value) {
+        for (const [key, value] of Object.entries(animation)) {
+          grouped[key] ??= [];
+          grouped[key].push(value);
+        }
+      }
+
+      for (const [property, value] of Object.entries(grouped)) {
+        addTransitionValue(
+          {
+            property: `transition-${kebabCase(property)}`,
+            value,
+          } as any,
+          options,
+        );
+      }
+      break;
+    case "transition-property": {
+      return options.add(
+        "transition",
+        declaration.property,
+        declaration.value.map((v) => v.property),
+      );
+    }
+    case "transition-duration":
+      return options.add(
+        "transition",
+        declaration.property,
+        declaration.value.map((t) => parseTime(t)),
+      );
+    case "transition-delay":
+      return options.add(
+        "transition",
+        declaration.property,
+        declaration.value.map((t) => parseTime(t)),
+      );
+    case "transition-timing-function":
+      return options.add(
+        "transition",
+        declaration.property,
+        parseEasingFunction(declaration.value),
+      );
+  }
 }
 
 function addAnimationValue(

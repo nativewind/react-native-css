@@ -448,14 +448,14 @@ function extractedContainer(
   // Iterate over all rules inside the containerRule and extract their styles using the updated CompilerCollection
   for (const rule of containerRule.rules) {
     const query: ContainerQuery = {
-      c: parseContainerCondition(containerRule.condition, options),
+      m: parseContainerCondition(containerRule.condition, options),
     };
 
     if (containerRule.name) {
       query.n = containerRule.name;
     }
 
-    extractRule(rule, collection, { cq: query });
+    extractRule(rule, collection, { cq: [query] });
   }
 }
 
@@ -541,17 +541,35 @@ function setStyleForSelectorList(
 
       const primarySelector = selector.classNames.pop()!;
 
-      for (const [group, conditions = {}] of selector.classNames) {
+      for (const [group, conditions] of selector.classNames) {
         // Add the conditions to the declarations object
         addDeclaration(declarations, group, {
           s: specificity,
           c: [`g:${group}`],
-          ...conditions,
         });
 
         primarySelector[1] ??= {};
-        primarySelector[1].c ??= [];
-        primarySelector[1].c.push(`g:${group}`);
+        primarySelector[1].cq ??= [];
+
+        const containerQuery: ContainerQuery = {
+          n: `g:${group}`,
+        };
+
+        if (conditions) {
+          if (conditions.m?.length) {
+            containerQuery.m = conditions.m[0];
+          }
+
+          if (conditions.aq) {
+            containerQuery.a = conditions.aq;
+          }
+
+          if (conditions.p) {
+            containerQuery.p = conditions.p;
+          }
+        }
+
+        primarySelector[1].cq.push(containerQuery);
       }
 
       const rule: StyleRule = {
@@ -562,9 +580,9 @@ function setStyleForSelectorList(
       const conditions = primarySelector[1];
 
       if (conditions) {
-        if (conditions.c) {
-          rule.c ??= [];
-          rule.c.push(...conditions.c);
+        if (conditions.cq) {
+          rule.cq ??= [];
+          rule.cq.push(...conditions.cq);
         }
 
         if (conditions.m) {

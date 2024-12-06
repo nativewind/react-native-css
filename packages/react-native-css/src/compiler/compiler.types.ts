@@ -73,7 +73,7 @@ export interface StyleRule {
   /** PseudoClassesQuery */
   p?: PseudoClassesQuery;
   /** Container Query */
-  cq?: ContainerQuery;
+  cq?: ContainerQuery[];
   /** Attribute Conditions */
   aq?: AttributeQuery[];
 
@@ -264,14 +264,11 @@ export type MediaCondition =
   | ["&", MediaCondition[]]
   // Or
   | ["|", MediaCondition[]]
-  // Plain
-  | ["=", MediaFeatureNameFor_MediaFeatureId, StyleDescriptor]
   // Comparison
   | [
-      "==",
-      MediaFeatureNameFor_MediaFeatureId,
-      StyleDescriptor,
       MediaFeatureComparison,
+      MediaFeatureNameFor_MediaFeatureId | MediaFeatureNameFor_MediaFeatureId,
+      StyleDescriptor,
     ]
   // [Start, End]
   | [
@@ -311,35 +308,10 @@ export type AttrSelectorOperator = "=" | "~=" | "|=" | "^=" | "$=" | "*=";
 export interface ContainerQuery {
   /** Name */
   n?: string | null;
-  c?: ContainerCondition;
+  m?: MediaCondition;
   p?: PseudoClassesQuery;
   a?: AttributeQuery[];
 }
-
-export type ContainerCondition =
-  // Boolean
-  | ["!!", MediaFeatureNameFor_ContainerSizeFeatureId]
-  // Not
-  | ["!", ContainerCondition]
-  // And
-  | ["&", ContainerCondition[]]
-  // Or
-  | ["|", ContainerCondition[]]
-  // Comparison
-  | [
-      MediaFeatureComparison,
-      MediaFeatureNameFor_ContainerSizeFeatureId,
-      StyleDescriptor,
-    ]
-  // [Start, End]
-  | [
-      "[]",
-      MediaFeatureNameFor_ContainerSizeFeatureId,
-      StyleDescriptor, // Start
-      MediaFeatureComparison, // Start comparison
-      StyleDescriptor, // End
-      MediaFeatureComparison, // End comparison
-    ];
 
 /******************************    Specificity    *****************************/
 

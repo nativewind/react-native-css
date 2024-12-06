@@ -11,6 +11,7 @@ import type {
 } from "../runtime.types";
 import { specificityCompareFn } from "../utils";
 import { testRule } from "./conditions";
+import { DEFAULT_CONTAINER_NAME } from "./conditions/container-query";
 import type { ContainerContextValue, VariableContextValue } from "./contexts";
 import { inlineStylesMap, styleFamily } from "./globals";
 import type { RenderGuard, SideEffect } from "./native.types";
@@ -19,6 +20,8 @@ import type { ConfigReducerState } from "./reducer";
 import type { UseInteropState } from "./useInterop";
 import { ProduceArray, ProduceRecord } from "./utils/immutability";
 import { type Effect } from "./utils/observable";
+
+const EMPTY_OBJ = {};
 
 export type Declarations = Effect & {
   transition?: TransitionRule;
@@ -29,7 +32,7 @@ export type Declarations = Effect & {
   variables?: VariableContextValue;
   containers?: ContainerContextValue;
   guards: RenderGuard[];
-  animation?: NonNullable<StyleRule["a"]>[];
+  animation?: StyleRule["a"][];
   sideEffects?: SideEffect[];
 };
 
@@ -74,10 +77,10 @@ export function buildDeclarations(
     (StyleRule | InlineStyleRecord)[] | undefined
   >(previous?.normal);
   const important = new ProduceArray(previous?.important);
-  const variables = new ProduceRecord(previous?.variables);
-  const containers = new ProduceRecord(previous?.containers);
+  const variables = new ProduceRecord(previous?.variables ? {} : undefined);
+  const containers = new ProduceRecord(previous?.containers ? {} : undefined);
   const animation = new ProduceArray(previous?.animation);
-  const transition = new ProduceRecord(previous?.transition);
+  const transition = new ProduceRecord(previous?.transition ? {} : undefined);
 
   const unsortedNormal: (StyleRule | InlineStyleRecord)[] = [];
   const unsortedImportant: StyleRule[] = [];
@@ -189,7 +192,7 @@ function collectRules(
   guards: ProduceArray<RenderGuard[]>,
   variables: ProduceRecord<VariableContextValue | undefined>,
   containers: ProduceRecord<ContainerContextValue | undefined>,
-  animations: ProduceArray<AnimationWithDefault[] | undefined>,
+  animations: ProduceArray<(AnimationWithDefault | undefined)[] | undefined>,
   transition: ProduceRecord<TransitionRule | undefined>,
   componentState: UseInteropState,
   next: Declarations,
@@ -227,6 +230,26 @@ function collectRules(
         inheritedContainers,
       )
     ) {
+      if (rule.t) {
+        transition.assign(EMPTY_OBJ);
+      }
+
+      if (rule.a) {
+        animations.push(undefined);
+      }
+
+      if (rule.c) {
+        transition.assign(EMPTY_OBJ);
+      }
+
+      if (rule.v) {
+        variables.assign(EMPTY_OBJ);
+      }
+
+      if (rule.c) {
+        containers.assign(EMPTY_OBJ);
+      }
+
       // Skip the rule if it doesn't match the conditions
       continue;
     }
@@ -239,18 +262,25 @@ function collectRules(
       transition.assign(rule.t);
     }
 
-    if (rule.d) {
-      collection.push(rule);
-    }
-
     if (rule.v) {
       variables.assign(Object.fromEntries(rule.v));
     }
 
     if (rule.c) {
       containers.assignAll(
-        rule.c.map((c) => ({ [`c:${c}`]: componentState.key })),
+        rule.c.map((c) => {
+          return c.startsWith("g:")
+            ? { [c]: componentState.key }
+            : {
+                [c]: componentState.key,
+                [DEFAULT_CONTAINER_NAME]: componentState.key,
+              };
+        }),
       );
+    }
+
+    if (rule.d) {
+      collection.push(rule);
     }
   }
 }

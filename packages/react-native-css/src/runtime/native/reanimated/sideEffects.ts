@@ -39,6 +39,8 @@ export function buildAnimationSideEffects(
     e: baseEasingFuncs = defaultAnimation.e,
     i: iterationList = defaultAnimation.i,
   } = next.animation.reduce((acc, current) => {
+    if (!current) return acc;
+
     if (current.length === 1) {
       return Object.assign(acc, current[0]);
     }

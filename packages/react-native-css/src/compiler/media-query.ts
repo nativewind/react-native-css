@@ -84,10 +84,9 @@ function parseFeature(
       ];
     case "range":
       return [
-        "==",
+        parseMediaFeatureOperator(feature.operator),
         feature.name,
         parseMediaFeatureValue(feature.value, options),
-        parseMediaFeatureOperator(feature.operator),
       ];
     case "interval":
       return [

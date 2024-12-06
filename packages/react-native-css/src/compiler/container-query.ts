@@ -3,7 +3,7 @@ import {
   QueryFeatureFor_ContainerSizeFeatureId,
 } from "lightningcss";
 
-import { ContainerCondition } from "./compiler.types";
+import { MediaCondition } from "./compiler.types";
 import { ParserOptions } from "./declarations";
 import {
   parseMediaFeatureOperator,
@@ -27,7 +27,7 @@ export function parseContainerCondition(
 function parseContainerQueryCondition(
   condition: CSSContainerCondition,
   options: ParserOptions,
-): ContainerCondition | undefined {
+): MediaCondition | undefined {
   switch (condition.type) {
     case "feature":
       return parseFeature(condition.value, options);
@@ -37,7 +37,7 @@ function parseContainerQueryCondition(
     case "operation":
       const conditions = condition.conditions
         .map((c) => parseContainerQueryCondition(c, options))
-        .filter((v): v is ContainerCondition => !!v);
+        .filter((v): v is MediaCondition => !!v);
 
       if (conditions.length === 0) {
         return;
@@ -64,7 +64,7 @@ function parseContainerQueryCondition(
 function parseFeature(
   feature: QueryFeatureFor_ContainerSizeFeatureId,
   options: ParserOptions,
-): ContainerCondition | undefined {
+): MediaCondition | undefined {
   switch (feature.type) {
     case "boolean":
       return ["!!", feature.name];

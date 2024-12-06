@@ -1,4 +1,4 @@
-import type { InlineStyle, Props } from "../runtime.types";
+import type { Props } from "../runtime.types";
 import type { ContainerContextValue, VariableContextValue } from "./contexts";
 import { buildDeclarations, type Declarations } from "./declarations";
 import type { Config } from "./native.types";
@@ -68,20 +68,6 @@ function updateDefinitions(
   inheritedVariables: VariableContextValue,
   inheritedContainers: ContainerContextValue,
 ): ConfigReducerState {
-  const source = props?.[state.source] as string | undefined;
-
-  const target = state.target
-    ? (props?.[state.target] as InlineStyle)
-    : undefined;
-
-  // Has this component ever seen styles?
-  const initialized = state.declarations;
-
-  // Is there anything to do?
-  if (!initialized && !source && !target) {
-    return state;
-  }
-
   const previous = state.declarations;
   let next = buildDeclarations(
     state,

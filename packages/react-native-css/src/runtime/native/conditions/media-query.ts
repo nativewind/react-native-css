@@ -20,8 +20,6 @@ function testMediaQueryCondition(
   effect: Effect,
 ): Boolean {
   switch (mediaQuery[0]) {
-    case "==":
-      return testRange(mediaQuery, effect);
     case "[]":
     case "!!":
       return false;
@@ -35,53 +33,39 @@ function testMediaQueryCondition(
       return mediaQuery[1].some((query) => {
         return testMediaQueryCondition(query, weakKey, effect);
       });
-    default:
-      return testPlain(mediaQuery, effect);
+    case ">":
+    case ">=":
+    case "<":
+    case "<=":
+    case "=": {
+      return testComparison(mediaQuery, effect);
+    }
   }
 }
 
-function testPlain(
-  mediaQuery: Extract<MediaCondition, ["=", ...any[]]>,
-  effect: Effect,
-) {
-  const value = mediaQuery[2];
+function testComparison(mediaQuery: MediaCondition, effect: Effect): Boolean {
+  let left: number | undefined;
+  const right = mediaQuery[2];
 
   switch (mediaQuery[1]) {
     case "prefers-color-scheme": {
-      return value === effect.get(appColorScheme);
+      return right === effect.get(appColorScheme);
     }
-    case "resolution":
-      return value === PixelRatio.get();
     case "display-mode":
-      return value === "native" || Platform.OS === value;
-    case "width":
-      return typeof value === "number" && effect.get(vw) === value;
+      return right === "native" || Platform.OS === right;
     case "min-width":
-      return typeof value === "number" && effect.get(vw) >= value;
+      return typeof right === "number" && effect.get(vw) >= right;
     case "max-width":
-      return typeof value === "number" && effect.get(vw) <= value;
-    case "height":
-      return typeof value === "number" && effect.get(vh) === value;
+      return typeof right === "number" && effect.get(vw) <= right;
     case "min-height":
-      return typeof value === "number" && effect.get(vh) >= value;
+      return typeof right === "number" && effect.get(vh) >= right;
     case "max-height":
-      return typeof value === "number" && effect.get(vh) <= value;
+      return typeof right === "number" && effect.get(vh) <= right;
     case "orientation":
-      return value === "landscape"
+      return right === "landscape"
         ? effect.get(vh) < effect.get(vw)
         : effect.get(vh) >= effect.get(vw);
-    default: {
-      return false;
-    }
   }
-}
-
-function testRange(
-  mediaQuery: Extract<MediaCondition, ["==", ...any[]]>,
-  effect: Effect,
-) {
-  const right = mediaQuery[2];
-  let left: number | undefined;
 
   if (typeof right !== "number") {
     return false;
@@ -101,7 +85,7 @@ function testRange(
       return false;
   }
 
-  switch (mediaQuery[3]) {
+  switch (mediaQuery[0]) {
     case "=":
       return left === right;
     case ">":
@@ -113,7 +97,6 @@ function testRange(
     case "<=":
       return left <= right;
     default:
-      mediaQuery[3] satisfies never;
       return false;
   }
 }

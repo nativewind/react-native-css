@@ -82,7 +82,8 @@ export function buildAddFn(
     switch (type) {
       case "container": {
         rule.c ??= [];
-        rule.c.push(...(value as string[]));
+        const names = (value as string[]).map((name) => `c:${name}`);
+        rule.c.push(...names);
         break;
       }
       case "transition":
