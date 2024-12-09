@@ -1,0 +1,81 @@
+---
+sidebar_position: 1
+---
+
+import CodeBlock from "@theme/CodeBlock";
+import TabItem from "@theme/TabItem";
+import Tabs from "@theme/Tabs";
+
+# Installation
+
+### 1. Modify your metro.config.js
+
+::: tip
+
+If you do not have a `metro.config.js` in your project root, please consult your framework guide on how to create one. For example, Expo users can use the command `npx expo customize metro.config.js`
+
+:::
+
+<Tabs>
+  <TabItem value="sync" label="Standard Config">
+    ```js title="metro.config.js"
+    const { withCss } = require("react-native-css/metro");
+
+    const config = <your_metro_config>
+
+    module.exports = withCss(config)
+    ```
+
+  </TabItem>
+  <TabItem value="sync" label="Async config">
+    ```js title="metro.config.js"
+    const { withCss } = require("react-native-css/metro");
+
+    module.exports = async function() {
+      const config = await <your_metro_config>
+      return withCss(config)
+    }
+    ```
+
+  </TabItem>
+</Tabs>
+
+`withCss` should be the last function to transform your config. It sets a custom `resolver`/`transformer`/etc. Overriding these options will cause `react-native-css` to no longer work.
+
+### 2. Import your `.css` file
+
+We recommend that you import this file at the entry point to your application. For frameworks such as Expo Router, this would be the root `_layout` file.
+
+# Using the JSX transform (recommend)
+
+At this stage, `react-native-css` is installed. However we recommend these additional steps for the best developer experience.
+
+### 3. Add the Babel preset
+
+```js title="babel.config.js"
+module.exports = function (api) {
+  api.cache(true);
+  return {
+    presets: [
+      <your-babel-presets>,
+      "react-native-css/babel",
+    ],
+  };
+};
+```
+
+`react-native-css/babel` should be the last preset in your preset list.
+
+# Typescript
+
+`react-native-css` will automatically create a `react-native-css-env.d.ts` file for TypeScript projects.
+
+# Disabling automatic setup
+
+`react-native-css` has a number of opinionated setup checks to ensure the project has been setup correctly. You can disabled these checks by passing options to `withCSS(<config>, options)`
+
+| Option              | Description                                                                                   |
+| ------------------- | --------------------------------------------------------------------------------------------- |
+| `jsxTransform`      | Set to `false` to disable the `babel.config.js` check for the `react-native-css/babel` preset |
+| `typescriptSetup`   | Set to `false` to disable the `react-native-css-env.d.ts` file generation                     |
+| `typescriptEnvPath` | Change the path where `react-native-css-env.d.ts` is generated                                |
