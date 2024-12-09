@@ -13,12 +13,12 @@ import {
   Program,
 } from "@babel/types";
 
-const importFunction = "createInteropElement";
-const importModule = "react-native-css-interop";
-const importAs = "ReactNativeCSSInterop";
+const importFunction = "createCssElement";
+const importModule = "react-native-css/runtime";
+const importAs = "ReactNativeCSS";
 
 const allowedFileRegex =
-  /^(?!.*[\/\\](react|react-native|react-native-web|react-native-css-interop)[\/\\]).*$/;
+  /^(?!.*[\/\\](react|react-native|react-native-web|react-native-css)[\/\\]).*$/;
 
 export default function () {
   return {

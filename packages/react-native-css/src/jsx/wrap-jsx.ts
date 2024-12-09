@@ -8,7 +8,7 @@ import { maybeHijackSafeAreaProvider } from "../runtime/third-party/react-native
 export default function wrapJSX(jsx: JSXFunction): JSXFunction {
   return function (type, props, ...rest) {
     // This is invalid react code. Its used by the doctor to check if the JSX pragma is set correctly
-    if ((type as any) === "react-native-css-interop-jsx-pragma-check") {
+    if ((type as any) === "react-native-css-jsx-pragma-check") {
       return true as any;
     }
 

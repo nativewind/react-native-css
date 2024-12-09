@@ -1,4 +1,9 @@
-import type { ComponentProps, ComponentType } from "react";
+import type {
+  ComponentProps,
+  ComponentType,
+  ForwardedRef,
+  ReactElement,
+} from "react";
 import type {
   ColorSchemeName,
   ImageStyle,
@@ -11,54 +16,21 @@ import type { makeMutable, SharedValue } from "react-native-reanimated";
 import type {
   AnimationKeyframes,
   EasingFunction,
-  LightDarkVariable,
   StyleDescriptor,
 } from "../compiler";
 import type { FlattenComponentProps, ReactComponent } from "./utils";
 
-/********************************    Styles    ********************************/
+/********************************     API      ********************************/
 
-export type InlineStyleRecord = Record<string, unknown> & {
-  // Used to differentiate between InlineStyleRecord and StyleRule
-  s?: never;
-};
-
-export type InlineStyle =
-  | InlineStyleRecord
-  | undefined
-  | null
-  | (Record<string, unknown> | undefined | null)[]
-  | (() => unknown);
-
-/******************************    Animations    ******************************/
-
-export type Mutable<Value> = ReturnType<typeof makeMutable<Value>>;
-export type AnimationMutable = Mutable<number>;
-
-export type KeyFramesWithStyles = {
-  animation: AnimationKeyframes;
-  baseStyles: Record<string, any>;
-};
-
-export type AnimationInterpolation =
-  | [string, number[], StyleDescriptor[]]
-  | [string, number[], StyleDescriptor[], number]
-  | [string, number[], StyleDescriptor[], number, AnimationInterpolationType];
-
-export type AnimationInterpolationType = "color" | "%" | undefined;
-
-export type SharedValueInterpolation = [
-  SharedValue<number>,
-  AnimationInterpolation[],
-];
-
-export type AnimationEasing = number | [number, EasingFunction];
-
-/******************************    Transitions    *****************************/
-
-export type Transition = [string | string[], Mutable<any>];
-
-/**********************************    API    *********************************/
+export type UseCssElement = <
+  const C extends ReactComponent<any>,
+  const M extends StyledConfiguration<C>,
+>(
+  component: C,
+  mapping: M & StyledConfiguration<C>,
+  props: Props,
+  ref?: ForwardedRef<any>,
+) => ReactElement;
 
 export type Styled = <
   const C extends ReactComponent<any>,
@@ -119,6 +91,48 @@ export type StyledConfiguration<C extends ReactComponent<any>> = Record<
 export type StyledOptions = {
   passThrough?: boolean;
 };
+
+/********************************    Styles    ********************************/
+
+export type InlineStyleRecord = Record<string, unknown> & {
+  // Used to differentiate between InlineStyleRecord and StyleRule
+  s?: never;
+};
+
+export type InlineStyle =
+  | InlineStyleRecord
+  | undefined
+  | null
+  | (Record<string, unknown> | undefined | null)[]
+  | (() => unknown);
+
+/******************************    Animations    ******************************/
+
+export type Mutable<Value> = ReturnType<typeof makeMutable<Value>>;
+export type AnimationMutable = Mutable<number>;
+
+export type KeyFramesWithStyles = {
+  animation: AnimationKeyframes;
+  baseStyles: Record<string, any>;
+};
+
+export type AnimationInterpolation =
+  | [string, number[], StyleDescriptor[]]
+  | [string, number[], StyleDescriptor[], number]
+  | [string, number[], StyleDescriptor[], number, AnimationInterpolationType];
+
+export type AnimationInterpolationType = "color" | "%" | undefined;
+
+export type SharedValueInterpolation = [
+  SharedValue<number>,
+  AnimationInterpolation[],
+];
+
+export type AnimationEasing = number | [number, EasingFunction];
+
+/******************************    Transitions    *****************************/
+
+export type Transition = [string | string[], Mutable<any>];
 
 /*********************************    JSX    **********************************/
 

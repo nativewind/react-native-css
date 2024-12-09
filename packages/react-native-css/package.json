@@ -17,6 +17,20 @@
   "module": "./lib/module/runtime/index.js",
   "types": "./lib/typescript/commonjs/runtime/index.d.ts",
   "exports": {
+    ".": {
+      "import": {
+        "types": "./lib/typescript/module/runtime/index.d.ts",
+        "browser": "./lib/module/runtime/index.js",
+        "react-native": "./lib/module/runtime/index.js",
+        "default": "./lib/module/runtime/index.js"
+      },
+      "require": {
+        "types": "./lib/typescript/commonjs/runtime/index.d.ts",
+        "browser": "./lib/commonjs/runtime/web/index.js",
+        "react-native": "./lib/commonjs/runtime/native/index.js",
+        "default": "./lib/commonjs/runtime/index.js"
+      }
+    },
     "./runtime": {
       "import": {
         "types": "./lib/typescript/module/runtime/index.d.ts",

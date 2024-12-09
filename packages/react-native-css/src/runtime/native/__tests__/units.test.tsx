@@ -7,11 +7,11 @@ import {
   render,
   screen,
   setupAllComponents,
+  testID,
 } from "react-native-css/jest";
 
 import { dimensions, rem, vh, vw } from "../globals";
 
-const testID = "react-native-css-interop";
 setupAllComponents();
 
 test("px", () => {

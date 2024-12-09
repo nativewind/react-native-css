@@ -69,7 +69,6 @@ function updateDefinitions(
   inheritedContainers: ContainerContextValue,
 ): ConfigReducerState {
   const previous = state.declarations;
-  debugger;
   let next = buildDeclarations(
     state,
     componentState,

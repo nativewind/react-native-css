@@ -25,9 +25,8 @@ export async function transform(
 
   const cssFileFilter = new RegExp(config.reactNativeCss.cssFileFilter);
 
-  if (cssFileFilter.test(filename)) {
+  if (options.platform !== "web" && cssFileFilter.test(filename)) {
     return require(config.reactNativeCss.cssTransformerPath).transform(
-      transform,
       config,
       projectRoot,
       filename,

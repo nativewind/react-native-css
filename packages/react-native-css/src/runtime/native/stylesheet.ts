@@ -14,7 +14,6 @@ export const StyleSheet = Object.assign({}, RNStyleSheet, {
 });
 
 export function injectData(options: ReactNativeCssStyleSheet) {
-  debugger;
   const batch = new Set<Effect>();
 
   if (options.s) {

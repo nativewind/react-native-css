@@ -3,6 +3,7 @@ import { forwardRef, useContext } from "react";
 import type { StyleDescriptor } from "../../compiler";
 import type { ColorScheme, JSXFunction, Styled } from "../runtime.types";
 import { inlineSpecificity } from "../utils";
+import { getComponentType } from "../utils/components";
 import { VariableContext } from "./contexts";
 import {
   appColorScheme,
@@ -65,21 +66,6 @@ export const styled: Styled = (baseComponent, mapping, options) => {
   interopComponents.set(baseComponent, component);
   return component;
 };
-
-const ForwardRefSymbol = Symbol.for("react.forward_ref");
-function getComponentType(component: any) {
-  switch (typeof component) {
-    case "function":
-    case "object":
-      return "$$typeof" in component && component.$$typeof === ForwardRefSymbol
-        ? "forwardRef"
-        : component.prototype?.isReactComponent
-          ? "class"
-          : typeof component;
-    default:
-      return "unknown";
-  }
-}
 
 export const colorScheme: ColorScheme = {
   get() {

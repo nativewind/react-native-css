@@ -16,7 +16,7 @@ import {
   View,
 } from "react-native";
 
-import { styled } from "./runtime";
+import { styled } from "../runtime";
 
 styled(Image, { className: "style" });
 styled(Pressable, { className: "style" });

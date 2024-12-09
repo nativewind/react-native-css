@@ -44,5 +44,5 @@ export function registerCSS(
 }
 
 export function setupAllComponents() {
-  require("../runtime/components");
+  require("../jsx/components");
 }

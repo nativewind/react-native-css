@@ -22,7 +22,7 @@ export type NormalizeSelector =
     };
 
 /**
- * Turns a CSS selector into a `react-native-css-interop` selector.
+ * Turns a CSS selector into a `react-native-css` selector.
  */
 export function getSelectors(
   extractedStyle: StyleRule,
@@ -149,7 +149,7 @@ function reduceSelector(
   let previousType: SelectorComponent["type"] | undefined;
 
   /*
-   * Loop over each token and the cssSelector and parse it into a `react-native-css-interop` selector
+   * Loop over each token and the cssSelector and parse it into a `react-native-css` selector
    */
   for (const component of selectorComponents) {
     switch (component.type) {

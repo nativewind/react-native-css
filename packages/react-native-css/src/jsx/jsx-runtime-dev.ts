@@ -5,7 +5,7 @@ import ReactJSXRuntime from "react/jsx-dev-runtime";
 import wrapJSX from "./wrap-jsx";
 
 /**
- * This the entry point for the react-native-css-interop runtime.
+ * This the entry point for the react-native-css runtime.
  * The babel plugin swaps the `jsxImportSource` to this module.
  * These functions need to be very light weight as they are the hottest function calls in a React application
  * @see https://babeljs.io/docs/babel-plugin-transform-react-jsx
@@ -15,5 +15,5 @@ export { Fragment } from "react";
 export const jsxs = wrapJSX((ReactJSXRuntime as any).jsxs);
 export const jsx = wrapJSX((ReactJSXRuntime as any).jsx);
 export const jsxDEV = wrapJSX((ReactJSXRuntime as any).jsxDEV);
-export const createInteropElement = wrapJSX(originalCreateElement as any);
+export const createCssElement = wrapJSX(originalCreateElement as any);
 export const createElement = originalCreateElement;

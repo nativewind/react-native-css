@@ -7,11 +7,11 @@ import {
   render,
   screen,
   setupAllComponents,
+  testID,
 } from "react-native-css/jest";
 
 import { styled, useUnstableNativeVariable } from "../api";
 
-const testID = "react-native-css-interop";
 setupAllComponents();
 
 test("inline variable", () => {
