@@ -1,3 +1,5 @@
+import { StyleSheet as RNStyleSheet } from "react-native";
+
 import { ReactNativeCssStyleSheet } from "../../compiler";
 import {
   animationFamily,
@@ -7,7 +9,12 @@ import {
 } from "./globals";
 import { Effect } from "./utils/observable";
 
+export const StyleSheet = Object.assign({}, RNStyleSheet, {
+  register: injectData,
+});
+
 export function injectData(options: ReactNativeCssStyleSheet) {
+  debugger;
   const batch = new Set<Effect>();
 
   if (options.s) {

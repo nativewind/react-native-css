@@ -8,20 +8,20 @@
   "scripts": {
     "test": "jest",
     "build": "bob build",
+    "build:watch": "nodemon --exec 'bob build --' ./index.ts -i ./lib,./example -e ts",
     "prepublishOnly": "npm run build",
     "prepack": "cp ../../README.md ./README.md",
     "postpack": "rm ./README.md"
   },
-  "source": "./src/index.tsx",
   "main": "./lib/commonjs/runtime/index.js",
   "module": "./lib/module/runtime/index.js",
   "types": "./lib/typescript/commonjs/runtime/index.d.ts",
   "exports": {
-    ".": {
+    "./runtime": {
       "import": {
         "types": "./lib/typescript/module/runtime/index.d.ts",
-        "browser": "./lib/module/runtime/web/index.js",
-        "react-native": "./lib/module/runtime/native/index.js",
+        "browser": "./lib/module/runtime/index.js",
+        "react-native": "./lib/module/runtime/index.js",
         "default": "./lib/module/runtime/index.js"
       },
       "require": {
@@ -49,6 +49,16 @@
       "require": {
         "types": "./lib/typescript/commonjs/metro/index.d.ts",
         "default": "./lib/commonjs/metro/index.js"
+      }
+    },
+    "./babel": {
+      "import": {
+        "types": "./lib/typescript/module/babel/index.d.ts",
+        "default": "./lib/module/babel/index.js"
+      },
+      "require": {
+        "types": "./lib/typescript/commonjs/babel/index.d.ts",
+        "default": "./lib/commonjs/babel/index.js"
       }
     },
     "./doctor": {
@@ -124,7 +134,9 @@
   },
   "dependencies": {
     "@babel/helper-module-imports": "^7.25.9",
+    "comment-json": "^4.2.5",
     "debug": "^4.3.7",
+    "nodemon": "^3.1.7",
     "semver": "^7.6.3"
   },
   "devDependencies": {

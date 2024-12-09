@@ -1,18 +1,22 @@
-import fs from "node:fs";
-import path from "node:path";
+import { error } from "console";
 
 import debug from "debug";
 import type { MetroConfig } from "metro-config";
 
 import { type CompilerOptions } from "../compiler";
 import {
+  cssFileFilter,
+  CssPreprocessor,
   resolveRequest as cssPreprocessorResolveRequest,
   transformOptions as cssPreprocessorTransformOptions,
   getCssPreprocessorMiddleware,
   setup as preprocessorSetup,
 } from "./css-preprocessor";
+import { errorMessages, ErrorMessages } from "./errors";
 import { expoColorSchemeWarning } from "./expo";
+import { checkJSXSetup } from "./jsx-babel-check";
 import { ReactNativeCssTransformerConfig } from "./transformer";
+import { setupTypeScript } from "./typescript";
 
 export type WithCssOptions = CompilerOptions & {
   /**
@@ -32,21 +36,30 @@ export type WithCssOptions = CompilerOptions & {
    * A replacement transformer for the runtime. Called after `cssTransformerPath`.
    */
   runtimeTransformerPath?: string;
-
   /**
    * When cssProcessor is provided, virtual modules are enabled by default in development.
    * Disabling this option will write the CSS to disk, mimicking production builds.
    */
   allowVirtualModules?: boolean;
+  /**
+   * Set to false to disable the JSX transform setup check
+   */
+  jsxTransform?: boolean;
+  /**
+   * Set to false to disable the automatic TypeScript setup
+   */
+  typescriptSetup?: boolean;
+  /**
+   * Change the `react-native-css-env.d.ts` file path
+   */
+  typescriptEnvPath?: string;
+  /**
+   * Used by frameworks to customize error messages to make them framework specific
+   */
+  errorMessages: Partial<ErrorMessages>;
 };
 
-export type CssPreprocessor = (
-  platform: string,
-  onChange?: (css: string) => void,
-) => Promise<string | Buffer>;
-
 let virtualModulesPossible: undefined | Promise<void> = undefined;
-const outputDirectory = path.resolve(__dirname, "../../.cache");
 const isRadonIDE = "REACT_NATIVE_IDE_LIB_PATH" in process.env;
 
 /**
@@ -93,21 +106,34 @@ const isRadonIDE = "REACT_NATIVE_IDE_LIB_PATH" in process.env;
  */
 export function getMetroConfig(
   config: MetroConfig,
-  interopOptions: WithCssOptions,
+  interopOptions?: WithCssOptions,
 ): MetroConfig {
-  const logger = interopOptions.logger ?? debug("react-native-css");
-
   const options = {
-    logger,
+    logger: debug("react-native-css"),
     cssFileFilter: "\.css$",
+    typescriptEnvPath: "react-native-css-env.d.ts",
     ...interopOptions,
+    errorMessages: Object.assign(
+      {},
+      errorMessages,
+      interopOptions?.errorMessages,
+    ),
   };
 
+  const logger = options.logger;
+
   logger("withCss");
-  logger(`outputDirectory ${outputDirectory}`);
   logger(`isRadonIDE: ${isRadonIDE}`);
 
   expoColorSchemeWarning();
+
+  if (options.typescriptSetup !== false) {
+    setupTypeScript(options.typescriptEnvPath);
+  }
+
+  if (options.jsxTransform !== false) {
+    checkJSXSetup("react-native-css/babel", options.errorMessages);
+  }
 
   const originalResolver = config.resolver?.resolveRequest;
   const originalGetTransformOptions = config.transformer?.getTransformOptions;
@@ -116,7 +142,7 @@ export function getMetroConfig(
   const poisonPillPath = "./interop-poison.pill";
 
   if (options.cssPreprocessor) {
-    preprocessorSetup();
+    preprocessorSetup(options);
   }
 
   const customTransformOptions: ReactNativeCssTransformerConfig = {
@@ -125,7 +151,7 @@ export function getMetroConfig(
       cssTransformerPath:
         options.cssTransformerPath || require.resolve("./runtime-transformer"),
       cssFileFilter: options.cssPreprocessor
-        ? `^${path.relative(process.cwd(), outputDirectory)}`
+        ? cssFileFilter
         : options.cssFileFilter,
     },
   };
@@ -153,13 +179,12 @@ export function getMetroConfig(
             platform,
             transformOptions.dev,
             isRadonIDE,
-            outputDirectory,
             options,
           );
         }
 
         return Object.assign(
-          {},
+          { reactNativeCSS: { test: true } },
           await originalGetTransformOptions?.(
             entryPoints,
             transformOptions,

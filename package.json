@@ -6,7 +6,8 @@
   "scripts": {
     "test": "npm run test --ws --",
     "website": "npm run start --workspace=website --",
-    "build": "npm run build --ws --",
+    "build": "npm run build --workspace=react-native-css --",
+    "pack": "npm run pack --workspace=react-native-css --",
     "clean": "find . -name 'node_modules' -type d -prune -exec rm -rf '{}' +; npm ci"
   },
   "workspaces": [

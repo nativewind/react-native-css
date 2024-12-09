@@ -1,6 +1,6 @@
 import { pluginTester } from "babel-plugin-tester";
 
-import plugin from "../babel-plugin";
+import plugin from "../import-plugin";
 
 (globalThis as any).describe = describe;
 (globalThis as any).it = it;

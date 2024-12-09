@@ -10,16 +10,25 @@ import type MetroServer from "metro/src/Server";
 
 import { compile } from "../compiler";
 import { WithCssOptions } from "./metro";
+import { stringify } from "./stringify";
 
 let haste: any;
 let virtualModulesPossible: undefined | Promise<void> = undefined;
-const outputDirectory = path.resolve(__dirname, "../../.cache");
+export const outputDirectory = path.resolve(__dirname, "../../.cache");
 const virtualModules = new Map<string, Promise<string | Buffer>>();
+
+export const cssFileFilter = `^${path.relative(process.cwd(), outputDirectory)}`;
 
 type WithCssOptionsWithDefaults = WithCssOptions &
   Required<Pick<WithCssOptions, "logger" | "cssFileFilter">>;
 
-export function setup() {
+export type CssPreprocessor = (
+  platform: string,
+  onChange?: (css: string) => void,
+) => Promise<string | Buffer>;
+
+export function setup({ logger }: WithCssOptionsWithDefaults) {
+  logger(`outputDirectory ${outputDirectory}`);
   fs.mkdirSync(outputDirectory, { recursive: true });
   fs.writeFileSync(platformPath("ios"), "");
   fs.writeFileSync(platformPath("android"), "");
@@ -70,7 +79,6 @@ export async function transformOptions(
   platform: string,
   dev: boolean,
   isRadonIDE: boolean,
-  outputDirectory: string,
   options: WithCssOptionsWithDefaults,
 ) {
   if (!options.cssPreprocessor) return;
@@ -288,64 +296,6 @@ function getNativeJS(
   const output = `(${stringify(data)})`;
   logger(`Output size: ${Buffer.byteLength(output, "utf8")} bytes`);
   return output;
-}
-
-/**
- * Convert a data structure to JavaScript.
- * The output should be similar to JSON, but without the extra characters.
- */
-function stringify(data: unknown): string {
-  switch (typeof data) {
-    case "bigint":
-    case "symbol":
-    case "function":
-      throw new Error(`Cannot stringify ${typeof data}`);
-    case "string":
-      return `"${data}"`;
-    case "number":
-      // Reduce to 3 decimal places
-      return `${Math.round(data * 1000) / 1000}`;
-    case "boolean":
-      return `${data}`;
-    case "undefined":
-      // null is processed faster than undefined
-      // JSON.stringify also converts undefined to null
-      return "null";
-    case "object": {
-      if (data === null) {
-        return "null";
-      } else if (Array.isArray(data)) {
-        return `[${data
-          .map((value) => {
-            // These values can be omitted to create a holey array
-            // This is slightly slower to parse at runtime, but keeps the
-            // file size smaller
-            return value === null || value === undefined
-              ? ""
-              : stringify(value);
-          })
-          .join(",")}]`;
-      } else {
-        return `{${Object.entries(data)
-          .flatMap(([key, value]) => {
-            // If an object's property is undefined or null we can just skip it
-            if (value === null || value === undefined) {
-              return [];
-            }
-
-            // Make sure we quote strings that require quotes
-            if (key.match(/[^a-zA-Z]/)) {
-              key = `"${key}"`;
-            }
-
-            value = stringify(value);
-
-            return [`${key}:${value}`];
-          })
-          .join(",")}}`;
-      }
-    }
-  }
 }
 
 function platformPath(platform = "native") {

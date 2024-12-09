@@ -7,7 +7,7 @@ import type {
   StyleRuleSet,
 } from "../../compiler";
 import { Config } from "./native.types";
-import { writeAnimation } from "./reanimated";
+import { writeAnimation } from "./reanimated/defaults";
 import { isDeepEqual } from "./utils/equality";
 import { family, observable, weakFamily } from "./utils/observable";
 

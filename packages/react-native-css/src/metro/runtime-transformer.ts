@@ -4,7 +4,11 @@ import worker, {
   TransformResponse,
 } from "metro-transform-worker";
 
+import { compile } from "../compiler";
+import { stringify } from "./stringify";
+
 export async function transform(
+  transformer: typeof worker.transform,
   config: JsTransformerConfig,
   projectRoot: string,
   filename: string,
@@ -16,8 +20,8 @@ export async function transform(
    * Since the style file only uses a single import, we can transform a fake file to get the
    * dependencies and function mapping
    */
-  const fakeFile = `import { StyleSheet } from "react-native-css/runtime";StyleSheet.register({});`;
-  const result = await transform(
+  const fakeFile = `import { StyleSheet } from "react-native-css/runtime";console.log(1);StyleSheet.register({});`;
+  const result = await worker.transform(
     config,
     projectRoot,
     filename,
@@ -26,7 +30,9 @@ export async function transform(
   );
 
   const output = result.output[0] as any;
-  const code = output.data.code.replace("({})", data.toString("utf-8"));
+  const css = compile(data);
+  const json = stringify(css);
+  const code = output.data.code.replace("({})", `(${json})`);
 
   return {
     ...result,

@@ -27,6 +27,7 @@ export async function transform(
 
   if (cssFileFilter.test(filename)) {
     return require(config.reactNativeCss.cssTransformerPath).transform(
+      transform,
       config,
       projectRoot,
       filename,

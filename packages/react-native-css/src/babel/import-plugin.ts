@@ -22,7 +22,7 @@ const allowedFileRegex =
 
 export default function () {
   return {
-    name: "react-native-css-interop-imports",
+    name: "react-native-css-imports",
     visitor: {
       Program(path: NodePath<Program>, state: { filename: string }) {
         if (allowedFileRegex.test(state.filename)) {
