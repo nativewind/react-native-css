@@ -18,7 +18,7 @@ pluginTester({
 export default function App() {
   return /*#__PURE__*/ _react.default.createElement(_reactNative.Text, {})
 }`,
-      output: `import * as _ReactNativeCSS from "react-native-css/runtime";
+      output: `import * as _ReactNativeCSS from "react-native-css/jsx-runtime";
 var _react = _interopRequireDefault(require("react"));
 export default function App() {
   return /*#__PURE__*/ _ReactNativeCSS.createCssElement(_reactNative.Text, {});
@@ -30,7 +30,7 @@ export default function App() {
 export default function App() {
   return createElement("div", {}, "Hello World");
 }`,
-      output: `import * as _ReactNativeCSS from "react-native-css/runtime";
+      output: `import * as _ReactNativeCSS from "react-native-css/jsx-runtime";
 import { createElement } from "react";
 export default function App() {
   return _ReactNativeCSS.createCssElement("div", {}, "Hello World");
@@ -43,7 +43,7 @@ export default function App() {
 export default function App() {
   return React.createElement("div", {}, "Hello World");
 }`,
-      output: `import * as _ReactNativeCSS from "react-native-css/runtime";
+      output: `import * as _ReactNativeCSS from "react-native-css/jsx-runtime";
 import React from "react";
 export default function App() {
   return _ReactNativeCSS.createCssElement("div", {}, "Hello World");
@@ -57,7 +57,7 @@ export default function App() {
 export default function App() {
   return createElement("div", {}, "Hello World");
 }`,
-      output: `import * as _ReactNativeCSS from "react-native-css/runtime";
+      output: `import * as _ReactNativeCSS from "react-native-css/jsx-runtime";
 const { createElement } = require("react");
 export default function App() {
   return _ReactNativeCSS.createCssElement("div", {}, "Hello World");
@@ -69,7 +69,7 @@ export default function App() {
 export default function App() {
   return React.createElement("div", {}, "Hello World");
 }`,
-      output: `import * as _ReactNativeCSS from "react-native-css/runtime";
+      output: `import * as _ReactNativeCSS from "react-native-css/jsx-runtime";
 import * as React from "react";
 export default function App() {
   return _ReactNativeCSS.createCssElement("div", {}, "Hello World");
@@ -81,7 +81,7 @@ export default function App() {
 export default function App() {
   return react.createElement("div", {}, "Hello World");
 }`,
-      output: `import * as _ReactNativeCSS from "react-native-css/runtime";
+      output: `import * as _ReactNativeCSS from "react-native-css/jsx-runtime";
 import * as react from "react";
 export default function App() {
   return _ReactNativeCSS.createCssElement("div", {}, "Hello World");
@@ -93,7 +93,7 @@ export default function App() {
 export default function App() {
   return react.createElement("div", {}, "Hello World");
 }`,
-      output: `import * as _ReactNativeCSS from "react-native-css/runtime";
+      output: `import * as _ReactNativeCSS from "react-native-css/jsx-runtime";
 var react = require("react");
 export default function App() {
   return _ReactNativeCSS.createCssElement("div", {}, "Hello World");
@@ -132,7 +132,7 @@ export default function App() {
     return originalCreateElement(type, props, ...children);
   };
 }`,
-      output: `import * as _ReactNativeCSS from "react-native-css/runtime";
+      output: `import * as _ReactNativeCSS from "react-native-css/jsx-runtime";
 import * as React from "react";
 export default function App() {
   const originalCreateElement = _ReactNativeCSS.createCssElement;

@@ -1,11 +1,5 @@
 import { createElement, useEffect } from "react";
 
-import {
-  interpolate,
-  interpolateColor,
-  useAnimatedStyle,
-} from "react-native-reanimated";
-
 import { Props } from "../../runtime.types";
 import type { UseInteropState } from "../useInterop";
 
@@ -69,6 +63,12 @@ export function useInteropAnimatedStyle({
   }, [state.sideEffects]);
 
   const baseStyles = state.baseStyles;
+
+  const {
+    interpolate,
+    interpolateColor,
+    useAnimatedStyle,
+  } = require("react-native-reanimated");
 
   const animatedStyle = useAnimatedStyle(() => {
     const style: Record<string, any> = Object.assign(

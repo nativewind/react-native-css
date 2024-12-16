@@ -14,15 +14,15 @@ import {
 } from "@babel/types";
 
 const importFunction = "createCssElement";
-const importModule = "react-native-css/runtime";
-const importAs = "ReactNativeCSS";
+const importModule = "react-native-css/jsx-runtime";
+const importAs = "ReactNativeCSS2";
 
 const allowedFileRegex =
   /^(?!.*[\/\\](react|react-native|react-native-web|react-native-css)[\/\\]).*$/;
 
 export default function () {
   return {
-    name: "react-native-css-imports",
+    name: "react-native-css-imports-2",
     visitor: {
       Program(path: NodePath<Program>, state: { filename: string }) {
         if (allowedFileRegex.test(state.filename)) {
