@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Feature Request 💡
+    url: https://github.com/nativewind/react-native-css/discussions/new?category=ideas
+    about: If you have a feature request, please create a new discussion on Discord or GitHub.
+  - name: Discussions on Discord 💬
+    url: https://discord.com/channels/968718419904057416/1394824537756925993
+    about: If you need help or have questions, please ask in the NativeWind Discord community.
+  - name: Discussions on GitHub 💬
+    url: https://github.com/nativewind/react-native-css/discussions
+    about: Discussions on GitHub are not monitored as frequently as Discord.

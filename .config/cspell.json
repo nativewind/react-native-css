@@ -1,0 +1,15 @@
+{
+  "version": "0.2",
+  "language": "en",
+  "ignoreWords": [
+    "ianvs",
+    "lawlor",
+    "dpcm",
+    "dppx",
+    "iphonesimulator",
+    "xcworkspace"
+  ],
+  "words": [
+    "prebuild"
+  ]
+}

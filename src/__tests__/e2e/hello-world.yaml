@@ -1,0 +1,4 @@
+appId: css.example
+---
+- launchApp
+- tapOn: "Text on the screen"
