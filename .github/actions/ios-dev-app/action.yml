@@ -16,16 +16,16 @@ runs:
       shell: bash
       run: gem install xcpretty
 
-    # - name: Cache iOS development build
-    #   id: ios-dev-cache
-    #   uses: actions/cache@v4
-    #   with:
-    #     path: |
-    #       example/ios/build
-    #       example/ios/DerivedData
-    #     key: ios-dev-${{ runner.os }}-${{ hashFiles('example/ios/**', 'example/package.json', 'package.json') }}
-    #     restore-keys: |
-    #       ios-dev-${{ runner.os }}-
+    - name: Cache iOS development build
+      id: ios-dev-cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          example/ios/build
+          example/ios/DerivedData
+        key: ios-dev-${{ runner.os }}-${{ hashFiles('example/ios/**', 'example/package.json', 'package.json') }}
+        restore-keys: |
+          ios-dev-${{ runner.os }}-
 
     - name: Build iOS development app
       id: build
