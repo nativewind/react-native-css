@@ -1,6 +1,6 @@
 {
   "name": "react-native-css",
-  "version": "3.0.0",
+  "version": "2.1.2",
   "exports": {
     ".": {
       "source": "./src/index.ts",
@@ -78,7 +78,9 @@
     "build": "bob build",
     "prepublishOnly": "bob build",
     "prepare": "bob build",
-    "example": "yarn workspace react-native-css-example"
+    "example": "yarn workspace react-native-css-example",
+    "release": "release-it",
+    "release:nightly": "release-it 3.0.0-nightly.\"$(git rev-parse --short HEAD)\" --npm.tag=beta"
   },
   "keywords": [
     "react-native",
@@ -146,6 +148,7 @@
     "react-native-reanimated": "~4.0.0-beta.5",
     "react-native-safe-area-context": "5.4.0",
     "react-native-worklets": "0.4.0-nightly-20250714-d172fe136",
+    "release-it": "^19.0.4",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.37.0"
   },
