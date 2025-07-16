@@ -4,6 +4,31 @@ description: Create IOS Development App
 runs:
   using: composite
   steps:
+    - name: Cache iOS development build
+      id: ios-dev-cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          example/ios/build/DerivedData
+        key: ios-dev-${{ runner.os }}-${{ hashFiles('example/ios/**', 'example/package.json', 'package.json') }}
+        restore-keys: |
+          ios-dev-${{ runner.os }}-
+
+    - name: Check for cached build
+      shell: bash
+      run: |
+        if [ "${{ steps.ios-dev-cache.outputs.cache-hit }}" == "true" ]; then
+          echo "✅ Cache hit! Using cached build."
+          
+          # Verify cached build exists
+          if [ -d "example/ios/build/DerivedData/Build/Products/Release-iphonesimulator" ]; then
+            echo "Cached build directory exists, exiting early."
+            exit 0
+          else
+            echo "⚠️ Cache hit but no build found, continuing with build..."
+          fi
+        fi
+
     - name: Build package
       shell: bash
       run: yarn build
@@ -16,20 +41,8 @@ runs:
       shell: bash
       run: gem install xcpretty
 
-    - name: Cache iOS development build
-      id: ios-dev-cache
-      uses: actions/cache@v4
-      with:
-        path: |
-          example/ios/build
-          example/ios/DerivedData
-        key: ios-dev-${{ runner.os }}-${{ hashFiles('example/ios/**', 'example/package.json', 'package.json') }}
-        restore-keys: |
-          ios-dev-${{ runner.os }}-
-
     - name: Build iOS development app
       id: build
-      if: steps.ios-dev-cache.outputs.cache-hit != 'true'
       working-directory: example
       shell: bash
       run: |
