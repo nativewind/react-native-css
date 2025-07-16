@@ -1,6 +1,11 @@
 {
   "name": "example",
   "plugins": ["expo-dev-client"],
-  "android": { "package": "com.css.example" },
-  "ios": { "bundleIdentifier": "com.css.example" }
+  "android": {
+    "package": "com.css.example"
+  },
+  "ios": {
+    "bundleIdentifier": "com.css.example",
+    "buildFromSource": false
+  }
 }
