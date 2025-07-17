@@ -54,7 +54,8 @@ export function isInsideModule(filename: string, module: string): boolean {
   }
 
   // Check for our local development structure
-  if (normalized.includes(`${sep}${module}${sep}src${sep}`)) {
+  if (normalized.includes(`${sep}${module}${sep}src${sep}`) ||
+    normalized.includes(`${sep}${module}${sep}dist${sep}`)) {
     // Ignore the test files
     return !normalized.includes("__tests__");
   }
