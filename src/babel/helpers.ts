@@ -30,8 +30,8 @@ function getFilesWithoutExtension(dirPath: string) {
   const files = entries.filter(
     (entry) =>
       entry.isFile() &&
-      /\.[jt]sx$/.exec(entry.name) &&
-      !/index\.[jt]sx$/.exec(entry.name),
+      /\.[jt]sx?$/.exec(entry.name) &&
+      !/index\.[jt]sx?$/.exec(entry.name),
   );
 
   // For each file, get the filename without extension
