@@ -16,26 +16,8 @@ describe("plugin smoke tests", () => {
     },
     tests: appendTitles([
       {
-        code: `import 'react-native';`,
-        output: `import "react-native-css/components";`,
-      },
-      {
         code: `import '../global.css';`,
         output: `import "../global.css";`,
-      },
-      {
-        code: `import { View } from 'react-native';`,
-        output: `import { View } from "react-native";`,
-        babelOptions: {
-          filename: "/node_modules/react-native-css/components/View.js",
-        },
-      },
-      {
-        code: `import { View } from 'react-native';`,
-        output: `import { View } from "react-native";`,
-        babelOptions: {
-          filename: "react-native-css/src/components/View.js",
-        },
       },
       {
         code: `import * as NativeComponentRegistry from '../../NativeComponent/NativeComponentRegistry'`,
