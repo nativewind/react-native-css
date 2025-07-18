@@ -13,3 +13,5 @@ const mapping = {
 export function Text(props: StyledProps<TextProps, typeof mapping>) {
   return useCssElement(RNText, props, mapping);
 }
+
+export default Text;
