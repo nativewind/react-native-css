@@ -1,4 +1,4 @@
-import { SafeAreaProvider } from "react-native-css/components/SafeAreaProvider";
+// import { SafeAreaProvider } from "react-native-css/components/SafeAreaProvider";
 import { View } from "react-native-css/components/View";
 import { registerCSS, render, screen, testID } from "react-native-css/jest";
 
@@ -9,6 +9,9 @@ test("safe-area-inset-*", () => {
     margin-left: env(safe-area-inset-left);
     margin-right: env(safe-area-inset-right);
   }`);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const SafeAreaProvider = View as any;
 
   render(
     <SafeAreaProvider

@@ -13,3 +13,5 @@ const mapping = {
 export function View(props: StyledProps<ViewProps, typeof mapping>) {
   return useCssElement(RNView, props, mapping);
 }
+
+export default View;
