@@ -33,8 +33,7 @@ export function nativeResolver(
     // Skip anything that isn't importing a React Native component
     !(
       moduleName.startsWith("react-native") ||
-      moduleName.startsWith("react-native/") ||
-      resolution.filePath.includes("react-native/Libraries/Components/View/")
+      moduleName.startsWith("react-native/")
     )
   ) {
     return resolution;
