@@ -23,4 +23,6 @@ config.resolver.nodeModulesPaths = [
 
 config.watchFolders = [path.resolve(__dirname, "../")];
 
-module.exports = withReactNativeCSS(config);
+module.exports = withReactNativeCSS(config, {
+  globalClassNamePolyfill: true,
+});
