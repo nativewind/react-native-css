@@ -23,7 +23,7 @@ test("groups", () => {
 
   const component = getByTestId(childID);
 
-  expect(component.props.style).toStrictEqual({ color: "#ff0000" });
+  expect(component.props.style).toStrictEqual({ color: "#f00" });
 
   rerender(
     <View testID={parentID}>
@@ -54,7 +54,7 @@ test("group - active", () => {
 
   fireEvent(parent, "pressIn");
 
-  expect(child.props.style).toStrictEqual({ color: "#ff0000" });
+  expect(child.props.style).toStrictEqual({ color: "#f00" });
 });
 
 test.skip("group - active (animated)", () => {
@@ -111,7 +111,7 @@ test("group selector", () => {
 
   const child = screen.getByTestId(childID);
 
-  expect(child.props.style).toStrictEqual({ color: "#ff0000" });
+  expect(child.props.style).toStrictEqual({ color: "#f00" });
 
   rerender(
     <View>

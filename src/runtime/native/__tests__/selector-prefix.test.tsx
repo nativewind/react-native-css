@@ -11,7 +11,7 @@ test("type prefix", () => {
   ).getByTestId(testID);
 
   expect(component.props.style).toStrictEqual({
-    color: "#ff0000",
+    color: "#f00",
   });
 });
 
@@ -25,6 +25,6 @@ test("class prefix", () => {
   ).getByTestId(testID);
 
   expect(component.props.style).toStrictEqual({
-    color: "#ff0000",
+    color: "#f00",
   });
 });

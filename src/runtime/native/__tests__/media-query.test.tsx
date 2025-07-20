@@ -24,7 +24,7 @@ test("color scheme", () => {
   const component = screen.getByTestId(testID);
 
   expect(component.props.style).toStrictEqual({
-    color: "#0000ff",
+    color: "#00f",
   });
 
   act(() => {
@@ -32,7 +32,7 @@ test("color scheme", () => {
   });
 
   expect(component.props.style).toStrictEqual({
-    color: "#ff0000",
+    color: "#f00",
   });
 });
 
@@ -48,7 +48,7 @@ test("width (plain)", () => {
   const component = screen.getByTestId(testID);
 
   expect(component.props.style).toStrictEqual({
-    color: "#0000ff",
+    color: "#00f",
   });
 
   act(() => {
@@ -59,7 +59,7 @@ test("width (plain)", () => {
   });
 
   expect(component.props.style).toStrictEqual({
-    color: "#ff0000",
+    color: "#f00",
   });
 });
 
@@ -75,7 +75,7 @@ test("width (range)", () => {
   const component = screen.getByTestId(testID);
 
   expect(component.props.style).toStrictEqual({
-    color: "#0000ff",
+    color: "#00f",
   });
 
   act(() => {
@@ -86,7 +86,7 @@ test("width (range)", () => {
   });
 
   expect(component.props.style).toStrictEqual({
-    color: "#ff0000",
+    color: "#f00",
   });
 });
 
@@ -102,7 +102,7 @@ test("min-width", () => {
   const component = screen.getByTestId(testID);
 
   expect(component.props.style).toStrictEqual({
-    color: "#ff0000",
+    color: "#f00",
   });
 
   act(() => {
@@ -113,7 +113,7 @@ test("min-width", () => {
   });
 
   expect(component.props.style).toStrictEqual({
-    color: "#0000ff",
+    color: "#00f",
   });
 });
 
@@ -129,7 +129,7 @@ test("max-width", () => {
   const component = screen.getByTestId(testID);
 
   expect(component.props.style).toStrictEqual({
-    color: "#0000ff",
+    color: "#00f",
   });
 
   act(() => {
@@ -140,7 +140,7 @@ test("max-width", () => {
   });
 
   expect(component.props.style).toStrictEqual({
-    color: "#ff0000",
+    color: "#f00",
   });
 });
 
@@ -173,7 +173,7 @@ test("not all", () => {
   });
 
   expect(component.props.style).toStrictEqual({
-    color: "#ff0000",
+    color: "#f00",
   });
 });
 
@@ -188,7 +188,7 @@ describe("resolution", () => {
 
     expect(PixelRatio.get()).toBe(2);
     expect(component.props.style).toStrictEqual({
-      color: "#ff0000",
+      color: "#f00",
     });
   });
 
@@ -202,7 +202,7 @@ describe("resolution", () => {
 
     expect(PixelRatio.get()).toBe(2);
     expect(component.props.style).toStrictEqual({
-      color: "#ff0000",
+      color: "#f00",
     });
   });
 });
@@ -218,7 +218,7 @@ describe("min-resolution", () => {
     const component = screen.getByTestId(testID);
 
     expect(component.props.style).toStrictEqual({
-      color: "#ff0000",
+      color: "#f00",
     });
   });
 
@@ -231,7 +231,7 @@ describe("min-resolution", () => {
     const component = screen.getByTestId(testID);
 
     expect(component.props.style).toStrictEqual({
-      color: "#ff0000",
+      color: "#f00",
     });
   });
 });

@@ -23,7 +23,7 @@ test(":is(.dark *)", () => {
     colorScheme.set("dark");
   });
 
-  expect(component.props.style).toStrictEqual({ color: "#ff0000" });
+  expect(component.props.style).toStrictEqual({ color: "#f00" });
 });
 
 test(':root[class="dark"]', () => {
@@ -50,7 +50,7 @@ test(':root[class="dark"]', () => {
 
 test(':root[class~="dark"]', () => {
   registerCSS(`
-    @react-native config {
+    @react-native {
       darkMode: dark;
     }
 

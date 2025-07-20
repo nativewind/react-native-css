@@ -4,6 +4,7 @@ import {
   transform as lightningcss,
   type ContainerRule,
   type MediaQuery as CSSMediaQuery,
+  type CustomAtRules,
   type Declaration,
   type DeclarationBlock,
   type MediaRule,
@@ -11,6 +12,7 @@ import {
   type Rule,
   type SelectorList,
   type TokenOrValue,
+  type Visitor,
 } from "lightningcss";
 
 import { Specificity } from "../runtime/utils/specificity";
@@ -61,8 +63,9 @@ type ReactNativeAtRule = {
  */
 export function compile(
   code: Buffer | string,
-  { logger = debug("react-native-css"), ...options }: CompilerOptions = {},
+  options: CompilerOptions = {},
 ): ReactNativeCssStyleSheet {
+  const { logger = debug("react-native-css") } = options;
   const features = Object.assign({}, options.features);
 
   logger(`Features ${JSON.stringify(features)}`);
@@ -100,35 +103,44 @@ export function compile(
     }
   };
 
+  const customAtRules: CustomAtRules = {
+    "react-native": {
+      body: "declaration-list",
+    },
+  };
+
+  const visitor: Visitor<typeof customAtRules> = {
+    Rule(rule) {
+      if (isReactNativeAtRule(rule)) {
+        extractReactNativeOptions(rule, collection);
+      }
+    },
+    StyleSheetExit(sheet) {
+      logger(`Found ${sheet.rules.length} rules to process`);
+
+      for (const rule of sheet.rules) {
+        // Extract the style declarations and animations from the current rule
+        extractRule(rule, collection, {}, options);
+        // We have processed this rule, so now delete it from the AST
+      }
+
+      logger(`Exiting lightningcss`);
+    },
+  };
+
+  if (options.stripUnusedVariables) {
+    visitor.Declaration = (decl) => {
+      if (decl.property !== "unparsed" && decl.property !== "custom") return;
+      decl.value.value.forEach((varObj) => onVarUsage(varObj));
+      return decl;
+    };
+  }
+
   // Use the lightningcss library to traverse the CSS AST and extract style declarations and animations
   lightningcss({
     filename: "style.css", // This is ignored, but required
     code: typeof code === "string" ? new TextEncoder().encode(code) : code,
-    visitor: {
-      Declaration(decl) {
-        // Track variable usage, we remove any unused variables
-        if (decl.property !== "unparsed" && decl.property !== "custom") return;
-        decl.value.value.forEach((varObj) => onVarUsage(varObj));
-        return decl;
-      },
-      StyleSheetExit(sheet) {
-        logger(`Found ${sheet.rules.length} rules to process`);
-
-        for (const rule of sheet.rules) {
-          // Extract the style declarations and animations from the current rule
-          extractRule(rule, collection);
-          // We have processed this rule, so now delete it from the AST
-        }
-
-        logger(`Exiting lightningcss`);
-      },
-    },
-    customAtRules: {
-      "react-native": {
-        prelude: "<custom-ident>+",
-        body: "declaration-list",
-      },
-    },
+    visitor,
   });
 
   logger(`Found ${collection.rules.size} valid rules`);
@@ -184,6 +196,7 @@ function extractRule(
   rule: ExtractableRules,
   collection: CompilerCollection,
   partialStyle: Partial<StyleRule> = {},
+  options: CompilerOptions,
 ) {
   // Check the rule's type to determine which extraction function to call
   switch (rule.type) {
@@ -209,6 +222,7 @@ function extractRule(
           rule.value.declarations,
           collection,
           parseReactNativeStyleAtRule(rule.value.rules),
+          options,
         )) {
           setStyleForSelectorList(
             { ...partialStyle, ...style },
@@ -220,11 +234,33 @@ function extractRule(
       }
       break;
     }
-    case "custom": {
-      if (isReactNativeAtRule(rule)) {
-        extractReactNativeOptions(rule, collection);
+    case "layer-block":
+      for (const layerRule of rule.value.rules) {
+        extractRule(layerRule, collection, partialStyle, options);
       }
-    }
+      break;
+    case "custom":
+    case "font-face":
+    case "font-palette-values":
+    case "font-feature-values":
+    case "namespace":
+    case "layer-statement":
+    case "property":
+    case "view-transition":
+    case "ignored":
+    case "unknown":
+    case "import":
+    case "page":
+    case "supports":
+    case "counter-style":
+    case "moz-document":
+    case "nesting":
+    case "nested-declarations":
+    case "viewport":
+    case "custom-media":
+    case "scope":
+    case "starting-style":
+      break;
   }
 }
 
@@ -377,7 +413,7 @@ function extractMedia(mediaRule: MediaRule, collection: CompilerCollection) {
 
   // Iterate over all rules in the mediaRule and extract their styles using the updated CompilerCollection
   for (const rule of mediaRule.rules) {
-    extractRule(rule, collection, { m });
+    extractRule(rule, collection, { m }, options);
   }
 }
 
@@ -405,7 +441,7 @@ function extractedContainer(
       query.n = containerRule.name;
     }
 
-    extractRule(rule, collection, { cq: [query] });
+    extractRule(rule, collection, { cq: [query] }, options);
   }
 }
 
@@ -564,6 +600,7 @@ function getExtractedStyles(
   declarationBlock: DeclarationBlock<Declaration>,
   collection: CompilerCollection,
   mapping: StyleRuleMapping = {},
+  options: CompilerOptions,
 ): StyleRule[] {
   const extractedStyles = [];
 
@@ -577,6 +614,7 @@ function getExtractedStyles(
         collection,
         specificity,
         mapping,
+        options,
       ),
     );
   }
@@ -592,6 +630,7 @@ function getExtractedStyles(
         collection,
         specificity,
         mapping,
+        options,
       ),
     );
   }
@@ -604,6 +643,7 @@ function declarationsToStyle(
   collection: CompilerCollection,
   specificity: SpecificityArray,
   mapping: StyleRuleMapping,
+  options: CompilerOptions,
 ): StyleRule {
   const extractedStyle: StyleRule = {
     s: [...specificity],
@@ -617,7 +657,7 @@ function declarationsToStyle(
     // TODO
   };
 
-  const addFn = buildAddFn(extractedStyle, collection, mapping);
+  const addFn = buildAddFn(extractedStyle, collection, mapping, options);
 
   for (const declaration of declarations) {
     parseDeclaration(declaration, parseDeclarationOptions, addFn, addWarning);

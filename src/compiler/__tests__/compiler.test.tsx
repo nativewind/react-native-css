@@ -1,5 +1,18 @@
 import { compile } from "../compiler";
 
+test("reads global CSS variables", () => {
+  const compiled = compile(`
+@layer theme {
+  :root, :host {
+    --color-red-500: oklch(63.7% 0.237 25.331);
+  }
+}`);
+
+  expect(compiled).toStrictEqual({
+    vr: [["color-red-500", ["#fb2c36"]]],
+  });
+});
+
 test.skip("test compiler", () => {
   const compiled = compile(`
     .test { 

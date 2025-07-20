@@ -47,6 +47,8 @@ import type {
   VerticalAlign,
 } from "lightningcss";
 
+import Color from "colorjs.io";
+
 import { emVariableName } from "../runtime/native/styles/constants";
 import { isStyleDescriptorArray } from "../runtime/utils/style-value";
 import type { AddFn } from "./add";
@@ -228,6 +230,8 @@ export interface ParseDeclarationOptions {
   inlineRem?: number | false;
   features?: FeatureFlagRecord;
   allowAuto?: boolean;
+  hexColors?: boolean;
+  colorPrecision?: number;
 }
 
 export interface ParserOptions extends ParseDeclarationOptions {
@@ -2011,58 +2015,139 @@ function parseColorOrAuto(color: ColorOrAuto, options: ParserOptions) {
   }
 }
 
-function parseColor(color: CssColor, options: ParserOptions) {
-  if (typeof color === "string") {
-    // TODO: Could web system colors be mapped to native?
+function parseColor(cssColor: CssColor, options: ParserOptions) {
+  if (typeof cssColor === "string") {
+    if (namedColors.has(cssColor)) {
+      return cssColor;
+    }
     return;
   }
 
-  switch (color.type) {
-    case "rgb": {
-      // Hex is smaller than rgb, so we convert it
-      const hexValues: string[] = [
-        color.r.toString(16).padStart(2, "0"),
-        color.g.toString(16).padStart(2, "0"),
-        color.b.toString(16).padStart(2, "0"),
-      ];
+  let color: Color | undefined;
 
-      if (color.alpha !== 1) {
-        hexValues.push(
-          Math.round(color.alpha * 255)
-            .toString(16)
-            .padStart(2, "0"),
-        );
-      }
-
-      return `#${hexValues.join("")}`;
-    }
-    case "hsl":
-      return `hsla(${color.h}, ${color.s}, ${color.l}, ${color.alpha})`;
+  switch (cssColor.type) {
     case "currentcolor":
-      options.addWarning("value", color.type);
+      options.addWarning("value", cssColor.type);
       return;
     case "light-dark":
-    case "lab":
-    case "lch":
-    case "oklab":
-    case "oklch":
-    case "srgb":
-    case "srgb-linear":
-    case "display-p3":
-    case "a98-rgb":
-    case "prophoto-rgb":
-    case "rec2020":
-    case "xyz-d50":
-    case "xyz-d65":
+      // TODO: Handle light-dark colors
+      return;
+    case "rgb": {
+      color = new Color({
+        space: "sRGB",
+        coords: [cssColor.r / 255, cssColor.g / 255, cssColor.b / 255],
+        alpha: cssColor.alpha,
+      });
+      break;
+    }
+    case "hsl":
+      color = new Color({
+        space: cssColor.type,
+        coords: [cssColor.h, cssColor.s, cssColor.l],
+        alpha: cssColor.alpha,
+      });
+      break;
     case "hwb":
-      options.addWarning("value", `Invalid color unit ${color.type}`);
-      return undefined;
+      color = new Color({
+        space: cssColor.type,
+        coords: [cssColor.h, cssColor.w, cssColor.b],
+        alpha: cssColor.alpha,
+      });
+      break;
+    case "lab":
+      color = new Color({
+        space: cssColor.type,
+        coords: [cssColor.l, cssColor.a, cssColor.b],
+        alpha: cssColor.alpha,
+      });
+      break;
+    case "lch":
+      color = new Color({
+        space: cssColor.type,
+        coords: [cssColor.l, cssColor.c, cssColor.h],
+        alpha: cssColor.alpha,
+      });
+      break;
+    case "oklab":
+      color = new Color({
+        space: cssColor.type,
+        coords: [cssColor.l, cssColor.a, cssColor.b],
+        alpha: cssColor.alpha,
+      });
+      break;
+    case "oklch":
+      color = new Color({
+        space: cssColor.type,
+        coords: [cssColor.l, cssColor.c, cssColor.h],
+        alpha: cssColor.alpha,
+      });
+      break;
+    case "srgb":
+      color = new Color({
+        space: cssColor.type,
+        coords: [cssColor.r, cssColor.g, cssColor.b],
+        alpha: cssColor.alpha,
+      });
+      break;
+    case "srgb-linear":
+      color = new Color({
+        space: cssColor.type,
+        coords: [cssColor.r, cssColor.g, cssColor.b],
+        alpha: cssColor.alpha,
+      });
+      break;
+    case "display-p3":
+      color = new Color({
+        space: "p3",
+        coords: [cssColor.r, cssColor.g, cssColor.b],
+        alpha: cssColor.alpha,
+      });
+      break;
+    case "a98-rgb":
+      color = new Color({
+        space: "a98rgb",
+        coords: [cssColor.r, cssColor.g, cssColor.b],
+        alpha: cssColor.alpha,
+      });
+      break;
+    case "prophoto-rgb":
+      color = new Color({
+        space: "prophoto",
+        coords: [cssColor.r, cssColor.g, cssColor.b],
+        alpha: cssColor.alpha,
+      });
+      break;
+    case "rec2020":
+      color = new Color({
+        space: cssColor.type,
+        coords: [cssColor.r, cssColor.g, cssColor.b],
+        alpha: cssColor.alpha,
+      });
+      break;
+    case "xyz-d50":
+      color = new Color({
+        space: cssColor.type,
+        coords: [cssColor.x, cssColor.y, cssColor.z],
+        alpha: cssColor.alpha,
+      });
+      break;
+    case "xyz-d65":
+      color = new Color({
+        space: cssColor.type,
+        coords: [cssColor.x, cssColor.y, cssColor.z],
+        alpha: cssColor.alpha,
+      });
+      break;
     default: {
-      color satisfies never;
+      cssColor satisfies never;
     }
   }
 
-  return;
+  if (options.hexColors === false || options.colorPrecision) {
+    return color?.toString({ precision: options.colorPrecision ?? 3 });
+  } else {
+    return color?.toString({ format: "hex" });
+  }
 }
 
 function parseLengthPercentageOrAuto(
@@ -3144,3 +3229,151 @@ function kebabCase(str: string) {
 }
 
 const runtimeShorthands = new Set(["animation", "text-shadow", "transform"]);
+
+const namedColors = new Set([
+  "aliceblue",
+  "antiquewhite",
+  "aqua",
+  "aquamarine",
+  "azure",
+  "beige",
+  "bisque",
+  "black",
+  "blanchedalmond",
+  "blue",
+  "blueviolet",
+  "brown",
+  "burlywood",
+  "cadetblue",
+  "chartreuse",
+  "chocolate",
+  "coral",
+  "cornflowerblue",
+  "cornsilk",
+  "crimson",
+  "cyan",
+  "darkblue",
+  "darkcyan",
+  "darkgoldenrod",
+  "darkgray",
+  "darkgreen",
+  "darkgrey",
+  "darkkhaki",
+  "darkmagenta",
+  "darkolivegreen",
+  "darkorange",
+  "darkorchid",
+  "darkred",
+  "darksalmon",
+  "darkseagreen",
+  "darkslateblue",
+  "darkslategrey",
+  "darkturquoise",
+  "darkviolet",
+  "deeppink",
+  "deepskyblue",
+  "dimgray",
+  "dimgrey",
+  "dodgerblue",
+  "firebrick",
+  "floralwhite",
+  "forestgreen",
+  "fuchsia",
+  "gainsboro",
+  "ghostwhite",
+  "gold",
+  "goldenrod",
+  "gray",
+  "green",
+  "greenyellow",
+  "grey",
+  "honeydew",
+  "hotpink",
+  "indianred",
+  "indigo",
+  "ivory",
+  "khaki",
+  "lavender",
+  "lavenderblush",
+  "lawngreen",
+  "lemonchiffon",
+  "lightblue",
+  "lightcoral",
+  "lightcyan",
+  "lightgoldenrodyellow",
+  "lightgray",
+  "lightgreen",
+  "lightgrey",
+  "lightpink",
+  "lightsalmon",
+  "lightseagreen",
+  "lightskyblue",
+  "lightslategrey",
+  "lightsteelblue",
+  "lightyellow",
+  "lime",
+  "limegreen",
+  "linen",
+  "magenta",
+  "maroon",
+  "mediumaquamarine",
+  "mediumblue",
+  "mediumorchid",
+  "mediumpurple",
+  "mediumseagreen",
+  "mediumslateblue",
+  "mediumspringgreen",
+  "mediumturquoise",
+  "mediumvioletred",
+  "midnightblue",
+  "mintcream",
+  "mistyrose",
+  "moccasin",
+  "navajowhite",
+  "navy",
+  "oldlace",
+  "olive",
+  "olivedrab",
+  "orange",
+  "orangered",
+  "orchid",
+  "palegoldenrod",
+  "palegreen",
+  "paleturquoise",
+  "palevioletred",
+  "papayawhip",
+  "peachpuff",
+  "peru",
+  "pink",
+  "plum",
+  "powderblue",
+  "purple",
+  "rebeccapurple",
+  "red",
+  "rosybrown",
+  "royalblue",
+  "saddlebrown",
+  "salmon",
+  "sandybrown",
+  "seagreen",
+  "seashell",
+  "sienna",
+  "silver",
+  "skyblue",
+  "slateblue",
+  "slategray",
+  "snow",
+  "springgreen",
+  "steelblue",
+  "tan",
+  "teal",
+  "thistle",
+  "tomato",
+  "turquoise",
+  "violet",
+  "wheat",
+  "white",
+  "whitesmoke",
+  "yellow",
+  "yellowgreen",
+]);

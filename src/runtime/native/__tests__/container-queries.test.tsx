@@ -36,7 +36,7 @@ test("container query width", () => {
   });
 
   expect(child.props.style).toStrictEqual({
-    color: "#ff0000",
+    color: "#f00",
   });
 
   fireEvent(parent, "layout", {
@@ -49,7 +49,7 @@ test("container query width", () => {
   });
 
   expect(child.props.style).toStrictEqual({
-    color: "#ff0000",
+    color: "#f00",
   });
 
   screen.rerender(
@@ -70,6 +70,6 @@ test("container query width", () => {
   expect(parent.props.style).toStrictEqual([{ width: 200 }, { width: 500 }]);
 
   expect(child.props.style).toStrictEqual({
-    color: "#0000ff",
+    color: "#00f",
   });
 });
