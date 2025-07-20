@@ -148,7 +148,7 @@
     "react-native-builder-bob": "^0.40.12",
     "react-native-reanimated": "~4.0.0-beta.5",
     "react-native-safe-area-context": "5.4.0",
-    "react-native-worklets": "0.4.0-nightly-20250714-d172fe136",
+    "react-native-worklets": "0.4.0-nightly-20250719-c4f22a2ea",
     "release-it": "^19.0.4",
     "tailwindcss": "^4.1.11",
     "typescript": "^5.8.3",
