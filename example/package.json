@@ -9,7 +9,7 @@
     "web": "expo start --web"
   },
   "dependencies": {
-    "@expo/metro-runtime": "~5.0.4",
+    "@expo/metro-runtime": "6.0.0-canary-20250713-8f814f8",
     "expo": "54.0.0-canary-20250713-8f814f8",
     "expo-dev-client": "5.2.4",
     "expo-status-bar": "~2.2.3",

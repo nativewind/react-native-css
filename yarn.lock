@@ -2201,12 +2201,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@expo/metro-runtime@npm:~5.0.4":
-  version: 5.0.4
-  resolution: "@expo/metro-runtime@npm:5.0.4"
+"@expo/metro-runtime@npm:6.0.0-canary-20250713-8f814f8":
+  version: 6.0.0-canary-20250713-8f814f8
+  resolution: "@expo/metro-runtime@npm:6.0.0-canary-20250713-8f814f8"
   peerDependencies:
     react-native: "*"
-  checksum: 10c0/3522e7e95c13679a4f150d7cce78253e928adea5593c77af6cda0b56c34f2cb4d4a6d057a8bd455b3e3f63439e321c6b80cd1a7bdfdfa04b2ab1fcc034b3736f
+  checksum: 10c0/fba6c62f6b38c603988d93681410b5eb96028f4951b8edbcbed2837ecf4ec84a7b296b70fef123ad1b4a97c2b4100b087c60006ec4ffb7b04384619aeebac24e
   languageName: node
   linkType: hard
 
@@ -10842,7 +10842,7 @@ __metadata:
   resolution: "react-native-css-example@workspace:example"
   dependencies:
     "@babel/core": "npm:^7.20.0"
-    "@expo/metro-runtime": "npm:~5.0.4"
+    "@expo/metro-runtime": "npm:6.0.0-canary-20250713-8f814f8"
     expo: "npm:54.0.0-canary-20250713-8f814f8"
     expo-dev-client: "npm:5.2.4"
     expo-status-bar: "npm:~2.2.3"
