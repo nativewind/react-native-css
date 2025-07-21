@@ -10887,7 +10887,7 @@ __metadata:
     react: "npm:19.1.0"
     react-native: "npm:0.80.1"
     react-native-builder-bob: "npm:^0.40.13"
-    react-native-reanimated: "npm:~4.0.0-beta.5"
+    react-native-reanimated: "npm:~4.0.0-nightly-20250720-bdf9f39ee"
     react-native-safe-area-context: "npm:5.4.0"
     react-native-worklets: "npm:0.4.0-nightly-20250714-d172fe136"
     release-it: "npm:^19.0.4"
@@ -10932,9 +10932,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-reanimated@npm:~4.0.0-beta.5":
-  version: 4.0.0-nightly-20250714-d172fe136
-  resolution: "react-native-reanimated@npm:4.0.0-nightly-20250714-d172fe136"
+"react-native-reanimated@npm:~4.0.0-nightly-20250720-bdf9f39ee":
+  version: 4.0.0-nightly-20250720-bdf9f39ee
+  resolution: "react-native-reanimated@npm:4.0.0-nightly-20250720-bdf9f39ee"
   dependencies:
     react-native-is-edge-to-edge: "npm:^1.2.1"
     semver: "npm:7.7.2"
@@ -10942,8 +10942,8 @@ __metadata:
     "@babel/core": ^7.0.0-0
     react: "*"
     react-native: "*"
-    react-native-worklets: 0.4.0-nightly-20250714-d172fe136
-  checksum: 10c0/9429b28a3cc4132e3798d72b9d942ede3b38f3a37f4817efa242d75de6efefa2e01e383fe0b00557d19aa967023e6933e541943da739ffb9d41a9f4735a80106
+    react-native-worklets: 0.4.0-nightly-20250720-bdf9f39ee
+  checksum: 10c0/d6e83f94b575323efc41f1d8e64e2030328a22075767ef9f9e0350abcc3aa4aae57853c05151c10ed77a93d75e9a6a8bf2a98d2d204ede17f69c071f700a924e
   languageName: node
   linkType: hard
 
