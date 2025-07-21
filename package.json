@@ -111,6 +111,7 @@
     "!**/__mocks__"
   ],
   "dependencies": {
+    "colorjs.io": "0.6.0-alpha.1",
     "comment-json": "^4.2.5",
     "debug": "^4.4.1"
   },

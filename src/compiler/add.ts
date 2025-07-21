@@ -2,6 +2,7 @@
 import { isStyleDescriptorArray } from "../runtime/utils/style-value";
 import type {
   CompilerCollection,
+  CompilerOptions,
   EasingFunction,
   StyleDeclaration,
   StyleDescriptor,
@@ -17,6 +18,7 @@ export function buildAddFn(
   rule: StyleRule,
   collection: CompilerCollection,
   mapping: StyleRuleMapping,
+  options: CompilerOptions,
 ) {
   let staticDeclarations: Record<string, StyleDescriptor> | undefined;
 
@@ -100,6 +102,7 @@ export function buildAddFn(
 
         if (property.startsWith("--")) {
           if (
+            options.stripUnusedVariables &&
             !property.startsWith("--__rn-css") &&
             !collection.varUsageCount.has(property)
           ) {

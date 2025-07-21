@@ -15,6 +15,8 @@ export interface CompilerOptions {
   stylesheetOrder?: number;
   features?: FeatureFlagRecord;
   logger?: (message: string) => void;
+  /** Strip unused variables declarations. Defaults: false */
+  stripUnusedVariables?: boolean;
   /** @internal */
   ignorePropertyWarningRegex?: (string | RegExp)[];
 }

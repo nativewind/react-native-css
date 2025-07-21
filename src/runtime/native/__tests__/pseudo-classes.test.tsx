@@ -24,7 +24,7 @@ test("hover", () => {
     onHoverIn: expect.any(Function),
     onHoverOut: expect.any(Function),
     style: {
-      color: "#0000ff",
+      color: "#00f",
     },
   });
 
@@ -38,7 +38,7 @@ test("hover", () => {
     onHoverIn: expect.any(Function),
     onHoverOut: expect.any(Function),
     style: {
-      color: "#ff0000",
+      color: "#f00",
     },
   });
   act(() => {
@@ -51,7 +51,7 @@ test("hover", () => {
     onHoverIn: expect.any(Function),
     onHoverOut: expect.any(Function),
     style: {
-      color: "#0000ff",
+      color: "#00f",
     },
   });
 });

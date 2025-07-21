@@ -17,7 +17,7 @@ test("inline styles", () => {
   ).getByTestId(testID);
 
   expect(component.props.style).toStrictEqual([
-    { backgroundColor: "#ff0000" },
+    { backgroundColor: "#f00" },
     { backgroundColor: "blue" },
   ]);
 });
@@ -29,7 +29,7 @@ test("specificity order", () => {
     <Text testID={testID} className="blue red" />,
   ).getByTestId(testID);
 
-  expect(component.props.style).toStrictEqual({ color: "#0000ff" });
+  expect(component.props.style).toStrictEqual({ color: "#00f" });
 });
 
 test("specificity modifiers", () => {
@@ -42,7 +42,7 @@ test("specificity modifiers", () => {
   ).getByTestId(testID);
 
   expect(component.props.style).toStrictEqual(
-    { color: "#0000ff" }, // .blue
+    { color: "#00f" }, // .blue
   );
 
   fireEvent(component, "hoverIn");
@@ -61,8 +61,8 @@ test("important - requires sorting", () => {
   ).getByTestId(testID);
 
   expect(component.props.style).toStrictEqual([
-    { color: "#ff0000" },
-    { color: "#0000ff" },
+    { color: "#f00" },
+    { color: "#00f" },
   ]);
 });
 
@@ -81,7 +81,7 @@ test("important - inline", () => {
 
   expect(component.props.style).toStrictEqual([
     { backgroundColor: "red" },
-    { backgroundColor: "#0000ff" },
+    { backgroundColor: "#00f" },
   ]);
 });
 
@@ -97,15 +97,15 @@ test("important - modifiers", () => {
   ).getByTestId(testID);
 
   expect(component.props.style).toStrictEqual([
-    { color: "#ff0000" },
-    { color: "#0000ff" },
+    { color: "#f00" },
+    { color: "#00f" },
   ]);
 
   fireEvent(component, "hoverIn");
 
   expect(component.props.style).toStrictEqual([
     { color: "#008000" },
-    { color: "#0000ff" },
+    { color: "#00f" },
   ]);
 });
 
@@ -174,7 +174,7 @@ test("passThrough - inline important", () => {
 
   // Red wins because it is important and overrides the inline style
   expect(StyleSheet.flatten(component.props.style)).toStrictEqual({
-    color: "#ff0000",
+    color: "#f00",
   });
 });
 
@@ -200,6 +200,6 @@ test("passThrough - inline important existing", () => {
 
   // Blue wins, because 'red' and 'blue' are both important, but 'blue' has a higher 'order'
   expect(StyleSheet.flatten(component.props.style)).toStrictEqual({
-    color: "#0000ff",
+    color: "#00f",
   });
 });

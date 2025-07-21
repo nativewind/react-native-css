@@ -17,7 +17,7 @@ test("should update styles", () => {
   render(<View testID={testID} className="my-class" />);
 
   expect(screen.getByTestId(testID).props.style).toStrictEqual({
-    color: "#ff0000",
+    color: "#f00",
   });
 
   act(() => {
@@ -29,6 +29,6 @@ test("should update styles", () => {
   });
 
   expect(screen.getByTestId(testID).props.style).toStrictEqual({
-    color: "#0000ff",
+    color: "#00f",
   });
 });

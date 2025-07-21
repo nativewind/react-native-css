@@ -5138,6 +5138,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"colorjs.io@npm:0.6.0-alpha.1":
+  version: 0.6.0-alpha.1
+  resolution: "colorjs.io@npm:0.6.0-alpha.1"
+  checksum: 10c0/0bc58a65927d77fceade43fcdcaa512befadaa5fb38a4afb3ab632b38eea5d42d656c2bb32c3c604010eeb6e210f3801b0dc480d6b3ae26de6da8c3c55e09f11
+  languageName: node
+  linkType: hard
+
 "combined-stream@npm:^1.0.8":
   version: 1.0.8
   resolution: "combined-stream@npm:1.0.8"
@@ -10872,6 +10879,7 @@ __metadata:
     "@types/react": "npm:^19.1.8"
     babel-plugin-tester: "npm:^12.0.0"
     babel-preset-expo: "npm:13.3.0-canary-20250713-8f814f8"
+    colorjs.io: "npm:0.6.0-alpha.1"
     comment-json: "npm:^4.2.5"
     commitlint: "npm:^19.8.1"
     debug: "npm:^4.4.1"
