@@ -10805,9 +10805,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-builder-bob@npm:^0.40.12, react-native-builder-bob@npm:^0.40.8":
-  version: 0.40.12
-  resolution: "react-native-builder-bob@npm:0.40.12"
+"react-native-builder-bob@npm:^0.40.13":
+  version: 0.40.13
+  resolution: "react-native-builder-bob@npm:0.40.13"
   dependencies:
     "@babel/core": "npm:^7.25.2"
     "@babel/plugin-transform-flow-strip-types": "npm:^7.26.5"
@@ -10833,7 +10833,7 @@ __metadata:
     yargs: "npm:^17.5.1"
   bin:
     bob: bin/bob
-  checksum: 10c0/22c85186f2f328cb4dee8108b28edf7d26e9c56ff64a2230d982e98b58a66f8208ed32b77d0b29ac9b3ad294112c209b6e225649f813b4507c842480cae62053
+  checksum: 10c0/ea1da4db2ab919ba237cf8e090bd80ff6ddb35ba831d224f5c6866059c5a629c8c7a38af3ab327efbb1cf9a5d56c4295ba2cf34719cba1c19f5c0862282341eb
   languageName: node
   linkType: hard
 
@@ -10850,7 +10850,7 @@ __metadata:
     react: "npm:19.1.0"
     react-dom: "npm:19.1.0"
     react-native: "npm:0.80.1"
-    react-native-builder-bob: "npm:^0.40.8"
+    react-native-builder-bob: "npm:^0.40.13"
     react-native-monorepo-config: "npm:^0.1.9"
     react-native-web: "npm:~0.20.0"
   languageName: unknown
@@ -10886,7 +10886,7 @@ __metadata:
     prettier: "npm:^3.6.2"
     react: "npm:19.1.0"
     react-native: "npm:0.80.1"
-    react-native-builder-bob: "npm:^0.40.12"
+    react-native-builder-bob: "npm:^0.40.13"
     react-native-reanimated: "npm:~4.0.0-beta.5"
     react-native-safe-area-context: "npm:5.4.0"
     react-native-worklets: "npm:0.4.0-nightly-20250714-d172fe136"
