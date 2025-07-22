@@ -7,6 +7,7 @@ import type {
 import type { RenderGuard } from "../conditions/guards";
 import { type Getter, type VariableContextValue } from "../reactivity";
 import { animation } from "./animation";
+import { border } from "./border";
 import { calc } from "./calc";
 import { transformKeys } from "./defaults";
 import {
@@ -34,6 +35,12 @@ export type StyleFunctionResolver = (
   options: ResolveValueOptions,
 ) => any;
 
+const shorthands: Record<`@${string}`, StyleFunctionResolver> = {
+  "@textShadow": textShadow,
+  "@transform": transform,
+  "@border": border,
+};
+
 const functions: Record<string, StyleFunctionResolver> = {
   calc,
   em,
@@ -46,9 +53,8 @@ const functions: Record<string, StyleFunctionResolver> = {
   fontScale,
   pixelSizeForLayoutSize,
   roundToNearestPixel,
-  "@textShadow": textShadow,
-  "@transform": transform,
   animationName: animation,
+  ...shorthands,
 };
 
 export type ResolveValueOptions = {

@@ -758,6 +758,7 @@ export function parseDeclaration(
           parseOptions,
         ),
         "border-style": parseBorderStyle(declaration.value.style, parseOptions),
+        "border-color": parseColor(declaration.value.color, parseOptions),
       });
       return;
     case "border-top":
@@ -3144,7 +3145,12 @@ function kebabCase(str: string) {
   );
 }
 
-const runtimeShorthands = new Set(["animation", "text-shadow", "transform"]);
+const runtimeShorthands = new Set([
+  "animation",
+  "text-shadow",
+  "transform",
+  "border",
+]);
 
 const namedColors = new Set([
   "aliceblue",
