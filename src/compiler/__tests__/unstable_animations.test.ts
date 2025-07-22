@@ -19,8 +19,6 @@ test.skip("test compiler", () => {
   `,
   );
 
-  console.log(JSON.stringify(compiled, null, 2));
-
   expect(compiled).toStrictEqual({
     k: [
       [
