@@ -9,7 +9,6 @@ module.exports = function (api) {
 
   return getConfig(
     {
-      // presets: ["babel-preset-expo", `module:${root}/dist/commonjs/babel`],
       presets: ["babel-preset-expo"],
     },
     { root, pkg },
