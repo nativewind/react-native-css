@@ -9,7 +9,14 @@ import { type Getter, type VariableContextValue } from "../reactivity";
 import { animation } from "./animation";
 import { calc } from "./calc";
 import { transformKeys } from "./defaults";
-import { platformColor } from "./platform-functions";
+import {
+  fontScale,
+  hairlineWidth,
+  pixelRatio,
+  pixelSizeForLayoutSize,
+  platformColor,
+  roundToNearestPixel,
+} from "./platform-functions";
 import { textShadow } from "./text-shadow";
 import { transform } from "./transform";
 import { em, rem, vh, vw } from "./units";
@@ -34,6 +41,11 @@ const functions: Record<string, StyleFunctionResolver> = {
   vh,
   rem,
   platformColor,
+  hairlineWidth,
+  pixelRatio,
+  fontScale,
+  pixelSizeForLayoutSize,
+  roundToNearestPixel,
   "@textShadow": textShadow,
   "@transform": transform,
   animationName: animation,

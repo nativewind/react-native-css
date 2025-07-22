@@ -1735,7 +1735,7 @@ function parseUnparsed(
           tokenOrValue.value.name = `@${tokenOrValue.value.name}`;
           return unparsedFunction(tokenOrValue, options);
         case "platformColor":
-        case "getPixelSizeForLayoutSize":
+        case "pixelSizeForLayoutSize":
         case "roundToNearestPixel":
         case "pixelScale":
         case "fontScale":
@@ -1747,14 +1747,6 @@ function parseUnparsed(
           return unparsedFunction(tokenOrValue, options);
         case "hairlineWidth":
           return [{}, tokenOrValue.value.name, []];
-        case "platformSelect":
-        case "fontScaleSelect":
-        case "pixelScaleSelect":
-          return parseRNRuntimeSpecificsFunction(
-            tokenOrValue.value.name,
-            tokenOrValue.value.arguments,
-            options,
-          );
         case "calc":
         case "max":
         case "min":
@@ -2578,82 +2570,6 @@ function parseGap(value: GapValue, options: ParserOptions) {
   }
 
   return parseLength(value.value, options);
-}
-
-function parseRNRuntimeSpecificsFunction(
-  name: string,
-  args: TokenOrValue[],
-  options: ParserOptions,
-): StyleDescriptor {
-  let key: string | undefined;
-  const runtimeArgs: Record<string, StyleDescriptor> = {};
-
-  for (const token of args) {
-    if (!key) {
-      if (
-        token.type === "token" &&
-        (token.value.type === "ident" || token.value.type === "number")
-      ) {
-        key = token.value.value.toString();
-        continue;
-      }
-    } else {
-      if (token.type !== "token") {
-        const value = parseUnparsed(token, options);
-        if (value === undefined) {
-          return;
-        }
-        runtimeArgs[key] = value;
-        key = undefined;
-      } else {
-        switch (token.value.type) {
-          case "string":
-          case "number":
-          case "ident": {
-            if (key) {
-              runtimeArgs[key] = parseUnparsed(token, options);
-              key = undefined;
-              continue;
-            } else {
-              return;
-            }
-          }
-          case "delim":
-          case "comma":
-            continue;
-          case "function":
-          case "at-keyword":
-          case "hash":
-          case "id-hash":
-          case "unquoted-url":
-          case "percentage":
-          case "dimension":
-          case "white-space":
-          case "comment":
-          case "colon":
-          case "semicolon":
-          case "include-match":
-          case "dash-match":
-          case "prefix-match":
-          case "suffix-match":
-          case "substring-match":
-          case "cdo":
-          case "cdc":
-          case "parenthesis-block":
-          case "square-bracket-block":
-          case "curly-bracket-block":
-          case "bad-url":
-          case "bad-string":
-          case "close-parenthesis":
-          case "close-square-bracket":
-          case "close-curly-bracket":
-            return undefined;
-        }
-      }
-    }
-  }
-
-  return [{}, name, Object.entries(runtimeArgs)];
 }
 
 function parseTextAlign(textAlign: TextAlign, options: ParserOptions) {
