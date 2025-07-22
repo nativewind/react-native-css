@@ -14,10 +14,12 @@
     "expo-dev-client": "5.2.4",
     "expo-status-bar": "~2.2.3",
     "expo-system-ui": "5.0.11-canary-20250713-8f814f8",
+    "metro-runtime": "^0.83.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.80.1",
-    "react-native-web": "~0.20.0"
+    "react-native-web": "~0.20.0",
+    "react-refresh": "^0.17.0"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

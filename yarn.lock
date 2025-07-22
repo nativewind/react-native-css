@@ -98,7 +98,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@babel/core@npm:^7.11.6, @babel/core@npm:^7.12.3, @babel/core@npm:^7.20.0, @babel/core@npm:^7.23.9, @babel/core@npm:^7.25.2":
+"@babel/core@npm:^7.11.6, @babel/core@npm:^7.12.3, @babel/core@npm:^7.20.0, @babel/core@npm:^7.23.9, @babel/core@npm:^7.25.2, @babel/core@npm:^7.28.0":
   version: 7.28.0
   resolution: "@babel/core@npm:7.28.0"
   dependencies:
@@ -3726,7 +3726,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/babel__core@npm:^7.1.14":
+"@types/babel__core@npm:*, @types/babel__core@npm:^7, @types/babel__core@npm:^7.1.14":
   version: 7.20.5
   resolution: "@types/babel__core@npm:7.20.5"
   dependencies:
@@ -3886,7 +3886,26 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/react@npm:^19.1.8":
+"@types/react-refresh@npm:^0":
+  version: 0.14.6
+  resolution: "@types/react-refresh@npm:0.14.6"
+  dependencies:
+    "@types/babel__core": "npm:*"
+    csstype: "npm:^3.0.2"
+  checksum: 10c0/8a06ae4b3be6baf4bbe3a8c200df0a4730fbe6e9d09e4f03ceed59612328a28e711b920532cbbbd7aca082744ece51e957ae8b34f656fffb965b448fb0967ef1
+  languageName: node
+  linkType: hard
+
+"@types/react-test-renderer@npm:^19":
+  version: 19.1.0
+  resolution: "@types/react-test-renderer@npm:19.1.0"
+  dependencies:
+    "@types/react": "npm:*"
+  checksum: 10c0/799654e430df10aeaf267d71507fb64ec151359ead7e3774111bfd4abce7e0911dba461811195c06c22a6d17496ea92537d3185320ff4112fe29954cad1b9152
+  languageName: node
+  linkType: hard
+
+"@types/react@npm:*, @types/react@npm:^19.1.8":
   version: 19.1.8
   resolution: "@types/react@npm:19.1.8"
   dependencies:
@@ -9383,6 +9402,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"metro-runtime@npm:^0.83.0":
+  version: 0.83.0
+  resolution: "metro-runtime@npm:0.83.0"
+  dependencies:
+    "@babel/runtime": "npm:^7.25.0"
+    flow-enums-runtime: "npm:^0.0.6"
+  checksum: 10c0/defb4b3588facaf048c87b31bf1894d49e848ba86ca5c873d288bc39bf7c85e5858b4b9645ad9905d893ea884cdb209846c0f9fe7a1ddd59211f52643d10ab76
+  languageName: node
+  linkType: hard
+
 "metro-source-map@npm:0.82.5, metro-source-map@npm:^0.82.2":
   version: 0.82.5
   resolution: "metro-source-map@npm:0.82.5"
@@ -10854,12 +10883,14 @@ __metadata:
     expo-dev-client: "npm:5.2.4"
     expo-status-bar: "npm:~2.2.3"
     expo-system-ui: "npm:5.0.11-canary-20250713-8f814f8"
+    metro-runtime: "npm:^0.83.0"
     react: "npm:19.1.0"
     react-dom: "npm:19.1.0"
     react-native: "npm:0.80.1"
     react-native-builder-bob: "npm:^0.40.13"
     react-native-monorepo-config: "npm:^0.1.9"
     react-native-web: "npm:~0.20.0"
+    react-refresh: "npm:^0.17.0"
   languageName: unknown
   linkType: soft
 
@@ -10867,16 +10898,20 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "react-native-css@workspace:."
   dependencies:
+    "@babel/core": "npm:^7.28.0"
     "@commitlint/config-conventional": "npm:^19.8.1"
     "@eslint/js": "npm:^9.30.1"
     "@ianvs/prettier-plugin-sort-imports": "npm:^4.4.2"
     "@tailwindcss/postcss": "npm:^4.1.11"
     "@testing-library/react-native": "npm:^13.2.0"
     "@tsconfig/react-native": "npm:^3.0.6"
+    "@types/babel__core": "npm:^7"
     "@types/connect": "npm:^3.4.38"
     "@types/debug": "npm:^4.1.12"
     "@types/jest": "npm:^30.0.0"
     "@types/react": "npm:^19.1.8"
+    "@types/react-refresh": "npm:^0"
+    "@types/react-test-renderer": "npm:^19"
     babel-plugin-tester: "npm:^12.0.0"
     babel-preset-expo: "npm:13.3.0-canary-20250713-8f814f8"
     colorjs.io: "npm:0.6.0-alpha.1"
@@ -10891,6 +10926,7 @@ __metadata:
     jest-expo: "npm:54.0.0-canary-20250713-8f814f8"
     lefthook: "npm:^1.12.2"
     lightningcss: "npm:^1.30.1"
+    metro-runtime: "npm:^0.83.0"
     prettier: "npm:^3.6.2"
     react: "npm:19.1.0"
     react-native: "npm:0.80.1"
@@ -10898,6 +10934,8 @@ __metadata:
     react-native-reanimated: "npm:~4.0.0-nightly-20250720-bdf9f39ee"
     react-native-safe-area-context: "npm:5.4.0"
     react-native-worklets: "npm:0.4.0-nightly-20250720-bdf9f39ee"
+    react-refresh: "npm:^0.17.0"
+    react-test-renderer: "npm:^19.1.0"
     release-it: "npm:^19.0.4"
     tailwindcss: "npm:^4.1.11"
     typescript: "npm:^5.8.3"
@@ -11064,6 +11102,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-refresh@npm:^0.17.0":
+  version: 0.17.0
+  resolution: "react-refresh@npm:0.17.0"
+  checksum: 10c0/002cba940384c9930008c0bce26cac97a9d5682bc623112c2268ba0c155127d9c178a9a5cc2212d560088d60dfd503edd808669a25f9b377f316a32361d0b23c
+  languageName: node
+  linkType: hard
+
 "react-server-dom-webpack@npm:~19.0.0":
   version: 19.0.0
   resolution: "react-server-dom-webpack@npm:19.0.0"
@@ -11079,7 +11124,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-test-renderer@npm:19.1.0":
+"react-test-renderer@npm:19.1.0, react-test-renderer@npm:^19.1.0":
   version: 19.1.0
   resolution: "react-test-renderer@npm:19.1.0"
   dependencies:
