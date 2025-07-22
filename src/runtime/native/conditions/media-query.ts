@@ -38,6 +38,8 @@ function testComparison(mediaQuery: MediaCondition, effect: Effect): Boolean {
   const right = mediaQuery[2];
 
   switch (mediaQuery[1]) {
+    case "platform":
+      return right === Platform.OS;
     case "prefers-color-scheme": {
       return right === colorScheme.get(effect);
     }
