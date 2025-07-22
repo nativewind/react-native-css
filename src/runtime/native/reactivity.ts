@@ -233,11 +233,7 @@ export const vh = observable<number>(
 export const colorScheme = observable<ColorSchemeName>(
   Appearance.getColorScheme(),
 );
-colorScheme.set(Appearance.getColorScheme());
-colorScheme.get({
-  observers: new Set(),
-  run: () => Appearance.setColorScheme(colorScheme.get()),
-});
+Appearance.addChangeListener((event) => colorScheme.set(event.colorScheme));
 
 /** Containers ****************************************************************/
 
