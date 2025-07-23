@@ -8,7 +8,6 @@ import {
   type Declaration,
   type DeclarationBlock,
   type MediaRule,
-  type ParsedComponent,
   type Rule,
   type SelectorList,
   type TokenOrValue,
@@ -38,21 +37,8 @@ import {
 } from "./declarations";
 import { extractKeyFrames } from "./keyframes";
 import { parseMediaQuery } from "./media-query";
-import { getSelectors, toRNProperty } from "./selectors";
-
-type ReactNativeAtRule = {
-  type: "custom";
-  value: {
-    name: "react-native";
-    prelude: null | Extract<ParsedComponent, { type: "repeated" }>;
-    body: {
-      type: "declaration-list";
-      value: DeclarationBlock & {
-        importantDeclarations: never;
-      };
-    };
-  };
-};
+import { getSelectors } from "./selectors";
+import { maybeMutateReactNativeOptions, parsePropAtRule } from "./atRules";
 
 /**
  * Converts a CSS file to a collection of style declarations that can be used with the StyleSheet API
@@ -111,9 +97,7 @@ export function compile(
 
   const visitor: Visitor<typeof customAtRules> = {
     Rule(rule) {
-      if (isReactNativeAtRule(rule)) {
-        extractReactNativeOptions(rule, collection);
-      }
+      maybeMutateReactNativeOptions(rule, collection);
     },
     StyleSheetExit(sheet) {
       logger(`Found ${sheet.rules.length} rules to process`);
@@ -183,8 +167,6 @@ export function compile(
   return stylesheetOptions;
 }
 
-type ExtractableRules = Rule | ReactNativeAtRule;
-
 /**
  * Extracts style declarations and animations from a given CSS rule, based on its type.
  *
@@ -193,7 +175,7 @@ type ExtractableRules = Rule | ReactNativeAtRule;
  * @param {CssToReactNativeRuntimeOptions} parseOptions - Options for parsing the CSS code, such as grouping related rules together.
  */
 function extractRule(
-  rule: ExtractableRules,
+  rule: Rule,
   collection: CompilerCollection,
   partialStyle: Partial<StyleRule> = {},
   options: CompilerOptions,
@@ -221,7 +203,7 @@ function extractRule(
         for (const style of getExtractedStyles(
           rule.value.declarations,
           collection,
-          parseReactNativeStyleAtRule(rule.value.rules),
+          parsePropAtRule(rule.value.rules),
           options,
         )) {
           setStyleForSelectorList(
@@ -262,109 +244,6 @@ function extractRule(
     case "starting-style":
       break;
   }
-}
-
-function isReactNativeAtRule(
-  rule: ExtractableRules,
-): rule is ReactNativeAtRule {
-  return rule.type === "custom" && rule.value?.name === "react-native";
-}
-
-function extractReactNativeOptions(
-  rule: ReactNativeAtRule,
-  collection: CompilerCollection,
-) {
-  const { declarations } = rule.value.body.value;
-  if (!declarations) return;
-
-  for (const declaration of declarations) {
-    if (declaration.property !== "custom") continue;
-
-    switch (declaration.value.name) {
-      case "preserve-variables": {
-        declaration.value.value.forEach((token) => {
-          if (token.type !== "dashed-ident") {
-            return;
-          }
-          collection.varUsageCount.set(token.value, 1);
-        });
-        break;
-      }
-      default:
-        break;
-    }
-  }
-}
-
-/**
- * @rn-move is a custom at-rule that allows you to move a style property to a different prop/location
- * Its a placeholder concept until we improve the LightningCSS parsing
- */
-function parseReactNativeStyleAtRule(rules?: (Rule | ReactNativeAtRule)[]) {
-  const mapping: StyleRuleMapping = {};
-
-  if (!rules) return mapping;
-
-  for (const rule of rules) {
-    if (!isReactNativeAtRule(rule)) continue;
-    if (!rule.value.prelude) continue;
-
-    if (rule.value.prelude.value.components[0]?.value !== "rename") {
-      continue;
-    }
-
-    const { declarations } = rule.value.body.value;
-
-    if (!declarations) continue;
-
-    for (const declaration of declarations) {
-      if (declaration.property !== "custom") continue;
-
-      let values: string[] = [];
-
-      for (const [index, value] of declaration.value.value.entries()) {
-        if (value.type !== "token") {
-          values = [];
-          break;
-        }
-
-        const token = value.value;
-
-        if (token.type === "delim") {
-          // Ignore the dot
-          if (token.value === ".") {
-            continue;
-          }
-
-          if (token.value === "^" && index === 0) {
-            continue;
-          }
-
-          // Any other delim is invalid
-          values = [];
-          break;
-        }
-
-        if (token.type !== "ident") {
-          // Only ident is allowed
-          values = [];
-          break;
-        }
-
-        if (index === 0) {
-          values.push("style");
-        }
-
-        values.push(toRNProperty(token.value));
-      }
-
-      if (values.length > 0) {
-        mapping[toRNProperty(declaration.value.name)] = values;
-      }
-    }
-  }
-
-  return mapping;
 }
 
 /**

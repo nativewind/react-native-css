@@ -13,53 +13,6 @@ test("reads global CSS variables", () => {
   });
 });
 
-test.skip("test compiler", () => {
-  const compiled = compile(`
-    .test { 
-      @react-native rename {
-        backgroundColor: myBackgroundColor;
-        borderWidth: my.borderWidth;
-        fontSize: ^myFontSize;
-        borderColor: ^top.level.nested;
-      }
-      color: red; 
-      background-color: red;
-      border-width: 1px;
-      font-size: 16px;
-      --test: red;
-      border-color: blue; 
-      border-color: var(--test)
-    }
-  `);
-
-  expect(compiled).toStrictEqual({
-    s: [
-      [
-        "test",
-        [
-          [
-            {
-              s: [1, 1],
-              d: [
-                {
-                  color: "#ff0000",
-                },
-                ["#ff0000", ["style", "myBackgroundColor"]],
-                [1, ["style", "my", "borderWidth"]],
-                [16, ["myFontSize"]],
-                ["#0000ff", ["top", "level", "nested"]],
-                [[{}, "var", ["test"]], ["top", "level", "nested"], 1],
-              ],
-              dv: 1,
-              v: [["test", "red"]],
-            },
-          ],
-        ],
-      ],
-    ],
-  });
-});
-
 test.skip("removes unused CSS variables", () => {
   const compiled = compile(`
     .test { 

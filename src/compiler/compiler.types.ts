@@ -348,7 +348,7 @@ export type FeatureFlagRecord = Partial<Record<FeatureFlags, boolean>>;
 /** @internal */
 export type PathTokens = string | string[];
 /** @internal */
-export type StyleRuleMapping = Record<string, PathTokens | undefined>;
+export type StyleRuleMapping = Record<string, PathTokens>;
 
 /**
  * @internal
