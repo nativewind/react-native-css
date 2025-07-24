@@ -19,19 +19,31 @@ export function testGuards(
   inheritedContainers: ContainerContextValue,
 ) {
   return state.guards?.some((guard) => {
+    let result = false;
+
     switch (guard[0]) {
       case "a":
         // Attribute
-        return currentProps?.[guard[1]] !== guard[2];
+        result = currentProps?.[guard[1]] !== guard[2];
+        break;
       case "d":
         // DataSet
-        return currentProps?.dataSet?.[guard[1]] !== guard[2];
+        result = currentProps?.dataSet?.[guard[1]] !== guard[2];
+        break;
       case "v":
         // Variables
-        return inheritedVariables[guard[1]] !== guard[2];
+        result = inheritedVariables[guard[1]] !== guard[2];
+        break;
       case "c":
         // Containers
-        return inheritedContainers[guard[1]] !== guard[2];
+        result = inheritedContainers[guard[1]] !== guard[2];
+        break;
     }
+
+    // if (result) {
+    //   console.log(`Guard ${guard[0]}:${guard[1]} failed`);
+    // }
+
+    return result;
   });
 }

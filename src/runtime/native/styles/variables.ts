@@ -42,7 +42,8 @@ export function varResolver(
 
     let value = resolve(inlineVariables?.[name]);
     if (value !== undefined) {
-      variables[name] = value;
+      options.inlineVariables ??= { [VAR_SYMBOL]: "inline" };
+      options.inlineVariables[name] = value;
 
       return value;
     }
@@ -50,20 +51,23 @@ export function varResolver(
     value = resolve(variables[name]);
     if (value !== undefined) {
       renderGuards?.push(["v", name, value]);
-      variables[name] = value;
+      options.inlineVariables ??= { [VAR_SYMBOL]: "inline" };
+      options.inlineVariables[name] = value;
 
       return value;
     }
 
     value = resolve(get(universalVariables(name)));
     if (value !== undefined) {
-      variables[name] = value;
+      options.inlineVariables ??= { [VAR_SYMBOL]: "inline" };
+      options.inlineVariables[name] = value;
       return value;
     }
 
     value = resolve(get(rootVariables(name)));
     if (value !== undefined) {
-      variables[name] = value;
+      options.inlineVariables ??= { [VAR_SYMBOL]: "inline" };
+      options.inlineVariables[name] = value;
       return value;
     }
 

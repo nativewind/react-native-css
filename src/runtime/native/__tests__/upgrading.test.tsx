@@ -29,6 +29,6 @@ test("group", () => {
       </View>,
     );
   })
-    .toThrow(`ReactNativeCss: Cannot dynamic add a container context. 'group' was added after the initial render.
-Use modifier ('hover:container', 'active:container', 'not(true):container', etc) to ensure it present in the initial render`);
+    .toThrow(`ReactNativeCss: Cannot dynamically add a container context. 'group' was added after the initial render.
+Use modifier ('hover:container', 'active:container', etc) to ensure it present in the initial render`);
 });

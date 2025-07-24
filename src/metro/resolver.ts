@@ -1,9 +1,11 @@
+import { basename, resolve, sep } from "node:path";
+
 import type {
-  Resolution,
   CustomResolutionContext,
   CustomResolver,
+  Resolution,
 } from "metro-resolver";
-import { basename, resolve, sep } from "node:path";
+
 import { allowedModules } from "../babel/allowedModules";
 
 const thisModuleDist = resolve(__dirname, "../../../dist");

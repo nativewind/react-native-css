@@ -44,7 +44,7 @@ describe("hsl", () => {
     expect(component.type).toBe("View");
     expect(component.props).toStrictEqual({
       children: undefined,
-      style: { color: "hsl(0, 84.2%, 60.2%)" },
+      style: { color: "hsl(0,84.2%,60.2%)" },
       testID,
     });
   });
@@ -61,7 +61,7 @@ describe("hsl", () => {
     expect(component.type).toBe("View");
     expect(component.props).toStrictEqual({
       children: undefined,
-      style: { color: "hsl(0, 84.2%, 60.2%)" },
+      style: { color: "hsl(0,84.2%,60.2%)" },
       testID,
     });
   });
@@ -112,7 +112,7 @@ describe("hsla", () => {
     expect(component.type).toBe("View");
     expect(component.props).toStrictEqual({
       children: undefined,
-      style: { color: "hsla(0, 84.2%, 60.2%, 60%)" },
+      style: { color: "hsla(0,84.2%,60.2%,60%)" },
       testID,
     });
   });
@@ -129,7 +129,7 @@ describe("hsla", () => {
     expect(component.type).toBe("View");
     expect(component.props).toStrictEqual({
       children: undefined,
-      style: { color: "hsla(0, 84.2%, 60.2%, 60%)" },
+      style: { color: "hsla(0,84.2%,60.2%,60%)" },
       testID,
     });
   });

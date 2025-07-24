@@ -231,3 +231,15 @@ test.skip("animations", () => {
     ],
   });
 });
+
+test("breaks apart comma separated variables", () => {
+  const compiled = compile(`
+    :root { 
+      --test: blue, green;
+    }
+  `);
+
+  expect(compiled).toStrictEqual({
+    vr: [["test", [[["blue"], ["green"]]]]],
+  });
+});

@@ -167,22 +167,22 @@ export function updateRules(
 
         if (Boolean(variables) !== Boolean(state.variables)) {
           throw new Error(
-            `ReactNativeCss: Cannot dynamic add a variable context. '${source}' was added after the initial render.
-Use modifier ('hover:my-var', 'active:my-var', 'not(true):my-var', etc) to ensure it present in the initial render`,
+            `ReactNativeCss: Cannot dynamically add a variable context. '${source}' was added after the initial render.
+Use modifier ('hover:my-var', 'active:my-var', etc) to ensure it present in the initial render`,
           );
         }
 
         if (Boolean(containers) !== Boolean(state.containers)) {
           throw new Error(
-            `ReactNativeCss: Cannot dynamic add a container context. '${source}' was added after the initial render.
-Use modifier ('hover:container', 'active:container', 'not(true):container', etc) to ensure it present in the initial render`,
+            `ReactNativeCss: Cannot dynamically add a container context. '${source}' was added after the initial render.
+Use modifier ('hover:container', 'active:container', etc) to ensure it present in the initial render`,
           );
         }
 
         if (animated !== state.animated) {
           throw new Error(
             `ReactNativeCss: Cannot dynamically change to an animated component. '${source}' was added after the initial render.
-Use 'animation-none' or a modifier ('hover:animation', 'active:animation', 'not(true):animation', etc) to ensure it present in the initial render`,
+Use 'animation-none' or a modifier ('hover:animation', 'active:animation', etc) to ensure it present in the initial render`,
           );
         }
 
@@ -190,7 +190,7 @@ Use 'animation-none' or a modifier ('hover:animation', 'active:animation', 'not(
           throw new Error(
             `ReactNativeCss: Cannot dynamically change to a Pressable. '${source}' was added after the initial render.
 The 'hover', 'active', and 'focus' modifiers on a View will convert it to a Pressable.
-Use a modifier ('not(true):hover:my-class') to ensure it present in the initial render`,
+Use a modifier) to ensure it present in the initial render`,
           );
         }
       }

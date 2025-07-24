@@ -27,6 +27,8 @@ StyleCollection.keyframes = family<string, Observable<Animation_V2[1]>>(() => {
 StyleCollection.inject = function (options: ReactNativeCssStyleSheet) {
   observableBatch.current = new Set();
 
+  // console.log(JSON.stringify(options, null, 2));
+
   if (options.s) {
     for (const style of options.s) {
       StyleCollection.styles(style[0]).set(style[1]);

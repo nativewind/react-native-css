@@ -37,30 +37,32 @@ import type { StyleDescriptor, StyleFunction } from "./compiler.types";
 import { parseEasingFunction, parseIterationCount } from "./keyframes";
 import { toRNProperty } from "./selectors";
 import type { StylesheetBuilder } from "./stylesheet";
-import { isValid, validProperties, validPropertiesLoose } from "./valid";
+
+const CommaSeparator = Symbol("CommaSeparator");
 
 type DeclarationType<P extends Declaration["property"]> = Extract<
   Declaration,
   { property: P }
 >;
 
-type Parser<K extends (typeof validProperties)[number]> = (
-  declaration: Extract<Declaration, { property: K }>,
+type Parser<T extends Declaration["property"]> = (
+  declaration: Extract<Declaration, { property: T }>,
   builder: StylesheetBuilder,
   // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
 ) => StyleDescriptor | void;
 
 const propertyRename: Record<string, string> = {};
 
-const runtimeShorthands = new Set([
+const needsRuntimeParsing = new Set([
   "animation",
   "text-shadow",
   "transform",
+  "box-shadow",
   "border",
 ]);
 
 const parsers: {
-  [K in (typeof validProperties)[number]]: Parser<K>;
+  [K in Declaration["property"]]?: Parser<K>;
 } = {
   "align-content": parseAlignContent,
   "align-items": parseAlignItems,
@@ -189,7 +191,6 @@ const parsers: {
   "padding-left": parseSizeDeclaration,
   "padding-right": parseSizeDeclaration,
   "padding-top": parseSizeDeclaration,
-  "pointer-events": parsePointerEvents,
   "position": parsePosition,
   "right": parseSizeDeclaration,
   "rotate": parseRotate,
@@ -217,6 +218,12 @@ const parsers: {
   "width": parseSizeDeclaration,
   "z-index": parseZIndex,
 };
+
+// This is missing LightningCSS types
+(parsers as Record<string, Parser<Declaration["property"]>>)["pointer-events"] =
+  parsePointerEvents as Parser<Declaration["property"]>;
+
+const validProperties = new Set(Object.keys(parsers));
 
 export function parseDeclaration(
   declaration: Declaration,
@@ -783,7 +790,7 @@ export function parseDeclarationUnparsed(
 ) {
   let property = declaration.value.propertyId.property;
 
-  if (!isValid(declaration.value.propertyId)) {
+  if (!(property in parsers)) {
     builder.addWarning("property", property);
     return;
   }
@@ -799,7 +806,7 @@ export function parseDeclarationUnparsed(
   /**
    * Unparsed shorthand properties need to be parsed at runtime
    */
-  if (runtimeShorthands.has(property)) {
+  if (needsRuntimeParsing.has(property)) {
     let args = parseUnparsed(declaration.value.value, builder);
     if (!isStyleDescriptorArray(args)) {
       args = [args];
@@ -833,7 +840,7 @@ export function parseDeclarationCustom(
 ) {
   const property = declaration.value.name;
   if (
-    validPropertiesLoose.has(property) ||
+    validProperties.has(property) ||
     property.startsWith("--") ||
     property.startsWith("-rn-")
   ) {
@@ -856,9 +863,21 @@ export function reduceParseUnparsed(
 
   if (result.length === 0) {
     return undefined;
-  } else {
-    return result;
   }
+
+  let currentGroup: StyleDescriptor[] = [];
+  const groups: StyleDescriptor[][] = [currentGroup];
+
+  for (const value of result) {
+    if ((value as unknown) === CommaSeparator) {
+      currentGroup = [];
+      groups.push(currentGroup);
+    } else {
+      currentGroup.push(value);
+    }
+  }
+
+  return groups.length === 1 ? groups[0] : groups;
 }
 
 export function unparsedFunction(
@@ -1004,6 +1023,8 @@ export function parseUnparsed(
           return `${round(tokenOrValue.value.value * 100)}%`;
         case "dimension":
           return parseDimension(tokenOrValue.value, builder);
+        case "comma":
+          return CommaSeparator as unknown as StyleDescriptor;
         case "at-keyword":
         case "hash":
         case "id-hash":
@@ -1013,7 +1034,6 @@ export function parseUnparsed(
         case "comment":
         case "colon":
         case "semicolon":
-        case "comma":
         case "include-match":
         case "dash-match":
         case "prefix-match":
@@ -1997,29 +2017,20 @@ export function parseTextAlign(
 }
 
 export function parseBoxShadow(
-  { value }: DeclarationType<"box-shadow">,
-  builder: StylesheetBuilder,
+  _: DeclarationType<"box-shadow">,
+  _builder: StylesheetBuilder,
 ) {
-  if (value.length > 1) {
-    builder.addWarning("value", "multiple box shadows");
-    return;
-  }
+  return undefined;
 
-  const boxShadow = value[0];
-
-  if (!boxShadow) {
-    return;
-  }
-
-  builder.addDescriptor("shadowColor", parseColor(boxShadow.color, builder));
-  builder.addDescriptor("shadowRadius", parseLength(boxShadow.spread, builder));
-  // builder.addDescriptor("style",
-  //   ["shadowOffsetWidth"],
-  //   parseLength(boxShadow.xOffset, options, ["", ""),
-  // );
-  // builder.addDescriptor("style",
-  //   ["shadowOffset", "height"],
-  //   parseLength(boxShadow.yOffset, builder),
+  // return value.map(
+  //   (shadow): BoxShadowValue => ({
+  //     color: parseColor(shadow.color, builder),
+  //     offsetX: parseLength(shadow.xOffset, builder) as number,
+  //     offsetY: parseLength(shadow.yOffset, builder) as number,
+  //     blurRadius: parseLength(shadow.blur, builder) as number,
+  //     spreadDistance: parseLength(shadow.spread, builder) as number,
+  //     inset: shadow.inset,
+  //   }),
   // );
 }
 

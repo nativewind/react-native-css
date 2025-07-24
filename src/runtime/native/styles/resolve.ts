@@ -8,6 +8,7 @@ import type { RenderGuard } from "../conditions/guards";
 import { type Getter, type VariableContextValue } from "../reactivity";
 import { animation } from "./animation";
 import { border } from "./border";
+import { boxShadow } from "./box-shadow";
 import { calc } from "./calc";
 import { transformKeys } from "./defaults";
 import {
@@ -38,6 +39,7 @@ export type StyleFunctionResolver = (
 const shorthands: Record<`@${string}`, StyleFunctionResolver> = {
   "@textShadow": textShadow,
   "@transform": transform,
+  "@boxShadow": boxShadow,
   "@border": border,
 };
 
@@ -92,7 +94,7 @@ export function resolveValue(
       }
 
       if (isDescriptorArray(value)) {
-        value = value.flatMap((d) => {
+        value = value.map((d) => {
           const value = resolveValue(d, get, options);
           return value === undefined ? [] : value;
         }) as StyleDescriptor[];
