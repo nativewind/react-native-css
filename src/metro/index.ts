@@ -1,14 +1,15 @@
 /* eslint-disable */
-import { versions } from "node:process";
 import { dirname, relative, sep } from "node:path";
+import { versions } from "node:process";
 
 import connect from "connect";
+import debug from "debug";
 import type { MetroConfig } from "metro-config";
 
 import { compile } from "../compiler/compiler";
-import { setupTypeScript } from "./typescript";
 import { getNativeInjectionCode, getWebInjectionCode } from "./injection-code";
 import { nativeResolver, webResolver } from "./resolver";
+import { setupTypeScript } from "./typescript";
 
 export interface WithReactNativeCSSOptions {
   /* Specify the path to the TypeScript environment file. Defaults types-env.d.ts */
@@ -18,6 +19,8 @@ export interface WithReactNativeCSSOptions {
   /** Add className to all React Native primitives. Defaults false */
   globalClassNamePolyfill?: boolean;
 }
+
+const defaultLogger = debug("react-native-css:metro");
 
 export function withReactNativeCSS<
   T extends MetroConfig | (() => Promise<MetroConfig>),
@@ -200,6 +203,11 @@ export function withReactNativeCSS<
                   ),
                   Array.from(nativeCSSFiles.values()).map(([, value]) => value),
                 );
+
+                if (defaultLogger.enabled && fileBuffer) {
+                  defaultLogger(`Transformed ${filePath}`);
+                  defaultLogger(fileBuffer?.toString());
+                }
               }
 
               return transformFile(filePath, transformOptions, fileBuffer);

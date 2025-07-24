@@ -129,11 +129,26 @@ export function resolveValue(
         // @translate, @rotate, @scale, etc.
         return { [name.slice(1)]: simpleResolve(value[2], castToArray)[0] };
       } else {
-        const args = simpleResolve(value[2], castToArray);
+        if (name === "linear-gradient") {
+          debugger;
+        }
+        let args = simpleResolve(value[2], castToArray);
+
         if (args === undefined) {
           return;
         } else if (Array.isArray(args)) {
-          value = `${name}(${args.join(", ")})`;
+          if (args.length === 1) {
+            args = args[0];
+          }
+
+          const joinedArgs = args.map((arg: unknown) => {
+            if (Array.isArray(arg)) {
+              return arg.flat().join(" ");
+            }
+            return arg;
+          });
+
+          value = `${name}(${joinedArgs.join(", ")})`;
         } else {
           value = `${name}(${args})`;
         }

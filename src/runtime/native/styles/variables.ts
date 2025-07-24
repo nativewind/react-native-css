@@ -21,56 +21,56 @@ export function varResolver(
     variableHistory = new Set(),
   } = options;
 
-  const names = fn[2];
+  const args = fn[2];
 
-  if (!names) return;
+  if (!args) return;
 
-  for (const nameDescriptor of names) {
-    const name = resolve(nameDescriptor);
+  const [nameDescriptor, fallback] = args;
 
-    // If this recurses back to the same variable, we need to stop
-    if (variableHistory.has(name)) {
-      return;
-    }
+  const name = resolve(nameDescriptor);
 
-    if (name in variables) {
-      renderGuards?.push(["v", name, variables[name]]);
-      return variables[name];
-    }
+  // If this recurses back to the same variable, we need to stop
+  if (variableHistory.has(name)) {
+    return;
+  }
 
-    variableHistory.add(name);
+  if (name in variables) {
+    renderGuards?.push(["v", name, variables[name]]);
+    return variables[name];
+  }
 
-    let value = resolve(inlineVariables?.[name]);
-    if (value !== undefined) {
-      options.inlineVariables ??= { [VAR_SYMBOL]: "inline" };
-      options.inlineVariables[name] = value;
+  variableHistory.add(name);
 
-      return value;
-    }
-
-    value = resolve(variables[name]);
-    if (value !== undefined) {
-      renderGuards?.push(["v", name, value]);
-      options.inlineVariables ??= { [VAR_SYMBOL]: "inline" };
-      options.inlineVariables[name] = value;
-
-      return value;
-    }
-
-    value = resolve(get(universalVariables(name)));
-    if (value !== undefined) {
-      options.inlineVariables ??= { [VAR_SYMBOL]: "inline" };
-      options.inlineVariables[name] = value;
-      return value;
-    }
-
-    value = resolve(get(rootVariables(name)));
-    if (value !== undefined) {
-      options.inlineVariables ??= { [VAR_SYMBOL]: "inline" };
-      options.inlineVariables[name] = value;
-      return value;
-    }
+  let value = resolve(inlineVariables?.[name]);
+  if (value !== undefined) {
+    options.inlineVariables ??= { [VAR_SYMBOL]: "inline" };
+    options.inlineVariables[name] = value;
 
     return value;
   }
+
+  value = resolve(variables[name]);
+  if (value !== undefined) {
+    renderGuards?.push(["v", name, value]);
+    options.inlineVariables ??= { [VAR_SYMBOL]: "inline" };
+    options.inlineVariables[name] = value;
+
+    return value;
+  }
+
+  value = resolve(get(universalVariables(name)));
+  if (value !== undefined) {
+    options.inlineVariables ??= { [VAR_SYMBOL]: "inline" };
+    options.inlineVariables[name] = value;
+    return value;
+  }
+
+  value = resolve(get(rootVariables(name)));
+  if (value !== undefined) {
+    options.inlineVariables ??= { [VAR_SYMBOL]: "inline" };
+    options.inlineVariables[name] = value;
+    return value;
+  }
+
+  return resolve(fallback);
 }

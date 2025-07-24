@@ -24,6 +24,8 @@ import { parseMediaQuery } from "./media-query";
 import { getSelectors } from "./selectors";
 import { StylesheetBuilder } from "./stylesheet";
 
+const defaultLogger = debug("react-native-css:compiler");
+
 /**
  * Converts a CSS file to a collection of style declarations that can be used with the StyleSheet API
  *
@@ -35,7 +37,7 @@ export function compile(
   code: Buffer | string,
   options: CompilerOptions = {},
 ): ReactNativeCssStyleSheet {
-  const { logger = debug("react-native-css") } = options;
+  const { logger = defaultLogger } = options;
   const features = Object.assign({}, options.features);
 
   if (options.selectorPrefix && options.selectorPrefix.startsWith(".")) {
@@ -44,21 +46,15 @@ export function compile(
 
   logger(`Features ${JSON.stringify(features)}`);
 
+  if (process.env.NODE_ENV !== "production") {
+    if (defaultLogger.enabled) {
+      defaultLogger(code.toString());
+    }
+  }
+
   const builder = new StylesheetBuilder(options);
 
   logger(`Start lightningcss`);
-
-  const onVarUsage = (token: TokenOrValue) => {
-    if (token.type === "function") {
-      token.value.arguments.forEach((token) => onVarUsage(token));
-    } else if (token.type === "var") {
-      builder.varUsage.add(token.value.name.ident);
-      if (token.value.fallback) {
-        const fallbackValues = token.value.fallback;
-        fallbackValues.forEach((varObj) => onVarUsage(varObj));
-      }
-    }
-  };
 
   const customAtRules: CustomAtRules = {
     "react-native": {
@@ -84,19 +80,21 @@ export function compile(
   };
 
   if (options.stripUnusedVariables) {
+    const onVarUsage = (token: TokenOrValue) => {
+      if (token.type === "function") {
+        token.value.arguments.forEach((token) => onVarUsage(token));
+      } else if (token.type === "var") {
+        builder.varUsage.add(token.value.name.ident);
+        if (token.value.fallback) {
+          const fallbackValues = token.value.fallback;
+          fallbackValues.forEach((varObj) => onVarUsage(varObj));
+        }
+      }
+    };
+
     visitor.Declaration = (decl) => {
       if (decl.property === "unparsed" || decl.property === "custom") {
-        decl.value.value.forEach((token) => {
-          if (token.type === "function") {
-            token.value.arguments.forEach((token) => onVarUsage(token));
-          } else if (token.type === "var") {
-            builder.varUsage.add(token.value.name.ident);
-            if (token.value.fallback) {
-              const fallbackValues = token.value.fallback;
-              fallbackValues.forEach((varObj) => onVarUsage(varObj));
-            }
-          }
-        });
+        decl.value.value.forEach((token) => onVarUsage(token));
       }
       return decl;
     };

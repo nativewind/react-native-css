@@ -44,14 +44,6 @@ To run the example app on iOS:
 yarn example ios
 ```
 
-To confirm that the app is running with the new architecture, you can check the Metro logs for a message like this:
-
-```sh
-Running "CssExample" with {"fabric":true,"initialProps":{"concurrentRoot":true},"rootTag":1}
-```
-
-Note the `"fabric":true` and `"concurrentRoot":true` properties.
-
 To run the example app on Web:
 
 ```sh
@@ -71,10 +63,32 @@ To fix formatting errors, run the following:
 yarn lint --fix
 ```
 
+### Testing
+
 Remember to add tests for your change if possible. Run the unit tests by:
 
 ```sh
 yarn test
+```
+
+### Debugging
+
+Run the example via the command line with the `debug` script to enable debugging:
+
+```sh
+yarn example debug
+```
+
+This will print parsed CSS and style objects to the console, which can help you understand how the library processes CSS files.
+
+### Commands
+
+The `yarn example` command is a shortcut for running commands in the example app. You can run any command that is available in the example app's `package.json` by prefixing it with `yarn example`.
+
+You can also run Expo commands directly from the root directory by using the `yarn example expo` command. For example, to run the Expo prebuild, you can use:
+
+```sh
+yarn example expo prebuild
 ```
 
 ### Commit message convention

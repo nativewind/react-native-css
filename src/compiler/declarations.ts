@@ -15,9 +15,12 @@ import type {
   FontStyle,
   FontVariantCaps,
   FontWeight,
+  Gradient,
+  GradientItemFor_DimensionPercentageFor_LengthValue,
   Length,
   LengthPercentageOrAuto,
   LengthValue,
+  LineDirection,
   LineHeight,
   LineStyle,
   MaxSize,
@@ -51,7 +54,9 @@ type Parser<T extends Declaration["property"]> = (
   // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
 ) => StyleDescriptor | void;
 
-const propertyRename: Record<string, string> = {};
+const propertyRename: Record<string, string> = {
+  "background-image": "experimental_backgroundImage",
+};
 
 const needsRuntimeParsing = new Set([
   "animation",
@@ -78,6 +83,7 @@ const parsers: {
   "animation-timing-function": addAnimationValue,
   "aspect-ratio": parseAspectRatio,
   "background-color": parseColorDeclaration,
+  "background-image": parseBackgroundImage,
   "block-size": parseSizeDeclaration,
   "border": parseBorder,
   "border-block": parseBorderBlock,
@@ -966,6 +972,7 @@ export function parseUnparsed(
         case "rgba":
         case "hsl":
         case "hsla":
+        case "linear-gradient":
           return unparsedFunction(tokenOrValue, builder);
         case "hairlineWidth":
           return [{}, tokenOrValue.value.name, []];
@@ -2596,6 +2603,86 @@ export function kebabCase(str: string) {
     /[A-Z]+(?![a-z])|[A-Z]/g,
     ($, ofs) => (ofs ? "-" : "") + $.toLowerCase(),
   );
+}
+
+function parseBackgroundImage(
+  declaration: DeclarationType<"background-image">,
+  builder: StylesheetBuilder,
+) {
+  builder.addDescriptor(
+    "experimental_backgroundImage",
+    declaration.value.flatMap((image): StyleDescriptor[] => {
+      switch (image.type) {
+        case "gradient": {
+          const gradient = parseGradient(image.value, builder);
+          return gradient ? [gradient] : [];
+        }
+        case "none":
+          return ["none"];
+      }
+
+      return [];
+    }),
+  );
+  return;
+}
+
+function parseGradient(
+  gradient: Gradient,
+  builder: StylesheetBuilder,
+): StyleDescriptor {
+  switch (gradient.type) {
+    case "linear": {
+      return [
+        {},
+        "@linear-gradient",
+        [
+          parseLineDirection(gradient.direction, builder),
+          ...gradient.items.map((item) => parseGradientItem(item, builder)),
+        ],
+      ];
+    }
+  }
+
+  return;
+}
+
+function parseLineDirection(
+  lineDirection: LineDirection,
+  builder: StylesheetBuilder,
+): StyleDescriptor {
+  switch (lineDirection.type) {
+    case "corner":
+      return `to ${lineDirection.horizontal} ${lineDirection.vertical}`;
+    case "horizontal":
+    case "vertical":
+      return `to ${lineDirection.value}`;
+    case "angle":
+      return parseAngle(lineDirection.value, builder);
+    default: {
+      lineDirection satisfies never;
+    }
+  }
+
+  return;
+}
+
+function parseGradientItem(
+  item: GradientItemFor_DimensionPercentageFor_LengthValue,
+  builder: StylesheetBuilder,
+): StyleDescriptor {
+  switch (item.type) {
+    case "color-stop": {
+      const args: StyleDescriptor[] = [parseColor(item.color, builder)];
+      if (item.position) {
+        args.push(parseLength(item.position, builder));
+      }
+
+      return [{}, "@colorStop", args, 1];
+    }
+    case "hint":
+      return parseLength(item.value, builder);
+  }
 }
 
 const namedColors = new Set([
