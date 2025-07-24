@@ -1,6 +1,6 @@
 import type { Declaration, PropertyId } from "lightningcss";
 
-const validList = [
+export const validProperties = [
   "align-content",
   "align-items",
   "align-self",
@@ -157,10 +157,10 @@ const validList = [
   "z-index",
 ] as const;
 
-export const validProperties = new Set<string>(validList);
+export const validPropertiesLoose = new Set<string>(validProperties);
 
 export function isValid<T extends Declaration | PropertyId>(
   declaration: T,
-): declaration is Extract<T, { property: (typeof validList)[number] }> {
-  return validProperties.has(declaration.property);
+): declaration is Extract<T, { property: (typeof validProperties)[number] }> {
+  return validPropertiesLoose.has(declaration.property);
 }

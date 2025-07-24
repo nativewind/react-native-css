@@ -194,8 +194,22 @@
   },
   "prettier": {
     "plugins": [
-      "./.config/prettier.config.mjs"
-    ]
+      "@ianvs/prettier-plugin-sort-imports"
+    ],
+    "importOrderParserPlugins": [
+      "typescript",
+      "jsx"
+    ],
+    "importOrder": [
+      "^react$|^react-native$",
+      "",
+      "<BUILTIN_MODULES>",
+      "",
+      "<THIRD_PARTY_MODULES>",
+      "",
+      "^[.]"
+    ],
+    "quoteProps": "consistent"
   },
   "jest": {
     "preset": "./.config/jest.config.cjs"

@@ -14,7 +14,7 @@ import type {
   StyleDescriptor,
 } from "./compiler.types";
 import type { StylesheetBuilder } from "./stylesheet";
-import { parseLength } from "./custom";
+import { parseLength } from "./declarations";
 
 export function parseMediaQuery(
   query: CSSMediaQuery,
