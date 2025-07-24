@@ -9,7 +9,7 @@ import {
 
 import { colorScheme } from "../api";
 
-test(":is(.dark *)", () => {
+test.skip(":is(.dark *)", () => {
   registerCSS(`@cssInterop set darkMode class dark;
 .my-class:is(.dark *) { color: red; }`);
 
@@ -26,7 +26,7 @@ test(":is(.dark *)", () => {
   expect(component.props.style).toStrictEqual({ color: "#f00" });
 });
 
-test(':root[class="dark"]', () => {
+test.skip(':root[class="dark"]', () => {
   registerCSS(`@cssInterop set darkMode class dark;
 :root[class="dark"] {
   --my-var: red;

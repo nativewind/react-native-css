@@ -13,13 +13,13 @@ import type {
   MediaFeatureComparison,
   StyleDescriptor,
 } from "./compiler.types";
-import type { StylesheetBuilder } from "./stylesheet";
 import { parseLength } from "./declarations";
+import type { StylesheetBuilder } from "./stylesheet";
 
 export function parseMediaQuery(
   query: CSSMediaQuery,
   builder: StylesheetBuilder,
-): MediaCondition | undefined {
+) {
   let platformCondition: MediaCondition | undefined;
   let condition: MediaCondition | undefined;
 
@@ -57,7 +57,7 @@ export function parseMediaQuery(
     mediaQuery = ["!", mediaQuery];
   }
 
-  return mediaQuery;
+  builder.addMediaQuery(mediaQuery);
 }
 
 function parseMediaQueryCondition(

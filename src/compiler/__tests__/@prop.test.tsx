@@ -18,8 +18,8 @@ test("@prop single", () => {
             d: [
               {
                 color: "#f00",
+                myBackgroundColor: "#00f",
               },
-              ["#00f", ["myBackgroundColor"]],
             ],
             s: [1, 1],
           },
@@ -29,7 +29,7 @@ test("@prop single", () => {
   });
 });
 
-test.only("@prop single, nested value", () => {
+test("@prop single, nested value", () => {
   const compiled = compile(`
     .test { 
       color: red; 
@@ -164,8 +164,10 @@ test("@prop multiple", () => {
         [
           {
             d: [
-              ["#f00", ["myColor"]],
-              ["#00f", ["myBackgroundColor"]],
+              {
+                myBackgroundColor: "#00f",
+                myColor: "#f00",
+              },
             ],
             s: [1, 1],
           },

@@ -1291,7 +1291,7 @@ export function parseColor(cssColor: CssColor, builder: StylesheetBuilder) {
 
   let color: Color | undefined;
 
-  const { hexColors = true, colorPrecision = 3 } = builder.getOptions();
+  const { hexColors = true, colorPrecision } = builder.getOptions();
 
   switch (cssColor.type) {
     case "currentcolor":
@@ -1411,8 +1411,8 @@ export function parseColor(cssColor: CssColor, builder: StylesheetBuilder) {
     }
   }
 
-  if (hexColors || colorPrecision) {
-    return color?.toString({ precision: colorPrecision });
+  if (!hexColors || colorPrecision) {
+    return color?.toString({ precision: colorPrecision ?? 3 });
   } else {
     return color?.toString({ format: "hex" });
   }
@@ -1887,7 +1887,9 @@ export function parseFontSizeDeclaration(
   declaration: DeclarationType<"font-size">,
   builder: StylesheetBuilder,
 ) {
-  return parseFontSize(declaration.value, builder);
+  const fontSize = parseFontSize(declaration.value, builder);
+  builder.addDescriptor("fontSize", fontSize);
+  builder.addDescriptor("--__rn-css-em", fontSize);
 }
 
 export function parseFontSize(value: FontSize, builder: StylesheetBuilder) {

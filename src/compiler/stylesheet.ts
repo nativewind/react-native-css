@@ -1,10 +1,15 @@
+import {
+  isStyleDescriptorArray,
+  Specificity,
+  specificityCompareFn,
+} from "../runtime/utils";
 import type {
   AnimationKeyframes_V2,
   AnimationRecord,
   CompilerOptions,
   ContainerQuery,
+  MediaCondition,
   ReactNativeCssStyleSheet,
-  SpecificityArray,
   StyleDeclaration,
   StyleDescriptor,
   StyleFunction,
@@ -13,62 +18,60 @@ import type {
   StyleRuleSet,
   VariableRecord,
 } from "./compiler.types";
-import {
-  Specificity,
-  specificityCompareFn,
-} from "../runtime/utils/specificity";
-import { isStyleDescriptorArray } from "../runtime/utils/style-value";
-import { getSelectors, toRNProperty } from "./selectors";
-import type { SelectorList } from "lightningcss";
+import { toRNProperty, type NormalizeSelector } from "./selectors";
 
 type BuilderMode = "style" | "media" | "container" | "keyframes";
 
 export class StylesheetBuilder {
   animationFrames?: AnimationKeyframes_V2[];
   animationDeclarations: StyleDeclaration[] = [];
-  staticDeclarations: Record<string, StyleDescriptor> = {};
+  staticDeclarations: Record<string, StyleDescriptor> | undefined;
 
   stylesheet: ReactNativeCssStyleSheet = {};
 
   varUsage = new Set<string>();
 
-  ruleOrder = 1;
+  private rule: StyleRule = {
+    s: [],
+  };
 
   constructor(
     private options: CompilerOptions,
     private mode: BuilderMode = "style",
-    private rule: StyleRule = {
+    private ruleTemplate: StyleRule = {
       s: [],
     },
     private mapping: StyleRuleMapping = {},
-    private meta: {
+    private shared: {
       ruleSets: Record<string, StyleRuleSet>;
       rootVariables?: VariableRecord;
       universalVariables?: VariableRecord;
       animations?: AnimationRecord;
       rem: number;
-    } = { ruleSets: {}, rem: 14 },
+      ruleOrder: number;
+    } = { ruleSets: {}, rem: 14, ruleOrder: 0 },
   ) {}
 
   fork(mode: BuilderMode) {
+    this.shared.ruleOrder++;
     return new StylesheetBuilder(
       this.options,
       mode,
-      this.cloneCurrentRule(),
+      this.cloneRule(),
       { ...this.mapping },
-      this.meta,
+      this.shared,
     );
   }
 
-  cloneCurrentRule() {
-    const rule = { ...this.rule };
+  cloneRule({ ...rule } = this.rule): StyleRule {
     rule.s = [...this.rule.s];
     rule.aq &&= [...rule.aq];
     rule.c &&= [...rule.c];
     rule.cq &&= [...rule.cq];
     rule.d &&= [...rule.d];
-    rule.v &&= [...rule.v];
+    rule.m &&= [...rule.m];
     rule.p &&= { ...rule.p };
+    rule.v &&= [...rule.v];
 
     return rule;
   }
@@ -92,29 +95,29 @@ export class StylesheetBuilder {
       stylesheetOptions.s = ruleSets;
     }
 
-    if (this.meta.rootVariables) {
-      stylesheetOptions.vr = Object.entries(this.meta.rootVariables);
+    if (this.shared.rootVariables) {
+      stylesheetOptions.vr = Object.entries(this.shared.rootVariables);
     }
 
-    if (this.meta.universalVariables) {
-      stylesheetOptions.vu = Object.entries(this.meta.universalVariables);
+    if (this.shared.universalVariables) {
+      stylesheetOptions.vu = Object.entries(this.shared.universalVariables);
     }
 
-    if (this.meta.animations) {
-      stylesheetOptions.k = Object.entries(this.meta.animations);
+    if (this.shared.animations) {
+      stylesheetOptions.k = Object.entries(this.shared.animations);
     }
 
     return stylesheetOptions;
   }
 
   getRuleSets() {
-    const entries = Object.entries(this.meta.ruleSets);
+    const entries = Object.entries(this.shared.ruleSets);
 
     if (!entries.length) {
       return;
     }
 
-    return Object.entries(this.meta.ruleSets).map(
+    return Object.entries(this.shared.ruleSets).map(
       ([key, value]) =>
         [key, value.sort((a, b) => specificityCompareFn(a, b))] as const,
     );
@@ -127,23 +130,27 @@ export class StylesheetBuilder {
     // TODO
   }
 
-  newRule(mapping: StyleRuleMapping) {
-    const specificity: SpecificityArray = [];
-    specificity[Specificity.Order] = this.ruleOrder++;
-
+  newRule(mapping: StyleRuleMapping, { important = false } = {}) {
     this.mapping = mapping;
-    this.staticDeclarations = {};
-    this.rule = {
-      s: specificity,
-    };
+    this.staticDeclarations = undefined;
+    this.rule = this.cloneRule(this.ruleTemplate);
+    this.rule.s[Specificity.Order] = this.shared.ruleOrder;
+    if (important) {
+      this.rule.s[Specificity.Important] = 1;
+    }
   }
 
   addRuleToRuleSet(name: string, rule = this.rule) {
-    if (this.meta.ruleSets[name]) {
-      this.meta.ruleSets[name].push(rule);
+    if (this.shared.ruleSets[name]) {
+      this.shared.ruleSets[name].push(rule);
     } else {
-      this.meta.ruleSets[name] = [rule];
+      this.shared.ruleSets[name] = [rule];
     }
+  }
+
+  addMediaQuery(condition: MediaCondition) {
+    this.rule.m ??= [];
+    this.rule.m.push(condition);
   }
 
   addContainer(value: string[] | false) {
@@ -224,6 +231,8 @@ export class StylesheetBuilder {
     forceTuple = false,
     delayed = false,
   ) {
+    property = toRNProperty(property);
+
     let propPath: string | string[] =
       this.mapping[property] ?? this.mapping["*"] ?? property;
 
@@ -251,18 +260,21 @@ export class StylesheetBuilder {
     } else if (forceTuple || Array.isArray(propPath)) {
       declarations.push([value, propPath]);
     } else {
-      declarations.push(this.staticDeclarations);
+      if (!this.staticDeclarations) {
+        this.staticDeclarations = {};
+        declarations.push(this.staticDeclarations);
+      }
       this.staticDeclarations[propPath] = value;
     }
   }
 
-  applyRuleToSelectors(selectorList: SelectorList): void {
+  applyRuleToSelectors(selectorList: NormalizeSelector[]): void {
     if (!this.rule.d && !this.rule.v) {
       return;
     }
 
-    for (const selector of getSelectors(selectorList, false, this.options)) {
-      const rule = this.cloneCurrentRule();
+    for (const selector of selectorList) {
+      const rule = this.cloneRule();
 
       if (selector.type === "className") {
         const {
@@ -278,7 +290,7 @@ export class StylesheetBuilder {
         for (let i = 0; i < specificity.length; i++) {
           const spec = specificity[i];
           if (!spec) continue;
-          rule.s[i] = spec + (this.rule.s[i] ?? 0);
+          rule.s[i] = spec + (rule.s[i] ?? 0);
         }
 
         if (mediaQuery) {
@@ -302,14 +314,6 @@ export class StylesheetBuilder {
               s: [0],
               c: [name],
             };
-
-            if (query.a) {
-              containerRule.aq = query.a;
-            }
-
-            if (query.p) {
-              containerRule.p = query.p;
-            }
 
             // Create rules for the parent classes
             this.addRuleToRuleSet(name, containerRule);
@@ -335,9 +339,9 @@ export class StylesheetBuilder {
         const { type, subtype } = selector;
 
         for (const [name, value] of this.rule.v) {
-          this.meta[type] ??= {};
-          this.meta[type][name] ??= [undefined];
-          this.meta[type][name][subtype === "light" ? 0 : 1] = value;
+          this.shared[type] ??= {};
+          this.shared[type][name] ??= [undefined];
+          this.shared[type][name][subtype === "light" ? 0 : 1] = value;
         }
       }
     }
@@ -349,12 +353,12 @@ export class StylesheetBuilder {
   }
 
   newAnimationFrames(name: string) {
-    this.meta.animations ??= {};
+    this.shared.animations ??= {};
 
-    this.animationFrames = this.meta.animations[name];
+    this.animationFrames = this.shared.animations[name];
     if (!this.animationFrames) {
       this.animationFrames = [];
-      this.meta.animations[name] = this.animationFrames;
+      this.shared.animations[name] = this.animationFrames;
     }
   }
 

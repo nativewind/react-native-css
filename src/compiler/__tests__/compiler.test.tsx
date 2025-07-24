@@ -14,7 +14,7 @@ test("hello world", () => {
           {
             d: [
               {
-                color: "rgb(100% 0% 0%)",
+                color: "#f00",
               },
             ],
             s: [1, 1],
@@ -99,6 +99,47 @@ test.skip("preserves unused CSS variables with preserve-variables", () => {
               dv: 1,
             },
           ],
+        ],
+      ],
+    ],
+  });
+});
+
+test("multiple rules with same selector", () => {
+  const compiled = compile(`
+.redOrGreen:hover { 
+  color: green; 
+} 
+  
+.redOrGreen { 
+  color: red; 
+}
+`);
+
+  expect(compiled).toStrictEqual({
+    s: [
+      [
+        "redOrGreen",
+        [
+          {
+            d: [
+              {
+                color: "#f00",
+              },
+            ],
+            s: [2, 1],
+          },
+          {
+            d: [
+              {
+                color: "#008000",
+              },
+            ],
+            p: {
+              h: 1,
+            },
+            s: [1, 2],
+          },
         ],
       ],
     ],

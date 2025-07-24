@@ -9,11 +9,20 @@ test("nested classes", () => {
   expect(compiled).toStrictEqual({
     s: [
       [
+        "my-class",
+        [
+          {
+            c: ["my-class"],
+            s: [0],
+          },
+        ],
+      ],
+      [
         "test",
         [
           {
             cq: [{ n: "my-class" }],
-            d: [{ color: "rgb(100% 0% 0%)" }],
+            d: [{ color: "#f00" }],
             s: [1, 2],
           },
         ],
@@ -53,7 +62,7 @@ test("multiple tiers classes", () => {
         [
           {
             cq: [{ n: "one" }, { n: "two" }],
-            d: [{ color: "rgb(100% 0% 0%)" }],
+            d: [{ color: "#f00" }],
             s: [1, 3],
           },
         ],
@@ -83,7 +92,6 @@ test("tiers with multiple classes", () => {
         "three",
         [
           {
-            aq: [["a", "className", "*=", "two"]],
             c: ["three"],
             s: [0],
           },
@@ -100,7 +108,7 @@ test("tiers with multiple classes", () => {
                 n: "three",
               },
             ],
-            d: [{ color: "rgb(100% 0% 0%)" }],
+            d: [{ color: "#f00" }],
             s: [1, 4],
           },
         ],

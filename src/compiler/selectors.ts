@@ -137,8 +137,13 @@ function classNameSelector(
   let currentContainerQuery: ContainerQuery | undefined;
 
   let isInClassBlock = false;
+  let newBlock = false;
 
   function getAttributeQuery() {
+    if (newBlock) {
+      currentContainerQuery ??= {};
+    }
+
     if (currentContainerQuery) {
       if (!currentContainerQuery.a) {
         currentContainerQuery.a = [];
@@ -151,6 +156,10 @@ function classNameSelector(
   }
 
   function getPseudoClassesQuery() {
+    if (newBlock) {
+      currentContainerQuery ??= {};
+    }
+
     if (currentContainerQuery) {
       if (!currentContainerQuery.p) {
         currentContainerQuery.p = {};
@@ -180,7 +189,7 @@ function classNameSelector(
         } else if (isInClassBlock) {
           getAttributeQuery().unshift(["a", "className", "*=", component.name]);
         } else if (component.name !== options.selectorPrefix) {
-          if (currentContainerQuery) {
+          if (currentContainerQuery?.n) {
             getAttributeQuery().unshift([
               "a",
               "className",
@@ -188,15 +197,16 @@ function classNameSelector(
               component.name,
             ]);
           } else {
-            currentContainerQuery = {
-              n: component.name,
-            };
+            currentContainerQuery ??= {};
+            currentContainerQuery.n = component.name;
+
             containerQuery ??= [];
             containerQuery.unshift(currentContainerQuery);
           }
         }
 
         isInClassBlock = true;
+        newBlock = false;
 
         specificity[Specificity.ClassName] =
           (specificity[Specificity.ClassName] ?? 0) + 1;
@@ -238,9 +248,12 @@ function classNameSelector(
             getAttributeQuery().push(["a", "children", "!"]);
             break;
           }
+          default: {
+            // We don't support other pseudo-classes
+            return null;
+          }
         }
-
-        return null;
+        break;
       }
       case "attribute": {
         // We don't support attribute selectors as standalone selectors
@@ -322,6 +335,7 @@ function classNameSelector(
         // We only support the descendant combinator
         if (component.value === "descendant") {
           isInClassBlock = false;
+          newBlock = true;
           currentContainerQuery = undefined;
           break;
         }

@@ -15,7 +15,7 @@ test("multiple classes", () => {
             aq: [["a", "className", "*=", "my-class"]],
             d: [
               {
-                color: "rgb(100% 0% 0%)",
+                color: "#f00",
               },
             ],
             s: [1, 2],

@@ -11,6 +11,7 @@ import {
   type Visitor,
 } from "lightningcss";
 
+import { maybeMutateReactNativeOptions, parsePropAtRule } from "./atRules";
 import type {
   CompilerOptions,
   ContainerQuery,
@@ -20,7 +21,7 @@ import { parseContainerCondition } from "./container-query";
 import { parseDeclaration } from "./declarations";
 import { extractKeyFrames } from "./keyframes";
 import { parseMediaQuery } from "./media-query";
-import { maybeMutateReactNativeOptions, parsePropAtRule } from "./atRules";
+import { getSelectors } from "./selectors";
 import { StylesheetBuilder } from "./stylesheet";
 
 /**
@@ -36,6 +37,10 @@ export function compile(
 ): ReactNativeCssStyleSheet {
   const { logger = debug("react-native-css") } = options;
   const features = Object.assign({}, options.features);
+
+  if (options.selectorPrefix && options.selectorPrefix.startsWith(".")) {
+    options.selectorPrefix = options.selectorPrefix.slice(1);
+  }
 
   logger(`Features ${JSON.stringify(features)}`);
 
@@ -131,24 +136,31 @@ function extractRule(rule: Rule, builder: StylesheetBuilder) {
     case "style": {
       // If the rule is a style declaration, extract it with the `getExtractedStyle` function and store it in the `declarations` map
       builder = builder.fork("style");
-      builder.newRule(parsePropAtRule(rule.value.rules));
 
       const declarationBlock = rule.value.declarations;
+      const mapping = parsePropAtRule(rule.value.rules);
+      const selectors = getSelectors(
+        rule.value.selectors,
+        false,
+        builder.getOptions(),
+      );
 
       if (declarationBlock) {
         if (declarationBlock.declarations) {
+          builder.newRule(mapping);
           for (const declaration of declarationBlock.declarations) {
             parseDeclaration(declaration, builder);
           }
+          builder.applyRuleToSelectors(selectors);
         }
 
         if (declarationBlock.importantDeclarations) {
+          builder.newRule(mapping, { important: true });
           for (const declaration of declarationBlock.importantDeclarations) {
             parseDeclaration(declaration, builder);
           }
+          builder.applyRuleToSelectors(selectors);
         }
-
-        builder.applyRuleToSelectors(rule.value.selectors);
       }
       break;
     }
