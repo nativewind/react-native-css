@@ -13,11 +13,12 @@ import type {
   MediaFeatureComparison,
   StyleDescriptor,
 } from "./compiler.types";
-import { parseLength, type ParserOptions } from "./declarations";
+import type { StylesheetBuilder } from "./stylesheet";
+import { parseLength } from "./custom";
 
 export function parseMediaQuery(
   query: CSSMediaQuery,
-  options: ParserOptions,
+  builder: StylesheetBuilder,
 ): MediaCondition | undefined {
   let platformCondition: MediaCondition | undefined;
   let condition: MediaCondition | undefined;
@@ -35,7 +36,7 @@ export function parseMediaQuery(
   }
 
   if (query.condition) {
-    condition = parseMediaQueryCondition(query.condition, options);
+    condition = parseMediaQueryCondition(query.condition, builder);
 
     // If any of these are undefined, the media query is invalid
     if (!condition || condition.some((v) => v === undefined)) {
@@ -61,17 +62,17 @@ export function parseMediaQuery(
 
 function parseMediaQueryCondition(
   query: CSSMediaCondition,
-  options: ParserOptions,
+  builder: StylesheetBuilder,
 ): MediaCondition | undefined {
   switch (query.type) {
     case "feature":
-      return parseFeature(query.value, options);
+      return parseFeature(query.value, builder);
     case "not":
-      const mediaQuery = parseMediaQueryCondition(query.value, options);
+      const mediaQuery = parseMediaQueryCondition(query.value, builder);
       return mediaQuery ? ["!", mediaQuery] : undefined;
     case "operation":
       const mediaQueries = query.conditions
-        .map((c) => parseMediaQueryCondition(c, options))
+        .map((c) => parseMediaQueryCondition(c, builder))
         .filter((v): v is MediaCondition => !!v);
 
       if (mediaQueries.length === 0) {
@@ -96,7 +97,7 @@ function parseMediaQueryCondition(
 
 function parseFeature(
   feature: QueryFeatureFor_MediaFeatureId,
-  options: ParserOptions,
+  builder: StylesheetBuilder,
 ): MediaCondition | undefined {
   switch (feature.type) {
     case "boolean":
@@ -105,21 +106,21 @@ function parseFeature(
       return [
         "=",
         feature.name,
-        parseMediaFeatureValue(feature.value, options),
+        parseMediaFeatureValue(feature.value, builder),
       ];
     case "range":
       return [
         parseMediaFeatureOperator(feature.operator),
         feature.name,
-        parseMediaFeatureValue(feature.value, options),
+        parseMediaFeatureValue(feature.value, builder),
       ];
     case "interval":
       return [
         "[]",
         feature.name,
-        parseMediaFeatureValue(feature.start, options),
+        parseMediaFeatureValue(feature.start, builder),
         parseMediaFeatureOperator(feature.startOperator),
-        parseMediaFeatureValue(feature.end, options),
+        parseMediaFeatureValue(feature.end, builder),
         parseMediaFeatureOperator(feature.endOperator),
       ];
     default:
@@ -130,7 +131,7 @@ function parseFeature(
 
 export function parseMediaFeatureValue(
   value: CSSMediaFeatureValue,
-  options: ParserOptions,
+  builder: StylesheetBuilder,
 ): StyleDescriptor {
   switch (value.type) {
     case "boolean":
@@ -141,9 +142,9 @@ export function parseMediaFeatureValue(
     case "length":
       switch (value.value.type) {
         case "value":
-          return parseLength(value.value.value, options);
+          return parseLength(value.value.value, builder);
         case "calc":
-          return parseCalcFn(value.value.value, options);
+          return parseCalcFn(value.value.value, builder);
         default:
           value.value satisfies never;
           return;
@@ -191,25 +192,25 @@ export function parseMediaFeatureOperator(
 
 function parseCalcFn(
   calc: CalcFor_Length,
-  options: ParserOptions,
+  builder: StylesheetBuilder,
 ): StyleDescriptor {
   switch (calc.type) {
     case "number":
       return calc.value;
     case "value":
-      return parseLength(calc.value, options);
+      return parseLength(calc.value, builder);
     case "sum":
-      return [{}, "sum", calc.value.map((c) => parseCalcFn(c, options))];
+      return [{}, "sum", calc.value.map((c) => parseCalcFn(c, builder))];
     case "product":
       return [
         {},
         "product",
-        [calc.value[0], parseCalcFn(calc.value[1], options)],
+        [calc.value[0], parseCalcFn(calc.value[1], builder)],
       ];
     case "function":
       switch (calc.value.type) {
         case "calc":
-          return parseCalcFn(calc.value.value, options);
+          return parseCalcFn(calc.value.value, builder);
         case "min":
         case "max":
         case "clamp":
@@ -219,14 +220,14 @@ function parseCalcFn(
           return [
             {},
             calc.value.type,
-            calc.value.value.map((c) => parseCalcFn(c, options)),
+            calc.value.value.map((c) => parseCalcFn(c, builder)),
           ];
         case "abs":
         case "sign":
           return [
             {},
             calc.value.type,
-            [parseCalcFn(calc.value.value, options)],
+            [parseCalcFn(calc.value.value, builder)],
           ];
         case "round":
           return [
@@ -234,8 +235,8 @@ function parseCalcFn(
             calc.value.type,
             [
               calc.value.value[0],
-              parseCalcFn(calc.value.value[1], options),
-              parseCalcFn(calc.value.value[2], options),
+              parseCalcFn(calc.value.value[1], builder),
+              parseCalcFn(calc.value.value[2], builder),
             ],
           ];
         default:

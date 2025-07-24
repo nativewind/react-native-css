@@ -5,40 +5,23 @@ import {
   type ContainerRule,
   type MediaQuery as CSSMediaQuery,
   type CustomAtRules,
-  type Declaration,
-  type DeclarationBlock,
   type MediaRule,
   type Rule,
-  type SelectorList,
   type TokenOrValue,
   type Visitor,
 } from "lightningcss";
 
-import { Specificity } from "../runtime/utils/specificity";
-import { buildAddFn } from "./add";
 import type {
-  AnimationKeyframes_V2,
-  CompilerCollection,
   CompilerOptions,
   ContainerQuery,
-  MediaCondition,
   ReactNativeCssStyleSheet,
-  SpecificityArray,
-  StyleRule,
-  StyleRuleMapping,
-  StyleRuleSet,
 } from "./compiler.types";
 import { parseContainerCondition } from "./container-query";
-import {
-  parseDeclaration,
-  type AddWarningFn,
-  type ParseDeclarationOptions,
-  type ParserOptions,
-} from "./declarations";
+import { parseDeclaration } from "./declarations";
 import { extractKeyFrames } from "./keyframes";
 import { parseMediaQuery } from "./media-query";
-import { getSelectors } from "./selectors";
 import { maybeMutateReactNativeOptions, parsePropAtRule } from "./atRules";
+import { StylesheetBuilder } from "./stylesheet";
 
 /**
  * Converts a CSS file to a collection of style declarations that can be used with the StyleSheet API
@@ -56,18 +39,7 @@ export function compile(
 
   logger(`Features ${JSON.stringify(features)}`);
 
-  // These will by mutated by `extractRule`
-  const collection: CompilerCollection = {
-    darkMode: "dark",
-    rules: new Map(),
-    keyframes: new Map(),
-    rootVariables: {},
-    universalVariables: {},
-    appearanceOrder: 1,
-    ...options,
-    features,
-    varUsageCount: new Map(),
-  };
+  const builder = new StylesheetBuilder(options);
 
   logger(`Start lightningcss`);
 
@@ -75,15 +47,9 @@ export function compile(
     if (token.type === "function") {
       token.value.arguments.forEach((token) => onVarUsage(token));
     } else if (token.type === "var") {
-      const variable = token.value;
-      const varName = variable.name.ident;
-      collection.varUsageCount.set(
-        varName,
-        (collection.varUsageCount.get(varName) || 0) + 1,
-      );
-
-      if (variable.fallback) {
-        const fallbackValues = variable.fallback;
+      builder.varUsage.add(token.value.name.ident);
+      if (token.value.fallback) {
+        const fallbackValues = token.value.fallback;
         fallbackValues.forEach((varObj) => onVarUsage(varObj));
       }
     }
@@ -97,14 +63,14 @@ export function compile(
 
   const visitor: Visitor<typeof customAtRules> = {
     Rule(rule) {
-      maybeMutateReactNativeOptions(rule, collection);
+      maybeMutateReactNativeOptions(rule, builder);
     },
     StyleSheetExit(sheet) {
       logger(`Found ${sheet.rules.length} rules to process`);
 
       for (const rule of sheet.rules) {
         // Extract the style declarations and animations from the current rule
-        extractRule(rule, collection, {}, options);
+        extractRule(rule, builder);
         // We have processed this rule, so now delete it from the AST
       }
 
@@ -114,8 +80,19 @@ export function compile(
 
   if (options.stripUnusedVariables) {
     visitor.Declaration = (decl) => {
-      if (decl.property !== "unparsed" && decl.property !== "custom") return;
-      decl.value.value.forEach((varObj) => onVarUsage(varObj));
+      if (decl.property === "unparsed" || decl.property === "custom") {
+        decl.value.value.forEach((token) => {
+          if (token.type === "function") {
+            token.value.arguments.forEach((token) => onVarUsage(token));
+          } else if (token.type === "var") {
+            builder.varUsage.add(token.value.name.ident);
+            if (token.value.fallback) {
+              const fallbackValues = token.value.fallback;
+              fallbackValues.forEach((varObj) => onVarUsage(varObj));
+            }
+          }
+        });
+      }
       return decl;
     };
   }
@@ -127,98 +104,57 @@ export function compile(
     visitor,
   });
 
-  logger(`Found ${collection.rules.size} valid rules`);
-
-  const ruleSets = new Map<string, StyleRuleSet>();
-  for (const [name, styles] of collection.rules) {
-    if (styles.length === 0) continue;
-
-    const normal: StyleRule[] = [];
-    const important: StyleRule[] = [];
-
-    for (const style of styles) {
-      if (style.s[Specificity.Important]) {
-        important.push(style);
-      } else {
-        normal.push(style);
-      }
-    }
-
-    ruleSets.set(name, [...normal, ...important]);
-  }
-
-  const stylesheetOptions: ReactNativeCssStyleSheet = {};
-
-  if (ruleSets.size) {
-    stylesheetOptions.s = Array.from(ruleSets);
-  }
-  if (collection.keyframes.size) {
-    stylesheetOptions.k = Array.from(
-      collection.keyframes as Map<string, AnimationKeyframes_V2[]>,
-    );
-  }
-  if (Object.keys(collection.rootVariables).length) {
-    stylesheetOptions.vr = Object.entries(collection.rootVariables);
-  }
-  if (Object.keys(collection.universalVariables).length) {
-    stylesheetOptions.vu = Object.entries(collection.universalVariables);
-  }
-
-  return stylesheetOptions;
+  return builder.getNativeStyleSheet();
 }
 
 /**
  * Extracts style declarations and animations from a given CSS rule, based on its type.
- *
- * @param {Rule} rule - The CSS rule to extract style declarations and animations from.
- * @param {CompilerCollection} collection - Options for the extraction process, including maps for storing extracted data.
- * @param {CssToReactNativeRuntimeOptions} parseOptions - Options for parsing the CSS code, such as grouping related rules together.
  */
-function extractRule(
-  rule: Rule,
-  collection: CompilerCollection,
-  partialStyle: Partial<StyleRule> = {},
-  options: CompilerOptions,
-) {
+function extractRule(rule: Rule, builder: StylesheetBuilder) {
   // Check the rule's type to determine which extraction function to call
   switch (rule.type) {
     case "keyframes": {
       // If the rule is a keyframe animation, extract it with the `extractKeyFrames` function
-      extractKeyFrames(rule.value, collection);
+      extractKeyFrames(rule.value, builder);
       break;
     }
     case "container": {
       // If the rule is a container, extract it with the `extractedContainer` function
-      extractedContainer(rule.value, collection);
+      extractContainer(rule.value, builder);
       break;
     }
     case "media": {
       // If the rule is a media query, extract it with the `extractMedia` function
-      extractMedia(rule.value, collection);
+      extractMedia(rule.value, builder);
       break;
     }
     case "style": {
       // If the rule is a style declaration, extract it with the `getExtractedStyle` function and store it in the `declarations` map
-      if (rule.value.declarations) {
-        for (const style of getExtractedStyles(
-          rule.value.declarations,
-          collection,
-          parsePropAtRule(rule.value.rules),
-          options,
-        )) {
-          setStyleForSelectorList(
-            { ...partialStyle, ...style },
-            rule.value.selectors,
-            collection,
-          );
+      builder = builder.fork("style");
+      builder.newRule(parsePropAtRule(rule.value.rules));
+
+      const declarationBlock = rule.value.declarations;
+
+      if (declarationBlock) {
+        if (declarationBlock.declarations) {
+          for (const declaration of declarationBlock.declarations) {
+            parseDeclaration(declaration, builder);
+          }
         }
-        collection.appearanceOrder++;
+
+        if (declarationBlock.importantDeclarations) {
+          for (const declaration of declarationBlock.importantDeclarations) {
+            parseDeclaration(declaration, builder);
+          }
+        }
+
+        builder.applyRuleToSelectors(rule.value.selectors);
       }
       break;
     }
     case "layer-block":
       for (const layerRule of rule.value.rules) {
-        extractRule(layerRule, collection, partialStyle, options);
+        extractRule(layerRule, builder);
       }
       break;
     case "custom":
@@ -256,7 +192,9 @@ function extractRule(
  *
  * @returns undefined if no screen media queries are found in the mediaRule, else it returns the extracted styles.
  */
-function extractMedia(mediaRule: MediaRule, collection: CompilerCollection) {
+function extractMedia(mediaRule: MediaRule, builder: StylesheetBuilder) {
+  builder = builder.fork("media");
+
   // Initialize an empty array to store screen media queries
   const media: CSSMediaQuery[] = [];
 
@@ -281,18 +219,13 @@ function extractMedia(mediaRule: MediaRule, collection: CompilerCollection) {
     return;
   }
 
-  const options: ParserOptions = {
-    add: () => {},
-    addWarning: () => {},
-  };
-
-  const m = media
-    .map((m) => parseMediaQuery(m, options))
-    .filter((m): m is MediaCondition => m !== undefined);
+  for (const m of media) {
+    parseMediaQuery(m, builder);
+  }
 
   // Iterate over all rules in the mediaRule and extract their styles using the updated CompilerCollection
   for (const rule of mediaRule.rules) {
-    extractRule(rule, collection, { m }, options);
+    extractRule(rule, builder);
   }
 }
 
@@ -301,246 +234,24 @@ function extractMedia(mediaRule: MediaRule, collection: CompilerCollection) {
  * @param collection - The CompilerCollection object to use when extracting styles.
  * @param parseOptions - The CssToReactNativeRuntimeOptions object to use when parsing styles.
  */
-function extractedContainer(
+function extractContainer(
   containerRule: ContainerRule,
-  collection: CompilerCollection,
+  builder: StylesheetBuilder,
 ) {
-  const options: ParserOptions = {
-    add: () => {},
-    addWarning: () => {},
-  };
+  builder = builder.fork("container");
 
   // Iterate over all rules inside the containerRule and extract their styles using the updated CompilerCollection
   for (const rule of containerRule.rules) {
     const query: ContainerQuery = {
-      m: parseContainerCondition(containerRule.condition, options),
+      m: parseContainerCondition(containerRule.condition, builder),
     };
 
     if (containerRule.name) {
       query.n = containerRule.name;
     }
 
-    extractRule(rule, collection, { cq: [query] }, options);
+    builder.addContainerQuery(query);
+
+    extractRule(rule, builder);
   }
-}
-
-/**
- * @param style - The ExtractedStyle object to use when setting styles.
- * @param selectorList - The SelectorList object containing the selectors to use when setting styles.
- * @param declarations - The declarations object to use when adding declarations.
- */
-function setStyleForSelectorList(
-  extractedStyle: StyleRule,
-  selectorList: SelectorList,
-  collection: CompilerCollection,
-) {
-  const { rules: declarations } = collection;
-
-  const selectors = getSelectors(extractedStyle, selectorList, collection);
-
-  if (!(extractedStyle.d || extractedStyle.v)) {
-    return;
-  }
-
-  for (const selector of selectors) {
-    const style: StyleRule = { ...extractedStyle };
-
-    if (
-      selector.type === "rootVariables" || // :root
-      selector.type === "universalVariables" // *
-    ) {
-      const fontSizeValue = style.d?.reverse().find((value) => {
-        return typeof value === "object" && "fontSize" in value;
-      })?.[0];
-
-      if (
-        typeof collection.inlineRem !== "number" &&
-        fontSizeValue &&
-        typeof fontSizeValue === "object" &&
-        "fontSize" in fontSizeValue &&
-        typeof fontSizeValue["fontSize"] === "number"
-      ) {
-        collection.rem = fontSizeValue["fontSize"];
-        if (collection.inlineRem === undefined) {
-          collection.inlineRem = collection.rem;
-        }
-      }
-
-      if (!style.v) {
-        continue;
-      }
-
-      const { type, subtype } = selector;
-      collection[type] ??= {};
-      for (const [name, value] of style.v) {
-        collection[type] ??= {};
-        collection[type][name] ??= [undefined];
-        if (subtype === "light") {
-          collection[type][name][0] = value;
-        } else {
-          collection[type][name][1] = value;
-        }
-      }
-      continue;
-    } else if (selector.type === "className") {
-      const specificity: SpecificityArray = [];
-
-      if (selector.classNames.length === 0) {
-        continue;
-      }
-
-      for (let index = 0; index < 5; index++) {
-        const value =
-          (extractedStyle.s[index] ?? 0) + (selector.specificity[index] ?? 0);
-        if (value) {
-          specificity[index] = value;
-        }
-      }
-
-      const primarySelector = selector.classNames.pop()!;
-
-      for (const [group, conditions] of selector.classNames) {
-        // Add the conditions to the declarations object
-        addDeclaration(declarations, group, {
-          s: specificity,
-          c: [`g:${group}`],
-        });
-
-        primarySelector[1] ??= {};
-        primarySelector[1].cq ??= [];
-
-        const containerQuery: ContainerQuery = {
-          n: `g:${group}`,
-        };
-
-        if (conditions) {
-          if (conditions.m?.length) {
-            containerQuery.m = conditions.m[0];
-          }
-
-          if (conditions.aq) {
-            containerQuery.a = conditions.aq;
-          }
-
-          if (conditions.p) {
-            containerQuery.p = conditions.p;
-          }
-        }
-
-        primarySelector[1].cq.push(containerQuery);
-      }
-
-      const rule: StyleRule = {
-        ...style,
-        s: specificity,
-      };
-
-      const conditions = primarySelector[1];
-
-      if (conditions) {
-        if (conditions.cq) {
-          rule.cq ??= [];
-          rule.cq.push(...conditions.cq);
-        }
-
-        if (conditions.m) {
-          rule.m = conditions.m;
-        }
-
-        if (conditions.p) {
-          rule.p = Object.assign({}, rule.p, conditions.p);
-        }
-
-        if (conditions.aq) {
-          rule.aq ??= [];
-          rule.aq.push(...conditions.aq);
-        }
-      }
-
-      addDeclaration(declarations, primarySelector[0], rule);
-    }
-  }
-}
-
-function addDeclaration(
-  declarations: CompilerCollection["rules"],
-  className: string,
-  style: StyleRule,
-) {
-  const existing = declarations.get(className);
-  if (existing) {
-    existing.push(style);
-  } else {
-    declarations.set(className, [style]);
-  }
-}
-
-function getExtractedStyles(
-  declarationBlock: DeclarationBlock<Declaration>,
-  collection: CompilerCollection,
-  mapping: StyleRuleMapping = {},
-  options: CompilerOptions,
-): StyleRule[] {
-  const extractedStyles = [];
-
-  const specificity: SpecificityArray = [];
-  specificity[Specificity.Order] = collection.appearanceOrder;
-
-  if (declarationBlock.declarations && declarationBlock.declarations.length) {
-    extractedStyles.push(
-      declarationsToStyle(
-        declarationBlock.declarations,
-        collection,
-        specificity,
-        mapping,
-        options,
-      ),
-    );
-  }
-
-  if (
-    declarationBlock.importantDeclarations &&
-    declarationBlock.importantDeclarations.length
-  ) {
-    specificity[Specificity.Important] = 1;
-    extractedStyles.push(
-      declarationsToStyle(
-        declarationBlock.importantDeclarations,
-        collection,
-        specificity,
-        mapping,
-        options,
-      ),
-    );
-  }
-
-  return extractedStyles;
-}
-
-function declarationsToStyle(
-  declarations: Declaration[],
-  collection: CompilerCollection,
-  specificity: SpecificityArray,
-  mapping: StyleRuleMapping,
-  options: CompilerOptions,
-): StyleRule {
-  const extractedStyle: StyleRule = {
-    s: [...specificity],
-  };
-
-  const parseDeclarationOptions: ParseDeclarationOptions = {
-    ...collection,
-  };
-
-  const addWarning: AddWarningFn = () => {
-    // TODO
-  };
-
-  const addFn = buildAddFn(extractedStyle, collection, mapping, options);
-
-  for (const declaration of declarations) {
-    parseDeclaration(declaration, parseDeclarationOptions, addFn, addWarning);
-  }
-
-  return extractedStyle;
 }

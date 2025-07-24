@@ -1,19 +1,12 @@
-/* eslint-disable */
 import type {
   AnimationIterationCount,
   EasingFunction as CSSEasingFunction,
-  Declaration,
   KeyframesRule,
 } from "lightningcss";
 
-import { addAnimation_V2 } from "./add";
-import type {
-  AnimationKeyframes_V2,
-  CompilerCollection,
-  EasingFunction,
-  StyleDeclaration,
-} from "./compiler.types";
+import type { EasingFunction, StyleDescriptor } from "./compiler.types";
 import { parseDeclaration } from "./declarations";
+import type { StylesheetBuilder } from "./stylesheet";
 
 export function parseIterationCount(
   value: AnimationIterationCount[],
@@ -25,8 +18,8 @@ export function parseIterationCount(
 
 export function parseEasingFunction(
   value: CSSEasingFunction[],
-): EasingFunction[] {
-  return value.map((value) => {
+): StyleDescriptor[] {
+  return value.map((value): EasingFunction => {
     switch (value.type) {
       case "linear":
       case "ease":
@@ -43,21 +36,15 @@ export function parseEasingFunction(
           p: value.position?.type,
         };
     }
-  });
+  }) as StyleDescriptor[];
 }
 
 export function extractKeyFrames(
-  keyframes: KeyframesRule<Declaration>,
-  collection: CompilerCollection,
+  keyframes: KeyframesRule,
+  builder: StylesheetBuilder,
 ) {
-  return extractKeyFrames_v2(keyframes, collection);
-}
-
-function extractKeyFrames_v2(
-  keyframes: KeyframesRule<Declaration>,
-  collection: CompilerCollection,
-) {
-  const animation: AnimationKeyframes_V2[] = [];
+  builder = builder.fork("keyframes");
+  builder.newAnimationFrames(keyframes.name.value);
 
   for (const frame of keyframes.keyframes) {
     if (!frame.declarations.declarations) continue;
@@ -79,22 +66,16 @@ function extractKeyFrames_v2(
       }
     });
 
-    const declarations: StyleDeclaration[] = [];
-    const addFn = addAnimation_V2(declarations);
+    const firstSelector = selectors[0];
+    const progress =
+      firstSelector && selectors.length === 1
+        ? firstSelector.toString()
+        : selectors.join(", ");
 
-    const currentFrame: AnimationKeyframes_V2 =
-      selectors.length > 1
-        ? [selectors.join(", "), []]
-        : [selectors[0]!, declarations];
+    builder.newAnimationFrame(progress);
 
     for (const declaration of frame.declarations.declarations) {
-      parseDeclaration(declaration, collection, addFn, () => {});
-    }
-
-    if (declarations.length > 0) {
-      animation.push(currentFrame);
+      parseDeclaration(declaration, builder);
     }
   }
-
-  collection.keyframes.set(keyframes.name.value, animation);
 }

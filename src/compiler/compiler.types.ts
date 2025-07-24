@@ -19,6 +19,9 @@ export interface CompilerOptions {
   stripUnusedVariables?: boolean;
   /** @internal */
   ignorePropertyWarningRegex?: (string | RegExp)[];
+  preserveVariables?: boolean;
+  hexColors?: boolean;
+  colorPrecision?: number;
 }
 
 /**
@@ -32,7 +35,7 @@ export interface ReactNativeCssStyleSheet_V2 {
   /** rem */
   r?: number;
   /** StyleRuleSets */
-  s?: [string, StyleRuleSet][];
+  s?: (readonly [string, StyleRuleSet])[];
   /** KeyFrames */
   k?: Animation_V2[];
   /** Root Variables */
@@ -247,6 +250,7 @@ export type EasingFunction =
 /******************************   Animations V2  ******************************/
 
 export type Animation_V2 = [string, AnimationKeyframes_V2[]];
+export type AnimationRecord = Record<string, AnimationKeyframes_V2[]>;
 export type AnimationKeyframes_V2 = [string | number, StyleDeclaration[]];
 
 /******************************    Transitions    *****************************/

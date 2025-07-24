@@ -1,5 +1,30 @@
 import { compile } from "../compiler";
 
+test("hello world", () => {
+  const compiled = compile(`
+.my-class {
+  color: red;
+}`);
+
+  expect(compiled).toStrictEqual({
+    s: [
+      [
+        "my-class",
+        [
+          {
+            d: [
+              {
+                color: "rgb(100% 0% 0%)",
+              },
+            ],
+            s: [1, 1],
+          },
+        ],
+      ],
+    ],
+  });
+});
+
 test("reads global CSS variables", () => {
   const compiled = compile(`
 @layer theme {

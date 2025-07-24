@@ -5,17 +5,17 @@ import type {
 } from "lightningcss";
 
 import type { MediaCondition } from "./compiler.types";
-import type { ParserOptions } from "./declarations";
 import {
   parseMediaFeatureOperator,
   parseMediaFeatureValue,
 } from "./media-query";
+import type { StylesheetBuilder } from "./stylesheet";
 
 export function parseContainerCondition(
   condition: CSSContainerCondition,
-  options: ParserOptions,
+  builder: StylesheetBuilder,
 ) {
-  let containerQuery = parseContainerQueryCondition(condition, options);
+  let containerQuery = parseContainerQueryCondition(condition, builder);
 
   // If any of these are undefined, the media query is invalid
   if (!containerQuery || containerQuery.some((v) => v === undefined)) {
@@ -27,17 +27,17 @@ export function parseContainerCondition(
 
 function parseContainerQueryCondition(
   condition: CSSContainerCondition,
-  options: ParserOptions,
+  builder: StylesheetBuilder,
 ): MediaCondition | undefined {
   switch (condition.type) {
     case "feature":
-      return parseFeature(condition.value, options);
+      return parseFeature(condition.value, builder);
     case "not":
-      const query = parseContainerCondition(condition.value, options);
+      const query = parseContainerCondition(condition.value, builder);
       return query ? ["!", query] : undefined;
     case "operation":
       const conditions = condition.conditions
-        .map((c) => parseContainerQueryCondition(c, options))
+        .map((c) => parseContainerQueryCondition(c, builder))
         .filter((v): v is MediaCondition => !!v);
 
       if (conditions.length === 0) {
@@ -64,7 +64,7 @@ function parseContainerQueryCondition(
 
 function parseFeature(
   feature: QueryFeatureFor_ContainerSizeFeatureId,
-  options: ParserOptions,
+  builder: StylesheetBuilder,
 ): MediaCondition | undefined {
   switch (feature.type) {
     case "boolean":
@@ -73,21 +73,21 @@ function parseFeature(
       return [
         "=",
         feature.name,
-        parseMediaFeatureValue(feature.value, options),
+        parseMediaFeatureValue(feature.value, builder),
       ];
     case "range":
       return [
         parseMediaFeatureOperator(feature.operator),
         feature.name,
-        parseMediaFeatureValue(feature.value, options),
+        parseMediaFeatureValue(feature.value, builder),
       ];
     case "interval":
       return [
         "[]",
         feature.name,
-        parseMediaFeatureValue(feature.start, options),
+        parseMediaFeatureValue(feature.start, builder),
         parseMediaFeatureOperator(feature.startOperator),
-        parseMediaFeatureValue(feature.end, options),
+        parseMediaFeatureValue(feature.end, builder),
         parseMediaFeatureOperator(feature.endOperator),
       ];
     default:

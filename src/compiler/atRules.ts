@@ -4,9 +4,10 @@ import type {
   Rule,
   TokenOrValue,
 } from "lightningcss";
-import type { CompilerCollection, StyleRuleMapping } from "./compiler.types";
+import type { StyleRuleMapping } from "./compiler.types";
 import { splitByDelimiter } from "./split-by-delimiter";
 import { toRNProperty } from "./selectors";
+import type { StylesheetBuilder } from "./stylesheet";
 
 export interface PropAtRule {
   type: "unknown";
@@ -35,7 +36,7 @@ export interface ReactNativeAtRule {
 
 export function maybeMutateReactNativeOptions(
   rule: Rule | ReactNativeAtRule,
-  collection: CompilerCollection,
+  builder: StylesheetBuilder,
 ) {
   if (rule.type !== "custom" || rule.value?.name !== "react-native") {
     return;
@@ -53,7 +54,12 @@ export function maybeMutateReactNativeOptions(
           if (token.type !== "dashed-ident") {
             return;
           }
-          collection.varUsageCount.set(token.value, 1);
+
+          if (token.value !== "true" && token.value !== "false") {
+            return;
+          }
+
+          builder.setOptions("preserveVariables", token.value === "true");
         });
         break;
       }
