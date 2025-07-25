@@ -13,7 +13,7 @@ The goal of this library is to provide the most complete CSS support for React N
 ### Metro based projects
 
 > [!TIP]  
-> All Expo and React Native community projects use Metro as the bundler, so this guide applies to them.
+> All Expo and React Native Community CLI projects use Metro as the bundler, so this guide applies to them.
 
 You will need to add `withReactNativeCSS` to your Metro configuration.
 
@@ -34,6 +34,8 @@ export default withReactNativeCSS(defaultConfig, {
 ### Other bundlers
 
 `react-native-css` officially only supports Metro as the bundler, but we welcome community contributions to support other bundlers like Webpack, Vite or Turbopack.
+
+More documentation coming soon.
 
 ## Usage
 

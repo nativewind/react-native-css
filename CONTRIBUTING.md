@@ -16,29 +16,73 @@ To get started with the project, run `yarn` in the root directory to install the
 ```sh
 yarn init -2
 yarn
+yarn build
 ```
 
 > Since the project relies on Yarn workspaces, you cannot use [`npm`](https://github.com/npm/cli) for development.
 
-The [example app](/example/) demonstrates usage of the library. You need to run it to test any changes you make.
+The [example app](/example/) demonstrates usage of the library.
 
-It is configured to use the local version of the library, so any changes you make to the library's source code will be reflected in the example app. Changes to the library's JavaScript code will be reflected in the example app without a rebuild, but native code changes will require a rebuild of the example app.
+It is configured to use the local version of the library, so any changes you make to the library's source code will be reflected in the example app. Most changes to the library's code will be reflected in the example app without a rebuild, but changes to the Metro, Babel or compiler sections will require a rebuild.
+
+You can rebuild the library by running:
+
+```sh
+yarn build
+```
+
+There is no rebuild watch command, as if you are changing code that requires a rebuild, you will also need to restart the example app server to observe any changes.
+
+```sh
+# Alias for yarn build && yarn example debug
+yarn build:debug
+
+# Alias for yarn build && yarn example start
+yarn build:start
+
+# Tips:
+
+## Quickly rebuild and refresh the simulator
+yarn build:debug --ios
+yarn build:debug --android
+yarn build:debug --web
+```
+
+### Building the example app
+
+The example app is built using a canary version of the Expo SDK, which requires a development build. Before running the example app on a device or simulator, you need to build the app using the following command:
+
+```sh
+yarn example expo prebuild
+
+yarn example ios
+# Or
+yarn example android
+```
+
+### Running the example app
 
 You can use various commands from the root directory to work with the project.
 
-To start the packager:
+To start the CLI:
 
 ```sh
 yarn example start
 ```
 
-To run the example app on Android:
+To start the CLI wih debugging enabled:
+
+```sh
+yarn example debug
+```
+
+To rebuild the example app on Android:
 
 ```sh
 yarn example android
 ```
 
-To run the example app on iOS:
+To rebuild the example app on iOS:
 
 ```sh
 yarn example ios
@@ -50,19 +94,6 @@ To run the example app on Web:
 yarn example web
 ```
 
-Make sure your code passes TypeScript and ESLint. Run the following to verify:
-
-```sh
-yarn typecheck
-yarn lint
-```
-
-To fix formatting errors, run the following:
-
-```sh
-yarn lint --fix
-```
-
 ### Testing
 
 Remember to add tests for your change if possible. Run the unit tests by:
@@ -70,6 +101,9 @@ Remember to add tests for your change if possible. Run the unit tests by:
 ```sh
 yarn test
 ```
+
+> [!NOTE]
+> Ignore any ExperimentalWarning: VM Modules warnings. We are using the experimental [ECMAScript Modules](https://jestjs.io/docs/ecmascript-modules)
 
 ### Debugging
 
@@ -80,16 +114,6 @@ yarn example debug
 ```
 
 This will print parsed CSS and style objects to the console, which can help you understand how the library processes CSS files.
-
-### Commands
-
-The `yarn example` command is a shortcut for running commands in the example app. You can run any command that is available in the example app's `package.json` by prefixing it with `yarn example`.
-
-You can also run Expo commands directly from the root directory by using the `yarn example expo` command. For example, to run the Expo prebuild, you can use:
-
-```sh
-yarn example expo prebuild
-```
 
 ### Commit message convention
 
@@ -107,6 +131,19 @@ Our pre-commit hooks verify that your commit message matches this format when co
 ### Linting and tests
 
 [ESLint](https://eslint.org/), [Prettier](https://prettier.io/), [TypeScript](https://www.typescriptlang.org/)
+
+Make sure your code passes TypeScript and ESLint. Run the following to verify:
+
+```sh
+yarn typecheck
+yarn lint
+```
+
+To fix formatting errors, run the following:
+
+```sh
+yarn lint --fix
+```
 
 We use [TypeScript](https://www.typescriptlang.org/) for type checking, [ESLint](https://eslint.org/) with [Prettier](https://prettier.io/) for linting and formatting the code, and [Jest](https://jestjs.io/) for testing.
 
@@ -145,6 +182,8 @@ When you're sending a pull request:
 - Review the documentation to make sure it looks good.
 - Follow the pull request template when opening a pull request.
 - For pull requests that change the API or implementation, discuss with maintainers first by opening an issue.
+
+## Development notes
 
 ### Metro Transformer
 
@@ -185,4 +224,3 @@ yarn test babel
 ### Example will not run
 
 - If you have a nested `node_modules` directory in your example app, it may cause issues with the Metro bundler. To resolve this, you need to ensure that the dependency versions used in the example app match those in the root `package.json`.
-- For the moment, you must use a dev client

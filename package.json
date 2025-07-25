@@ -76,6 +76,8 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "build": "bob build",
+    "build:debug": "yarn build && yarn example debug",
+    "build:start": "yarn build && yarn example start",
     "prepublishOnly": "bob build",
     "prepare": "bob build",
     "example": "yarn workspace react-native-css-example",
