@@ -1,14 +1,43 @@
 # react-native-css
 
-A CSS polyfill for React Native's native platforms
+A CSS polyfill for React Native
+
+The goal of this library is to provide the most complete CSS support for React Native, within the limitations of Yoga and the core React Native package. This includes multiple advanced CSS features like media queries, container queries, CSS variables, and more.
 
 ## Installation
 
+1. Create a CSS file in your project, e.g. `styles.css`.
+2. Import the CSS file in your App entry point, or root layout component:
+3. Setup the bundler using one of the methods below.
+
+### Metro based projects
+
+> [!TIP]  
+> All Expo and React Native community projects use Metro as the bundler, so this guide applies to them.
+
+You will need to add `withReactNativeCSS` to your Metro configuration.
+
+```ts
+import { getDefaultConfig } from "expo/metro-config";
+import { withReactNativeCSS } from "react-native-css/metro";
+
+const defaultConfig = getDefaultConfig(__dirname);
+
+export default withReactNativeCSS(defaultConfig);
+
+// OR with the globalClassNamePolyfill enabled
+export default withReactNativeCSS(defaultConfig, {
+  globalClassNamePolyfill: true,
+});
+```
+
+### Other bundlers
+
+`react-native-css` officially only supports Metro as the bundler, but we welcome community contributions to support other bundlers like Webpack, Vite or Turbopack.
+
 ## Usage
 
-### Without `globalClassNamePolyfill`
-
-If you are not using the `globalClassNamePolyfill`, you can use the library by importing the React Native components directly from `react-native-css/components`:
+You can use the library by importing the React Native components directly from `react-native-css/components`:
 
 ```ts
 import { View } from 'react-native-css/components';
@@ -144,6 +173,8 @@ See the [contributing guide](CONTRIBUTING.md) to learn how to contribute to the 
 ## License
 
 MIT
+
+See the [license](LICENSE) file for more details.
 
 ---
 
