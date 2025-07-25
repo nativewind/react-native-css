@@ -973,6 +973,7 @@ export function parseUnparsed(
         case "hsl":
         case "hsla":
         case "linear-gradient":
+        case "radial-gradient":
           return unparsedFunction(tokenOrValue, builder);
         case "hairlineWidth":
           return [{}, tokenOrValue.value.name, []];

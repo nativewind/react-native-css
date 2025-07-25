@@ -6,18 +6,20 @@ import connect from "connect";
 import debug from "debug";
 import type { MetroConfig } from "metro-config";
 
+import type { CompilerOptions } from "../compiler";
 import { compile } from "../compiler/compiler";
 import { getNativeInjectionCode, getWebInjectionCode } from "./injection-code";
 import { nativeResolver, webResolver } from "./resolver";
 import { setupTypeScript } from "./typescript";
 
-export interface WithReactNativeCSSOptions {
+export interface WithReactNativeCSSOptions extends CompilerOptions {
   /* Specify the path to the TypeScript environment file. Defaults types-env.d.ts */
   typescriptEnvPath?: string;
   /* Disable generation of the types-env.d.ts file. Defaults false */
   disableTypeScriptGeneration?: boolean;
   /** Add className to all React Native primitives. Defaults false */
   globalClassNamePolyfill?: boolean;
+  hexColors?: boolean;
 }
 
 const defaultLogger = debug("react-native-css:metro");
@@ -165,7 +167,12 @@ export function withReactNativeCSS<
 
                 // The CSS file has changed, we need to recompile the injection file
                 if (next !== last) {
-                  nativeCSSFiles.set(filePath, [next, compile(next, {})]);
+                  nativeCSSFiles.set(filePath, [
+                    next,
+                    compile(next, {
+                      hexColors: options?.hexColors,
+                    }),
+                  ]);
 
                   watcher.emit("change", {
                     eventsQueue: nativeInjectionFilepaths.map((filePath) => ({

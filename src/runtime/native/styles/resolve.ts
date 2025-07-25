@@ -129,9 +129,6 @@ export function resolveValue(
         // @translate, @rotate, @scale, etc.
         return { [name.slice(1)]: simpleResolve(value[2], castToArray)[0] };
       } else {
-        if (name === "linear-gradient") {
-          debugger;
-        }
         let args = simpleResolve(value[2], castToArray);
 
         if (args === undefined) {
@@ -141,14 +138,21 @@ export function resolveValue(
             args = args[0];
           }
 
-          const joinedArgs = args.map((arg: unknown) => {
-            if (Array.isArray(arg)) {
-              return arg.flat().join(" ");
-            }
-            return arg;
-          });
+          let joinedArgs = args
+            .map((arg: unknown) => {
+              if (Array.isArray(arg)) {
+                return arg.flat().join(" ");
+              }
+              return arg;
+            })
+            .join(", ");
 
-          value = `${name}(${joinedArgs.join(", ")})`;
+          if (name === "radial-gradient") {
+            // Nativewind / Tailwind CSS hack which can force the 'in oklab' color space
+            joinedArgs = joinedArgs.replace("in oklab, ", "");
+          }
+
+          value = `${name}(${joinedArgs})`;
         } else {
           value = `${name}(${args})`;
         }
