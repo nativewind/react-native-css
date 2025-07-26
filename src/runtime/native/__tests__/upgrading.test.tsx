@@ -5,7 +5,17 @@ import { registerCSS, render, screen } from "react-native-css/jest";
 const parentID = "parent";
 const childID = "child";
 
-test("group", () => {
+const log = jest.fn();
+
+beforeAll(() => {
+  jest.spyOn(console, "log").mockImplementation(log);
+});
+
+beforeEach(() => {
+  log.mockClear();
+});
+
+test("adding a group", () => {
   registerCSS(
     `.group .my-class {
       color: red;
@@ -22,13 +32,45 @@ test("group", () => {
 
   expect(child.props.style).toStrictEqual(undefined);
 
-  expect(() => {
-    screen.rerender(
-      <View testID={parentID} className="group">
-        <Text testID={childID} className="my-class" />
-      </View>,
-    );
-  })
-    .toThrow(`ReactNativeCss: Cannot dynamically add a container context. 'group' was added after the initial render.
-Use modifier ('hover:container', 'active:container', etc) to ensure it present in the initial render`);
+  screen.rerender(
+    <View testID={parentID} className="group">
+      <Text testID={childID} className="my-class" />
+    </View>,
+  );
+
+  expect(log.mock.calls).toEqual([
+    [
+      "ReactNativeCss: className 'group' added a container after the initial render. This causes the components state to be reset and all children be re-mounted. This will cause unexpected behavior. Use the className 'will-change-container' to avoid this warning. If this was caused by sibling components being added/removed, use a 'key' prop so React can track the component correctly.",
+    ],
+  ]);
+});
+
+test.only("will-change-container", () => {
+  registerCSS(
+    `.group .my-class {
+      color: red;
+    }`,
+  );
+
+  render(
+    <View testID={parentID} className="will-change-container">
+      <Text testID={childID} className="my-class" />
+    </View>,
+  );
+
+  const child = screen.getByTestId(childID);
+
+  expect(child.props.style).toStrictEqual(undefined);
+
+  screen.rerender(
+    <View testID={parentID} className="group">
+      <Text testID={childID} className="my-class" />
+    </View>,
+  );
+
+  expect(log.mock.calls).toEqual([
+    [
+      "ReactNativeCss: className 'group' added a container after the initial render. This causes the components state to be reset and all children be re-mounted. This will cause unexpected behavior. Use the className 'will-change-container' to avoid this warning. If this was caused by sibling components being added/removed, use a 'key' prop so React can track the component correctly.",
+    ],
+  ]);
 });

@@ -99,3 +99,33 @@ function isDeepEqual(a: unknown, b: unknown): boolean {
 
   return true;
 }
+
+StyleCollection.styles("will-change-variable").set([
+  {
+    s: [0],
+    v: [],
+  },
+]);
+
+StyleCollection.styles("will-change-container").set([
+  {
+    s: [0],
+    c: [],
+  },
+]);
+
+StyleCollection.styles("will-change-animation").set([
+  {
+    s: [0],
+    a: true,
+  },
+]);
+
+StyleCollection.styles("will-change-pressable").set([
+  {
+    s: [0],
+    p: {
+      h: 1,
+    },
+  },
+]);

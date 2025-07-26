@@ -166,31 +166,20 @@ export function updateRules(
         let pressable = activeFamily.has(state.ruleEffect);
 
         if (Boolean(variables) !== Boolean(state.variables)) {
-          throw new Error(
-            `ReactNativeCss: Cannot dynamically add a variable context. '${source}' was added after the initial render.
-Use modifier ('hover:my-var', 'active:my-var', etc) to ensure it present in the initial render`,
+          console.log(
+            `ReactNativeCss: className '${source}' added a variable after the initial render. This causes the components state to be reset and all children be re-mounted. Use the className 'will-change-variable' to avoid this warning. If this was caused by sibling components being added/removed, use a 'key' prop so React can track the component correctly.`,
           );
-        }
-
-        if (Boolean(containers) !== Boolean(state.containers)) {
-          throw new Error(
-            `ReactNativeCss: Cannot dynamically add a container context. '${source}' was added after the initial render.
-Use modifier ('hover:container', 'active:container', etc) to ensure it present in the initial render`,
+        } else if (Boolean(containers) !== Boolean(state.containers)) {
+          console.log(
+            `ReactNativeCss: className '${source}' added a container after the initial render. This causes the components state to be reset and all children be re-mounted. This will cause unexpected behavior. Use the className 'will-change-container' to avoid this warning. If this was caused by sibling components being added/removed, use a 'key' prop so React can track the component correctly.`,
           );
-        }
-
-        if (animated !== state.animated) {
-          throw new Error(
-            `ReactNativeCss: Cannot dynamically change to an animated component. '${source}' was added after the initial render.
-Use 'animation-none' or a modifier ('hover:animation', 'active:animation', etc) to ensure it present in the initial render`,
+        } else if (animated !== state.animated) {
+          console.log(
+            `ReactNativeCss: className '${source}' added an animation after the initial render. This causes the components state to be reset and all children be re-mounted. This will cause unexpected behavior. Use the className 'will-change-animation' to avoid this warning. If this was caused by sibling components being added/removed, use a 'key' prop so React can track the component correctly.`,
           );
-        }
-
-        if (pressable !== state.pressable) {
-          throw new Error(
-            `ReactNativeCss: Cannot dynamically change to a Pressable. '${source}' was added after the initial render.
-The 'hover', 'active', and 'focus' modifiers on a View will convert it to a Pressable.
-Use a modifier) to ensure it present in the initial render`,
+        } else if (pressable !== state.pressable) {
+          console.log(
+            `ReactNativeCss: className '${source}' added a pressable state after the initial render. This causes the components state to be reset and all children be re-mounted. This will cause unexpected behavior. Use the className 'will-change-pressable' to avoid this warning. If this was caused by sibling components being added/removed, use a 'key' prop so React can track the component correctly.`,
           );
         }
       }
