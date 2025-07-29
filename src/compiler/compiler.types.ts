@@ -1,4 +1,5 @@
 /* eslint-disable */
+import type { Debugger } from "debug";
 import type {
   AnimationDirection,
   AnimationFillMode,
@@ -14,7 +15,7 @@ export interface CompilerOptions {
   selectorPrefix?: string;
   stylesheetOrder?: number;
   features?: FeatureFlagRecord;
-  logger?: (message: string) => void;
+  logger?: (message: string) => void | Debugger;
   /** Strip unused variables declarations. Defaults: false */
   stripUnusedVariables?: boolean;
   /** @internal */

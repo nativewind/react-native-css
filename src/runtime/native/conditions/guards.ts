@@ -40,10 +40,6 @@ export function testGuards(
         break;
     }
 
-    // if (result) {
-    //   console.log(`Guard ${guard[0]}:${guard[1]} failed`);
-    // }
-
     return result;
   });
 }

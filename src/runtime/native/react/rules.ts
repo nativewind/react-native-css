@@ -221,7 +221,7 @@ export function updateRules(
   }
 
   // Generate a StyleObservable for this unique set of rules / variables
-  const stylesObs = stylesFamily(generateHash(state, rules), rules);
+  const stylesObs = stylesFamily(generateStateHash(state, rules), rules);
 
   // Get the guards without subscribing to the observable
   // We will subscribe within the render using the StyleEffect
@@ -277,21 +277,12 @@ function pushInlineRule(
 let hashKeyCount = 0;
 const hashKeyFamily = weakFamily(() => hashKeyCount++);
 
-/**
- * Quickly generate a unique hash for a set of numbers.
- * This is not a cryptographic hash, but it is fast and has a low chance of collision.
- */
-const MOD = 9007199254740871; // Largest prime within safe integer range 2^53
-const PRIME = 31; // A smaller prime for mixing
-export function generateHash(
+export function generateStateHash(
   state: ComponentState,
   iterableKeys?: Iterable<WeakKey>,
   variables?: WeakKey,
   inlineVars?: Set<WeakKey>,
 ): string {
-  let hash = 0;
-  let product = 1; // Used for mixing to enhance uniqueness
-
   if (!iterableKeys) {
     return "";
   }
@@ -305,6 +296,19 @@ export function generateHash(
   if (inlineVars) {
     keys.push(...inlineVars);
   }
+
+  return generateHash(keys);
+}
+
+/**
+ * Quickly generate a unique hash for a set of numbers.
+ * This is not a cryptographic hash, but it is fast and has a low chance of collision.
+ */
+const MOD = 9007199254740871; // Largest prime within safe integer range 2^53
+const PRIME = 31; // A smaller prime for mixing
+export function generateHash(keys: WeakKey[]): string {
+  let hash = 0;
+  let product = 1; // Used for mixing to enhance uniqueness
 
   for (const key of keys) {
     if (!key) continue; // Skip if key is undefined

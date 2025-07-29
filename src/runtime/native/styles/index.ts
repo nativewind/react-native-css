@@ -1,11 +1,6 @@
 /* eslint-disable */
 import type { InlineVariable, StyleRule } from "../../../compiler";
-import {
-  applyValue,
-  Specificity as S,
-  specificityCompareFn,
-} from "../../utils";
-import type { RenderGuard } from "../conditions/guards";
+import { specificityCompareFn } from "../../utils";
 import { getInteractionHandler } from "../react/interaction";
 import type { ComponentState, Config } from "../react/useNativeCss";
 import {
@@ -17,10 +12,9 @@ import {
   observable,
   VAR_SYMBOL,
   type Effect,
-  type Getter,
   type VariableContextValue,
 } from "../reactivity";
-import { resolveValue } from "./resolve";
+import { calculateProps } from "./calculate-props";
 
 export const stylesFamily = family(
   (
@@ -44,136 +38,6 @@ export const stylesFamily = family(
     });
   },
 );
-
-function calculateProps(
-  get: Getter,
-  rules: Array<StyleRule | InlineVariable | VariableContextValue>,
-) {
-  let normal: Record<string, any> | undefined;
-  let important: Record<string, any> | undefined;
-
-  const delayedStyles: (() => void)[] = [];
-
-  const guards: RenderGuard[] = [];
-
-  const inheritedVariables: VariableContextValue = {
-    [VAR_SYMBOL]: true,
-  };
-
-  const inlineVariables: InlineVariable = {
-    [VAR_SYMBOL]: "inline",
-  };
-
-  for (const rule of rules) {
-    if (VAR_SYMBOL in rule) {
-      if (typeof rule[VAR_SYMBOL] === "string") {
-        Object.assign(inlineVariables, rule);
-      } else {
-        Object.assign(inheritedVariables, rule);
-      }
-      continue;
-    }
-
-    if (rule.v) {
-      for (const variable of rule.v) {
-        inlineVariables[variable[0]] = variable[1];
-      }
-    }
-
-    if (rule.d) {
-      let topLevelTarget = rule.s?.[S.Important]
-        ? (important ??= {})
-        : (normal ??= {});
-      let target = topLevelTarget;
-
-      const ruleTarget = rule.target || "style";
-
-      if (typeof ruleTarget === "string") {
-        target = target[ruleTarget] ??= {};
-      } else if (ruleTarget) {
-        for (const path of ruleTarget) {
-          target = target[path] ??= {};
-        }
-      }
-
-      for (const declaration of rule.d) {
-        if (!Array.isArray(declaration)) {
-          // Static styles
-          Object.assign(target, declaration);
-        } else {
-          // Dynamic styles
-          let value: any = declaration[0];
-          let propPath = declaration[1];
-          let prop = "";
-
-          if (typeof propPath === "string") {
-            if (propPath.startsWith("^")) {
-              propPath = propPath.slice(1);
-              target = topLevelTarget[propPath] ??= {};
-            }
-            prop = propPath;
-          } else {
-            for (prop of propPath) {
-              if (prop.startsWith("^")) {
-                prop = prop.slice(1);
-                target = topLevelTarget[prop] ??= {};
-              } else {
-                target = target[prop] ??= {};
-              }
-            }
-          }
-
-          if (Array.isArray(value)) {
-            const shouldDelay = declaration[2];
-
-            if (shouldDelay) {
-              /**
-               * We need to delay the resolution of this value until after all
-               * styles have been calculated. But another style might override
-               * this value. So we set a placeholder value and only override
-               * if the placeholder is preserved
-               *
-               * This also ensures the props exist, so setValue will properly
-               * mutate the props object and not create a new one
-               */
-              const originalValue = value;
-              value = {};
-              delayedStyles.push(() => {
-                if (target[prop] === value) {
-                  delete target[prop];
-                  value = resolveValue(originalValue, get, {
-                    inlineVariables,
-                    inheritedVariables,
-                    renderGuards: guards,
-                  });
-                  applyValue(target, prop, value);
-                }
-              });
-            } else {
-              value = resolveValue(value, get, {
-                inlineVariables,
-                inheritedVariables,
-                renderGuards: guards,
-              });
-            }
-
-            applyValue(target, prop, value);
-          }
-        }
-      }
-    }
-  }
-
-  for (const delayedStyle of delayedStyles) {
-    delayedStyle();
-  }
-
-  return {
-    normal,
-    guards,
-    important,
-  };
-}
 
 export function getStyledProps(
   state: ComponentState,

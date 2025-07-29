@@ -974,6 +974,8 @@ export function parseUnparsed(
         case "hsla":
         case "linear-gradient":
         case "radial-gradient":
+        case "cubic-bezier":
+        case "steps":
           return unparsedFunction(tokenOrValue, builder);
         case "hairlineWidth":
           return [{}, tokenOrValue.value.name, []];
@@ -999,30 +1001,28 @@ export function parseUnparsed(
     case "token":
       switch (tokenOrValue.value.type) {
         case "string":
-        case "number":
         case "ident": {
           const value = tokenOrValue.value.value;
-          if (typeof value === "string") {
-            if (!allowAuto && value === "auto") {
-              builder.addWarning("value", value);
-              return;
-            }
+          if (!allowAuto && value === "auto") {
+            builder.addWarning("value", value);
+            return;
+          }
 
-            if (value === "inherit") {
-              builder.addWarning("value", value);
-              return;
-            }
+          if (value === "inherit") {
+            builder.addWarning("value", value);
+            return;
+          }
 
-            if (value === "true") {
-              return true;
-            } else if (value === "false") {
-              return false;
-            } else {
-              return value;
-            }
+          if (value === "true") {
+            return true;
+          } else if (value === "false") {
+            return false;
           } else {
             return value;
           }
+        }
+        case "number": {
+          return round(tokenOrValue.value.value);
         }
         case "function":
           builder.addWarning("value", tokenOrValue.value.value);

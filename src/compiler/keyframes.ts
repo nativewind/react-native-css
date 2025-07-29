@@ -53,7 +53,7 @@ export function extractKeyFrames(
       switch (selector.type) {
         case "percentage":
           return frame.selectors.length > 1
-            ? `${selector.value}%`
+            ? `${selector.value * 100}%`
             : selector.value;
         case "from":
         case "to":
