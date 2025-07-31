@@ -1,4 +1,5 @@
 import { PixelRatio, PlatformColor, StyleSheet } from "react-native";
+
 import type { StyleFunctionResolver } from "./resolve";
 
 export const platformColor: StyleFunctionResolver = (resolveValue, value) => {

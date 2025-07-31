@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react-native";
 import { View } from "react-native-css/components/View";
 import { registerCSS, testID } from "react-native-css/jest";
+
 // import { getAnimatedStyle } from "react-native-reanimated";
 
 const getAnimatedStyle = (..._args: unknown[]): unknown => {

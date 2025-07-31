@@ -17,9 +17,10 @@ export default tseslint.config(
     },
   },
   globalIgnores([
-    "dist/*",
+    "**/dist/*",
     ".yarn/*",
     "**/eslint.config.[cm]js",
+    "**/prettier.config.[cm]js",
     "**/babel.config.js",
     "**/metro.config.js",
   ]),

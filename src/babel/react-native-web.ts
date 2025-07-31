@@ -1,13 +1,14 @@
-import { type NodePath } from "@babel/traverse";
+import { resolve } from "path";
 
+import { type NodePath } from "@babel/traverse";
 import tBabelTypes, {
   type ImportDeclaration,
   type ObjectPattern,
   type Statement,
   type VariableDeclaration,
 } from "@babel/types";
+
 import { allowedModules } from "./allowedModules";
-import { resolve } from "path";
 
 type BabelTypes = typeof tBabelTypes;
 

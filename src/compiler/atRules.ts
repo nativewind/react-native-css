@@ -4,9 +4,10 @@ import type {
   Rule,
   TokenOrValue,
 } from "lightningcss";
+
 import type { StyleRuleMapping } from "./compiler.types";
-import { splitByDelimiter } from "./split-by-delimiter";
 import { toRNProperty } from "./selectors";
+import { splitByDelimiter } from "./split-by-delimiter";
 import type { StylesheetBuilder } from "./stylesheet";
 
 export interface PropAtRule {

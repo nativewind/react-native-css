@@ -1,22 +1,23 @@
-import { type PluginObj } from "@babel/core";
 import { resolve } from "path";
 
+import { type PluginObj } from "@babel/core";
+import type { Statement } from "@babel/types";
+
 import {
+  getInteropRequireDefaultSource,
   type BabelTypes,
   type PluginState,
-  getInteropRequireDefaultSource,
 } from "./helpers";
-import {
-  handleReactNativeWebIdentifierRequire,
-  handleReactNativeWebImport,
-  handleReactNativeWebObjectPatternRequire,
-} from "./react-native-web";
-import type { Statement } from "@babel/types";
 import {
   handleReactNativeIdentifierRequire,
   handleReactNativeImport,
   handleReactNativeObjectPatternRequire,
 } from "./react-native";
+import {
+  handleReactNativeWebIdentifierRequire,
+  handleReactNativeWebImport,
+  handleReactNativeWebObjectPatternRequire,
+} from "./react-native-web";
 
 export default function ({
   types: t,
