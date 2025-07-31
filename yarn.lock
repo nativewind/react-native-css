@@ -4527,6 +4527,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"babel-plugin-react-compiler@npm:^19.1.0-rc.2":
+  version: 19.1.0-rc.2
+  resolution: "babel-plugin-react-compiler@npm:19.1.0-rc.2"
+  dependencies:
+    "@babel/types": "npm:^7.26.0"
+  checksum: 10c0/d48f6f7956852730c3bb92630e166348bf1849830829cdaaae83cbc29769d1933260dbf4ba77be6dd511f0c0c0a0ad479022f2cad7534e744dc360ce9c8ad7a9
+  languageName: node
+  linkType: hard
+
 "babel-plugin-react-native-web@npm:~0.19.13":
   version: 0.19.13
   resolution: "babel-plugin-react-native-web@npm:0.19.13"
@@ -10914,6 +10923,7 @@ __metadata:
     "@types/react": "npm:^19.1.8"
     "@types/react-refresh": "npm:^0"
     "@types/react-test-renderer": "npm:^19"
+    babel-plugin-react-compiler: "npm:^19.1.0-rc.2"
     babel-plugin-tester: "npm:^12.0.0"
     babel-preset-expo: "npm:13.3.0-canary-20250713-8f814f8"
     colorjs.io: "npm:0.6.0-alpha.1"
