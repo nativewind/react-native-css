@@ -130,7 +130,7 @@ const parsers: {
   "bottom": parseSizeDeclaration,
   "box-shadow": parseBoxShadow,
   "caret-color": parseColorOrAuto,
-  "color": parseColorDeclaration,
+  "color": parseFontColorDeclaration,
   "column-gap": parseGap,
   "container": parseContainer,
   "container-name": parseContainerName,
@@ -836,6 +836,10 @@ export function parseDeclarationUnparsed(
     if (property === "font-size") {
       builder.addDescriptor("--__rn-css-em", value);
     }
+
+    if (property === "color") {
+      builder.addDescriptor("--__rn-css-current-color", value);
+    }
   }
 }
 
@@ -940,6 +944,8 @@ export function parseUnparsed(
       return true;
     } else if (tokenOrValue === "false") {
       return false;
+    } else if (tokenOrValue === "currentcolor") {
+      return [{}, "var", "__rn-css-current-color"] as const;
     } else {
       return tokenOrValue;
     }
@@ -1033,6 +1039,8 @@ export function parseUnparsed(
           if (value === "inherit") {
             builder.addWarning("value", value);
             return;
+          } else if (value === "currentcolor") {
+            return [{}, "var", "__rn-css-current-color"] as const;
           }
 
           if (value === "true") {
@@ -1324,11 +1332,26 @@ export function parseColorOrAuto(
   }
 }
 
-export function parseColorDeclaration(
-  declaration: { value: CssColor },
+export function parseFontColorDeclaration(
+  declaration: Extract<Declaration, { value: CssColor }>,
   builder: StylesheetBuilder,
 ) {
-  return parseColor(declaration.value, builder);
+  parseColorDeclaration(declaration, builder);
+
+  builder.addDescriptor(
+    "--__rn-css-color",
+    parseColor(declaration.value, builder),
+  );
+}
+
+export function parseColorDeclaration(
+  declaration: Extract<Declaration, { value: CssColor }>,
+  builder: StylesheetBuilder,
+) {
+  builder.addDescriptor(
+    declaration.property,
+    parseColor(declaration.value, builder),
+  );
 }
 
 export function parseColor(cssColor: CssColor, builder: StylesheetBuilder) {
@@ -1345,8 +1368,7 @@ export function parseColor(cssColor: CssColor, builder: StylesheetBuilder) {
 
   switch (cssColor.type) {
     case "currentcolor":
-      builder.addWarning("value", cssColor.type);
-      return;
+      return [{}, "var", "__rn-css-current-color"] as const;
     case "light-dark":
       // TODO: Handle light-dark colors
       return;

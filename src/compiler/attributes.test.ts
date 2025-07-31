@@ -19,6 +19,7 @@ test("multiple classes", () => {
               },
             ],
             s: [1, 2],
+            v: [["__rn-css-color", "#f00"]],
           },
         ],
       ],

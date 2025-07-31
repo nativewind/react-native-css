@@ -37,7 +37,7 @@ test("groups", () => {
 test("group - active", () => {
   registerCSS(
     `.group\\/item:active .my-class {
-      color: red;
+      background-color: red;
     }`,
   );
 
@@ -54,7 +54,7 @@ test("group - active", () => {
 
   fireEvent(parent, "pressIn");
 
-  expect(child.props.style).toStrictEqual({ color: "#f00" });
+  expect(child.props.style).toStrictEqual({ backgroundColor: "#f00" });
 });
 
 test.skip("group - active (animated)", () => {

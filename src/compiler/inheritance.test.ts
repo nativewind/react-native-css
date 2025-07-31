@@ -23,6 +23,7 @@ test("nested classes", () => {
           {
             cq: [{ n: "my-class" }],
             d: [{ color: "#f00" }],
+            v: [["__rn-css-color", "#f00"]],
             s: [1, 2],
           },
         ],
@@ -63,6 +64,7 @@ test("multiple tiers classes", () => {
           {
             cq: [{ n: "one" }, { n: "two" }],
             d: [{ color: "#f00" }],
+            v: [["__rn-css-color", "#f00"]],
             s: [1, 3],
           },
         ],
@@ -109,6 +111,7 @@ test("tiers with multiple classes", () => {
               },
             ],
             d: [{ color: "#f00" }],
+            v: [["__rn-css-color", "#f00"]],
             s: [1, 4],
           },
         ],

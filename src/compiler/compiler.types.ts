@@ -117,12 +117,27 @@ export type StyleFunction =
       Record<never, never>,
       string, // string
     ]
+  | readonly [
+      Record<never, never>,
+      string, // string
+    ]
   | [
       Record<never, never>,
       string, // string
       StyleDescriptor, // arguments
     ]
+  | readonly [
+      Record<never, never>,
+      string, // string
+      StyleDescriptor, // arguments
+    ]
   | [
+      Record<never, never>,
+      string, // string
+      StyleDescriptor, // arguments
+      1, // Should process after styles have been calculated
+    ]
+  | readonly [
       Record<never, never>,
       string, // string
       StyleDescriptor, // arguments
