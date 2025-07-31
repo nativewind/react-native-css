@@ -1,4 +1,3 @@
-/* eslint-disable */
 import type { StyleFunctionResolver } from "./resolve";
 
 /**
@@ -9,7 +8,14 @@ export const transform: StyleFunctionResolver = (
   resolveValue,
   transformDescriptor,
 ) => {
-  return (transformDescriptor[2] as any[])
-    .map((args) => resolveValue(args))
-    .filter(Boolean);
+  const transforms = resolveValue(transformDescriptor[2]);
+
+  if (Array.isArray(transforms)) {
+    return transforms.filter((transform) => transform !== undefined) as unknown;
+  } else if (transforms) {
+    // If it's a single transform, wrap it in an array
+    return [transforms];
+  } else {
+    return;
+  }
 };

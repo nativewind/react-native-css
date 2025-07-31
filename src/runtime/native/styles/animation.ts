@@ -81,10 +81,14 @@ export const animation: StyleFunctionResolver = (
   get,
   options,
 ) => {
-  const animationShortHandTuples: [unknown, string][] | undefined =
-    animationShorthand(resolveValue, value, get, options);
+  const animationShortHandTuples = animationShorthand(
+    resolveValue,
+    value,
+    get,
+    options,
+  );
 
-  if (!animationShortHandTuples) {
+  if (!Array.isArray(animationShortHandTuples)) {
     return;
   }
 
@@ -159,7 +163,11 @@ export const timingFunctionResolver: StyleFunctionResolver = (
     return;
   }
 
-  const args: unknown[] = resolveValue(value[2]);
+  const args = resolveValue(value[2]);
+
+  if (!Array.isArray(args)) {
+    return;
+  }
 
   const fn = resolver();
 

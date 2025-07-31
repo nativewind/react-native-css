@@ -28,22 +28,30 @@ import { varResolver } from "./variables";
 export type SimpleResolveValue = (
   value: StyleDescriptor,
   castToArray?: boolean,
-) => any;
+) => unknown;
 
 export type StyleFunctionResolver = (
   resolveValue: SimpleResolveValue,
   value: StyleFunction,
   get: Getter,
   options: ResolveValueOptions,
-) => any;
+) => unknown;
 
-const shorthands: Record<`@${string}`, StyleFunctionResolver> = {
-  "@animation": animation,
-  "@textShadow": textShadow,
-  "@transform": transform,
-  "@boxShadow": boxShadow,
-  "@border": border,
-};
+export type StyleResolver = (
+  resolveValue: SimpleResolveValue,
+  value: StyleDescriptor,
+  get: Getter,
+  options: ResolveValueOptions,
+) => unknown;
+
+const shorthands: Record<`@${string}`, StyleFunctionResolver | StyleResolver> =
+  {
+    "@animation": animation,
+    "@textShadow": textShadow,
+    "@transform": transform,
+    "@boxShadow": boxShadow,
+    "@border": border,
+  };
 
 const functions: Record<string, StyleFunctionResolver> = {
   calc,
@@ -100,10 +108,9 @@ export function resolveValue(
       }
 
       if (isDescriptorArray(value)) {
-        value = value.flatMap((d) => {
-          const value = resolveValue(d, get, options);
-          return value === undefined ? [] : value;
-        }) as StyleDescriptor[];
+        value = value
+          .map((d) => resolveValue(d, get, options))
+          .filter((d) => d !== undefined);
 
         if (castToArray && !Array.isArray(value)) {
           return [value];
@@ -127,23 +134,25 @@ export function resolveValue(
           throw new Error(`Unknown function: ${name}`);
         }
 
-        value = fn(simpleResolve, value as StyleFunction, get, options);
+        value = fn(
+          simpleResolve,
+          value as StyleFunction,
+          get,
+          options,
+        ) as StyleDescriptor;
       } else if (transformKeys.has(name)) {
         // translate, rotate, scale, etc.
-        return simpleResolve(value[2]?.[0], castToArray);
+        const args = value[2];
+        return simpleResolve(args, castToArray);
       } else if (transformKeys.has(name.slice(1))) {
         // @translate, @rotate, @scale, etc.
-        return { [name.slice(1)]: simpleResolve(value[2], castToArray)[0] };
+        return { [name.slice(1)]: simpleResolve(value[2], castToArray) };
       } else {
         let args = simpleResolve(value[2], castToArray);
 
         if (args === undefined) {
           return;
         } else if (Array.isArray(args)) {
-          if (args.length === 1) {
-            args = args[0];
-          }
-
           let joinedArgs = args
             .map((arg: unknown) => {
               if (Array.isArray(arg)) {

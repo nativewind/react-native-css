@@ -29,7 +29,7 @@ export const pixelSizeForLayoutSize: StyleFunctionResolver = (
   resolveValue,
   value,
 ) => {
-  const size: unknown = resolveValue(value[2]?.[0]);
+  const size: unknown = resolveValue(value[2]);
   if (typeof size === "number") {
     return PixelRatio.getPixelSizeForLayoutSize(size);
   }
@@ -41,7 +41,7 @@ export const roundToNearestPixel: StyleFunctionResolver = (
   resolveValue,
   value,
 ) => {
-  const size: unknown = resolveValue(value[2]?.[0]);
+  const size: unknown = resolveValue(value[2]);
   if (typeof size === "number") {
     return PixelRatio.roundToNearestPixel(size);
   }

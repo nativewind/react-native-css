@@ -145,7 +145,7 @@ test("rem - dynamic", () => {
   expect(result.current.type).toBe(VariableContext.Provider);
   expect(result.current.props.value).toStrictEqual({
     [VAR_SYMBOL]: true,
-    [emVariableName]: [{}, "rem", [10]],
+    [emVariableName]: [{}, "rem", 10],
   });
 
   expect(result.current.props.children.type).toBe(View);
@@ -161,7 +161,7 @@ test("rem - dynamic", () => {
   expect(result.current.type).toBe(VariableContext.Provider);
   expect(result.current.props.value).toStrictEqual({
     [VAR_SYMBOL]: true,
-    [emVariableName]: [{}, "rem", [10]],
+    [emVariableName]: [{}, "rem", 10],
   });
 
   expect(result.current.props.children.type).toBe(View);

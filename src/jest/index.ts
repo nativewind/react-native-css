@@ -37,4 +37,6 @@ export function registerCSS(
   }
 
   StyleCollection.inject(compiled);
+
+  return compiled;
 }

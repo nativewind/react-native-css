@@ -35,7 +35,6 @@ import type {
   UnresolvedColor,
 } from "lightningcss";
 
-import { isStyleDescriptorArray } from "../runtime/utils";
 import type { StyleDescriptor, StyleFunction } from "./compiler.types";
 import { parseEasingFunction, parseIterationCount } from "./keyframes";
 import { toRNProperty } from "./selectors";
@@ -597,19 +596,19 @@ function parseTransform(
     value.flatMap((t): StyleDescriptor[] => {
       switch (t.type) {
         case "perspective":
-          return [[{}, "@perspective", [parseLength(t.value, builder)]]];
+          return [[{}, "@perspective", parseLength(t.value, builder)]];
         case "translate":
           return [
             [
               {},
               "@translateX",
-              [parseLengthOrCoercePercentageToRuntime(t.value[0], builder)],
+              parseLengthOrCoercePercentageToRuntime(t.value[0], builder),
             ],
             [
               [
                 {},
                 "@translateY",
-                [parseLengthOrCoercePercentageToRuntime(t.value[1], builder)],
+                parseLengthOrCoercePercentageToRuntime(t.value[1], builder),
               ],
             ],
           ];
@@ -618,7 +617,7 @@ function parseTransform(
             [
               {},
               "@translateX",
-              [parseLengthOrCoercePercentageToRuntime(t.value, builder)],
+              parseLengthOrCoercePercentageToRuntime(t.value, builder),
             ],
           ];
         case "translateY":
@@ -626,35 +625,35 @@ function parseTransform(
             [
               {},
               "@translateY",
-              [parseLengthOrCoercePercentageToRuntime(t.value, builder)],
+              parseLengthOrCoercePercentageToRuntime(t.value, builder),
             ],
           ];
         case "rotate":
-          return [[{}, "@rotate", [parseAngle(t.value, builder)]]];
+          return [[{}, "@rotate", parseAngle(t.value, builder)]];
         case "rotateX":
-          return [[{}, "@rotateX", [parseAngle(t.value, builder)]]];
+          return [[{}, "@rotateX", parseAngle(t.value, builder)]];
         case "rotateY":
-          return [[{}, "@rotateY", [parseAngle(t.value, builder)]]];
+          return [[{}, "@rotateY", parseAngle(t.value, builder)]];
         case "rotateZ":
-          return [[{}, "@rotateZ", [parseAngle(t.value, builder)]]];
+          return [[{}, "@rotateZ", parseAngle(t.value, builder)]];
         case "scale":
           return [
-            [{}, "@scaleX", [parseLength(t.value[0], builder)]],
-            [{}, "@scaleY", [parseLength(t.value[0], builder)]],
+            [{}, "@scaleX", parseLength(t.value[0], builder)],
+            [{}, "@scaleY", parseLength(t.value[1], builder)],
           ];
         case "scaleX":
-          return [[{}, "scaleX", [parseLength(t.value, builder)]]];
+          return [[{}, "scaleX", parseLength(t.value, builder)]];
         case "scaleY":
-          return [[{}, "scaleY", [parseLength(t.value, builder)]]];
+          return [[{}, "scaleY", parseLength(t.value, builder)]];
         case "skew":
           return [
-            [{}, "skewX", [parseAngle(t.value[0], builder)]],
-            [{}, "skewY", [parseAngle(t.value[0], builder)]],
+            [{}, "skewX", parseAngle(t.value[0], builder)],
+            [{}, "skewY", parseAngle(t.value[1], builder)],
           ];
         case "skewX":
-          return [[{}, "skewX", [parseAngle(t.value, builder)]]];
+          return [[{}, "skewX", parseAngle(t.value, builder)]];
         case "skewY":
-          return [[{}, "skewY", [parseAngle(t.value, builder)]]];
+          return [[{}, "skewY", parseAngle(t.value, builder)]];
         case "translateZ":
         case "translate3d":
         case "scaleZ":
@@ -676,12 +675,12 @@ function parseTranslate(
   builder.addDescriptor("translateX", [
     {},
     "translateX",
-    [parseTranslateProp(value, "x", builder)],
+    parseTranslateProp(value, "x", builder),
   ]);
   builder.addDescriptor("translateY", [
     {},
-    "translateX",
-    [parseTranslateProp(value, "y", builder)],
+    "translateY",
+    parseTranslateProp(value, "y", builder),
   ]);
 }
 
@@ -692,17 +691,17 @@ function parseRotate(
   builder.addDescriptor("rotateX", [
     {},
     "rotateX",
-    [parseAngle(value.x, builder)],
+    parseAngle(value.x, builder),
   ]);
   builder.addDescriptor("rotateY", [
     {},
     "rotateY",
-    [parseAngle(value.y, builder)],
+    parseAngle(value.y, builder),
   ]);
   builder.addDescriptor("rotateZ", [
     {},
     "rotateZ",
-    [parseAngle(value.z, builder)],
+    parseAngle(value.z, builder),
   ]);
 }
 
@@ -713,12 +712,12 @@ function parseScale(
   builder.addDescriptor("scaleX", [
     {},
     "scaleX",
-    [parseScaleValue(value, "x", builder)],
+    parseScaleValue(value, "x", builder),
   ]);
   builder.addDescriptor("scaleY", [
     {},
     "scaleY",
-    [parseScaleValue(value, "y", builder)],
+    parseScaleValue(value, "y", builder),
   ]);
 }
 
@@ -813,10 +812,7 @@ export function parseDeclarationUnparsed(
    * Unparsed shorthand properties need to be parsed at runtime
    */
   if (needsRuntimeParsing.has(property)) {
-    let args = parseUnparsed(declaration.value.value, builder);
-    if (!isStyleDescriptorArray(args)) {
-      args = [args];
-    }
+    const args = parseUnparsed(declaration.value.value, builder);
 
     if (property === "animation") {
       builder.addDescriptor("animation", [
@@ -862,7 +858,7 @@ export function parseDeclarationCustom(
 export function reduceParseUnparsed(
   tokenOrValues: TokenOrValue[],
   builder: StylesheetBuilder,
-): StyleDescriptor[] | undefined {
+): StyleDescriptor {
   const result = tokenOrValues
     .map((tokenOrValue) => parseUnparsed(tokenOrValue, builder))
     .filter((v) => v !== undefined);
@@ -871,8 +867,8 @@ export function reduceParseUnparsed(
     return undefined;
   }
 
-  let currentGroup: StyleDescriptor[] = [];
-  const groups: StyleDescriptor[][] = [currentGroup];
+  let currentGroup: StyleDescriptor = [];
+  let groups: StyleDescriptor[] = [currentGroup];
 
   for (const value of result) {
     if ((value as unknown) === CommaSeparator) {
@@ -883,6 +879,26 @@ export function reduceParseUnparsed(
     }
   }
 
+  groups = groups.flatMap((group): StyleDescriptor[] => {
+    if (!Array.isArray(group)) {
+      return [];
+    }
+
+    if (group.length === 0) {
+      return [];
+    } else if (group.length === 1) {
+      const first = group[0];
+
+      if (first === undefined) {
+        return [];
+      } else {
+        return [first];
+      }
+    } else {
+      return [group];
+    }
+  });
+
   return groups.length === 1 ? groups[0] : groups;
 }
 
@@ -890,8 +906,11 @@ export function unparsedFunction(
   token: Extract<TokenOrValue, { type: "function" }>,
   builder: StylesheetBuilder,
 ): StyleFunction {
-  const args = reduceParseUnparsed(token.value.arguments, builder);
-  return [{}, token.value.name, args];
+  return [
+    {},
+    token.value.name,
+    reduceParseUnparsed(token.value.arguments, builder),
+  ];
 }
 
 /**
@@ -930,7 +949,7 @@ export function parseUnparsed(
   if (Array.isArray(tokenOrValue)) {
     const args = reduceParseUnparsed(tokenOrValue, builder);
     if (!args) return;
-    if (args.length === 1) return args[0];
+    if (Array.isArray(args) && args.length === 1) return args[0];
     return args;
   }
 
@@ -939,10 +958,10 @@ export function parseUnparsed(
       return parseUnresolvedColor(tokenOrValue.value, builder);
     }
     case "var": {
-      const args: StyleDescriptor[] = [tokenOrValue.value.name.ident.slice(2)];
+      let args: StyleDescriptor = tokenOrValue.value.name.ident.slice(2);
       const fallback = parseUnparsed(tokenOrValue.value.fallback, builder);
       if (fallback !== undefined) {
-        args.push(fallback);
+        args = [args, fallback];
       }
 
       return [{}, "var", args, 1];
@@ -1119,12 +1138,12 @@ export function parseLength(
         if (typeof inlineRem === "number") {
           return length.value * inlineRem;
         } else {
-          return [{}, "rem", [length.value]];
+          return [{}, "rem", length.value];
         }
       case "vw":
       case "vh":
       case "em":
-        return [{}, length.unit, [length.value], 1];
+        return [{}, length.unit, length.value, 1];
       case "in":
       case "cm":
       case "mm":
@@ -2025,21 +2044,35 @@ export function parseTextAlign(
 }
 
 export function parseBoxShadow(
-  _: DeclarationType<"box-shadow">,
-  _builder: StylesheetBuilder,
+  { value }: DeclarationType<"box-shadow">,
+  builder: StylesheetBuilder,
 ) {
-  return undefined;
-
-  // return value.map(
-  //   (shadow): BoxShadowValue => ({
-  //     color: parseColor(shadow.color, builder),
-  //     offsetX: parseLength(shadow.xOffset, builder) as number,
-  //     offsetY: parseLength(shadow.yOffset, builder) as number,
-  //     blurRadius: parseLength(shadow.blur, builder) as number,
-  //     spreadDistance: parseLength(shadow.spread, builder) as number,
-  //     inset: shadow.inset,
-  //   }),
-  // );
+  for (const [index, shadow] of value.entries()) {
+    builder.addDescriptor(
+      `boxShadow.[${index}].color`,
+      parseColor(shadow.color, builder),
+    );
+    builder.addDescriptor(
+      `boxShadow.[${index}].offsetX`,
+      parseLength(shadow.xOffset, builder),
+    );
+    builder.addDescriptor(
+      `boxShadow.[${index}].offsetY`,
+      parseLength(shadow.yOffset, builder),
+    );
+    builder.addDescriptor(
+      `boxShadow.[${index}].blurRadius`,
+      parseLength(shadow.blur, builder),
+    );
+    builder.addDescriptor(
+      `boxShadow.[${index}].spreadDistance`,
+      parseLength(shadow.spread, builder),
+    );
+    builder.addDescriptor(
+      `boxShadow.[${index}].inset`,
+      shadow.inset ? true : undefined,
+    );
+  }
 }
 
 export function parseDisplay(

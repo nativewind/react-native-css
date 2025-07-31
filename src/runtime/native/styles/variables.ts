@@ -1,5 +1,5 @@
-/* eslint-disable */
-import type { StyleFunction } from "../../../compiler";
+import type { StyleDescriptor, StyleFunction } from "../../../compiler";
+import { isStyleDescriptorArray } from "../../utils";
 import {
   rootVariables,
   universalVariables,
@@ -23,11 +23,23 @@ export function varResolver(
 
   const args = fn[2];
 
-  if (!args) return;
+  let name: string | undefined;
+  let fallback: StyleDescriptor | undefined;
 
-  const [nameDescriptor, fallback] = args;
+  if (typeof args === "string") {
+    name = args;
+  } else {
+    const result = resolve(args);
 
-  const name = resolve(nameDescriptor);
+    if (isStyleDescriptorArray(result)) {
+      name = result[0] as string;
+      fallback = result[1];
+    }
+  }
+
+  if (typeof name !== "string") {
+    return;
+  }
 
   // If this recurses back to the same variable, we need to stop
   if (variableHistory.has(name)) {
@@ -41,7 +53,7 @@ export function varResolver(
 
   variableHistory.add(name);
 
-  let value = resolve(inlineVariables?.[name]);
+  let value = resolve(inlineVariables?.[name] as StyleDescriptor);
   if (value !== undefined) {
     options.inlineVariables ??= { [VAR_SYMBOL]: "inline" };
     options.inlineVariables[name] = value;

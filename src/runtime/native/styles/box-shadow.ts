@@ -1,4 +1,4 @@
-import { applyValue } from "../../utils";
+import { applyShorthand, isStyleDescriptorArray } from "../../utils";
 import type { StyleFunctionResolver } from "./resolve";
 import { shorthandHandler } from "./shorthand";
 
@@ -11,12 +11,12 @@ const spreadDistance = ["spreadDistance", "number"] as const;
 
 const handler = shorthandHandler(
   [
+    [offsetX, offsetY, blurRadius, spreadDistance, color],
     [color, offsetX, offsetY],
     [color, offsetX, offsetY, blurRadius],
     [color, offsetX, offsetY, blurRadius, spreadDistance],
     [offsetX, offsetY, color],
     [offsetX, offsetY, blurRadius, color],
-    [offsetX, offsetY, blurRadius, spreadDistance, color],
   ],
   [],
 );
@@ -27,28 +27,29 @@ export const boxShadow: StyleFunctionResolver = (
   get,
   options,
 ) => {
-  return func[2]?.flatMap((maybeShadow): unknown[] => {
-    const resolvedShadow = resolveValue(maybeShadow) as unknown;
+  const args = resolveValue(func[2]);
 
-    if (!Array.isArray(resolvedShadow)) {
-      return [];
-    }
-
-    return resolvedShadow.flat().flatMap((shadow): unknown => {
-      const result: unknown = handler(
-        resolveValue,
-        [{}, "@boxShadowHandler", shadow],
-        get,
-        options,
-      );
-
-      if (result === undefined) {
+  if (!isStyleDescriptorArray(args)) {
+    return args;
+  } else {
+    return args.flatMap((shadows) => {
+      if (shadows === undefined) {
         return [];
+      } else if (isStyleDescriptorArray(shadows)) {
+        if (shadows.length === 0) {
+          return [];
+        } else {
+          return shadows
+            .map((shadow) => {
+              return applyShorthand(
+                handler(resolveValue, shadow, get, options),
+              );
+            })
+            .filter((v) => v !== undefined);
+        }
+      } else {
+        return applyShorthand(handler(resolveValue, shadows, get, options));
       }
-
-      const target = {};
-      applyValue(target, "", result);
-      return target;
     });
-  });
+  }
 };

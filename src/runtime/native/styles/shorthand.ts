@@ -1,7 +1,8 @@
 /* eslint-disable */
 import type { StyleDescriptor } from "../../../compiler";
+import { isStyleDescriptorArray } from "../../utils";
 import { defaultValues } from "./defaults";
-import type { StyleFunctionResolver } from "./resolve";
+import type { StyleResolver } from "./resolve";
 
 type ShorthandType =
   | "string"
@@ -25,25 +26,30 @@ export const ShortHandSymbol = Symbol();
 export function shorthandHandler(
   mappings: ShorthandRequiredValue[][],
   defaults: ShorthandDefaultValue[],
-) {
-  const resolveFn: StyleFunctionResolver = (
-    resolveValue,
-    func,
-    _,
-    { castToArray },
-  ) => {
-    const args = func[2] || [];
+): StyleResolver {
+  return (resolve, value, __, { castToArray }) => {
+    let args = isStyleDescriptorArray(value)
+      ? resolve(value)
+      : Array.isArray(value)
+        ? resolve(value[2])
+        : value;
 
-    const resolved = args.flatMap((value) => {
-      return resolveValue(value, castToArray);
-    });
+    if (!Array.isArray(args)) {
+      return;
+    }
+
+    args = args.flat();
+
+    if (!Array.isArray(args)) {
+      return;
+    }
 
     const match = mappings.find((mapping) => {
       return (
-        resolved.length === mapping.length &&
+        args.length === mapping.length &&
         mapping.every((map, index) => {
           const type = map[1];
-          const value = resolved[index];
+          const value = args[index];
 
           if (Array.isArray(type)) {
             return type.includes(value) || type.includes(typeof value);
@@ -77,12 +83,12 @@ export function shorthandHandler(
             seenDefaults.delete(map);
           }
 
-          let value = resolved[index];
+          let value = args[index];
           if (castToArray && value && !Array.isArray(value)) {
             value = [value];
           }
 
-          return [value, map[0]];
+          return [value, map[0] as StyleDescriptor];
         }),
         ...Array.from(seenDefaults).map((map): StyleDescriptor => {
           let value = defaultValues[map[2]] ?? map[2];
@@ -96,6 +102,4 @@ export function shorthandHandler(
       { [ShortHandSymbol]: true },
     );
   };
-
-  return resolveFn;
 }

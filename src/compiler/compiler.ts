@@ -68,6 +68,7 @@ export function compile(
     },
     StyleSheetExit(sheet) {
       logger(`Found ${sheet.rules.length} rules to process`);
+      logger(JSON.stringify(sheet.rules, null, 2));
 
       for (const rule of sheet.rules) {
         // Extract the style declarations and animations from the current rule

@@ -85,8 +85,8 @@ describe("css", () => {
   test("calc(var(--variable) + 20px)", () => {
     registerCSS(
       `.my-class {
-        --variable: 100px;
-        width: calc(var(--variable) + 20px)
+        --my-var: 100px;
+        width: calc(var(--my-var) + 20px)
       }`,
     );
 

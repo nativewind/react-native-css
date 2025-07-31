@@ -240,6 +240,6 @@ test("breaks apart comma separated variables", () => {
   `);
 
   expect(compiled).toStrictEqual({
-    vr: [["test", [[["blue"], ["green"]]]]],
+    vr: [["test", [["blue", "green"]]]],
   });
 });
