@@ -32,5 +32,7 @@ export function getNativeInjectionCode(
     .map((value) => `StyleCollection.inject(${JSON.stringify(value)});`)
     .join("\n");
 
-  return Buffer.from(`${importStatements}\n${importPath}\n${contents}`);
+  return Buffer.from(
+    `${importStatements}\n${importPath}\n${contents};export {};`,
+  );
 }

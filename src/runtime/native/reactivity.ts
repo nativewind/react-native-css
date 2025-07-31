@@ -29,7 +29,7 @@ export const observableBatch: {
 
 export function observable<Value, Arg = Value>(
   init: Value | Read<Value, Arg>,
-  equality = Object.is,
+  equality: (value1: Value, value2: Value) => boolean = Object.is,
 ) {
   let value: Value;
   let isStatic = typeof init !== "function";
@@ -72,7 +72,7 @@ export function observable<Value, Arg = Value>(
 
   function set(arg: Arg) {
     if (isStatic) {
-      if (equality(value, arg)) {
+      if (equality(value, arg as unknown as Value)) {
         return;
       }
       value = arg as unknown as Value;
