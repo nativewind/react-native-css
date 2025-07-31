@@ -149,7 +149,7 @@ test("not all", () => {
   // It is the same as max-width: 639px
   registerCSS(`
 @media not all and (min-width: 640px) {
-  .my-class { color: red; }
+  .my-class { background-color: red; }
 }`);
   // Make larger than 640
   act(() => {
@@ -173,7 +173,7 @@ test("not all", () => {
   });
 
   expect(component.props.style).toStrictEqual({
-    color: "#f00",
+    backgroundColor: "#f00",
   });
 });
 

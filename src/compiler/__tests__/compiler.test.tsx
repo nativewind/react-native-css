@@ -18,6 +18,7 @@ test("hello world", () => {
               },
             ],
             s: [1, 1],
+            v: [["__rn-css-color", "#f00"]],
           },
         ],
       ],
@@ -128,6 +129,7 @@ test("multiple rules with same selector", () => {
               },
             ],
             s: [2, 1],
+            v: [["__rn-css-color", "#f00"]],
           },
           {
             d: [
@@ -139,6 +141,7 @@ test("multiple rules with same selector", () => {
               h: 1,
             },
             s: [1, 2],
+            v: [["__rn-css-color", "#008000"]],
           },
         ],
       ],
