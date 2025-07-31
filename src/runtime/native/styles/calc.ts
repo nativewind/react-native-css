@@ -30,7 +30,7 @@ export const calc: StyleFunctionResolver = (resolveValue, func) => {
       } else if (token === ")") {
         // Resolve all values within the brackets
         while (ops.length && ops[ops.length - 1] !== "(") {
-          applyCalcOperator(ops.pop()!, values.pop()!, values.pop()!, values);
+          applyCalcOperator(ops.pop()!, values.pop(), values.pop(), values);
         }
         ops.pop();
       } else if (token.endsWith("%")) {
@@ -45,7 +45,7 @@ export const calc: StyleFunctionResolver = (resolveValue, func) => {
           // @ts-ignore
           calcPrecedence[ops[ops.length - 1]] >= calcPrecedence[token]
         ) {
-          applyCalcOperator(ops.pop()!, values.pop()!, values.pop()!, values);
+          applyCalcOperator(ops.pop()!, values.pop(), values.pop(), values);
         }
         ops.push(token);
       }
@@ -54,31 +54,9 @@ export const calc: StyleFunctionResolver = (resolveValue, func) => {
       return;
     }
   }
-  // case "object": {
-  //   // All values should resolve to a numerical value
-  //   const value = resolveValue(token);
-  //   switch (typeof value) {
-  //     case "number": {
-  //       if (!mode) mode = "number";
-  //       if (mode !== "number") return;
-  //       values.push(value);
-  //       continue;
-  //     }
-  //     case "string": {
-  //       if (!value.endsWith("%")) {
-  //         return;
-  //       }
-  //       if (!mode) mode = "percentage";
-  //       if (mode !== "percentage") return;
-  //       values.push(Number.parseFloat(value.slice(0, -1)));
-  //       continue;
-  //     }
-  //     default:
-  //       return;
-  //   }
-  // }
+
   while (ops.length) {
-    applyCalcOperator(ops.pop()!, values.pop()!, values.pop()!, values);
+    applyCalcOperator(ops.pop()!, values.pop(), values.pop(), values);
   }
 
   if (!mode) return;
@@ -100,8 +78,8 @@ export const calc: StyleFunctionResolver = (resolveValue, func) => {
 
 function applyCalcOperator(
   operator: string,
-  b: number, // These are reversed because we pop them off the stack
-  a: number,
+  b = 0, // These are reversed because we pop them off the stack
+  a = 0,
   values: number[],
 ) {
   switch (operator) {

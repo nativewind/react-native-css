@@ -1,3 +1,3 @@
-// import { setUpTests } from "react-native-reanimated";
+import { setUpTests } from "react-native-reanimated";
 
-// setUpTests();
+setUpTests();

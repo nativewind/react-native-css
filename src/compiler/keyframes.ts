@@ -4,7 +4,7 @@ import type {
   KeyframesRule,
 } from "lightningcss";
 
-import type { EasingFunction, StyleDescriptor } from "./compiler.types";
+import type { StyleDescriptor } from "./compiler.types";
 import { parseDeclaration } from "./declarations";
 import type { StylesheetBuilder } from "./stylesheet";
 
@@ -18,8 +18,8 @@ export function parseIterationCount(
 
 export function parseEasingFunction(
   value: CSSEasingFunction[],
-): StyleDescriptor[] {
-  return value.map((value): EasingFunction => {
+): StyleDescriptor {
+  const easingFn = value.map((value) => {
     switch (value.type) {
       case "linear":
       case "ease":
@@ -28,15 +28,20 @@ export function parseEasingFunction(
       case "ease-in-out":
         return value.type;
       case "cubic-bezier":
-        return value;
+        return [
+          {},
+          "cubic-bezier",
+          [value.x1, value.y1, value.x2, value.y2],
+        ] as const;
       case "steps":
-        return {
-          type: "steps",
-          c: value.count,
-          p: value.position?.type,
-        };
+        return [{}, "steps", [value.count, value.position?.type]] as const;
     }
   }) as StyleDescriptor[];
+
+  if (easingFn.length === 1) {
+    return easingFn[0];
+  }
+  return easingFn;
 }
 
 export function extractKeyFrames(

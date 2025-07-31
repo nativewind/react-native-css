@@ -1,11 +1,6 @@
 /* eslint-disable */
 import type { Debugger } from "debug";
-import type {
-  AnimationDirection,
-  AnimationFillMode,
-  AnimationPlayState,
-  MediaFeatureNameFor_MediaFeatureId,
-} from "lightningcss";
+import type { MediaFeatureNameFor_MediaFeatureId } from "lightningcss";
 
 import { VAR_SYMBOL } from "../runtime/native/reactivity";
 
@@ -147,133 +142,11 @@ export type InlineVariable = {
   [key: string]: unknown | undefined;
 };
 
-/******************************   Animations V1  ******************************/
-
-/**
- * An animation with a fallback style value
- */
-export type AnimationWithDefault_V1 =
-  | [AnimationRule_V1]
-  | [AnimationRule_V1, StyleFunction];
-
-/**
- * A CSS Animation rule
- */
-export interface AnimationRule_V1 {
-  /**
-   * The animation delay.
-   */
-  de?: number[];
-  /**
-   * The direction of the animation.
-   */
-  di?: AnimationDirection[];
-  /**
-   * The animation duration.
-   */
-  du?: number[];
-  /**
-   * The animation fill mode.
-   */
-  f?: AnimationFillMode[];
-  /**
-   * The number of times the animation will run.
-   */
-  i?: number[];
-  /**
-   * The animation name.
-   */
-  n?: string[];
-  /**
-   * The current play state of the animation.
-   */
-  p?: AnimationPlayState[];
-  /**
-   * The animation timeline.
-   */
-  t?: never[];
-  /**
-   * The easing function for the animation.
-   */
-  e?: EasingFunction[];
-}
-
-export type AnimationKeyframes_V1 =
-  | [AnimationInterpolation_V1[]]
-  | [AnimationInterpolation_V1[], AnimationEasing[]];
-
-export type AnimationEasing = number | [number, EasingFunction];
-
-export type AnimationInterpolation_V1 =
-  | [string, number[], StyleDescriptor[]]
-  | [string, number[], StyleDescriptor[], number]
-  | [string, number[], StyleDescriptor[], number, AnimationInterpolationType];
-
-export type AnimationInterpolationType = "color" | "%" | undefined;
-
-export type EasingFunction =
-  | "linear"
-  | "ease"
-  | "ease-in"
-  | "ease-out"
-  | "ease-in-out"
-  | {
-      type: "cubic-bezier";
-      /**
-       * The x-position of the first point in the curve.
-       */
-      x1: number;
-      /**
-       * The x-position of the second point in the curve.
-       */
-      x2: number;
-      /**
-       * The y-position of the first point in the curve.
-       */
-      y1: number;
-      /**
-       * The y-position of the second point in the curve.
-       */
-      y2: number;
-    }
-  | {
-      type: "steps";
-      /**
-       * The number of intervals in the function.
-       */
-      c: number;
-      /**
-       * The step position.
-       */
-      p?: "start" | "end" | "jump-none" | "jump-both";
-    };
-
 /******************************   Animations V2  ******************************/
 
 export type Animation_V2 = [string, AnimationKeyframes_V2[]];
 export type AnimationRecord = Record<string, AnimationKeyframes_V2[]>;
 export type AnimationKeyframes_V2 = [string | number, StyleDeclaration[]];
-
-/******************************    Transitions    *****************************/
-
-export type TransitionRule = {
-  /**
-   * Delay before the transition starts in milliseconds.
-   */
-  de?: number[];
-  /**
-   * Duration of the transition in milliseconds.
-   */
-  du?: number[];
-  /**
-   * Property to transition.
-   */
-  p?: string[];
-  /**
-   * Easing function for the transition.
-   */
-  e?: EasingFunction[];
-};
 
 /******************************    Conditions    ******************************/
 
@@ -368,7 +241,7 @@ export type LoggerOptions = {
 export interface CompilerCollection extends CompilerOptions {
   features: FeatureFlagRecord;
   rules: Map<string, StyleRule[]>;
-  keyframes: Map<string, AnimationKeyframes_V1 | AnimationKeyframes_V2[]>;
+  keyframes: Map<string, AnimationKeyframes_V2[]>;
   darkMode?: string | null;
   rootVariables: VariableRecord;
   universalVariables: VariableRecord;

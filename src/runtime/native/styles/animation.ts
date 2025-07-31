@@ -1,6 +1,7 @@
 /* eslint-disable */
 import type { ComponentType } from "react";
 
+import { applyShorthand } from "../../utils";
 import { StyleCollection } from "../injection";
 import { weakFamily } from "../reactivity";
 import type { StyleFunctionResolver } from "./resolve";
@@ -57,6 +58,7 @@ export const animationShorthand = shorthandHandler(
     playState,
     timingFunction,
   ],
+  "tuples",
 );
 
 export const animatedComponentFamily = weakFamily(
@@ -91,6 +93,8 @@ export const animation: StyleFunctionResolver = (
   if (!Array.isArray(animationShortHandTuples)) {
     return;
   }
+
+  animationShortHandTuples.pop();
 
   const nameTuple = animationShortHandTuples.find(
     (tuple) => tuple[1] === "animationName",
@@ -133,7 +137,7 @@ export const animation: StyleFunctionResolver = (
 
   nameTuple[0] = animation;
 
-  return animationShortHandTuples;
+  return applyShorthand(animationShortHandTuples);
 };
 
 const advancedTimingFunctions: Record<
