@@ -7,12 +7,6 @@ import type {
   ViewStyle,
 } from "react-native";
 
-import type { makeMutable, SharedValue } from "react-native-reanimated";
-
-import type {
-  AnimationInterpolation_V1,
-  AnimationKeyframes_V1,
-} from "../compiler";
 import type { ComponentPropsDotNotation, ReactComponent } from "./utils";
 import type { DotNotation, ResolveDotPath } from "./utils/dot-notation.types";
 
@@ -121,25 +115,6 @@ export type InlineStyle =
   | null
   | (Record<string, unknown> | undefined | null)[]
   | (() => unknown);
-
-/******************************    Animations    ******************************/
-
-export type Mutable<Value> = ReturnType<typeof makeMutable<Value>>;
-export type AnimationMutable = Mutable<number>;
-
-export interface KeyFramesWithStyles {
-  animation: AnimationKeyframes_V1;
-  baseStyles: Record<string, any>;
-}
-
-export type SharedValueInterpolation = [
-  SharedValue<number>,
-  AnimationInterpolation_V1[],
-];
-
-/******************************    Transitions    *****************************/
-
-export type Transition = [string | string[], Mutable<any>];
 
 /*********************************    Misc    *********************************/
 

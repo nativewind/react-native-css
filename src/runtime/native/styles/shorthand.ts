@@ -1,6 +1,7 @@
 /* eslint-disable */
-import type { StyleDescriptor } from "../../../compiler";
-import { isStyleDescriptorArray } from "../../utils";
+import { setDeepPath } from "../../utils/objects";
+import { isStyleDescriptorArray } from "../../utils/style-value";
+import { ShortHandSymbol } from "./constants";
 import { defaultValues } from "./defaults";
 import type { StyleResolver } from "./resolve";
 
@@ -21,11 +22,10 @@ type ShorthandDefaultValue = readonly [
   any,
 ];
 
-export const ShortHandSymbol = Symbol();
-
 export function shorthandHandler(
   mappings: ShorthandRequiredValue[][],
   defaults: ShorthandDefaultValue[],
+  returnType: "shorthandObject" | "tuples" | "object" = "shorthandObject",
 ): StyleResolver {
   return (resolve, value, __, { castToArray }) => {
     let args = isStyleDescriptorArray(value)
@@ -76,30 +76,46 @@ export function shorthandHandler(
 
     const seenDefaults = new Set(defaults);
 
-    return Object.assign(
-      [
-        ...match.map((map, index): StyleDescriptor => {
-          if (map.length === 3) {
-            seenDefaults.delete(map);
-          }
+    const tuples = [
+      ...match.map((map, index): [unknown, ShorthandRequiredValue[0]] => {
+        if (map.length === 3) {
+          seenDefaults.delete(map);
+        }
 
-          let value = args[index];
-          if (castToArray && value && !Array.isArray(value)) {
-            value = [value];
-          }
+        let value = args[index];
+        if (castToArray && value && !Array.isArray(value)) {
+          value = [value];
+        }
 
-          return [value, map[0] as StyleDescriptor];
-        }),
-        ...Array.from(seenDefaults).map((map): StyleDescriptor => {
+        return [value, map[0]];
+      }),
+      ...Array.from(seenDefaults).map(
+        (map): [unknown, ShorthandRequiredValue[0]] => {
           let value = defaultValues[map[2]] ?? map[2];
           if (castToArray && value && !Array.isArray(value)) {
             value = [value];
           }
 
           return [value, map[0]];
-        }),
-      ],
-      { [ShortHandSymbol]: true },
-    );
+        },
+      ),
+    ];
+
+    if (returnType === "shorthandObject" || returnType === "object") {
+      const target: Record<string, unknown> =
+        returnType === "shorthandObject" ? { [ShortHandSymbol]: true } : {};
+
+      for (const [value, prop] of tuples) {
+        if (typeof prop === "string") {
+          target[prop] = value;
+        } else {
+          setDeepPath(target, prop, value);
+        }
+      }
+
+      return target;
+    } else {
+      return tuples;
+    }
   };
 }

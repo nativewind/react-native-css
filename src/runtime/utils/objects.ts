@@ -1,6 +1,6 @@
 /* eslint-disable */
+import { ShortHandSymbol } from "../native/styles/constants";
 import { transformKeys } from "../native/styles/defaults";
-import { ShortHandSymbol } from "../native/styles/shorthand";
 
 export function getDeepPath(source: any, paths: string | string[] | false) {
   if (!source) {
@@ -33,8 +33,14 @@ export function applyShorthand(value: any) {
     return;
   }
 
-  const target = {};
-  applyValue(target, "", value);
+  const target: Record<string, unknown> = { [ShortHandSymbol]: true };
+
+  const values = value as [unknown, string][];
+
+  for (const [value, prop] of values) {
+    target[prop] = value;
+  }
+
   return target;
 }
 
@@ -61,9 +67,8 @@ export function applyValue(
     }
     return;
   } else if (typeof value === "object" && value && ShortHandSymbol in value) {
-    for (const entry of value) {
-      setDeepPath(target, entry[1], entry[0]);
-    }
+    delete value[ShortHandSymbol];
+    Object.assign(target, value);
     return;
   }
 
@@ -72,7 +77,7 @@ export function applyValue(
 
 export function setDeepPath(
   target: Record<string, any>,
-  paths: string | string[],
+  paths: string | string[] | readonly string[],
   value: any,
 ) {
   if (typeof paths === "string") {

@@ -1,4 +1,4 @@
-import { applyShorthand, isStyleDescriptorArray } from "../../utils";
+import { isStyleDescriptorArray } from "../../utils";
 import type { StyleFunctionResolver } from "./resolve";
 import { shorthandHandler } from "./shorthand";
 
@@ -19,6 +19,7 @@ const handler = shorthandHandler(
     [offsetX, offsetY, blurRadius, color],
   ],
   [],
+  "object",
 );
 
 export const boxShadow: StyleFunctionResolver = (
@@ -38,17 +39,15 @@ export const boxShadow: StyleFunctionResolver = (
       } else if (isStyleDescriptorArray(shadows)) {
         if (shadows.length === 0) {
           return [];
-        } else {
+        } else if (Array.isArray(shadows[0])) {
           return shadows
-            .map((shadow) => {
-              return applyShorthand(
-                handler(resolveValue, shadow, get, options),
-              );
-            })
+            .map((shadow) => handler(resolveValue, shadow, get, options))
             .filter((v) => v !== undefined);
+        } else {
+          return handler(resolveValue, shadows, get, options);
         }
       } else {
-        return applyShorthand(handler(resolveValue, shadows, get, options));
+        return handler(resolveValue, shadows, get, options);
       }
     });
   }

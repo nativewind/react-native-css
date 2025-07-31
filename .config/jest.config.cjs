@@ -6,4 +6,5 @@ const jestExpo = require("jest-expo/jest-preset");
 module.exports = {
   ...jestExpo,
   testPathIgnorePatterns: ["dist/"],
+  setupFilesAfterEnv: ["./.config/jest.setup.js"],
 };

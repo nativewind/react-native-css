@@ -266,6 +266,8 @@ export class StylesheetBuilder {
       }
     } else if (forceTuple || Array.isArray(propPath)) {
       declarations.push([value, propPath]);
+    } else if (Array.isArray(value) && value.some(isStyleFunction)) {
+      declarations.push([value, propPath]);
     } else {
       if (!this.staticDeclarations) {
         this.staticDeclarations = {};
