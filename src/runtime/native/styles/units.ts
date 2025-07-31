@@ -3,18 +3,23 @@ import { rem as remObs, vh as vhObs, vw as vwObs } from "../reactivity";
 import type { StyleFunctionResolver } from "./resolve";
 
 export const em: StyleFunctionResolver = (resolve, func) => {
-  let value = func[2]?.[0];
+  let value = func[2];
 
   if (!value) {
     return;
   }
 
   const emValue = resolve([{}, "var", ["__rn-css-em"]]);
+
+  if (typeof emValue !== "number") {
+    return undefined;
+  }
+
   return round(Number(value) * emValue);
 };
 
 export const vw: StyleFunctionResolver = (_, func, get) => {
-  const value = func[2]?.[0];
+  const value = func[2];
 
   if (typeof value !== "number") {
     return;
@@ -24,7 +29,7 @@ export const vw: StyleFunctionResolver = (_, func, get) => {
 };
 
 export const vh: StyleFunctionResolver = (_, func, get) => {
-  const value = func[2]?.[0];
+  const value = func[2];
 
   if (typeof value !== "number") {
     return;
@@ -34,7 +39,7 @@ export const vh: StyleFunctionResolver = (_, func, get) => {
 };
 
 export const rem: StyleFunctionResolver = (_, func, get) => {
-  const value = func[2]?.[0];
+  const value = func[2];
 
   if (typeof value !== "number") {
     return;

@@ -125,12 +125,12 @@ export type StyleFunction =
   | [
       Record<never, never>,
       string, // string
-      undefined | StyleDescriptor[], // arguments
+      StyleDescriptor, // arguments
     ]
   | [
       Record<never, never>,
       string, // string
-      undefined | StyleDescriptor[], // arguments
+      StyleDescriptor, // arguments
       1, // Should process after styles have been calculated
     ];
 
@@ -144,7 +144,7 @@ export type LightDarkVariable =
 
 export type InlineVariable = {
   [VAR_SYMBOL]: "inline";
-  [key: string]: StyleDescriptor | undefined;
+  [key: string]: unknown | undefined;
 };
 
 /******************************   Animations V1  ******************************/

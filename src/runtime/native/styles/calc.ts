@@ -1,4 +1,5 @@
 /* eslint-disable */
+import { isStyleDescriptorArray } from "../../utils";
 import type { StyleFunctionResolver } from "./resolve";
 
 const calcPrecedence: Record<string, number> = {
@@ -13,71 +14,69 @@ export const calc: StyleFunctionResolver = (resolveValue, func) => {
   const values: number[] = [];
   const ops: string[] = [];
 
-  const args = func[2];
-  if (!args) return;
+  const args = resolveValue(func[2]);
+
+  if (!isStyleDescriptorArray(args)) return;
 
   for (let token of args) {
-    switch (typeof token) {
-      case "undefined":
-        // Fail on an undefined value
-        return;
-      case "number":
-        if (!mode) mode = "number";
-        if (mode !== "number") return;
-        values.push(token);
-        continue;
-      case "object": {
-        // All values should resolve to a numerical value
-        const value = resolveValue(token);
-        switch (typeof value) {
-          case "number": {
-            if (!mode) mode = "number";
-            if (mode !== "number") return;
-            values.push(value);
-            continue;
-          }
-          case "string": {
-            if (!value.endsWith("%")) {
-              return;
-            }
-            if (!mode) mode = "percentage";
-            if (mode !== "percentage") return;
-            values.push(Number.parseFloat(value.slice(0, -1)));
-            continue;
-          }
-          default:
-            return;
+    if (typeof token === "number") {
+      if (!mode) mode = "number";
+      if (mode !== "number") return;
+      values.push(token);
+      continue;
+    } else if (typeof token === "string") {
+      if (token === "(") {
+        ops.push(token);
+      } else if (token === ")") {
+        // Resolve all values within the brackets
+        while (ops.length && ops[ops.length - 1] !== "(") {
+          applyCalcOperator(ops.pop()!, values.pop()!, values.pop()!, values);
         }
-      }
-      case "string": {
-        if (token === "(") {
-          ops.push(token);
-        } else if (token === ")") {
-          // Resolve all values within the brackets
-          while (ops.length && ops[ops.length - 1] !== "(") {
-            applyCalcOperator(ops.pop()!, values.pop()!, values.pop()!, values);
-          }
-          ops.pop();
-        } else if (token.endsWith("%")) {
-          if (!mode) mode = "percentage";
-          if (mode !== "percentage") return;
-          values.push(Number.parseFloat(token.slice(0, -1)));
-        } else {
-          // This means we have an operator
-          while (
-            ops.length &&
-            ops[ops.length - 1] &&
-            // @ts-ignore
-            calcPrecedence[ops[ops.length - 1]] >= calcPrecedence[token]
-          ) {
-            applyCalcOperator(ops.pop()!, values.pop()!, values.pop()!, values);
-          }
-          ops.push(token);
+        ops.pop();
+      } else if (token.endsWith("%")) {
+        if (!mode) mode = "percentage";
+        if (mode !== "percentage") return;
+        values.push(Number.parseFloat(token.slice(0, -1)));
+      } else {
+        // This means we have an operator
+        while (
+          ops.length &&
+          ops[ops.length - 1] &&
+          // @ts-ignore
+          calcPrecedence[ops[ops.length - 1]] >= calcPrecedence[token]
+        ) {
+          applyCalcOperator(ops.pop()!, values.pop()!, values.pop()!, values);
         }
+        ops.push(token);
       }
+    } else {
+      // We got something unexpected
+      return;
     }
   }
-
+  // case "object": {
+  //   // All values should resolve to a numerical value
+  //   const value = resolveValue(token);
+  //   switch (typeof value) {
+  //     case "number": {
+  //       if (!mode) mode = "number";
+  //       if (mode !== "number") return;
+  //       values.push(value);
+  //       continue;
+  //     }
+  //     case "string": {
+  //       if (!value.endsWith("%")) {
+  //         return;
+  //       }
+  //       if (!mode) mode = "percentage";
+  //       if (mode !== "percentage") return;
+  //       values.push(Number.parseFloat(value.slice(0, -1)));
+  //       continue;
+  //     }
+  //     default:
+  //       return;
+  //   }
+  // }
   while (ops.length) {
     applyCalcOperator(ops.pop()!, values.pop()!, values.pop()!, values);
   }

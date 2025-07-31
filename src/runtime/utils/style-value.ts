@@ -1,7 +1,7 @@
 import type { StyleDescriptor, StyleFunction } from "../../compiler";
 
 export function isStyleDescriptorArray(
-  value: StyleDescriptor | StyleDescriptor[],
+  value: unknown,
 ): value is StyleDescriptor[] {
   if (Array.isArray(value)) {
     // If its an array and the first item is an object, the only allowed value is an array

@@ -180,16 +180,19 @@ _Do not create pull requests for these reasons:_
 
 > [!IMPORTANT]  
 > The Metro transformer does not fast refresh. After you make a change, you will need to recompile the project and restart the Metro server with a clean cache.
->
-> ```bash
-> # Build the project
-> yarn build
->
-> # Start the Metro server with a clean cache
-> yarn example start --clean
-> ```
 
 Development on the Metro transformer is done by running the example project.
+
+Debugging with breakpoints is supported if you run the project in VSCode's JavaScript Debug Terminal, or by setting the NodeJS debugger environment variables
+
+### Compiler
+
+> [!IMPORTANT]  
+> The Metro transformer does not fast refresh. After you make a change, you will need to recompile the project and restart the Metro server with a clean cache.
+
+The easiest way to debug the compiler is through Test Driven Development (TDD). The tests are located in the `src/__tests__/compiler` directory.
+
+You can use the JavaScript debugger, but you will need to use VSCode's JavaScript Debug Terminal, or set the NodeJS debugger environment variables to enable the debugger.
 
 ### Babel Plugin
 

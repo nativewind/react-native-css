@@ -28,6 +28,16 @@ export function getDeepPath(source: any, paths: string | string[] | false) {
   }
 }
 
+export function applyShorthand(value: any) {
+  if (value === undefined) {
+    return;
+  }
+
+  const target = {};
+  applyValue(target, "", value);
+  return target;
+}
+
 export function applyValue(
   target: Record<string, any>,
   prop: string,
