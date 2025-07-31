@@ -9,6 +9,9 @@
     "ios": {
       "bundleIdentifier": "dev.reactnativecss",
       "buildFromSource": false
+    },
+    "experiments": {
+      "reactCompiler": false
     }
   }
 }
