@@ -6,10 +6,11 @@ import type {
 } from "../../../compiler";
 import type { RenderGuard } from "../conditions/guards";
 import { type Getter, type VariableContextValue } from "../reactivity";
-import { animation } from "./animation";
+import { animation, timingFunctionResolver } from "./animation";
 import { border } from "./border";
 import { boxShadow } from "./box-shadow";
 import { calc } from "./calc";
+import type { calculateProps } from "./calculate-props";
 import { transformKeys } from "./defaults";
 import {
   fontScale,
@@ -37,6 +38,7 @@ export type StyleFunctionResolver = (
 ) => any;
 
 const shorthands: Record<`@${string}`, StyleFunctionResolver> = {
+  "@animation": animation,
   "@textShadow": textShadow,
   "@transform": transform,
   "@boxShadow": boxShadow,
@@ -55,7 +57,9 @@ const functions: Record<string, StyleFunctionResolver> = {
   fontScale,
   pixelSizeForLayoutSize,
   roundToNearestPixel,
-  animationName: animation,
+  "animationName": animation,
+  "cubic-bezier": timingFunctionResolver,
+  "steps": timingFunctionResolver,
   ...shorthands,
 };
 
@@ -65,6 +69,8 @@ export type ResolveValueOptions = {
   inlineVariables?: InlineVariable | undefined;
   renderGuards?: RenderGuard[];
   variableHistory?: Set<string>;
+  /** Pass down to perform recursive calculations and avoid circular dependencies */
+  calculateProps?: typeof calculateProps;
 };
 
 export function resolveValue(
@@ -94,7 +100,7 @@ export function resolveValue(
       }
 
       if (isDescriptorArray(value)) {
-        value = value.map((d) => {
+        value = value.flatMap((d) => {
           const value = resolveValue(d, get, options);
           return value === undefined ? [] : value;
         }) as StyleDescriptor[];

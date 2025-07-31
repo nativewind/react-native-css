@@ -6,7 +6,7 @@ export default function App() {
   return (
     <>
       <View className="justify-center items-center h-full">
-        <Text className="shadow-red-500 shadow-2xl">Test Component</Text>
+        <Text className="text-blue-500">Test Component</Text>
       </View>
     </>
   );

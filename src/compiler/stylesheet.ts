@@ -196,6 +196,9 @@ export class StylesheetBuilder {
       const [delayed, usesVariables] = postProcessStyleFunction(value);
 
       this.rule.d ??= [];
+      if (value[1] === "@animation") {
+        this.rule.a ??= true;
+      }
 
       if (usesVariables) {
         this.rule.dv = 1;
@@ -209,6 +212,10 @@ export class StylesheetBuilder {
         delayed || usesVariables,
       );
     } else {
+      if (property.startsWith("animation-")) {
+        this.rule.a ??= true;
+      }
+
       this.rule.d ??= [];
       this.pushDescriptor(property, value, this.rule.d);
     }
@@ -370,7 +377,7 @@ export class StylesheetBuilder {
     }
 
     this.animationDeclarations = [];
-    this.staticDeclarations = {};
+    this.staticDeclarations = undefined;
     this.animationFrames.push([progress, this.animationDeclarations]);
   }
 }

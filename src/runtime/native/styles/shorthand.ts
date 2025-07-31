@@ -8,7 +8,7 @@ type ShorthandType =
   | "number"
   | "length"
   | "color"
-  | Readonly<string[]>;
+  | Readonly<(string | Function)[]>;
 
 type ShorthandRequiredValue =
   | readonly [string | readonly string[], ShorthandType]
@@ -46,7 +46,7 @@ export function shorthandHandler(
           const value = resolved[index];
 
           if (Array.isArray(type)) {
-            return type.includes(value);
+            return type.includes(value) || type.includes(typeof value);
           }
 
           switch (type) {
