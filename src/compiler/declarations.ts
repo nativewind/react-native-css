@@ -57,7 +57,7 @@ const propertyRename: Record<string, string> = {
   "background-image": "experimental_backgroundImage",
 };
 
-const needsRuntimeParsing = new Set([
+const unparsedRuntimeParsing = new Set([
   "animation",
   "text-shadow",
   "transform",
@@ -811,7 +811,7 @@ export function parseDeclarationUnparsed(
   /**
    * Unparsed shorthand properties need to be parsed at runtime
    */
-  if (needsRuntimeParsing.has(property)) {
+  if (unparsedRuntimeParsing.has(property)) {
     const args = parseUnparsed(declaration.value.value, builder);
 
     if (property === "animation") {
@@ -829,10 +829,13 @@ export function parseDeclarationUnparsed(
       ]);
     }
   } else {
-    builder.addDescriptor(
-      property,
-      parseUnparsed(declaration.value.value, builder),
-    );
+    const value = parseUnparsed(declaration.value.value, builder);
+
+    builder.addDescriptor(property, value);
+
+    if (property === "font-size") {
+      builder.addDescriptor("--__rn-css-em", value);
+    }
   }
 }
 
