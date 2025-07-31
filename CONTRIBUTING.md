@@ -6,6 +6,9 @@ We want this community to be friendly and respectful to each other. Please follo
 
 ## Development workflow
 
+> [!IMPORTANT]  
+> Scripts in this project are designed to be run in a bash environment using [Yarn](https://yarnpkg.com/) and [Corepack](https://yarnpkg.com/corepack). If you are using a different shell, you may need to adjust the commands accordingly.
+
 This project is a monorepo managed using [Yarn workspaces](https://yarnpkg.com/features/workspaces). It contains the following packages:
 
 - The library package in the root directory.
@@ -13,13 +16,25 @@ This project is a monorepo managed using [Yarn workspaces](https://yarnpkg.com/f
 
 To get started with the project, run `yarn` in the root directory to install the required dependencies for each package:
 
+> [!NOTE]
+> If you do not have Yarn v3/4 installed, you can install it via [Corepack](https://yarnpkg.com/corepack) by running: `npm install -g corepack`
+> Since the project relies on Yarn workspaces, you cannot use [`npm`](https://github.com/npm/cli) for development.
+
 ```sh
-yarn init -2
-yarn
-yarn build
+yarn init -2     # We require Yarn 4
+yarn clean       # Install dependencies, rebuild the project and example app
+yarn example ios # Or yarn example android
 ```
 
-> Since the project relies on Yarn workspaces, you cannot use [`npm`](https://github.com/npm/cli) for development.
+Once the example app is built, you can use
+
+```sh
+yarn example start       # Start Expo CLI
+yarn example start:build # Rebuild the project and start Expo CLI
+yarn example start:debug # Rebuild the project and start Expo CLI with debug logging
+```
+
+## Example app
 
 The [example app](/example/) demonstrates usage of the library.
 
@@ -31,72 +46,43 @@ You can rebuild the library by running:
 yarn build
 ```
 
-There is no rebuild watch command, as if you are changing code that requires a rebuild, you will also need to restart the example app server to observe any changes.
+**There is no rebuild watch command.** The example app should fast refresh with most code changes, but certain changes (like those to the Metro transformer or Babel plugin) will require a rebuild of the library and example app. For this reason, we recommend using the `start:*` commands to rebuild the library and start the example app server in one command.
 
 ```sh
-# Alias for yarn build && yarn example debug
-yarn build:debug
-
-# Alias for yarn build && yarn example start
-yarn build:start
-
-# Tips:
-
-## Quickly rebuild and refresh the simulator
-yarn build:debug --ios
-yarn build:debug --android
-yarn build:debug --web
+yarn example start       # Start Expo CLI
+yarn example start:build # Rebuild the project and start Expo CLI
+yarn example start:debug # Rebuild the project and start Expo CLI with debug logging
 ```
 
-### Building the example app
+The `yarn example start` commands are aliases for `expo start`. They accept the same arguments as `expo start`, so you can pass any Expo CLI options to them.
+
+For example, to open the example app on a specific platform, you can use:
+
+```sh
+yarn start --ios
+yarn start --android
+yarn start --web
+
+yarn start:build --ios
+yarn start:build --android
+yarn start:build --web
+```
+
+> [!TIP]  
+> `start:build` and `start:debug` will clear the cache before starting the Expo CLI. If you are experiencing issue with `yarn example start` not reflecting your changes, try running `yarn example start:build` or `yarn example start:debug`.
+
+### Rebuilding the example app
 
 The example app is built using a canary version of the Expo SDK, which requires a development build. Before running the example app on a device or simulator, you need to build the app using the following command:
 
 ```sh
-yarn example expo prebuild
-
-yarn example ios
-# Or
-yarn example android
-```
-
-### Running the example app
-
-You can use various commands from the root directory to work with the project.
-
-To start the CLI:
-
-```sh
-yarn example start
-```
-
-To start the CLI wih debugging enabled:
-
-```sh
-yarn example debug
-```
-
-To rebuild the example app on Android:
-
-```sh
-yarn example android
-```
-
-To rebuild the example app on iOS:
-
-```sh
-yarn example ios
-```
-
-To run the example app on Web:
-
-```sh
-yarn example web
+yarn example expo prebuild # Rerun the Expo prebuild command
+yarn example ios           # Or yarn example android
 ```
 
 ### Testing
 
-Remember to add tests for your change if possible. Run the unit tests by:
+Remember to add tests for your pull request if possible. Run the unit tests by:
 
 ```sh
 yarn test
@@ -110,7 +96,7 @@ yarn test
 Run the example via the command line with the `debug` script to enable debugging:
 
 ```sh
-yarn example debug
+yarn example start:debug
 ```
 
 This will print parsed CSS and style objects to the console, which can help you understand how the library processes CSS files.
@@ -163,7 +149,8 @@ yarn release
 
 The `package.json` file contains various scripts for common tasks:
 
-- `yarn`: setup project by installing dependencies.
+- `yarn`: install dependencies.
+- `yarn clean`: setup project by installing dependencies and rebuilding the project and example app
 - `yarn typecheck`: type-check files with TypeScript.
 - `yarn lint`: lint files with ESLint.
 - `yarn test`: run unit tests with Jest.
@@ -182,6 +169,10 @@ When you're sending a pull request:
 - Review the documentation to make sure it looks good.
 - Follow the pull request template when opening a pull request.
 - For pull requests that change the API or implementation, discuss with maintainers first by opening an issue.
+
+_Do not create pull requests for these reasons:_
+
+- Changing the scripts to work in non-bash environments
 
 ## Development notes
 

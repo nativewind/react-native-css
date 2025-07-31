@@ -172,6 +172,25 @@ export default function App() {
 
 See the [contributing guide](CONTRIBUTING.md) to learn how to contribute to the repository and the development workflow.
 
+To quickly get started with the project, you can run:
+
+```sh
+yarn init -2     # We require Yarn 4
+yarn clean       # Install dependencies, rebuild the project and example app
+yarn example ios # Or yarn example android
+```
+
+Once the example app is built, you can use
+
+```sh
+yarn example start       # Start Expo CLI
+yarn example start:build # Rebuild the project and start Expo CLI
+yarn example start:debug # Rebuild the project and start Expo CLI with debug logging
+```
+
+> [!TIP]  
+> `start:build` and `start:debug` will clear the cache before starting the Expo CLI. If you are experiencing issue with `yarn example start` not reflecting your changes, try running `yarn example start:build` or `yarn example start:debug`.
+
 ## License
 
 MIT
