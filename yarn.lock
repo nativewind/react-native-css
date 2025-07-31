@@ -10889,9 +10889,9 @@ __metadata:
     react-native: "npm:0.80.1"
     react-native-builder-bob: "npm:^0.40.13"
     react-native-monorepo-config: "npm:^0.1.9"
-    react-native-reanimated: "npm:~4.0.0-nightly-20250720-bdf9f39ee"
+    react-native-reanimated: "npm:4.0.1"
     react-native-web: "npm:~0.20.0"
-    react-native-worklets: "npm:0.4.0-nightly-20250720-bdf9f39ee"
+    react-native-worklets: "npm:0.4.1"
     react-refresh: "npm:^0.17.0"
   languageName: unknown
   linkType: soft
@@ -10933,9 +10933,9 @@ __metadata:
     react: "npm:19.1.0"
     react-native: "npm:0.80.1"
     react-native-builder-bob: "npm:^0.40.13"
-    react-native-reanimated: "npm:~4.0.0-nightly-20250720-bdf9f39ee"
+    react-native-reanimated: "npm:4.0.1"
     react-native-safe-area-context: "npm:5.4.0"
-    react-native-worklets: "npm:0.4.0-nightly-20250720-bdf9f39ee"
+    react-native-worklets: "npm:0.4.1"
     react-refresh: "npm:^0.17.0"
     react-test-renderer: "npm:^19.1.0"
     release-it: "npm:^19.0.4"
@@ -10980,9 +10980,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-reanimated@npm:~4.0.0-nightly-20250720-bdf9f39ee":
-  version: 4.0.0-nightly-20250720-bdf9f39ee
-  resolution: "react-native-reanimated@npm:4.0.0-nightly-20250720-bdf9f39ee"
+"react-native-reanimated@npm:4.0.1":
+  version: 4.0.1
+  resolution: "react-native-reanimated@npm:4.0.1"
   dependencies:
     react-native-is-edge-to-edge: "npm:^1.2.1"
     semver: "npm:7.7.2"
@@ -10990,8 +10990,8 @@ __metadata:
     "@babel/core": ^7.0.0-0
     react: "*"
     react-native: "*"
-    react-native-worklets: 0.4.0-nightly-20250720-bdf9f39ee
-  checksum: 10c0/d6e83f94b575323efc41f1d8e64e2030328a22075767ef9f9e0350abcc3aa4aae57853c05151c10ed77a93d75e9a6a8bf2a98d2d204ede17f69c071f700a924e
+    react-native-worklets: ">=0.3.0"
+  checksum: 10c0/bbf9d715f0305a586181b34fab6cb81ca3f2f737314efb02c7ce4bbbced54da388c2ccc6730450fa6be8fce4083ff29fe990a9a9accf6e4f9f7d4f9cc2a742ab
   languageName: node
   linkType: hard
 
@@ -11024,9 +11024,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-worklets@npm:0.4.0-nightly-20250720-bdf9f39ee":
-  version: 0.4.0-nightly-20250720-bdf9f39ee
-  resolution: "react-native-worklets@npm:0.4.0-nightly-20250720-bdf9f39ee"
+"react-native-worklets@npm:0.4.1":
+  version: 0.4.1
+  resolution: "react-native-worklets@npm:0.4.1"
   dependencies:
     "@babel/plugin-transform-arrow-functions": "npm:^7.0.0-0"
     "@babel/plugin-transform-class-properties": "npm:^7.0.0-0"
@@ -11042,7 +11042,7 @@ __metadata:
     "@babel/core": ^7.0.0-0
     react: "*"
     react-native: "*"
-  checksum: 10c0/1760062310b9e298bce51c9f7a8f51011880a5d676feec2e5c4a0f2390725f749d9aa24228a7f9bd579ada2785db14572e0d31cbd53fcccf51a8207d78205b3c
+  checksum: 10c0/cd54b322ea7c205ea2ea540a7e24e3a3c3bea75b57c4fe7e3c3fb8f7840290b66d2dbad763cf3987234396f8d4f5bd304601d7cd4f7adbf637529fa573822572
   languageName: node
   linkType: hard
 
