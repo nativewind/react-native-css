@@ -260,7 +260,11 @@ export class StylesheetBuilder {
         delayed || usesVariables,
       );
     } else {
-      if (property.startsWith("animation-")) {
+      if (
+        property.startsWith("animation-") ||
+        property.startsWith("transition-") ||
+        property === "transition"
+      ) {
         rule.a ??= true;
       }
 

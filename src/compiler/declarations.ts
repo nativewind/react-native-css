@@ -2580,7 +2580,10 @@ export function addTransitionValue(
     case "transition-property": {
       builder.addDescriptor(
         declaration.property,
-        declaration.value.map((v) => v.property),
+        declaration.value
+          .map((v) => v.property)
+          .filter((v) => v in parsers || v === "all" || v === "none")
+          .map((v) => toRNProperty(v)),
       );
       return;
     }
