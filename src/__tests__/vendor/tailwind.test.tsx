@@ -8,6 +8,90 @@ import { registerCSS, render, screen, testID } from "react-native-css/jest";
  * For the full Tailwind CSS test suite, see the Nativewind repository.
  */
 
+test("transition", () => {
+  const compiled = registerCSS(`
+:root, :host {
+  --default-transition-duration: 150ms;
+  --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.transition {
+  transition-property: color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to, opacity, box-shadow, transform, translate, scale, rotate, filter, -webkit-backdrop-filter, backdrop-filter, display, visibility, content-visibility, overlay, pointer-events;
+  transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
+  transition-duration: var(--tw-duration, var(--default-transition-duration));
+}
+  `);
+
+  expect(compiled).toStrictEqual({
+    s: [
+      [
+        "transition",
+        [
+          {
+            a: true,
+            d: [
+              {
+                transitionProperty: [
+                  "color",
+                  "backgroundColor",
+                  "borderColor",
+                  "textDecorationColor",
+                  "fill",
+                  "stroke",
+                  "opacity",
+                  "boxShadow",
+                  "transform",
+                  "translate",
+                  "scale",
+                  "rotate",
+                  "filter",
+                  "display",
+                  "pointerEvents",
+                ],
+              },
+              [
+                [
+                  {},
+                  "var",
+                  [
+                    "tw-ease",
+                    [{}, "var", "default-transition-timing-function", 1],
+                  ],
+                  1,
+                ],
+                "transitionTimingFunction",
+                1,
+              ],
+              [
+                [
+                  {},
+                  "var",
+                  [
+                    "tw-duration",
+                    [{}, "var", "default-transition-duration", 1],
+                  ],
+                  1,
+                ],
+                "transitionDuration",
+                1,
+              ],
+            ],
+            dv: 1,
+            s: [2, 1],
+          },
+        ],
+      ],
+    ],
+    vr: [
+      ["default-transition-duration", [150]],
+      [
+        "default-transition-timing-function",
+        [[{}, "cubic-bezier", [0.4, 0, 0.2, 1]]],
+      ],
+    ],
+  });
+});
+
 test("box-shadow", () => {
   const compiled = registerCSS(`
 .shadow-xl {
