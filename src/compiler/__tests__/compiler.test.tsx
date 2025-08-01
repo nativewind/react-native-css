@@ -246,3 +246,37 @@ test("breaks apart comma separated variables", () => {
     vr: [["test", [["blue", "green"]]]],
   });
 });
+
+test("light-dark()", () => {
+  const compiled = compile(`
+.my-class {
+  background-color: light-dark(#333b3c, #efefec);
+}`);
+
+  expect(compiled).toStrictEqual({
+    s: [
+      [
+        "my-class",
+        [
+          {
+            d: [
+              {
+                backgroundColor: "#333b3c",
+              },
+            ],
+            s: [1, 1],
+          },
+          {
+            d: [
+              {
+                backgroundColor: "#efefec",
+              },
+            ],
+            m: [["=", "prefers-color-scheme", "dark"]],
+            s: [1, 1],
+          },
+        ],
+      ],
+    ],
+  });
+});

@@ -35,7 +35,11 @@ import type {
   UnresolvedColor,
 } from "lightningcss";
 
-import type { StyleDescriptor, StyleFunction } from "./compiler.types";
+import type {
+  StyleDescriptor,
+  StyleFunction,
+  StyleRule,
+} from "./compiler.types";
 import { parseEasingFunction, parseIterationCount } from "./keyframes";
 import { toRNProperty } from "./selectors";
 import type { StylesheetBuilder } from "./stylesheet";
@@ -47,9 +51,10 @@ type DeclarationType<P extends Declaration["property"]> = Extract<
   { property: P }
 >;
 
-type Parser<T extends Declaration["property"]> = (
+type Parser<T extends Declaration["property"] = Declaration["property"]> = (
   declaration: Extract<Declaration, { property: T }>,
   builder: StylesheetBuilder,
+  propertyName: string,
   // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
 ) => StyleDescriptor | void;
 
@@ -225,8 +230,8 @@ const parsers: {
 };
 
 // This is missing LightningCSS types
-(parsers as Record<string, Parser<Declaration["property"]>>)["pointer-events"] =
-  parsePointerEvents as Parser<Declaration["property"]>;
+(parsers as Record<string, Parser>)["pointer-events"] =
+  parsePointerEvents as Parser;
 
 const validProperties = new Set(Object.keys(parsers));
 
@@ -250,34 +255,30 @@ export function parseDeclaration(
 
   if (declaration.property === "unparsed") {
     parseDeclarationUnparsed(declaration, builder);
-    return;
   } else if (declaration.property === "custom") {
     parseDeclarationCustom(declaration, builder);
-    return;
+  } else {
+    parseWithParser(declaration, builder);
   }
+}
 
+function parseWithParser(declaration: Declaration, builder: StylesheetBuilder) {
   if (declaration.property in parsers) {
-    const property =
-      propertyRename[declaration.property] ?? declaration.property;
+    const parser = parsers[declaration.property] as Parser;
 
-    const parser = parsers[
-      declaration.property as keyof typeof parsers
-    ] as unknown as (
-      b: typeof declaration,
-      builder: StylesheetBuilder,
-      // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
-    ) => StyleDescriptor | void;
+    builder.descriptorProperty = declaration.property;
 
-    const value = parser(declaration, builder);
+    const value = parser(declaration, builder, declaration.property);
 
     if (value !== undefined) {
-      builder.addDescriptor(property, value);
+      builder.addDescriptor(
+        propertyRename[declaration.property] ?? declaration.property,
+        value,
+      );
     }
   } else {
-    builder.addWarning("property", (declaration as Declaration).property);
+    builder.addWarning("property", declaration.property);
   }
-
-  return;
 }
 
 function parseInsetBlock(
@@ -803,7 +804,7 @@ export function parseDeclarationUnparsed(
   /**
    * React Native doesn't support all the logical properties
    */
-  const rename = propertyRename[declaration.value.propertyId.property];
+  const rename = propertyRename[property];
   if (rename) {
     property = rename;
   }
@@ -811,6 +812,8 @@ export function parseDeclarationUnparsed(
   /**
    * Unparsed shorthand properties need to be parsed at runtime
    */
+  builder.descriptorProperty = property;
+
   if (unparsedRuntimeParsing.has(property)) {
     const args = parseUnparsed(declaration.value.value, builder);
 
@@ -1369,9 +1372,20 @@ export function parseColor(cssColor: CssColor, builder: StylesheetBuilder) {
   switch (cssColor.type) {
     case "currentcolor":
       return [{}, "var", "__rn-css-current-color"] as const;
-    case "light-dark":
-      // TODO: Handle light-dark colors
-      return;
+    case "light-dark": {
+      const extraRule: StyleRule = {
+        s: [],
+        m: [["=", "prefers-color-scheme", "dark"]],
+      };
+
+      builder.addUnnamedDescriptor(
+        parseColor(cssColor.dark, builder),
+        false,
+        extraRule,
+      );
+      builder.addExtraRule(extraRule);
+      return parseColor(cssColor.light, builder);
+    }
     case "rgb": {
       color = new Color({
         space: "sRGB",
@@ -2451,8 +2465,18 @@ export function parseUnresolvedColor(
         color.type,
         [color.h, color.s, color.l, parseUnparsed(color.alpha, builder)],
       ];
-    case "light-dark":
-      return undefined;
+    case "light-dark": {
+      const extraRule = builder.extendRule({
+        m: [["=", "prefers-color-scheme", "dark"]],
+      });
+      builder.addUnnamedDescriptor(
+        reduceParseUnparsed(color.dark, builder),
+        false,
+        extraRule,
+      );
+      builder.addExtraRule(extraRule);
+      return reduceParseUnparsed(color.light, builder);
+    }
     default:
       color satisfies never;
   }
