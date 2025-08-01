@@ -22,10 +22,16 @@ import { toRNProperty, type NormalizeSelector } from "./selectors";
 
 type BuilderMode = "style" | "media" | "container" | "keyframes";
 
+const staticDeclarations = new WeakMap<
+  WeakKey,
+  Record<string, StyleDescriptor>
+>();
+
+const extraRules = new WeakMap<StyleRule, Partial<StyleRule>[]>();
+
 export class StylesheetBuilder {
   animationFrames?: AnimationKeyframes_V2[];
   animationDeclarations: StyleDeclaration[] = [];
-  staticDeclarations: Record<string, StyleDescriptor> | undefined;
 
   stylesheet: ReactNativeCssStyleSheet = {};
 
@@ -37,11 +43,12 @@ export class StylesheetBuilder {
 
   constructor(
     private options: CompilerOptions,
-    private mode: BuilderMode = "style",
+    public mode: BuilderMode = "style",
     private ruleTemplate: StyleRule = {
       s: [],
     },
     private mapping: StyleRuleMapping = {},
+    public descriptorProperty?: string,
     private shared: {
       ruleSets: Record<string, StyleRuleSet>;
       rootVariables?: VariableRecord;
@@ -52,19 +59,20 @@ export class StylesheetBuilder {
     } = { ruleSets: {}, rem: 14, ruleOrder: 0 },
   ) {}
 
-  fork(mode: BuilderMode) {
+  fork(mode = this.mode, rule?: Partial<StyleRule>): StylesheetBuilder {
     this.shared.ruleOrder++;
     return new StylesheetBuilder(
       this.options,
       mode,
-      this.cloneRule(),
+      this.cloneRule(rule ? { ...this.rule, ...rule } : undefined),
       { ...this.mapping },
+      this.descriptorProperty,
       this.shared,
     );
   }
 
   cloneRule({ ...rule } = this.rule): StyleRule {
-    rule.s = [...this.rule.s];
+    rule.s = [...rule.s];
     rule.aq &&= [...rule.aq];
     rule.c &&= [...rule.c];
     rule.cq &&= [...rule.cq];
@@ -74,6 +82,25 @@ export class StylesheetBuilder {
     rule.v &&= [...rule.v];
 
     return rule;
+  }
+
+  private createRuleFromPartial(rule: StyleRule, partial: Partial<StyleRule>) {
+    rule = this.cloneRule(rule);
+
+    if (partial.m) {
+      rule.m ??= [];
+      rule.m.push(...partial.m);
+    }
+
+    if (partial.d) {
+      rule.d = partial.d;
+    }
+
+    return rule;
+  }
+
+  extendRule(rule: Partial<StyleRule>) {
+    return this.cloneRule({ ...this.rule, ...rule });
   }
 
   getOptions(): CompilerOptions {
@@ -130,9 +157,8 @@ export class StylesheetBuilder {
     // TODO
   }
 
-  newRule(mapping: StyleRuleMapping, { important = false } = {}) {
+  newRule(mapping = this.mapping, { important = false } = {}) {
     this.mapping = mapping;
-    this.staticDeclarations = undefined;
     this.rule = this.cloneRule(this.ruleTemplate);
     this.rule.s[Specificity.Order] = this.shared.ruleOrder;
     if (important) {
@@ -140,7 +166,16 @@ export class StylesheetBuilder {
     }
   }
 
-  addRuleToRuleSet(name: string, rule = this.rule) {
+  addExtraRule(rule: Partial<StyleRule>) {
+    let extraRuleArray = extraRules.get(this.rule);
+    if (!extraRuleArray) {
+      extraRuleArray = [];
+      extraRules.set(this.rule, extraRuleArray);
+    }
+    extraRuleArray.push(rule);
+  }
+
+  private addRuleToRuleSet(name: string, rule = this.rule) {
     if (this.shared.ruleSets[name]) {
       this.shared.ruleSets[name].push(rule);
     } else {
@@ -163,10 +198,23 @@ export class StylesheetBuilder {
     }
   }
 
+  addUnnamedDescriptor(
+    value: StyleDescriptor,
+    forceTuple?: boolean,
+    rule = this.rule,
+  ) {
+    if (this.descriptorProperty === undefined) {
+      return;
+    }
+
+    this.addDescriptor(this.descriptorProperty, value, forceTuple, rule);
+  }
+
   addDescriptor(
     property: string,
     value: StyleDescriptor,
     forceTuple?: boolean,
+    rule = this.rule,
   ) {
     if (value === undefined) {
       return;
@@ -190,34 +238,34 @@ export class StylesheetBuilder {
         return;
       }
 
-      this.rule.v ??= [];
-      this.rule.v.push([property.slice(2), value]);
+      rule.v ??= [];
+      rule.v.push([property.slice(2), value]);
     } else if (isStyleFunction(value)) {
       const [delayed, usesVariables] = postProcessStyleFunction(value);
 
-      this.rule.d ??= [];
+      rule.d ??= [];
       if (value[1] === "@animation") {
-        this.rule.a ??= true;
+        rule.a ??= true;
       }
 
       if (usesVariables) {
-        this.rule.dv = 1;
+        rule.dv = 1;
       }
 
       this.pushDescriptor(
         property,
         value,
-        this.rule.d,
+        rule.d,
         forceTuple,
         delayed || usesVariables,
       );
     } else {
       if (property.startsWith("animation-")) {
-        this.rule.a ??= true;
+        rule.a ??= true;
       }
 
-      this.rule.d ??= [];
-      this.pushDescriptor(property, value, this.rule.d);
+      rule.d ??= [];
+      this.pushDescriptor(property, value, rule.d);
     }
   }
 
@@ -269,11 +317,13 @@ export class StylesheetBuilder {
     } else if (Array.isArray(value) && value.some(isStyleFunction)) {
       declarations.push([value, propPath]);
     } else {
-      if (!this.staticDeclarations) {
-        this.staticDeclarations = {};
-        declarations.push(this.staticDeclarations);
+      let staticDeclarationRecord = staticDeclarations.get(declarations);
+      if (!staticDeclarationRecord) {
+        staticDeclarationRecord = {};
+        staticDeclarations.set(declarations, staticDeclarationRecord);
+        declarations.push(staticDeclarationRecord);
       }
-      this.staticDeclarations[propPath] = value;
+      staticDeclarationRecord[propPath] = value;
     }
   }
 
@@ -339,6 +389,16 @@ export class StylesheetBuilder {
         }
 
         this.addRuleToRuleSet(className, rule);
+
+        const extraRulesArray = extraRules.get(this.rule);
+        if (extraRulesArray) {
+          for (const extraRule of extraRulesArray) {
+            this.addRuleToRuleSet(
+              className,
+              this.createRuleFromPartial(rule, extraRule),
+            );
+          }
+        }
       } else {
         // These can only have variable declarations
         if (!this.rule.v) {
@@ -379,7 +439,6 @@ export class StylesheetBuilder {
     }
 
     this.animationDeclarations = [];
-    this.staticDeclarations = undefined;
     this.animationFrames.push([progress, this.animationDeclarations]);
   }
 }
