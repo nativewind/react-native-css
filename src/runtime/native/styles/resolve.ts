@@ -1,4 +1,5 @@
 /* eslint-disable */
+
 import type {
   InlineVariable,
   StyleDescriptor,
@@ -12,6 +13,18 @@ import { boxShadow } from "./box-shadow";
 import { calc } from "./calc";
 import type { calculateProps } from "./calculate-props";
 import { transformKeys } from "./defaults";
+import {
+  blur,
+  brightness,
+  contrast,
+  dropShadow,
+  grayscale,
+  hueRotate,
+  invert,
+  opacity,
+  saturate,
+  sepia,
+} from "./filters";
 import {
   fontScale,
   hairlineWidth,
@@ -44,31 +57,36 @@ export type StyleResolver = (
   options: ResolveValueOptions,
 ) => unknown;
 
-const shorthands: Record<`@${string}`, StyleFunctionResolver | StyleResolver> =
-  {
-    "@animation": animation,
-    "@textShadow": textShadow,
-    "@transform": transform,
-    "@boxShadow": boxShadow,
-    "@border": border,
-  };
-
 const functions: Record<string, StyleFunctionResolver> = {
-  calc,
-  em,
-  vw,
-  vh,
-  rem,
-  platformColor,
-  hairlineWidth,
-  pixelRatio,
-  fontScale,
-  pixelSizeForLayoutSize,
-  roundToNearestPixel,
+  "@animation": animation,
+  "@border": border,
+  "@boxShadow": boxShadow,
+  "@textShadow": textShadow,
+  "@transform": transform,
   "animationName": animation,
   "cubic-bezier": timingFunctionResolver,
   "steps": timingFunctionResolver,
-  ...shorthands,
+  "hue-rotate": hueRotate,
+  "drop-shadow": dropShadow,
+  blur,
+  brightness,
+  calc,
+  contrast,
+  em,
+  fontScale,
+  grayscale,
+  hairlineWidth,
+  invert,
+  opacity,
+  pixelRatio,
+  pixelSizeForLayoutSize,
+  platformColor,
+  rem,
+  roundToNearestPixel,
+  saturate,
+  sepia,
+  vh,
+  vw,
 };
 
 export type ResolveValueOptions = {
