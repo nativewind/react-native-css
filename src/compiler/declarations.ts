@@ -142,6 +142,7 @@ const parsers: {
   "container-type": parseContainerType,
   "display": parseDisplay,
   "fill": parseSVGPaint,
+  "filter": parseFilter,
   "flex": parseFlex,
   "flex-basis": parseLengthPercentageOrAutoDeclaration,
   "flex-direction": ({ value }) => value,
@@ -993,19 +994,28 @@ export function parseUnparsed(
         case "translateY":
           tokenOrValue.value.name = `@${tokenOrValue.value.name}`;
           return unparsedFunction(tokenOrValue, builder);
-        case "platformColor":
-        case "pixelSizeForLayoutSize":
-        case "roundToNearestPixel":
-        case "pixelScale":
+        case "brightness":
+        case "contrast":
+        case "cubic-bezier":
+        case "drop-shadow":
         case "fontScale":
-        case "shadow":
-        case "rgb":
-        case "rgba":
+        case "grayscale":
         case "hsl":
         case "hsla":
+        case "hue-rotate":
+        case "invert":
         case "linear-gradient":
+        case "opacity":
+        case "pixelScale":
+        case "pixelSizeForLayoutSize":
+        case "platformColor":
         case "radial-gradient":
-        case "cubic-bezier":
+        case "rgb":
+        case "rgba":
+        case "roundToNearestPixel":
+        case "saturate":
+        case "sepia":
+        case "shadow":
         case "steps":
           return unparsedFunction(tokenOrValue, builder);
         case "hairlineWidth":
@@ -2766,6 +2776,40 @@ function parseGradientItem(
     case "hint":
       return parseLength(item.value, builder);
   }
+}
+
+function parseFilter(
+  declaration: DeclarationType<"filter">,
+  builder: StylesheetBuilder,
+) {
+  if (declaration.value.type === "none") {
+    return "unset";
+  }
+
+  return declaration.value.value
+    .map((value) => {
+      switch (value.type) {
+        case "opacity":
+        case "blur":
+        case "brightness":
+        case "contrast":
+        case "grayscale":
+        case "invert":
+        case "saturate":
+        case "sepia":
+          return {
+            [value.type]: parseLength(value.value, builder),
+          } as unknown as StyleDescriptor;
+        case "hue-rotate":
+          return {
+            [value.type]: parseAngle(value.value, builder),
+          } as unknown as StyleDescriptor;
+        case "drop-shadow":
+        case "url":
+          return;
+      }
+    })
+    .filter((value) => value !== undefined);
 }
 
 const namedColors = new Set([

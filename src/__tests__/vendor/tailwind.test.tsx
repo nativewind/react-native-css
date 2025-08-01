@@ -111,3 +111,118 @@ test("box-shadow", () => {
     testID,
   });
 });
+
+test("filter", () => {
+  const compiled = registerCSS(`
+:root, :host {
+  --drop-shadow-md: 0 3px 3px rgb(0 0 0 / 0.12);
+}
+
+.brightness-50 {
+  --tw-brightness: brightness(50%);
+  filter: var(--tw-blur,) var(--tw-brightness,) var(--tw-contrast,) var(--tw-grayscale,) var(--tw-hue-rotate,) var(--tw-invert,) var(--tw-saturate,) var(--tw-sepia,) var(--tw-drop-shadow,);
+}
+
+.drop-shadow-md {
+  --tw-drop-shadow-size: drop-shadow(0 3px 3px var(--tw-drop-shadow-color, rgb(0 0 0 / 0.12)));
+  --tw-drop-shadow: drop-shadow(var(--drop-shadow-md));
+  filter: var(--tw-blur,) var(--tw-brightness,) var(--tw-contrast,) var(--tw-grayscale,) var(--tw-hue-rotate,) var(--tw-invert,) var(--tw-saturate,) var(--tw-sepia,) var(--tw-drop-shadow,);
+}
+  `);
+
+  expect(compiled).toStrictEqual({
+    s: [
+      [
+        "brightness-50",
+        [
+          {
+            d: [
+              [
+                [
+                  [{}, "var", "tw-blur", 1],
+                  [{}, "var", "tw-brightness", 1],
+                  [{}, "var", "tw-contrast", 1],
+                  [{}, "var", "tw-grayscale", 1],
+                  [{}, "var", "tw-hue-rotate", 1],
+                  [{}, "var", "tw-invert", 1],
+                  [{}, "var", "tw-saturate", 1],
+                  [{}, "var", "tw-sepia", 1],
+                  [{}, "var", "tw-drop-shadow", 1],
+                ],
+                "filter",
+              ],
+            ],
+            s: [2, 1],
+            v: [["tw-brightness", [{}, "brightness", "50%"]]],
+          },
+        ],
+      ],
+      [
+        "drop-shadow-md",
+        [
+          {
+            d: [
+              [
+                [
+                  [{}, "var", "tw-blur", 1],
+                  [{}, "var", "tw-brightness", 1],
+                  [{}, "var", "tw-contrast", 1],
+                  [{}, "var", "tw-grayscale", 1],
+                  [{}, "var", "tw-hue-rotate", 1],
+                  [{}, "var", "tw-invert", 1],
+                  [{}, "var", "tw-saturate", 1],
+                  [{}, "var", "tw-sepia", 1],
+                  [{}, "var", "tw-drop-shadow", 1],
+                ],
+                "filter",
+              ],
+            ],
+            s: [3, 1],
+            v: [
+              [
+                "tw-drop-shadow-size",
+                [
+                  {},
+                  "drop-shadow",
+                  [
+                    0,
+                    3,
+                    3,
+                    [{}, "var", ["tw-drop-shadow-color", "#0000001f"], 1],
+                  ],
+                ],
+              ],
+              [
+                "tw-drop-shadow",
+                [{}, "drop-shadow", [{}, "var", "drop-shadow-md", 1]],
+              ],
+            ],
+          },
+        ],
+      ],
+    ],
+    vr: [["drop-shadow-md", [[0, 3, 3, "#0000001f"]]]],
+  });
+
+  render(<View testID={testID} className="brightness-50 drop-shadow-md" />);
+  const component = screen.getByTestId(testID);
+
+  expect(component.type).toBe("View");
+  expect(component.props).toStrictEqual({
+    children: undefined,
+    style: {
+      filter: [
+        { brightness: "50%" },
+        {
+          dropShadow: {
+            blurRadius: 3,
+            color: "#0000001f",
+            offsetX: 0,
+            offsetY: 3,
+          },
+        },
+      ],
+    },
+    testID,
+  });
+});
