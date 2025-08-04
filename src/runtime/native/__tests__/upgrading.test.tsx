@@ -70,7 +70,7 @@ test.only("will-change-container", () => {
 
   expect(log.mock.calls).toEqual([
     [
-      "ReactNativeCss: className 'group' added a container after the initial render. This causes the components state to be reset and all children be re-mounted. This will cause unexpected behavior. Use the className 'will-change-container' to avoid this warning. If this was caused by sibling components being added/removed, use a 'key' prop so React can track the component correctly.",
+      "ReactNativeCss: className 'group' added or removed a container after the initial render. This causes the components state to be reset and all children be re-mounted. This will cause unexpected behavior. Use the className 'will-change-container' to avoid this warning. If this was caused by sibling components being added/removed, use a 'key' prop so React can track the component correctly.",
     ],
   ]);
 });
