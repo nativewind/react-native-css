@@ -280,3 +280,96 @@ test("light-dark()", () => {
     ],
   });
 });
+
+test("media query nested in rules", () => {
+  const compiled = compile(`
+.my-class {
+  color: red;
+  @media (min-width: 600px) {
+    color: blue;
+
+    @media (min-width: 400px) {
+      background-color: green;
+    }
+  }
+
+  @media (min-width: 100px) {
+    background-color: yellow;
+  }
+}`);
+
+  expect(compiled).toStrictEqual({
+    s: [
+      [
+        "my-class",
+        [
+          {
+            d: [
+              {
+                color: "#f00",
+              },
+            ],
+            s: [1, 1],
+            v: [["__rn-css-color", "#f00"]],
+          },
+          {
+            d: [
+              {
+                color: "#00f",
+              },
+            ],
+            m: [[">=", "width", 600]],
+            s: [2, 1],
+            v: [["__rn-css-color", "#00f"]],
+          },
+          {
+            d: [
+              {
+                backgroundColor: "#008000",
+              },
+            ],
+            m: [[">=", "width", 400]],
+            s: [3, 1],
+          },
+          {
+            d: [
+              {
+                backgroundColor: "#ff0",
+              },
+            ],
+            m: [[">=", "width", 100]],
+            s: [4, 1],
+          },
+          {
+            d: [
+              {
+                color: "#00f",
+              },
+            ],
+            m: [[">=", "width", 600]],
+            s: [2, 1, 1],
+            v: [["__rn-css-color", "#00f"]],
+          },
+          {
+            d: [
+              {
+                backgroundColor: "#008000",
+              },
+            ],
+            m: [[">=", "width", 400]],
+            s: [3, 1, 1],
+          },
+          {
+            d: [
+              {
+                backgroundColor: "#ff0",
+              },
+            ],
+            m: [[">=", "width", 100]],
+            s: [4, 1, 1],
+          },
+        ],
+      ],
+    ],
+  });
+});
