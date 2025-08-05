@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@expo/metro-runtime": "6.0.0-canary-20250713-8f814f8",
+    "@tailwindcss/postcss": "^4.1.11",
     "expo": "54.0.0-canary-20250713-8f814f8",
     "expo-dev-client": "5.2.4",
     "expo-status-bar": "~2.2.3",
