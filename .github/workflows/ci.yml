@@ -6,11 +6,14 @@ on:
   pull_request:
     branches:
       - main
-  merge_group:
-    types:
-      - checks_requested
 
 jobs:
+  # To ensure that the commitlint merge_group event triggers correctly, you need to have at least one workflow that responds to the pull_request event with a job named the same as the one in your merge_group workflow (commitlint in this example). This is necessary because the merge queue relies on the existence of status checks from the pull request context.
+  commitlint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
   lint:
     runs-on: ubuntu-latest
     steps:
