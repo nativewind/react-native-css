@@ -1,5 +1,7 @@
 import { Appearance, Dimensions } from "react-native";
 
+import util from "node:util";
+
 import { compile, type CompilerOptions } from "../compiler";
 import { StyleCollection } from "../runtime/native/injection";
 import { colorScheme, dimensions, rem } from "../runtime/native/reactivity";
@@ -23,16 +25,23 @@ beforeEach(() => {
   colorScheme.set(null);
 });
 
+const debugDefault = Boolean(
+  process.env.REACT_NATIVE_CSS_TEST_DEBUG &&
+    process.env.NODE_OPTIONS?.includes("--inspect"),
+);
+
 export function registerCSS(
   css: string,
   {
-    debugCompiled = process.env.NODE_OPTIONS?.includes("--inspect"),
+    debug = debugDefault,
     ...options
-  }: CompilerOptions & { debugCompiled?: boolean } = {},
+  }: CompilerOptions & { debug?: boolean } = {},
 ) {
   const compiled = compile(css, options);
-  if (debugCompiled) {
-    console.log(`Compiled styles:\n\n${JSON.stringify({ compiled }, null, 2)}`);
+  if (debug) {
+    console.log(
+      `Compiled:\n---\n${util.inspect(compiled, { depth: null, colors: true, compact: false })}`,
+    );
   }
 
   StyleCollection.inject(compiled);
