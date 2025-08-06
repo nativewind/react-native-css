@@ -116,7 +116,7 @@ const parsers: {
   "border-inline-start": parseBorderInlineStart,
   "border-inline-start-color": parseColorDeclaration,
   "border-inline-start-width": parseBorderSideWidthDeclaration,
-  "border-inline-width": parseBorderBlockWidth,
+  "border-inline-width": parseBorderInlineWidth,
   "border-left": parseBorderSide,
   "border-left-color": parseColorDeclaration,
   "border-left-width": parseBorderSideWidthDeclaration,
@@ -472,6 +472,20 @@ function parseBorderInlineEnd(
   builder.addDescriptor(
     "border-right-width",
     parseBorderSideWidth(value.width, builder),
+  );
+}
+
+export function parseBorderInlineWidth(
+  declaration: DeclarationType<"border-inline-width">,
+  builder: StylesheetBuilder,
+) {
+  builder.addDescriptor(
+    "border-left-width",
+    parseBorderSideWidth(declaration.value.start, builder),
+  );
+  builder.addDescriptor(
+    "border-right-width",
+    parseBorderSideWidth(declaration.value.end, builder),
   );
 }
 
@@ -1886,7 +1900,7 @@ export function parseBorderBlockColor(
 }
 
 export function parseBorderBlockWidth(
-  declaration: DeclarationType<"border-block-width" | "border-inline-width">,
+  declaration: DeclarationType<"border-block-width">,
   builder: StylesheetBuilder,
 ) {
   builder.addDescriptor(
