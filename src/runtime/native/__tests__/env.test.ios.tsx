@@ -1,6 +1,7 @@
 // import { SafeAreaProvider } from "react-native-css/components/SafeAreaProvider";
+import { render, screen } from "@testing-library/react-native";
 import { View } from "react-native-css/components/View";
-import { registerCSS, render, screen, testID } from "react-native-css/jest";
+import { registerCSS, testID } from "react-native-css/jest";
 
 test.skip("safe-area-inset-*", () => {
   registerCSS(`.my-class {

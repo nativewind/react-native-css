@@ -1,6 +1,7 @@
+import { render, screen } from "@testing-library/react-native";
 import { Text } from "react-native-css/components/Text";
 import { View } from "react-native-css/components/View";
-import { registerCSS, render, screen } from "react-native-css/jest";
+import { registerCSS } from "react-native-css/jest";
 
 const parentID = "parent";
 const childID = "child";

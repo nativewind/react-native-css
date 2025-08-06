@@ -1,6 +1,7 @@
 import { View } from "react-native";
 
-import { act, registerCSS, renderHook } from "react-native-css/jest";
+import { act, renderHook } from "@testing-library/react-native";
+import { registerCSS } from "react-native-css/jest";
 
 import { useNativeCss } from "../react/useNativeCss";
 import {

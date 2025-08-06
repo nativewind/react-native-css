@@ -1,13 +1,8 @@
 import { PixelRatio } from "react-native";
 
+import { act, render, screen } from "@testing-library/react-native";
 import { View } from "react-native-css/components/View";
-import {
-  act,
-  registerCSS,
-  render,
-  screen,
-  testID,
-} from "react-native-css/jest";
+import { registerCSS, testID } from "react-native-css/jest";
 
 import { colorScheme } from "../api";
 import { dimensions } from "../reactivity";

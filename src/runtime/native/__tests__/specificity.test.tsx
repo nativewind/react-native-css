@@ -1,7 +1,8 @@
 import { StyleSheet, type ViewProps } from "react-native";
 
+import { fireEvent, render } from "@testing-library/react-native";
 import { Text } from "react-native-css/components/Text";
-import { fireEvent, registerCSS, render, testID } from "react-native-css/jest";
+import { registerCSS, testID } from "react-native-css/jest";
 
 import { styled } from "../api";
 

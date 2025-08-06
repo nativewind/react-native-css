@@ -1,5 +1,6 @@
+import { render, screen } from "@testing-library/react-native";
 import { Text } from "react-native-css/components/Text";
-import { registerCSS, render, screen, testID } from "react-native-css/jest";
+import { registerCSS, testID } from "react-native-css/jest";
 
 describe("text-shadow", () => {
   test("<offsetX> <offsetY>", () => {

@@ -1,6 +1,7 @@
+import { render, screen } from "@testing-library/react-native";
 import { Text } from "react-native-css/components/Text";
 import { View } from "react-native-css/components/View";
-import { registerCSS, render, screen, testID } from "react-native-css/jest";
+import { registerCSS, testID } from "react-native-css/jest";
 
 test(":disabled", () => {
   registerCSS(`.test:disabled { width: 10px; }`);
