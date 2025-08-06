@@ -1,5 +1,6 @@
+import { render } from "@testing-library/react-native";
 import { View } from "react-native-css/components/View";
-import { registerCSS, render, testID } from "react-native-css/jest";
+import { registerCSS, testID } from "react-native-css/jest";
 
 test("translate", () => {
   registerCSS(`.my-class { translate: 10%; }`);

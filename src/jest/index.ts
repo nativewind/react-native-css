@@ -1,26 +1,25 @@
-/* eslint-disable @typescript-eslint/no-namespace */
-import { Dimensions } from "react-native";
+import { Appearance, Dimensions } from "react-native";
 
 import { compile, type CompilerOptions } from "../compiler";
 import { StyleCollection } from "../runtime/native/injection";
 import { colorScheme, dimensions, rem } from "../runtime/native/reactivity";
 
 declare global {
+  /* eslint-disable @typescript-eslint/no-namespace */
   namespace jest {
     interface Matchers<R> {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      toHaveAnimatedStyle(style?: any): R;
+      toHaveAnimatedStyle(style?: unknown): R;
     }
   }
 }
 
-export * from "@testing-library/react-native";
 export const testID = "react-native-css";
 
 beforeEach(() => {
   StyleCollection.styles.clear();
   dimensions.set(Dimensions.get("window"));
   rem.set(14);
+  Appearance.setColorScheme(null);
   colorScheme.set(null);
 });
 

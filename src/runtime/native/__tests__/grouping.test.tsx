@@ -1,5 +1,6 @@
+import { fireEvent, render, screen } from "@testing-library/react-native";
 import { View } from "react-native-css/components/View";
-import { fireEvent, registerCSS, render, screen } from "react-native-css/jest";
+import { registerCSS } from "react-native-css/jest";
 
 // import { getAnimatedStyle } from "react-native-reanimated";
 

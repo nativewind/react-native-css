@@ -1,5 +1,6 @@
+import { render, screen } from "@testing-library/react-native";
 import { View } from "react-native-css/components/View";
-import { registerCSS, render, screen, testID } from "react-native-css/jest";
+import { registerCSS, testID } from "react-native-css/jest";
 
 /**
  * Tailwind CSS utilities

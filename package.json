@@ -27,6 +27,28 @@
         "default": "./dist/commonjs/metro/index.js"
       }
     },
+    "./compiler": {
+      "source": "./src/compiler/index.ts",
+      "import": {
+        "types": "./dist/typescript/module/src/compiler/index.d.ts",
+        "default": "./dist/module/compiler/index.js"
+      },
+      "require": {
+        "types": "./dist/typescript/commonjs/src/compiler/index.d.ts",
+        "default": "./dist/commonjs/compiler/index.js"
+      }
+    },
+    "./jest": {
+      "source": "./src/jest/index.ts",
+      "import": {
+        "types": "./dist/typescript/module/src/jest/index.d.ts",
+        "default": "./dist/module/jest/index.js"
+      },
+      "require": {
+        "types": "./dist/typescript/commonjs/src/jest/index.d.ts",
+        "default": "./dist/commonjs/jest/index.js"
+      }
+    },
     "./babel": {
       "source": "./src/babel/index.ts",
       "import": {

@@ -1,11 +1,6 @@
+import { act, render, screen } from "@testing-library/react-native";
 import { View } from "react-native-css/components/View";
-import {
-  act,
-  registerCSS,
-  render,
-  screen,
-  testID,
-} from "react-native-css/jest";
+import { registerCSS, testID } from "react-native-css/jest";
 
 test("should update styles", () => {
   registerCSS(`
