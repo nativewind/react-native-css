@@ -41,7 +41,10 @@ export function withReactNativeCSS<
     disableTypeScriptGeneration,
     typescriptEnvPath,
     globalClassNamePolyfill = false,
+    logger = defaultLogger,
   } = options || {};
+
+  const loggerEnabled = "enabled" in logger ? logger.enabled : true;
 
   if (disableTypeScriptGeneration !== true) {
     setupTypeScript(typescriptEnvPath);
@@ -211,9 +214,9 @@ export function withReactNativeCSS<
                   Array.from(nativeCSSFiles.values()).map(([, value]) => value),
                 );
 
-                if (defaultLogger.enabled && fileBuffer) {
-                  defaultLogger(`Transformed ${filePath}`);
-                  defaultLogger(fileBuffer?.toString());
+                if (loggerEnabled && fileBuffer) {
+                  logger(`Transformed ${filePath}`);
+                  logger(fileBuffer?.toString());
                 }
               }
 
