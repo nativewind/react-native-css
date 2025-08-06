@@ -1157,8 +1157,15 @@ export function parseLength(
 
   if ("unit" in length) {
     switch (length.unit) {
-      case "px":
-        return length.value;
+      case "px": {
+        if (length.value === Infinity) {
+          return 9999;
+        } else if (length.value === -Infinity) {
+          return -9999;
+        } else {
+          return length.value;
+        }
+      }
       case "rem":
         if (typeof inlineRem === "number") {
           return length.value * inlineRem;
@@ -2222,7 +2229,11 @@ export function parseDimension(
 ): StyleDescriptor {
   switch (unit) {
     case "px":
-      return value;
+      if (value === Infinity) {
+        return 9999;
+      } else {
+        return value;
+      }
     case "%":
       return `${value}%`;
     case "rnh":
