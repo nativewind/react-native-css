@@ -15,6 +15,7 @@ import type {
   FontStyle,
   FontVariantCaps,
   FontWeight,
+  GapValue,
   Gradient,
   GradientItemFor_DimensionPercentageFor_LengthValue,
   Length,
@@ -2065,8 +2066,14 @@ export function parseGap(
   builder: StylesheetBuilder,
 ) {
   if ("column" in declaration.value) {
-    builder.addDescriptor("row-gap", parseGap(declaration, builder));
-    builder.addDescriptor("column-gap", parseGap(declaration, builder));
+    builder.addDescriptor(
+      "row-gap",
+      parseGapValue(declaration.value.row, builder),
+    );
+    builder.addDescriptor(
+      "column-gap",
+      parseGapValue(declaration.value.column, builder),
+    );
 
     return;
   } else {
@@ -2076,6 +2083,17 @@ export function parseGap(
     }
 
     return parseLength(declaration.value.value, builder);
+  }
+}
+
+function parseGapValue(
+  value: GapValue,
+  builder: StylesheetBuilder,
+): StyleDescriptor {
+  if (value.type === "normal") {
+    return;
+  } else {
+    return parseLength(value.value, builder);
   }
 }
 
