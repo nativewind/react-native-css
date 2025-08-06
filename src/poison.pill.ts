@@ -1,4 +1,7 @@
-throw new Error(`react-native-css has encountered a setup error. 
+const canWarn = process.env.NODE_ENV !== "test";
+
+if (canWarn) {
+  throw new Error(`react-native-css has encountered a setup error. 
 
 ┌─────-─┐
 | Metro | 
@@ -28,5 +31,6 @@ If you are using NativeWind with the 'withNativeWind' function, follow the Metro
 
 If you are using another bundler (Vite, Webpack, etc), or non-Metro framework (Next.js, Remix, etc), please ensure you have included 'react-native-css/babel' as a babel preset.
 `);
+}
 
 export {};
