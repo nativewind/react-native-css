@@ -2,167 +2,165 @@ import { render, screen } from "@testing-library/react-native";
 import { View } from "react-native-css/components/View";
 import { registerCSS, testID } from "react-native-css/jest";
 
-describe("css", () => {
-  test("calc(10px + 100px)", () => {
-    registerCSS(
-      `.my-class {
+test("calc(10px + 100px)", () => {
+  registerCSS(
+    `.my-class {
         width: calc(10px + 100px);
       }`,
-    );
+  );
 
-    render(<View testID={testID} className="my-class" />);
-    const component = screen.getByTestId(testID);
+  render(<View testID={testID} className="my-class" />);
+  const component = screen.getByTestId(testID);
 
-    expect(component.type).toBe("View");
-    expect(component.props).toStrictEqual({
-      children: undefined,
-      style: {
-        width: 110,
-      },
-      testID,
-    });
+  expect(component.type).toBe("View");
+  expect(component.props).toStrictEqual({
+    children: undefined,
+    style: {
+      width: 110,
+    },
+    testID,
   });
+});
 
-  test("calc(100% - 30px)", () => {
-    registerCSS(
-      `.my-class {
+test("calc(100% - 30px)", () => {
+  registerCSS(
+    `.my-class {
         width: calc(100% - 30px);
       }`,
-    );
+  );
 
-    render(<View testID={testID} className="my-class" />);
-    const component = screen.getByTestId(testID);
+  render(<View testID={testID} className="my-class" />);
+  const component = screen.getByTestId(testID);
 
-    // React Native does not support calc() with a percentage value, so there should be no style
-    expect(component.type).toBe("View");
-    expect(component.props).toStrictEqual({
-      children: undefined,
-      testID,
-    });
+  // React Native does not support calc() with a percentage value, so there should be no style
+  expect(component.type).toBe("View");
+  expect(component.props).toStrictEqual({
+    children: undefined,
+    testID,
   });
+});
 
-  test("calc(2em * 3)", () => {
-    registerCSS(
-      `.my-class {
+test("calc(2em * 3)", () => {
+  registerCSS(
+    `.my-class {
         width: calc(2em * 2);
         font-size: 5px
       }`,
-    );
+  );
 
-    render(<View testID={testID} className="my-class" />);
-    const component = screen.getByTestId(testID);
+  render(<View testID={testID} className="my-class" />);
+  const component = screen.getByTestId(testID);
 
-    expect(component.type).toBe("View");
-    expect(component.props).toStrictEqual({
-      children: undefined,
-      style: {
-        width: 20,
-        fontSize: 5,
-      },
-      testID,
-    });
+  expect(component.type).toBe("View");
+  expect(component.props).toStrictEqual({
+    children: undefined,
+    style: {
+      width: 20,
+      fontSize: 5,
+    },
+    testID,
   });
+});
 
-  test("calc(2rem * 5)", () => {
-    registerCSS(
-      `.my-class {
+test("calc(2rem * 5)", () => {
+  registerCSS(
+    `.my-class {
         width: calc(2rem * 5)
       }`,
-    );
+  );
 
-    render(<View testID={testID} className="my-class" />);
-    const component = screen.getByTestId(testID);
+  render(<View testID={testID} className="my-class" />);
+  const component = screen.getByTestId(testID);
 
-    expect(component.type).toBe("View");
-    expect(component.props).toStrictEqual({
-      children: undefined,
-      style: {
-        width: 140,
-      },
-      testID,
-    });
+  expect(component.type).toBe("View");
+  expect(component.props).toStrictEqual({
+    children: undefined,
+    style: {
+      width: 140,
+    },
+    testID,
   });
+});
 
-  test("calc(var(--variable) + 20px)", () => {
-    registerCSS(
-      `.my-class {
+test("calc(var(--variable) + 20px)", () => {
+  registerCSS(
+    `.my-class {
         --my-var: 100px;
         width: calc(var(--my-var) + 20px)
       }`,
-    );
+  );
 
-    render(<View testID={testID} className="my-class" />);
-    const component = screen.getByTestId(testID);
+  render(<View testID={testID} className="my-class" />);
+  const component = screen.getByTestId(testID);
 
-    expect(component.type).toBe("View");
-    expect(component.props).toStrictEqual({
-      children: undefined,
-      style: {
-        width: 120,
-      },
-      testID,
-    });
+  expect(component.type).toBe("View");
+  expect(component.props).toStrictEqual({
+    children: undefined,
+    style: {
+      width: 120,
+    },
+    testID,
   });
+});
 
-  test("calc(var(--percent) + 20%)", () => {
-    registerCSS(
-      `.my-class {
+test("calc(var(--percent) + 20%)", () => {
+  registerCSS(
+    `.my-class {
           --percent: 10%;
         width: calc(var(--percent) + 20%)
       }`,
-    );
+  );
 
-    render(<View testID={testID} className="my-class" />);
-    const component = screen.getByTestId(testID);
+  render(<View testID={testID} className="my-class" />);
+  const component = screen.getByTestId(testID);
 
-    expect(component.type).toBe("View");
-    expect(component.props).toStrictEqual({
-      children: undefined,
-      style: {
-        width: "30%",
-      },
-      testID,
-    });
+  expect(component.type).toBe("View");
+  expect(component.props).toStrictEqual({
+    children: undefined,
+    style: {
+      width: "30%",
+    },
+    testID,
   });
+});
 
-  test("calc(var(--variable) + 20%)", () => {
-    // React Native does not support calc() with a percentage value and a non-percentage unit, so this should be `undefined`
-    registerCSS(
-      `.my-class {
+test("calc(var(--variable) + 20%)", () => {
+  // React Native does not support calc() with a percentage value and a non-percentage unit, so this should be `undefined`
+  registerCSS(
+    `.my-class {
          --variable: 100px;
         width: calc(var(--variable) + 20%)
       }`,
-    );
+  );
 
-    render(<View testID={testID} className="my-class" />);
-    const component = screen.getByTestId(testID);
+  render(<View testID={testID} className="my-class" />);
+  const component = screen.getByTestId(testID);
 
-    expect(component.type).toBe("View");
-    expect(component.props).toStrictEqual({
-      children: undefined,
-      style: {},
-      testID,
-    });
+  expect(component.type).toBe("View");
+  expect(component.props).toStrictEqual({
+    children: undefined,
+    style: {},
+    testID,
   });
+});
 
-  test("calc(var(--percent) + 20px)", () => {
-    // React Native does not support calc() with a percentage value and a non-percentage unit, so this should be `undefined`
-    registerCSS(
-      `.my-class {
+test("calc(var(--percent) + 20px)", () => {
+  // React Native does not support calc() with a percentage value and a non-percentage unit, so this should be `undefined`
+  registerCSS(
+    `.my-class {
         --percent: 10%;
         width: calc(var(--percent) + 20px)
       }`,
-    );
+  );
 
-    render(<View testID={testID} className="my-class" />);
-    const component = screen.getByTestId(testID);
+  render(<View testID={testID} className="my-class" />);
+  const component = screen.getByTestId(testID);
 
-    expect(component.type).toBe("View");
-    expect(component.props).toStrictEqual({
-      children: undefined,
-      style: {},
-      testID,
-    });
+  expect(component.type).toBe("View");
+  expect(component.props).toStrictEqual({
+    children: undefined,
+    style: {},
+    testID,
   });
 });
 
@@ -190,5 +188,19 @@ test("calc & colors", () => {
       backgroundColor: "hsl(120, 90%, 80%)",
     },
     testID,
+  });
+});
+
+test("infinity", () => {
+  registerCSS(`.my-class {
+    border-radius: calc(infinity * 1px);
+  }`);
+
+  render(<View testID={testID} className="my-class" />);
+  const component = screen.getByTestId(testID);
+
+  expect(component.type).toBe("View");
+  expect(component.props.style).toStrictEqual({
+    borderRadius: 9999,
   });
 });
