@@ -40,7 +40,7 @@
     },
     "./jest": {
       "source": "./src/jest/index.ts",
-      "react-native": "./src/jest/index.tsx",
+      "react-native": "./src/jest/index.ts",
       "import": {
         "types": "./dist/typescript/module/src/jest/index.d.ts",
         "default": "./dist/module/jest/index.js"
