@@ -132,17 +132,42 @@ function extractRule(rule: Rule, builder: StylesheetBuilder) {
       extractMedia(rule.value, builder);
       break;
     }
-    case "style": {
-      // If the rule is a style declaration, extract it with the `getExtractedStyle` function and store it in the `declarations` map
-      builder = builder.fork("style");
+    case "nested-declarations": {
+      const value = rule.value;
 
-      const declarationBlock = rule.value.declarations;
-      const mapping = parsePropAtRule(rule.value.rules);
+      const declarationBlock = value.declarations;
+      if (declarationBlock) {
+        if (declarationBlock.declarations) {
+          builder.newRuleFork();
+          for (const declaration of declarationBlock.declarations) {
+            parseDeclaration(declaration, builder);
+          }
+          builder.applyRuleToSelectors();
+        }
+
+        if (declarationBlock.importantDeclarations) {
+          builder.newRuleFork({ important: true });
+          for (const declaration of declarationBlock.importantDeclarations) {
+            parseDeclaration(declaration, builder);
+          }
+          builder.applyRuleToSelectors();
+        }
+      }
+      break;
+    }
+    case "style": {
+      const value = rule.value;
+
+      const declarationBlock = value.declarations;
+      const mapping = parsePropAtRule(value.rules);
       const selectors = getSelectors(
-        rule.value.selectors,
+        value.selectors,
         false,
         builder.getOptions(),
       );
+
+      // If the rule is a style declaration, extract it with the `getExtractedStyle` function and store it in the `declarations` map
+      builder = builder.fork("style", selectors);
 
       if (declarationBlock) {
         if (declarationBlock.declarations) {
@@ -150,7 +175,7 @@ function extractRule(rule: Rule, builder: StylesheetBuilder) {
           for (const declaration of declarationBlock.declarations) {
             parseDeclaration(declaration, builder);
           }
-          builder.applyRuleToSelectors(selectors);
+          builder.applyRuleToSelectors();
         }
 
         if (declarationBlock.importantDeclarations) {
@@ -158,9 +183,16 @@ function extractRule(rule: Rule, builder: StylesheetBuilder) {
           for (const declaration of declarationBlock.importantDeclarations) {
             parseDeclaration(declaration, builder);
           }
-          builder.applyRuleToSelectors(selectors);
+          builder.applyRuleToSelectors();
         }
       }
+
+      if (value.rules) {
+        for (const nestedRule of value.rules) {
+          extractRule(nestedRule, builder);
+        }
+      }
+
       break;
     }
     case "layer-block":
@@ -184,7 +216,6 @@ function extractRule(rule: Rule, builder: StylesheetBuilder) {
     case "counter-style":
     case "moz-document":
     case "nesting":
-    case "nested-declarations":
     case "viewport":
     case "custom-media":
     case "scope":

@@ -57,17 +57,22 @@ export class StylesheetBuilder {
       rem: number;
       ruleOrder: number;
     } = { ruleSets: {}, rem: 14, ruleOrder: 0 },
+    private selectors?: NormalizeSelector[],
   ) {}
 
-  fork(mode = this.mode, rule?: Partial<StyleRule>): StylesheetBuilder {
+  fork(
+    mode = this.mode,
+    selectors: NormalizeSelector[] | undefined = this.selectors,
+  ): StylesheetBuilder {
     this.shared.ruleOrder++;
     return new StylesheetBuilder(
       this.options,
       mode,
-      this.cloneRule(rule ? { ...this.rule, ...rule } : undefined),
+      this.cloneRule(),
       { ...this.mapping },
       this.descriptorProperty,
       this.shared,
+      selectors,
     );
   }
 
@@ -160,6 +165,14 @@ export class StylesheetBuilder {
   newRule(mapping = this.mapping, { important = false } = {}) {
     this.mapping = mapping;
     this.rule = this.cloneRule(this.ruleTemplate);
+    this.rule.s[Specificity.Order] = this.shared.ruleOrder;
+    if (important) {
+      this.rule.s[Specificity.Important] = 1;
+    }
+  }
+
+  newRuleFork({ important = false } = {}) {
+    this.rule = this.cloneRule(this.rule);
     this.rule.s[Specificity.Order] = this.shared.ruleOrder;
     if (important) {
       this.rule.s[Specificity.Important] = 1;
@@ -331,7 +344,12 @@ export class StylesheetBuilder {
     }
   }
 
-  applyRuleToSelectors(selectorList: NormalizeSelector[]): void {
+  applyRuleToSelectors(selectorList = this.selectors): void {
+    if (!selectorList?.length) {
+      // If there are no selectors, we cannot apply the rule
+      return;
+    }
+
     if (!this.rule.d && !this.rule.v) {
       return;
     }
