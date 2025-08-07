@@ -6,11 +6,11 @@ import {
   containerLayoutFamily,
   focusFamily,
   hoverFamily,
-  type Effect,
+  type Getter as WeakKey,
 } from "../reactivity";
 
 const mainCache = new WeakMap<
-  Effect,
+  WeakKey,
   WeakMap<Function, (event: any) => void>
 >();
 
@@ -38,14 +38,14 @@ const defaultHandlers: Record<InteractionType, Handler> = {
 };
 
 export function getInteractionHandler(
-  effect: Effect,
+  weakKey: WeakKey,
   type: InteractionType,
   handler = defaultHandlers[type],
 ) {
-  let cache = mainCache.get(effect);
+  let cache = mainCache.get(weakKey);
   if (!cache) {
     cache = new WeakMap();
-    mainCache.set(effect, cache);
+    mainCache.set(weakKey, cache);
   }
 
   let cached = cache.get(handler);
@@ -57,29 +57,29 @@ export function getInteractionHandler(
 
       switch (type) {
         case "onLayout":
-          containerLayoutFamily(effect).set(
+          containerLayoutFamily(weakKey).set(
             (event as LayoutChangeEvent).nativeEvent.layout,
           );
           break;
         case "onHoverIn":
-          hoverFamily(effect).set(true);
+          hoverFamily(weakKey).set(true);
           break;
         case "onHoverOut":
-          hoverFamily(effect).set(false);
+          hoverFamily(weakKey).set(false);
           break;
         case "onPress":
           break;
         case "onPressIn":
-          activeFamily(effect).set(true);
+          activeFamily(weakKey).set(true);
           break;
         case "onPressOut":
-          activeFamily(effect).set(false);
+          activeFamily(weakKey).set(false);
           break;
         case "onFocus":
-          focusFamily(effect).set(true);
+          focusFamily(weakKey).set(true);
           break;
         case "onBlur":
-          focusFamily(effect).set(false);
+          focusFamily(weakKey).set(false);
           break;
       }
     };

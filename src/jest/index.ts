@@ -1,6 +1,6 @@
 import { Appearance, Dimensions } from "react-native";
 
-import util from "node:util";
+import { inspect } from "node:util";
 
 import { compile, type CompilerOptions } from "../compiler";
 import { StyleCollection } from "../runtime/native/injection";
@@ -37,14 +37,29 @@ export function registerCSS(
     ...options
   }: CompilerOptions & { debug?: boolean } = {},
 ) {
-  const compiled = compile(css, options);
+  const logger = debug
+    ? (text: string) => {
+        // Just log the rules
+        if (text.startsWith("[")) {
+          console.log(`Rules:\n---\n${text}`);
+        }
+      }
+    : undefined;
+
+  const compiled = compile(css, { ...options, logger });
   if (debug) {
     console.log(
-      `Compiled:\n---\n${util.inspect(compiled, { depth: null, colors: true, compact: false })}`,
+      `Compiled:\n---\n${inspect(
+        {
+          stylesheet: compiled.stylesheet(),
+          warnings: compiled.warnings(),
+        },
+        { depth: null, colors: true, compact: false },
+      )}`,
     );
   }
 
-  StyleCollection.inject(compiled);
+  StyleCollection.inject(compiled.stylesheet());
 
   return compiled;
 }

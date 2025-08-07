@@ -14,7 +14,7 @@ import {
   focusFamily,
   hoverFamily,
   type ContainerContextValue,
-  type Effect,
+  type Getter,
 } from "../reactivity";
 import type { RenderGuard } from "./guards";
 
@@ -24,10 +24,10 @@ export function testContainerQueries(
   queries: ContainerQuery[],
   inheritedContainers: ContainerContextValue,
   guards: RenderGuard[],
-  effect: Effect,
+  get: Getter,
 ) {
   return queries.every((query) => {
-    return testContainerQuery(query, inheritedContainers, guards, effect);
+    return testContainerQuery(query, inheritedContainers, guards, get);
   });
 }
 
@@ -35,7 +35,7 @@ export function testContainerQuery(
   query: ContainerQuery,
   inheritedContainers: ContainerContextValue,
   guards: RenderGuard[],
-  effect?: Effect,
+  get: Getter,
 ): boolean {
   const name = query.n ?? DEFAULT_CONTAINER_NAME;
   const container = inheritedContainers[name]!;
@@ -46,11 +46,11 @@ export function testContainerQuery(
     return false;
   }
 
-  if (query.m && !testContainerMediaCondition(query.m, container, effect)) {
+  if (query.m && !testContainerMediaCondition(query.m, container, get)) {
     return false;
   }
 
-  if (query.p && !testContainerPseudoCondition(query.p, container, effect)) {
+  if (query.p && !testContainerPseudoCondition(query.p, container, get)) {
     return false;
   }
 
@@ -60,15 +60,15 @@ export function testContainerQuery(
 function testContainerPseudoCondition(
   query: PseudoClassesQuery,
   containerKey: WeakKey,
-  effect?: Effect,
+  get: Getter,
 ): boolean {
-  if (query.h && !hoverFamily(containerKey).get(effect)) {
+  if (query.h && !get(hoverFamily(containerKey))) {
     return false;
   }
-  if (query.a && !activeFamily(containerKey).get(effect)) {
+  if (query.a && !get(activeFamily(containerKey))) {
     return false;
   }
-  if (query.f && !focusFamily(containerKey).get(effect)) {
+  if (query.f && !get(focusFamily(containerKey))) {
     return false;
   }
   return true;
@@ -77,18 +77,18 @@ function testContainerPseudoCondition(
 function testContainerMediaCondition(
   condition: MediaCondition,
   containerKey: WeakKey,
-  effect?: Effect,
+  get: Getter,
 ): boolean {
   switch (condition[0]) {
     case "!":
-      return !testContainerMediaCondition(condition[1], containerKey, effect);
+      return !testContainerMediaCondition(condition[1], containerKey, get);
     case "&":
       return condition[1].every((query) => {
-        return testContainerMediaCondition(query, containerKey, effect);
+        return testContainerMediaCondition(query, containerKey, get);
       });
     case "|":
       return condition[1].some((query) => {
-        return testContainerMediaCondition(query, containerKey, effect);
+        return testContainerMediaCondition(query, containerKey, get);
       });
     case "!!":
       return false;
@@ -99,7 +99,7 @@ function testContainerMediaCondition(
     case "<":
     case "<=":
     case "=": {
-      const left = getContainerFeatureValue(condition[1], containerKey, effect);
+      const left = getContainerFeatureValue(condition[1], containerKey, get);
       const right = condition[2];
 
       if (condition[0] === "=") {
@@ -133,21 +133,21 @@ function testContainerMediaCondition(
 function getContainerFeatureValue(
   name: MediaFeatureNameFor_ContainerSizeFeatureId,
   containerKey: WeakKey,
-  effect?: Effect,
+  get: Getter,
 ): StyleDescriptor {
   switch (name) {
     case "width":
-      return containerWidthFamily(containerKey).get(effect);
+      return get(containerWidthFamily(containerKey));
     case "height":
-      return containerHeightFamily(containerKey).get(effect);
+      return get(containerHeightFamily(containerKey));
     case "aspect-ratio": {
-      const width = containerWidthFamily(containerKey).get(effect);
-      const height = containerWidthFamily(containerKey).get(effect);
+      const width = get(containerWidthFamily(containerKey));
+      const height = get(containerHeightFamily(containerKey));
       return width / height;
     }
     case "orientation":
-      const width = containerWidthFamily(containerKey).get(effect);
-      const height = containerWidthFamily(containerKey).get(effect);
+      const width = get(containerWidthFamily(containerKey));
+      const height = get(containerHeightFamily(containerKey));
       return width > height ? "landscape" : "portrait";
     case "inline-size":
     case "block-size":

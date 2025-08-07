@@ -1272,7 +1272,7 @@ export function parseAngle(angle: Angle | number, builder: StylesheetBuilder) {
     case "rad":
       return `${angle.value}${angle.type}`;
     default:
-      builder.addWarning("value", angle.value);
+      builder.addWarning("value", "angle", angle.value);
       return undefined;
   }
 }
@@ -1981,6 +1981,7 @@ export function parseLineHeight(
         case "calc":
           builder.addWarning(
             "value",
+            "line-height",
             typeof length.value === "number"
               ? length.value
               : JSON.stringify(length.value),

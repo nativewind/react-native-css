@@ -17,6 +17,7 @@ import type {
   StyleRuleMapping,
   StyleRuleSet,
   VariableRecord,
+  VariableValue,
 } from "./compiler.types";
 import { toRNProperty, type NormalizeSelector } from "./selectors";
 
@@ -56,7 +57,17 @@ export class StylesheetBuilder {
       animations?: AnimationRecord;
       rem: number;
       ruleOrder: number;
-    } = { ruleSets: {}, rem: 14, ruleOrder: 0 },
+      warningProperties: string[];
+      warningValues: [string, unknown][];
+      warningFunctions: string[];
+    } = {
+      ruleSets: {},
+      rem: 14,
+      ruleOrder: 0,
+      warningProperties: [],
+      warningValues: [],
+      warningFunctions: [],
+    },
     private selectors?: NormalizeSelector[],
   ) {}
 
@@ -76,7 +87,7 @@ export class StylesheetBuilder {
     );
   }
 
-  cloneRule({ ...rule } = this.rule): StyleRule {
+  cloneRule({ ...rule } = this.ruleTemplate): StyleRule {
     rule.s = [...rule.s];
     rule.aq &&= [...rule.aq];
     rule.c &&= [...rule.c];
@@ -128,11 +139,17 @@ export class StylesheetBuilder {
     }
 
     if (this.shared.rootVariables) {
-      stylesheetOptions.vr = Object.entries(this.shared.rootVariables);
+      stylesheetOptions.vr = Object.entries(this.shared.rootVariables).map(
+        // Reverse these so the most specific variables are first
+        ([key, value]) => [key, value.reverse()] as const,
+      );
     }
 
     if (this.shared.universalVariables) {
-      stylesheetOptions.vu = Object.entries(this.shared.universalVariables);
+      stylesheetOptions.vu = Object.entries(this.shared.universalVariables).map(
+        // Reverse these so the most specific variables are first
+        ([key, value]) => [key, value.reverse()] as const,
+      );
     }
 
     if (this.shared.animations) {
@@ -156,10 +173,29 @@ export class StylesheetBuilder {
   }
 
   addWarning(
-    _type: "property" | "value" | "function",
-    _property: string | number,
+    type: "property" | "value" | "function",
+    property: string,
+    value?: unknown,
   ): void {
-    // TODO
+    switch (type) {
+      case "property":
+        this.shared.warningProperties.push(property);
+        break;
+      case "value":
+        this.shared.warningValues.push([property, value]);
+        break;
+      case "function":
+        this.shared.warningFunctions.push(property);
+        break;
+    }
+  }
+
+  getWarnings() {
+    return {
+      properties: this.shared.warningProperties,
+      values: this.shared.warningValues,
+      functions: this.shared.warningFunctions,
+    };
   }
 
   newRule(mapping = this.mapping, { important = false } = {}) {
@@ -171,14 +207,12 @@ export class StylesheetBuilder {
     }
   }
 
-  newRuleFork({ important = false } = {}) {
-    this.rule = this.cloneRule(this.rule);
-    this.rule.s[Specificity.Order] = this.shared.ruleOrder;
-    if (important) {
-      this.rule.s[Specificity.Important] = 1;
-    }
+  /** Used by nested declarations (for example @media inside a RuleSet) */
+  newNestedRule({ important = false } = {}) {
+    this.newRule(this.mapping, { important });
   }
 
+  /** Hack for light-dark, which requires adding a new rule without changing the current rule */
   addExtraRule(rule: Partial<StyleRule>) {
     let extraRuleArray = extraRules.get(this.rule);
     if (!extraRuleArray) {
@@ -197,8 +231,8 @@ export class StylesheetBuilder {
   }
 
   addMediaQuery(condition: MediaCondition) {
-    this.rule.m ??= [];
-    this.rule.m.push(condition);
+    this.ruleTemplate.m ??= [];
+    this.ruleTemplate.m.push(condition);
   }
 
   addContainer(value: string[] | false) {
@@ -355,7 +389,8 @@ export class StylesheetBuilder {
     }
 
     for (const selector of selectorList) {
-      const rule = this.cloneRule();
+      // We are going to be apply the current rule to n selectors, so we clone the rule
+      const rule = this.cloneRule(this.rule);
 
       if (selector.type === "className") {
         const {
@@ -431,16 +466,28 @@ export class StylesheetBuilder {
 
         for (const [name, value] of this.rule.v) {
           this.shared[type] ??= {};
-          this.shared[type][name] ??= [undefined];
-          this.shared[type][name][subtype === "light" ? 0 : 1] = value;
+          this.shared[type][name] ??= [];
+
+          const variableValue: VariableValue =
+            subtype === "light"
+              ? [value]
+              : [value, [["=", "prefers-color-scheme", "dark"]]];
+
+          // Append extra media queries if they exist
+          if (this.rule.m) {
+            variableValue[1] ??= [];
+            variableValue[1].push(...this.rule.m);
+          }
+
+          this.shared[type][name].push(variableValue);
         }
       }
     }
   }
 
   addContainerQuery(query: ContainerQuery) {
-    this.rule.cq ??= [];
-    this.rule.cq.push(query);
+    this.ruleTemplate.cq ??= [];
+    this.ruleTemplate.cq.push(query);
   }
 
   newAnimationFrames(name: string) {

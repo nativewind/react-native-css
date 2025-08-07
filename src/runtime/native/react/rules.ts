@@ -104,7 +104,7 @@ export function updateRules(
       if (
         !testRule(
           rule,
-          state.ruleEffect,
+          state.ruleEffectGetter,
           currentProps,
           guards,
           inheritedContainers,
@@ -132,20 +132,20 @@ export function updateRules(
           containers = {
             ...inheritedContainers,
             // This container becomes the default container
-            [DEFAULT_CONTAINER_NAME]: state.ruleEffect,
+            [DEFAULT_CONTAINER_NAME]: state.ruleEffectGetter,
           };
         }
 
         // This this component as the named container
         for (const name of rule.c) {
-          containers![name] = state.ruleEffect;
+          containers![name] = state.ruleEffectGetter;
         }
 
         // Enable hover/active/focus/layout handlers
-        hoverFamily(state.ruleEffect);
-        activeFamily(state.ruleEffect);
-        focusFamily(state.ruleEffect);
-        containerLayoutFamily(state.ruleEffect);
+        hoverFamily(state.ruleEffectGetter);
+        activeFamily(state.ruleEffectGetter);
+        focusFamily(state.ruleEffectGetter);
+        containerLayoutFamily(state.ruleEffectGetter);
       }
 
       if (rule.a) {
@@ -163,7 +163,7 @@ export function updateRules(
 
     if (process.env.NODE_ENV !== "production") {
       if (isRerender) {
-        let pressable = activeFamily.has(state.ruleEffect);
+        let pressable = activeFamily.has(state.ruleEffectGetter);
 
         if (Boolean(variables) !== Boolean(state.variables)) {
           console.log(
@@ -190,7 +190,7 @@ export function updateRules(
   let pressable =
     process.env.NODE_ENV === "production"
       ? undefined
-      : activeFamily.has(state.ruleEffect);
+      : activeFamily.has(state.ruleEffectGetter);
 
   if (!rules.size && !state.stylesObs && !inlineVariables.size) {
     return {

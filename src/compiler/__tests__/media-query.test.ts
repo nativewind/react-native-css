@@ -8,7 +8,7 @@ describe.skip("platform media queries", () => {
     }
   `);
 
-    expect(compiled).toStrictEqual({
+    expect(compiled.stylesheet()).toStrictEqual({
       s: [
         [
           "my-class",
@@ -39,7 +39,7 @@ describe.skip("platform media queries", () => {
     }
   `);
 
-    expect(compiled).toStrictEqual({
+    expect(compiled.stylesheet()).toStrictEqual({
       s: [
         [
           "my-class",

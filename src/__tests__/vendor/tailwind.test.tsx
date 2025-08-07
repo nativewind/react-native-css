@@ -23,7 +23,7 @@ test("transition", () => {
 }
   `);
 
-  expect(compiled).toStrictEqual({
+  expect(compiled.stylesheet()).toStrictEqual({
     s: [
       [
         "transition",
@@ -84,10 +84,10 @@ test("transition", () => {
       ],
     ],
     vr: [
-      ["default-transition-duration", [150]],
+      ["default-transition-duration", [[150]]],
       [
         "default-transition-timing-function",
-        [[{}, "cubic-bezier", [0.4, 0, 0.2, 1]]],
+        [[[{}, "cubic-bezier", [0.4, 0, 0.2, 1]]]],
       ],
     ],
   });
@@ -107,7 +107,7 @@ test("box-shadow", () => {
 }
   `);
 
-  expect(compiled).toStrictEqual({
+  expect(compiled.stylesheet()).toStrictEqual({
     s: [
       [
         "shadow-xl",
@@ -215,7 +215,7 @@ test("filter", () => {
 }
   `);
 
-  expect(compiled).toStrictEqual({
+  expect(compiled.stylesheet()).toStrictEqual({
     s: [
       [
         "brightness-50",
@@ -286,7 +286,7 @@ test("filter", () => {
         ],
       ],
     ],
-    vr: [["drop-shadow-md", [[0, 3, 3, "#0000001f"]]]],
+    vr: [["drop-shadow-md", [[[0, 3, 3, "#0000001f"]]]]],
   });
 
   render(<View testID={testID} className="brightness-50 drop-shadow-md" />);

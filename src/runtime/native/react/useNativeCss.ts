@@ -17,6 +17,7 @@ import {
   VariableContext,
   type ContainerContextValue,
   type Effect,
+  type Getter,
   type VariableContextValue,
 } from "../reactivity";
 import { getStyledProps, stylesFamily } from "../styles";
@@ -35,6 +36,7 @@ export type ComponentState = {
 
   /** Reactive tracking */
   ruleEffect: Effect;
+  ruleEffectGetter: Getter;
   styleEffect: Effect;
 
   /** The components props */
@@ -94,6 +96,7 @@ export function useNativeCss(
     return updateRules(
       {
         ruleEffect,
+        ruleEffectGetter: (observable) => observable.get(ruleEffect),
         styleEffect,
         configs,
         inheritedContainers,

@@ -55,57 +55,57 @@ export function getStyledProps(
     }
 
     // Apply the handlers
-    if (hoverFamily.has(state.ruleEffect)) {
+    if (hoverFamily.has(state.ruleEffectGetter)) {
       result ??= {};
       result.onHoverIn = getInteractionHandler(
-        state.ruleEffect,
+        state.ruleEffectGetter,
         "onHoverIn",
         inline?.onHoverIn,
       );
       result.onHoverOut = getInteractionHandler(
-        state.ruleEffect,
+        state.ruleEffectGetter,
         "onHoverOut",
         inline?.onHoverOut,
       );
     }
 
-    if (activeFamily.has(state.ruleEffect)) {
+    if (activeFamily.has(state.ruleEffectGetter)) {
       result ??= {};
       result.onPress = getInteractionHandler(
-        state.ruleEffect,
+        state.ruleEffectGetter,
         "onPress",
         inline?.onPress,
       );
       result.onPressIn = getInteractionHandler(
-        state.ruleEffect,
+        state.ruleEffectGetter,
         "onPressIn",
         inline?.onPressIn,
       );
       result.onPressOut = getInteractionHandler(
-        state.ruleEffect,
+        state.ruleEffectGetter,
         "onPressOut",
         inline?.onPressOut,
       );
     }
 
-    if (focusFamily.has(state.ruleEffect)) {
+    if (focusFamily.has(state.ruleEffectGetter)) {
       result ??= {};
       result.onBlur = getInteractionHandler(
-        state.ruleEffect,
+        state.ruleEffectGetter,
         "onBlur",
         inline?.onBlur,
       );
       result.onFocus = getInteractionHandler(
-        state.ruleEffect,
+        state.ruleEffectGetter,
         "onFocus",
         inline?.onFocus,
       );
     }
 
-    if (containerLayoutFamily.has(state.ruleEffect)) {
+    if (containerLayoutFamily.has(state.ruleEffectGetter)) {
       result ??= {};
       result.onLayout = getInteractionHandler(
-        state.ruleEffect,
+        state.ruleEffectGetter,
         "onLayout",
         inline?.onLayout,
       );

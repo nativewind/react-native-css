@@ -19,7 +19,7 @@ test.skip("test compiler", () => {
   `,
   );
 
-  expect(compiled).toStrictEqual({
+  expect(compiled.stylesheet()).toStrictEqual({
     k: [
       [
         "slide-in",

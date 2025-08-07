@@ -2,7 +2,6 @@
 import type { ComponentState } from "../react/useNativeCss";
 import type {
   ContainerContextValue,
-  Effect,
   VariableContextValue,
 } from "../reactivity";
 
@@ -10,7 +9,7 @@ export type RenderGuard =
   | ["a", string, any]
   | ["d", string, any]
   | ["v", string, any]
-  | ["c", string, Effect];
+  | ["c", string, WeakKey];
 
 export function testGuards(
   state: ComponentState,

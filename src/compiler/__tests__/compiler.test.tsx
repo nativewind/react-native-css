@@ -6,7 +6,7 @@ test("hello world", () => {
   color: red;
 }`);
 
-  expect(compiled).toStrictEqual({
+  expect(compiled.stylesheet()).toStrictEqual({
     s: [
       [
         "my-class",
@@ -34,8 +34,8 @@ test("reads global CSS variables", () => {
   }
 }`);
 
-  expect(compiled).toStrictEqual({
-    vr: [["color-red-500", ["#fb2c36"]]],
+  expect(compiled.stylesheet()).toStrictEqual({
+    vr: [["color-red-500", [["#fb2c36"]]]],
   });
 });
 
@@ -49,7 +49,7 @@ test.skip("removes unused CSS variables", () => {
     }
   `);
 
-  expect(compiled).toStrictEqual({
+  expect(compiled.stylesheet()).toStrictEqual({
     s: [
       [
         "test",
@@ -84,7 +84,7 @@ test.skip("preserves unused CSS variables with preserve-variables", () => {
     }
   `);
 
-  expect(compiled).toStrictEqual({
+  expect(compiled.stylesheet()).toStrictEqual({
     s: [
       [
         "test",
@@ -117,7 +117,7 @@ test("multiple rules with same selector", () => {
 }
 `);
 
-  expect(compiled).toStrictEqual({
+  expect(compiled.stylesheet()).toStrictEqual({
     s: [
       [
         "redOrGreen",
@@ -157,7 +157,7 @@ test.skip("transitions", () => {
     }
   `);
 
-  expect(compiled).toStrictEqual({
+  expect(compiled.stylesheet()).toStrictEqual({
     s: [
       [
         "test",
@@ -195,7 +195,7 @@ test.skip("animations", () => {
     }
   `);
 
-  expect(compiled).toStrictEqual({
+  expect(compiled.stylesheet()).toStrictEqual({
     k: [
       [
         "spin",
@@ -242,8 +242,8 @@ test("breaks apart comma separated variables", () => {
     }
   `);
 
-  expect(compiled).toStrictEqual({
-    vr: [["test", [["blue", "green"]]]],
+  expect(compiled.stylesheet()).toStrictEqual({
+    vr: [["test", [[["blue", "green"]]]]],
   });
 });
 
@@ -253,7 +253,7 @@ test("light-dark()", () => {
   background-color: light-dark(#333b3c, #efefec);
 }`);
 
-  expect(compiled).toStrictEqual({
+  expect(compiled.stylesheet()).toStrictEqual({
     s: [
       [
         "my-class",
@@ -295,20 +295,17 @@ test("media query nested in rules", () => {
 
   @media (min-width: 100px) {
     background-color: yellow;
+
   }
 }`);
 
-  expect(compiled).toStrictEqual({
+  expect(compiled.stylesheet()).toStrictEqual({
     s: [
       [
         "my-class",
         [
           {
-            d: [
-              {
-                color: "#f00",
-              },
-            ],
+            d: [{ color: "#f00" }],
             s: [1, 1],
             v: [["__rn-css-color", "#f00"]],
           },
@@ -323,50 +320,42 @@ test("media query nested in rules", () => {
             v: [["__rn-css-color", "#00f"]],
           },
           {
-            d: [
-              {
-                backgroundColor: "#008000",
-              },
+            d: [{ backgroundColor: "#008000" }],
+            m: [
+              [">=", "width", 600],
+              [">=", "width", 400],
             ],
-            m: [[">=", "width", 400]],
             s: [3, 1],
           },
           {
-            d: [
-              {
-                backgroundColor: "#ff0",
-              },
-            ],
+            d: [{ backgroundColor: "#ff0" }],
             m: [[">=", "width", 100]],
             s: [4, 1],
           },
+        ],
+      ],
+    ],
+  });
+});
+
+test("container queries", () => {
+  const compiled = compile(`
+  @container (width > 400px) {
+    .child {
+      color: blue;
+    }
+  }`);
+
+  expect(compiled.stylesheet()).toStrictEqual({
+    s: [
+      [
+        "child",
+        [
           {
-            d: [
-              {
-                color: "#00f",
-              },
-            ],
-            m: [[">=", "width", 600]],
-            s: [2, 1, 1],
+            cq: [{ m: [">", "width", 400] }],
+            d: [{ color: "#00f" }],
+            s: [2, 1],
             v: [["__rn-css-color", "#00f"]],
-          },
-          {
-            d: [
-              {
-                backgroundColor: "#008000",
-              },
-            ],
-            m: [[">=", "width", 400]],
-            s: [3, 1, 1],
-          },
-          {
-            d: [
-              {
-                backgroundColor: "#ff0",
-              },
-            ],
-            m: [[">=", "width", 100]],
-            s: [4, 1, 1],
           },
         ],
       ],
