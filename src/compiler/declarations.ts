@@ -270,6 +270,7 @@ function parseWithParser(declaration: Declaration, builder: StylesheetBuilder) {
 
     builder.descriptorProperty = declaration.property;
 
+    builder.setWarningProperty(declaration.property);
     const value = parser(declaration, builder, declaration.property);
 
     if (value !== undefined) {
@@ -827,6 +828,8 @@ export function parseDeclarationUnparsed(
     return;
   }
 
+  builder.setWarningProperty(property);
+
   /**
    * React Native doesn't support all the logical properties
    */
@@ -882,6 +885,7 @@ export function parseDeclarationCustom(
     property.startsWith("--") ||
     property.startsWith("-rn-")
   ) {
+    builder.setWarningProperty(property);
     builder.addDescriptor(
       property,
       parseUnparsed(declaration.value.value, builder, allowAuto.has(property)),
@@ -1061,7 +1065,7 @@ export function parseUnparsed(
             builder,
           );
         default: {
-          builder.addWarning("function", tokenOrValue.value.name);
+          builder.addWarning("value", `${tokenOrValue.value.name}()`);
           return;
         }
       }
@@ -1288,7 +1292,7 @@ export function parseAngle(angle: Angle | number, builder: StylesheetBuilder) {
     case "rad":
       return `${angle.value}${angle.type}`;
     default:
-      builder.addWarning("value", "angle", angle.value);
+      builder.addWarning("value", `${angle.value} ${angle.type}`);
       return undefined;
   }
 }
@@ -1996,7 +2000,7 @@ export function parseLineHeight(
         case "percentage":
         case "calc":
           builder.addWarning(
-            "value",
+            "style",
             "line-height",
             typeof length.value === "number"
               ? length.value

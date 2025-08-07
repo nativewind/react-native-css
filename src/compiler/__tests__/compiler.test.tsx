@@ -362,3 +362,22 @@ test("container queries", () => {
     ],
   });
 });
+
+test("warnings", () => {
+  const compiled = compile(`
+.my-class {
+    invalid-property: red;
+    z-index: auto; 
+    color: random();
+}`);
+
+  expect(compiled.stylesheet()).toStrictEqual({});
+
+  expect(compiled.warnings()).toStrictEqual({
+    properties: ["invalid-property"],
+    values: {
+      "z-index": ["auto"],
+      "color": ["random()"],
+    },
+  });
+});
