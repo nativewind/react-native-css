@@ -1029,6 +1029,7 @@ export function parseUnparsed(
         case "translateY":
           tokenOrValue.value.name = `@${tokenOrValue.value.name}`;
           return unparsedFunction(tokenOrValue, builder);
+        case "blur":
         case "brightness":
         case "contrast":
         case "cubic-bezier":
