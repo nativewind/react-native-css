@@ -39,7 +39,7 @@ function testComparison(mediaQuery: MediaCondition, get: Getter): Boolean {
 
   switch (mediaQuery[1]) {
     case "platform":
-      return right === Platform.OS;
+      return right === "native" || right === Platform.OS;
     case "prefers-color-scheme": {
       return right === get(colorScheme);
     }

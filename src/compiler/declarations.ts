@@ -757,7 +757,17 @@ function parseLetterSpacing(
   if (value.type === "normal") {
     return;
   }
-  return parseLength(value.value, builder);
+  const descriptor = parseLength(value.value, builder);
+
+  if (
+    Array.isArray(descriptor) &&
+    descriptor[1] === "em" &&
+    typeof descriptor[2] === "number"
+  ) {
+    return descriptor[2];
+  }
+
+  return descriptor;
 }
 
 function parseTextDecoration(
@@ -1166,7 +1176,7 @@ export function parseLength(
   const { inlineRem = 14 } = builder.getOptions();
 
   if (typeof length === "number") {
-    return length;
+    return round(length);
   }
 
   if ("unit" in length) {
@@ -1177,19 +1187,19 @@ export function parseLength(
         } else if (length.value === -Infinity) {
           return -9999;
         } else {
-          return length.value;
+          return round(length.value);
         }
       }
       case "rem":
         if (typeof inlineRem === "number") {
           return length.value * inlineRem;
         } else {
-          return [{}, "rem", length.value];
+          return [{}, "rem", round(length.value)];
         }
       case "vw":
       case "vh":
       case "em":
-        return [{}, length.unit, length.value, 1];
+        return [{}, length.unit, round(length.value), 1];
       case "in":
       case "cm":
       case "mm":
@@ -2288,7 +2298,7 @@ export function parseSVGPaint(
 }
 
 export function round(number: number) {
-  return Math.round((number + Number.EPSILON) * 100) / 100;
+  return Math.round((number + Number.EPSILON) * 10000) / 10000;
 }
 
 export function parseDimensionPercentageFor_LengthValue(

@@ -2,17 +2,21 @@
 import { rem as remObs, vh as vhObs, vw as vwObs } from "../reactivity";
 import type { StyleFunctionResolver } from "./resolve";
 
-export const em: StyleFunctionResolver = (resolve, func) => {
+export const em: StyleFunctionResolver = (resolve, func, get) => {
   let value = func[2];
 
   if (!value) {
     return;
   }
 
-  const emValue = resolve([{}, "var", ["__rn-css-em"]]);
+  let emValue = resolve([{}, "var", ["__rn-css-em"]]);
 
   if (typeof emValue !== "number") {
-    return undefined;
+    emValue = get(remObs);
+  }
+
+  if (typeof emValue !== "number") {
+    return;
   }
 
   return round(Number(value) * emValue);
