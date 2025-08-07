@@ -1,4 +1,6 @@
 /* eslint-disable */
+import { inspect } from "node:util";
+
 import { debug } from "debug";
 import {
   transform as lightningcss,
@@ -12,11 +14,7 @@ import {
 } from "lightningcss";
 
 import { maybeMutateReactNativeOptions, parsePropAtRule } from "./atRules";
-import type {
-  CompilerOptions,
-  ContainerQuery,
-  ReactNativeCssStyleSheet,
-} from "./compiler.types";
+import type { CompilerOptions, ContainerQuery } from "./compiler.types";
 import { parseContainerCondition } from "./container-query";
 import { parseDeclaration } from "./declarations";
 import { extractKeyFrames } from "./keyframes";
@@ -33,11 +31,11 @@ const defaultLogger = debug("react-native-css:compiler");
  * @param options - Compiler options
  * @returns A `ReactNativeCssStyleSheet` that can be passed to `StyleSheet.register` or used with a custom runtime
  */
-export function compile(
-  code: Buffer | string,
-  options: CompilerOptions = {},
-): ReactNativeCssStyleSheet {
+export function compile(code: Buffer | string, options: CompilerOptions = {}) {
   const { logger = defaultLogger } = options;
+  const isLoggerEnabled =
+    "enabled" in logger ? logger.enabled : Boolean(logger);
+
   const features = Object.assign({}, options.features);
 
   if (options.selectorPrefix && options.selectorPrefix.startsWith(".")) {
@@ -67,8 +65,12 @@ export function compile(
       maybeMutateReactNativeOptions(rule, builder);
     },
     StyleSheetExit(sheet) {
-      logger(`Found ${sheet.rules.length} rules to process`);
-      logger(JSON.stringify(sheet.rules, null, 2));
+      if (isLoggerEnabled) {
+        logger(`Found ${sheet.rules.length} rules to process`);
+        logger(
+          inspect(sheet.rules, { depth: null, colors: true, compact: false }),
+        );
+      }
 
       for (const rule of sheet.rules) {
         // Extract the style declarations and animations from the current rule
@@ -108,7 +110,10 @@ export function compile(
     visitor,
   });
 
-  return builder.getNativeStyleSheet();
+  return {
+    stylesheet: () => builder.getNativeStyleSheet(),
+    warnings: () => builder.getWarnings(),
+  };
 }
 
 /**
@@ -137,16 +142,16 @@ function extractRule(rule: Rule, builder: StylesheetBuilder) {
 
       const declarationBlock = value.declarations;
       if (declarationBlock) {
-        if (declarationBlock.declarations) {
-          builder.newRuleFork();
+        if (declarationBlock.declarations?.length) {
+          builder.newNestedRule();
           for (const declaration of declarationBlock.declarations) {
             parseDeclaration(declaration, builder);
           }
           builder.applyRuleToSelectors();
         }
 
-        if (declarationBlock.importantDeclarations) {
-          builder.newRuleFork({ important: true });
+        if (declarationBlock.importantDeclarations?.length) {
+          builder.newNestedRule({ important: true });
           for (const declaration of declarationBlock.importantDeclarations) {
             parseDeclaration(declaration, builder);
           }
@@ -283,17 +288,17 @@ function extractContainer(
   builder = builder.fork("container");
 
   // Iterate over all rules inside the containerRule and extract their styles using the updated CompilerCollection
+  const query: ContainerQuery = {
+    m: parseContainerCondition(containerRule.condition, builder),
+  };
+
+  if (containerRule.name) {
+    query.n = containerRule.name;
+  }
+
+  builder.addContainerQuery(query);
+
   for (const rule of containerRule.rules) {
-    const query: ContainerQuery = {
-      m: parseContainerCondition(containerRule.condition, builder),
-    };
-
-    if (containerRule.name) {
-      query.n = containerRule.name;
-    }
-
-    builder.addContainerQuery(query);
-
     extractRule(rule, builder);
   }
 }

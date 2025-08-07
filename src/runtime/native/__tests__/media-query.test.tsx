@@ -7,6 +7,37 @@ import { registerCSS, testID } from "react-native-css/jest";
 import { colorScheme } from "../api";
 import { dimensions } from "../reactivity";
 
+jest.mock("react-native", () => {
+  const RN = jest.requireActual("react-native");
+  RN.Platform.OS = "ios";
+  return RN as unknown;
+});
+
+test(":root MediaQueries", () => {
+  registerCSS(`
+  :root {
+    @media ios {
+      --my-var: System;
+    }
+    @media android {
+      --my-var: SystemAndroid;
+    }
+  }
+
+  @layer utilities {
+    .my-class {
+      font-family: var(--my-var);
+    }
+  }`);
+
+  render(<View testID={testID} className="my-class" />);
+  const component = screen.getByTestId(testID);
+
+  expect(component.props.style).toStrictEqual({
+    fontFamily: "System",
+  });
+});
+
 test("color scheme", () => {
   registerCSS(`
 .my-class { color: blue; }

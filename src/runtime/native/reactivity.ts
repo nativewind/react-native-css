@@ -7,7 +7,8 @@ import {
   type LayoutRectangle,
 } from "react-native";
 
-import type { LightDarkVariable, StyleDescriptor } from "../../compiler";
+import type { StyleDescriptor, VariableValue } from "../../compiler";
+import { testMediaQuery } from "./conditions/media-query";
 
 export type Effect = {
   observers: Set<Effect>;
@@ -189,24 +190,32 @@ export const VariableContext = createContext<VariableContextValue>({
   [VAR_SYMBOL]: true,
 });
 
-const lightDarkFamily = () => {
-  return family<string, Observable<StyleDescriptor, LightDarkVariable>>(() => {
-    const obs = observable<StyleDescriptor, LightDarkVariable>(
-      (read, lightDark = [undefined, undefined]) => {
-        const colorSchemeName =
-          read(colorScheme) ?? Appearance.getColorScheme() ?? "light";
+const rootVariableFamily = () => {
+  return family<string, Observable<StyleDescriptor, VariableValue[]>>(() => {
+    const obs = observable<StyleDescriptor, VariableValue[]>(
+      (read, variableValue) => {
+        if (!variableValue) return undefined;
 
-        return colorSchemeName === "dark"
-          ? (lightDark[1] ?? lightDark[0])
-          : lightDark[0];
+        for (const [value, mediaQuery] of variableValue) {
+          if (!mediaQuery) {
+            return value;
+          }
+
+          if (testMediaQuery(mediaQuery, read)) {
+            return value;
+          }
+        }
+
+        return undefined;
       },
     );
 
     return obs;
   });
 };
-export const rootVariables = lightDarkFamily();
-export const universalVariables = lightDarkFamily();
+
+export const rootVariables = rootVariableFamily();
+export const universalVariables = rootVariableFamily();
 
 /** Units *********************************************************************/
 
@@ -237,7 +246,7 @@ Appearance.addChangeListener((event) => colorScheme.set(event.colorScheme));
 
 /** Containers ****************************************************************/
 
-export type ContainerContextValue = Record<string, Effect>;
+export type ContainerContextValue = Record<string, WeakKey>;
 export const ContainerContext = createContext<ContainerContextValue>({});
 
 export const containerLayoutFamily = weakFamily(() => {

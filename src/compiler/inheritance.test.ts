@@ -6,7 +6,7 @@ test("nested classes", () => {
   color: red;
 }`);
 
-  expect(compiled).toStrictEqual({
+  expect(compiled.stylesheet()).toStrictEqual({
     s: [
       [
         "my-class",
@@ -38,7 +38,7 @@ test("multiple tiers classes", () => {
   color: red;
 }`);
 
-  expect(compiled).toStrictEqual({
+  expect(compiled.stylesheet()).toStrictEqual({
     s: [
       [
         "one",
@@ -79,7 +79,7 @@ test("tiers with multiple classes", () => {
   color: red;
 }`);
 
-  expect(compiled).toStrictEqual({
+  expect(compiled.stylesheet()).toStrictEqual({
     s: [
       [
         "one",

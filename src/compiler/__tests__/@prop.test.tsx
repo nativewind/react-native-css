@@ -9,7 +9,7 @@ test("@prop single", () => {
     }
   `);
 
-  expect(compiled).toStrictEqual({
+  expect(compiled.stylesheet()).toStrictEqual({
     s: [
       [
         "test",
@@ -39,7 +39,7 @@ test("@prop single, nested value", () => {
     }
   `);
 
-  expect(compiled).toStrictEqual({
+  expect(compiled.stylesheet()).toStrictEqual({
     s: [
       [
         "test",
@@ -69,7 +69,7 @@ test("@prop single, top level", () => {
     }
   `);
 
-  expect(compiled).toStrictEqual({
+  expect(compiled.stylesheet()).toStrictEqual({
     s: [
       [
         "test",
@@ -99,7 +99,7 @@ test("@prop single, top level, nested", () => {
     }
   `);
 
-  expect(compiled).toStrictEqual({
+  expect(compiled.stylesheet()).toStrictEqual({
     s: [
       [
         "test",
@@ -129,7 +129,7 @@ test("@prop single, top level, nested", () => {
     }
   `);
 
-  expect(compiled).toStrictEqual({
+  expect(compiled.stylesheet()).toStrictEqual({
     s: [
       [
         "test",
@@ -162,7 +162,7 @@ test("@prop multiple", () => {
     }
   `);
 
-  expect(compiled).toStrictEqual({
+  expect(compiled.stylesheet()).toStrictEqual({
     s: [
       [
         "test",

@@ -10,7 +10,7 @@ import {
   focusFamily,
   hoverFamily,
   type ContainerContextValue,
-  type Effect,
+  type Getter,
 } from "../reactivity";
 import { testContainerQueries } from "./container-query";
 import type { RenderGuard } from "./guards";
@@ -18,15 +18,15 @@ import { testMediaQuery } from "./media-query";
 
 export function testRule(
   rule: StyleRule,
-  effect: Effect,
+  get: Getter,
   props: Props,
   guards: RenderGuard[],
   containerContext: ContainerContextValue,
 ) {
-  if (rule.p && !pseudoClasses(rule.p, effect)) {
+  if (rule.p && !pseudoClasses(rule.p, get)) {
     return false;
   }
-  if (rule.m && !testMediaQuery(rule.m, effect)) {
+  if (rule.m && !testMediaQuery(rule.m, get)) {
     return false;
   }
   if (rule.aq && !attributes(rule.aq, props, guards)) {
@@ -34,7 +34,7 @@ export function testRule(
   }
   if (
     rule.cq &&
-    !testContainerQueries(rule.cq, containerContext, guards, effect)
+    !testContainerQueries(rule.cq, containerContext, guards, get)
   ) {
     return false;
   }
@@ -42,14 +42,14 @@ export function testRule(
   return true;
 }
 
-function pseudoClasses(query: PseudoClassesQuery, effect: Effect) {
-  if (query.h && !hoverFamily(effect).get(effect)) {
+function pseudoClasses(query: PseudoClassesQuery, get: Getter) {
+  if (query.h && !get(hoverFamily(get))) {
     return false;
   }
-  if (query.a && !activeFamily(effect).get(effect)) {
+  if (query.a && !get(activeFamily(get))) {
     return false;
   }
-  if (query.f && !focusFamily(effect).get(effect)) {
+  if (query.f && !get(focusFamily(get))) {
     return false;
   }
   return true;

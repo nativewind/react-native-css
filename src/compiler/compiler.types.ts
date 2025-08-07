@@ -35,9 +35,9 @@ export interface ReactNativeCssStyleSheet_V2 {
   /** KeyFrames */
   k?: Animation_V2[];
   /** Root Variables */
-  vr?: [string, LightDarkVariable][];
+  vr?: RootVariables;
   /** Universal Variables */
-  vu?: [string, LightDarkVariable][];
+  vu?: RootVariables;
 }
 
 /********************************    Styles    ********************************/
@@ -147,10 +147,12 @@ export type StyleFunction =
 /******************************    Variables    *******************************/
 
 export type VariableDescriptor = [string, StyleDescriptor];
-export type VariableRecord = Record<string, LightDarkVariable>;
-export type LightDarkVariable =
+export type VariableRecord = Record<string, VariableValue[]>;
+export type VariableValue =
   | [StyleDescriptor]
-  | [StyleDescriptor, StyleDescriptor];
+  | [StyleDescriptor, MediaCondition[]];
+
+export type RootVariables = [string, VariableValue[]][];
 
 export type InlineVariable = {
   [VAR_SYMBOL]: "inline";

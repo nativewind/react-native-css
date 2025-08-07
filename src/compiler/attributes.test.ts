@@ -6,7 +6,7 @@ test("multiple classes", () => {
   color: red;
 }`);
 
-  expect(compiled).toStrictEqual({
+  expect(compiled.stylesheet()).toStrictEqual({
     s: [
       [
         "test",
