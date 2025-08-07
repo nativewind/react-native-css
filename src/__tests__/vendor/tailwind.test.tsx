@@ -353,3 +353,61 @@ test("line-clamp", () => {
     testID,
   });
 });
+
+test("blur-xl", () => {
+  const compiled = registerCSS(`
+   @layer theme {
+      :root, :host {
+        --blur-xs: 4px;
+      }
+    }
+    @layer utilities {
+      .blur-xs {
+        --tw-blur: blur(var(--blur-xs));
+        filter: var(--tw-blur,) var(--tw-brightness,) var(--tw-contrast,) var(--tw-grayscale,) var(--tw-hue-rotate,) var(--tw-invert,) var(--tw-saturate,) var(--tw-sepia,) var(--tw-drop-shadow,);
+      }
+    }
+      `);
+
+  expect(compiled.stylesheet()).toStrictEqual({
+    s: [
+      [
+        "blur-xs",
+        [
+          {
+            d: [
+              [
+                [
+                  [{}, "var", "tw-blur", 1],
+                  [{}, "var", "tw-brightness", 1],
+                  [{}, "var", "tw-contrast", 1],
+                  [{}, "var", "tw-grayscale", 1],
+                  [{}, "var", "tw-hue-rotate", 1],
+                  [{}, "var", "tw-invert", 1],
+                  [{}, "var", "tw-saturate", 1],
+                  [{}, "var", "tw-sepia", 1],
+                  [{}, "var", "tw-drop-shadow", 1],
+                ],
+                "filter",
+              ],
+            ],
+            s: [2, 1],
+            v: [["tw-blur", [{}, "blur", [{}, "var", "blur-xs", 1]]]],
+          },
+        ],
+      ],
+    ],
+    vr: [["blur-xs", [[4]]]],
+  });
+
+  render(<View testID={testID} className="blur-xs" />);
+  const component = screen.getByTestId(testID);
+
+  expect(component.props).toStrictEqual({
+    children: undefined,
+    style: {
+      filter: [{ blur: 4 }],
+    },
+    testID,
+  });
+});
