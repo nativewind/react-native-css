@@ -1,6 +1,6 @@
 {
   "name": "react-native-css",
-  "version": "3.0.0-nightly.75f8b74",
+  "version": "3.0.0-nightly.df0f885",
   "exports": {
     ".": {
       "source": "./src/index.ts",
