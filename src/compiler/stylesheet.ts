@@ -57,15 +57,16 @@ export class StylesheetBuilder {
       animations?: AnimationRecord;
       rem: number;
       ruleOrder: number;
+      warningProperty?: string;
       warningProperties: string[];
-      warningValues: [string, unknown][];
+      warningValues: Record<string, unknown[]>;
       warningFunctions: string[];
     } = {
       ruleSets: {},
       rem: 14,
       ruleOrder: 0,
       warningProperties: [],
-      warningValues: [],
+      warningValues: {},
       warningFunctions: [],
     },
     private selectors?: NormalizeSelector[],
@@ -172,8 +173,14 @@ export class StylesheetBuilder {
     );
   }
 
+  setWarningProperty(property: string) {
+    this.shared.warningProperty = property;
+  }
+
+  addWarning(type: "property" | "value", property: string): void;
+  addWarning(type: "style", property: string, value: unknown): void;
   addWarning(
-    type: "property" | "value" | "function",
+    type: "property" | "style" | "value",
     property: string,
     value?: unknown,
   ): void {
@@ -181,21 +188,45 @@ export class StylesheetBuilder {
       case "property":
         this.shared.warningProperties.push(property);
         break;
-      case "value":
-        this.shared.warningValues.push([property, value]);
+      case "value": {
+        value = property;
+        property = this.shared.warningProperty ?? "";
+
+        if (!property) {
+          return;
+        }
+
+        this.shared.warningValues[property] ??= [];
+        this.shared.warningValues[property]?.push(value);
         break;
-      case "function":
-        this.shared.warningFunctions.push(property);
+      }
+      case "style":
+        this.shared.warningValues[property] ??= [];
+        this.shared.warningValues[property]?.push(value);
         break;
     }
   }
 
   getWarnings() {
-    return {
-      properties: this.shared.warningProperties,
-      values: this.shared.warningValues,
-      functions: this.shared.warningFunctions,
-    };
+    const result: {
+      properties?: string[];
+      values?: Record<string, unknown[]>;
+      functions?: string[];
+    } = {};
+
+    if (this.shared.warningProperties.length) {
+      result.properties = this.shared.warningProperties;
+    }
+
+    if (Object.keys(this.shared.warningValues).length) {
+      result.values = this.shared.warningValues;
+    }
+
+    if (this.shared.warningFunctions.length) {
+      result.functions = this.shared.warningFunctions;
+    }
+
+    return result;
   }
 
   addMapping(mapping: StyleRuleMapping) {
