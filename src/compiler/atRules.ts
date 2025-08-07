@@ -132,7 +132,7 @@ function propAtRuleBlock(
   mapping[toRNProperty(fromToken.value.value)] = to.flatMap((item, index) => {
     switch (item.value.type) {
       case "delim":
-        return index === 0 && item.value.value === "^" ? ["^"] : [];
+        return index === 0 && item.value.value === "*" ? ["*"] : [];
       case "ident":
         return [toRNProperty(item.value.value)];
       default:

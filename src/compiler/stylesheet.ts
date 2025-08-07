@@ -198,6 +198,10 @@ export class StylesheetBuilder {
     };
   }
 
+  addMapping(mapping: StyleRuleMapping) {
+    this.mapping = { ...this.mapping, ...mapping };
+  }
+
   newRule(mapping = this.mapping, { important = false } = {}) {
     this.mapping = mapping;
     this.rule = this.cloneRule(this.ruleTemplate);
@@ -331,30 +335,29 @@ export class StylesheetBuilder {
   }
 
   private pushDescriptor(
-    property: string,
+    rawProperty: string,
     value: StyleDescriptor,
     declarations: StyleDeclaration[],
     forceTuple = false,
     delayed = false,
   ) {
-    property = toRNProperty(property);
+    const property = toRNProperty(rawProperty);
 
-    let propPath: string | string[] =
-      this.mapping[property] ?? this.mapping["*"] ?? property;
+    let propPath: string | string[] | undefined =
+      this.mapping[rawProperty] ?? this.mapping[property] ?? this.mapping["*"];
 
     if (Array.isArray(propPath)) {
-      const first = propPath[0];
+      const [first, second] = propPath;
 
-      if (!first) {
-        // This should not happen, but if it does, we skip the property
-        return;
-      }
-
-      if (propPath.length === 1) {
-        propPath = first;
+      if (propPath.length === 2 && first === "*" && second) {
+        propPath = second;
       } else {
         forceTuple = true;
       }
+    } else if (propPath) {
+      forceTuple = true;
+    } else {
+      propPath = property;
     }
 
     if (isStyleFunction(value)) {
