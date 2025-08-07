@@ -886,6 +886,12 @@ export function parseDeclarationCustom(
       property,
       parseUnparsed(declaration.value.value, builder, allowAuto.has(property)),
     );
+  } else if (property === "-webkit-line-clamp") {
+    builder.addMapping({ [property]: ["numberOfLines"] });
+    builder.addDescriptor(
+      property,
+      parseUnparsed(declaration.value.value, builder, allowAuto.has(property)),
+    );
   } else {
     builder.addWarning("property", declaration.value.name);
   }

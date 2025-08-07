@@ -1,8 +1,12 @@
+import { render, screen } from "@testing-library/react-native";
+import { View } from "react-native-css/components";
+import { registerCSS, testID } from "react-native-css/jest";
+
 import { compile } from "../compiler";
 
 test("@prop single", () => {
-  const compiled = compile(`
-    .test { 
+  const compiled = registerCSS(`
+    .my-class { 
       color: red; 
       background-color: blue; 
       @prop background-color: myBackgroundColor;
@@ -12,14 +16,14 @@ test("@prop single", () => {
   expect(compiled.stylesheet()).toStrictEqual({
     s: [
       [
-        "test",
+        "my-class",
         [
           {
             d: [
               {
                 color: "#f00",
-                myBackgroundColor: "#00f",
               },
+              ["#00f", ["myBackgroundColor"]],
             ],
             v: [["__rn-css-color", "#f00"]],
             s: [1, 1],
@@ -27,6 +31,18 @@ test("@prop single", () => {
         ],
       ],
     ],
+  });
+
+  render(<View testID={testID} className="my-class" />);
+  const component = screen.getByTestId(testID);
+
+  expect(component.props).toStrictEqual({
+    testID,
+    children: undefined,
+    myBackgroundColor: "#00f",
+    style: {
+      color: "#f00",
+    },
   });
 });
 
@@ -60,12 +76,12 @@ test("@prop single, nested value", () => {
   });
 });
 
-test("@prop single, top level", () => {
+test("@prop single, on target", () => {
   const compiled = compile(`
     .test { 
       color: red; 
       background-color: blue; 
-      @prop background-color: ^myBackgroundColor;
+      @prop background-color: *.myBackgroundColor;
     }
   `);
 
@@ -78,8 +94,8 @@ test("@prop single, top level", () => {
             d: [
               {
                 color: "#f00",
+                myBackgroundColor: "#00f",
               },
-              ["#00f", ["^", "myBackgroundColor"]],
             ],
             v: [["__rn-css-color", "#f00"]],
             s: [1, 1],
@@ -90,26 +106,26 @@ test("@prop single, top level", () => {
   });
 });
 
-test("@prop single, top level, nested", () => {
-  const compiled = compile(`
-    .test { 
+test("@prop single, nested", () => {
+  const compiled = registerCSS(`
+    .my-class { 
       color: red; 
       background-color: blue; 
-      @prop background-color: ^myBackgroundColor.test;
+      @prop background-color: *.myBackgroundColor.test;
     }
   `);
 
   expect(compiled.stylesheet()).toStrictEqual({
     s: [
       [
-        "test",
+        "my-class",
         [
           {
             d: [
               {
                 color: "#f00",
               },
-              ["#00f", ["^", "myBackgroundColor", "test"]],
+              ["#00f", ["*", "myBackgroundColor", "test"]],
             ],
             v: [["__rn-css-color", "#f00"]],
             s: [1, 1],
@@ -118,6 +134,16 @@ test("@prop single, top level, nested", () => {
       ],
     ],
   });
+
+  render(<View testID={testID} className="my-class" />);
+  const component = screen.getByTestId(testID);
+
+  expect(component.props.style).toStrictEqual({
+    color: "#f00",
+    myBackgroundColor: {
+      test: "#00f",
+    },
+  });
 });
 
 test("@prop single, top level, nested", () => {
@@ -125,7 +151,7 @@ test("@prop single, top level, nested", () => {
     .test { 
       color: red; 
       background-color: blue; 
-      @prop background-color: ^myBackgroundColor.test;
+      @prop background-color: myBackgroundColor.test;
     }
   `);
 
@@ -139,7 +165,7 @@ test("@prop single, top level, nested", () => {
               {
                 color: "#f00",
               },
-              ["#00f", ["^", "myBackgroundColor", "test"]],
+              ["#00f", ["myBackgroundColor", "test"]],
             ],
             s: [1, 1],
             v: [["__rn-css-color", "#f00"]],
@@ -156,8 +182,8 @@ test("@prop multiple", () => {
       color: red; 
       background-color: blue; 
       @prop {
-        background-color: myBackgroundColor;
-        color: myColor;
+        background-color: *.myBackgroundColor;
+        color: *.myColor;
       }
     }
   `);

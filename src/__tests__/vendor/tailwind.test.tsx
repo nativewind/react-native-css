@@ -311,3 +311,45 @@ test("filter", () => {
     testID,
   });
 });
+
+test("line-clamp", () => {
+  const compiled = registerCSS(`
+    .my-class {
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 1
+    }
+  `);
+
+  expect(compiled.stylesheet()).toStrictEqual({
+    s: [
+      [
+        "my-class",
+        [
+          {
+            d: [
+              {
+                overflow: "hidden",
+              },
+              [1, ["numberOfLines"]],
+            ],
+            s: [1, 1],
+          },
+        ],
+      ],
+    ],
+  });
+
+  render(<View testID={testID} className="my-class" />);
+  const component = screen.getByTestId(testID);
+
+  expect(component.props).toStrictEqual({
+    children: undefined,
+    numberOfLines: 1,
+    style: {
+      overflow: "hidden",
+    },
+    testID,
+  });
+});

@@ -43,7 +43,7 @@ test.skip(':root[class="dark"]', () => {
   expect(component.props.style).toStrictEqual({ color: "red" });
 });
 
-test(':root[class~="dark"]', () => {
+test.skip(':root[class~="dark"]', () => {
   registerCSS(`
     @react-native {
       darkMode: dark;

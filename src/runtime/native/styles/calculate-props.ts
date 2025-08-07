@@ -103,63 +103,73 @@ export function applyDeclarations(
       // Dynamic styles
       let value: any = declaration[0];
       let propPath = declaration[1];
-      let prop = "";
+      let prop: string;
 
-      if (typeof propPath === "string") {
-        if (propPath.startsWith("^")) {
-          propPath = propPath.slice(1);
-          target = topLevelTarget[propPath] ??= {};
+      if (Array.isArray(propPath)) {
+        const [first, ...rest] = propPath;
+
+        if (!first) {
+          continue;
         }
-        prop = propPath;
-      } else {
-        for (prop of propPath) {
-          if (prop.startsWith("^")) {
-            prop = prop.slice(1);
-            target = topLevelTarget[prop] ??= {};
-          } else {
-            target = target[prop] ??= {};
+
+        const final = rest.pop();
+
+        if (final) {
+          if (first !== "*") {
+            topLevelTarget[first] ??= {};
+            target = topLevelTarget[first];
           }
-        }
-      }
 
-      if (Array.isArray(value)) {
-        const shouldDelay = declaration[2];
+          for (prop of rest) {
+            target[prop] ??= {};
+            target = target[prop];
+          }
 
-        if (shouldDelay) {
-          /**
-           * We need to delay the resolution of this value until after all
-           * styles have been calculated. But another style might override
-           * this value. So we set a placeholder value and only override
-           * if the placeholder is preserved
-           *
-           * This also ensures the props exist, so setValue will properly
-           * mutate the props object and not create a new one
-           */
-          const originalValue = value;
-          value = {};
-          delayedStyles.push(() => {
-            if (target[prop] === value) {
-              delete target[prop];
-              value = resolveValue(originalValue, get, {
-                inlineVariables,
-                inheritedVariables,
-                renderGuards: guards,
-                calculateProps,
-              });
-              applyValue(target, prop, value);
-            }
-          });
+          prop = final;
         } else {
-          value = resolveValue(value, get, {
-            inlineVariables,
-            inheritedVariables,
-            renderGuards: guards,
-            calculateProps,
-          });
+          target = topLevelTarget;
+          prop = first;
         }
-
-        applyValue(target, prop, value);
+      } else {
+        prop = propPath;
       }
+
+      const shouldDelay = declaration[2];
+
+      if (shouldDelay) {
+        /**
+         * We need to delay the resolution of this value until after all
+         * styles have been calculated. But another style might override
+         * this value. So we set a placeholder value and only override
+         * if the placeholder is preserved
+         *
+         * This also ensures the props exist, so setValue will properly
+         * mutate the props object and not create a new one
+         */
+        const originalValue = value;
+        value = {};
+        delayedStyles.push(() => {
+          if (target[prop] === value) {
+            delete target[prop];
+            value = resolveValue(originalValue, get, {
+              inlineVariables,
+              inheritedVariables,
+              renderGuards: guards,
+              calculateProps,
+            });
+            applyValue(target, prop, value);
+          }
+        });
+      } else {
+        value = resolveValue(value, get, {
+          inlineVariables,
+          inheritedVariables,
+          renderGuards: guards,
+          calculateProps,
+        });
+      }
+
+      applyValue(target, prop, value);
     }
   }
 }
