@@ -104,7 +104,7 @@
     "prepare": "bob build",
     "prepublishOnly": "bob build",
     "release": "release-it --config ./.config/release-it.config.ts",
-    "release:nightly": "release-it --config ./.config/release-it.nightly.config.ts 3.0.0-nightly.\"$(git rev-parse --short HEAD)\" --npm.tag=beta",
+    "release:nightly": "release-it --config ./.config/release-it.nightly.config.ts 3.0.0-nightly.\"$(git rev-parse --short HEAD)\" --npm.tag=beta && git restore :/",
     "start": "yarn example start",
     "start:build": "yarn build && yarn example build",
     "start:debug": "yarn build && yarn example debug",
