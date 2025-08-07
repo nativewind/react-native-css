@@ -2296,16 +2296,21 @@ export function parseUserSelect(
 }
 
 export function parseSVGPaint(
-  { value }: DeclarationType<"fill" | "stroke">,
+  { value, property }: DeclarationType<"fill" | "stroke">,
   builder: StylesheetBuilder,
 ) {
+  let parsedValue: StyleDescriptor | undefined;
+
   if (value.type === "none") {
-    return "transparent";
+    parsedValue = "transparent";
   } else if (value.type === "color") {
-    return parseColor(value.value, builder);
+    parsedValue = parseColor(value.value, builder);
+  } else {
+    return;
   }
 
-  return;
+  builder.addMapping({ [property]: [property] });
+  builder.addDescriptor(property, parsedValue);
 }
 
 export function round(number: number) {
