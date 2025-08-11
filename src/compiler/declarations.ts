@@ -114,9 +114,11 @@ const parsers: {
   "border-inline-end": parseBorderInlineEnd,
   "border-inline-end-color": parseColorDeclaration,
   "border-inline-end-width": parseBorderSideWidthDeclaration,
+  "border-inline-end-style": parseBorderInlineStyle,
   "border-inline-start": parseBorderInlineStart,
   "border-inline-start-color": parseColorDeclaration,
   "border-inline-start-width": parseBorderSideWidthDeclaration,
+  "border-inline-start-style": parseBorderInlineStyle,
   "border-inline-width": parseBorderInlineWidth,
   "border-inline-style": parseBorderInlineStyle,
   "border-left": parseBorderSide,
@@ -493,10 +495,19 @@ export function parseBorderInlineWidth(
 }
 
 export function parseBorderInlineStyle(
-  declaration: DeclarationType<"border-inline-style">,
+  declaration: DeclarationType<
+    | "border-inline-style"
+    | "border-inline-start-style"
+    | "border-inline-end-style"
+  >,
   builder: StylesheetBuilder,
 ) {
-  if (declaration.value.start === declaration.value.end) {
+  if (typeof declaration.value === "string") {
+    builder.addDescriptor(
+      "border-style",
+      parseBorderStyle(declaration.value, builder),
+    );
+  } else if (declaration.value.start === declaration.value.end) {
     builder.addDescriptor(
       "border-style",
       parseBorderStyle(declaration.value.start, builder),
@@ -1965,10 +1976,33 @@ function parseBorderBlockStyle(
 }
 
 export function parseBorderSideWidthDeclaration(
-  declaration: { value: BorderSideWidth },
+  declaration: DeclarationType<
+    | "border-block-end-width"
+    | "border-block-start-width"
+    | "border-bottom-width"
+    | "border-inline-end-width"
+    | "border-inline-start-width"
+    | "border-left-width"
+    | "border-right-width"
+    | "border-top-width"
+  >,
   builder: StylesheetBuilder,
 ) {
-  return parseBorderSideWidth(declaration.value, builder);
+  if (declaration.property.includes("block")) {
+    builder.addDescriptor(
+      `border-${declaration.property.includes("start") ? "top" : "bottom"}-width`,
+      parseBorderSideWidth(declaration.value, builder),
+    );
+    return;
+  } else if (declaration.property.includes("inline")) {
+    builder.addDescriptor(
+      `border-${declaration.property.includes("start") ? "left" : "right"}-width`,
+      parseBorderSideWidth(declaration.value, builder),
+    );
+    return;
+  } else {
+    return parseBorderSideWidth(declaration.value, builder);
+  }
 }
 
 export function parseBorderSideWidth(
