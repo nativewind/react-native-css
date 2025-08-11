@@ -100,6 +100,7 @@ const parsers: {
   "border-block-start-color": parseColorDeclaration,
   "border-block-start-width": parseBorderSideWidthDeclaration,
   "border-block-width": parseBorderBlockWidth,
+  "border-block-style": parseBorderBlockStyle,
   "border-bottom": parseBorderSide,
   "border-bottom-color": parseColorDeclaration,
   "border-bottom-left-radius": parseSize2DDimensionPercentageDeclaration,
@@ -1947,6 +1948,20 @@ export function parseBorderBlockWidth(
     "border-bottom-width",
     parseBorderSideWidth(declaration.value.end, builder),
   );
+}
+
+function parseBorderBlockStyle(
+  declaration: DeclarationType<"border-block-style">,
+  builder: StylesheetBuilder,
+) {
+  if (declaration.value.start === declaration.value.end) {
+    builder.addDescriptor(
+      "border-style",
+      parseBorderStyle(declaration.value.start, builder),
+    );
+  } else {
+    builder.addWarning("property", "border-block-style");
+  }
 }
 
 export function parseBorderSideWidthDeclaration(
