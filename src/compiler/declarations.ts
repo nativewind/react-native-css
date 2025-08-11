@@ -3,7 +3,6 @@
 import Color from "colorjs.io";
 import type {
   Angle,
-  BorderBlockColor,
   BorderSideWidth,
   BorderStyle,
   ColorOrAuto,
@@ -92,7 +91,7 @@ const parsers: {
   "block-size": parseSizeDeclaration,
   "border": parseBorder,
   "border-block": parseBorderBlock,
-  "border-block-color": parseBorderBlockColor,
+  "border-block-color": parseBorderColor,
   "border-block-end": parseBorderBlockEnd,
   "border-block-end-color": parseColorDeclaration,
   "border-block-end-width": parseBorderSideWidthDeclaration,
@@ -111,7 +110,7 @@ const parsers: {
   "border-end-end-radius": parseSize2DDimensionPercentageDeclaration,
   "border-end-start-radius": parseSize2DDimensionPercentageDeclaration,
   "border-inline": parseBorderInline,
-  "border-inline-color": parseBorderBlockColor,
+  "border-inline-color": parseBorderColor,
   "border-inline-end": parseBorderInlineEnd,
   "border-inline-end-color": parseColorDeclaration,
   "border-inline-end-style": parseBorderInlineStyle,
@@ -352,15 +351,41 @@ function parseBorderRadius(
 }
 
 function parseBorderColor(
-  { value }: DeclarationType<"border-color">,
+  declaration: DeclarationType<
+    "border-color" | "border-block-color" | "border-inline-color"
+  >,
   builder: StylesheetBuilder,
 ) {
-  builder.addShorthand("border-color", {
-    "border-top-color": parseColor(value.top, builder),
-    "border-bottom-color": parseColor(value.bottom, builder),
-    "border-left-color": parseColor(value.left, builder),
-    "border-right-color": parseColor(value.right, builder),
-  });
+  switch (declaration.property) {
+    case "border-color":
+      builder.addShorthand("border-color", {
+        "border-top-color": parseColor(declaration.value.top, builder),
+        "border-bottom-color": parseColor(declaration.value.bottom, builder),
+        "border-left-color": parseColor(declaration.value.left, builder),
+        "border-right-color": parseColor(declaration.value.right, builder),
+      });
+      break;
+    case "border-block-color":
+      builder.addDescriptor(
+        "border-top-color",
+        parseColor(declaration.value.start, builder),
+      );
+      builder.addDescriptor(
+        "border-bottom-color",
+        parseColor(declaration.value.end, builder),
+      );
+      break;
+    case "border-inline-color":
+      builder.addDescriptor(
+        "border-left-color",
+        parseColor(declaration.value.start, builder),
+      );
+      builder.addDescriptor(
+        "border-right-color",
+        parseColor(declaration.value.end, builder),
+      );
+      break;
+  }
 }
 
 function parseBorderWidth(
@@ -1946,15 +1971,6 @@ export function parseBorderStyle(
   builder.addWarning("value", value.top);
 
   return undefined;
-}
-
-export function parseBorderBlockColor(
-  { value }: { value: BorderBlockColor },
-  builder: StylesheetBuilder,
-) {
-  builder.addDescriptor("border-top-color", parseColor(value.start, builder));
-  builder.addDescriptor("border-bottom-color", parseColor(value.end, builder));
-  return;
 }
 
 export function parseBorderBlockWidth(
