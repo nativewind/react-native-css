@@ -117,6 +117,7 @@ const parsers: {
   "border-inline-start-color": parseColorDeclaration,
   "border-inline-start-width": parseBorderSideWidthDeclaration,
   "border-inline-width": parseBorderInlineWidth,
+  "border-inline-style": parseBorderInlineStyle,
   "border-left": parseBorderSide,
   "border-left-color": parseColorDeclaration,
   "border-left-width": parseBorderSideWidthDeclaration,
@@ -488,6 +489,20 @@ export function parseBorderInlineWidth(
     "border-right-width",
     parseBorderSideWidth(declaration.value.end, builder),
   );
+}
+
+export function parseBorderInlineStyle(
+  declaration: DeclarationType<"border-inline-style">,
+  builder: StylesheetBuilder,
+) {
+  if (declaration.value.start === declaration.value.end) {
+    builder.addDescriptor(
+      "border-style",
+      parseBorderStyle(declaration.value.start, builder),
+    );
+  } else {
+    builder.addWarning("property", "border-inline-style");
+  }
 }
 
 function parseFlexFlow(
