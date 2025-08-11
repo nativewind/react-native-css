@@ -19,7 +19,6 @@ import { parseContainerCondition } from "./container-query";
 import { parseDeclaration } from "./declarations";
 import { extractKeyFrames } from "./keyframes";
 import { parseMediaQuery } from "./media-query";
-import { getSelectors } from "./selectors";
 import { StylesheetBuilder } from "./stylesheet";
 
 const defaultLogger = debug("react-native-css:compiler");
@@ -165,14 +164,9 @@ function extractRule(rule: Rule, builder: StylesheetBuilder) {
 
       const declarationBlock = value.declarations;
       const mapping = parsePropAtRule(value.rules);
-      const selectors = getSelectors(
-        value.selectors,
-        false,
-        builder.getOptions(),
-      );
 
       // If the rule is a style declaration, extract it with the `getExtractedStyle` function and store it in the `declarations` map
-      builder = builder.fork("style", selectors);
+      builder = builder.fork("style", value.selectors);
 
       if (declarationBlock) {
         if (declarationBlock.declarations) {

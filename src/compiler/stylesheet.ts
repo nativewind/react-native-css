@@ -1,3 +1,5 @@
+import type { SelectorList } from "lightningcss";
+
 import {
   isStyleDescriptorArray,
   Specificity,
@@ -19,7 +21,7 @@ import type {
   VariableRecord,
   VariableValue,
 } from "./compiler.types";
-import { toRNProperty, type NormalizeSelector } from "./selectors";
+import { getClassNameSelectors, toRNProperty } from "./selector-builder";
 
 type BuilderMode = "style" | "media" | "container" | "keyframes";
 
@@ -69,14 +71,25 @@ export class StylesheetBuilder {
       warningValues: {},
       warningFunctions: [],
     },
-    private selectors?: NormalizeSelector[],
+    private selectors: SelectorList = [],
   ) {}
 
-  fork(
-    mode = this.mode,
-    selectors: NormalizeSelector[] | undefined = this.selectors,
-  ): StylesheetBuilder {
+  fork(mode = this.mode, selectors: SelectorList = []): StylesheetBuilder {
     this.shared.ruleOrder++;
+
+    /**
+     * If we already have selectors and we are added more
+     * Then these must be nested selectors.
+     *
+     * We need to extrapolate out the selectors to their full values
+     */
+    selectors =
+      this.selectors.length && selectors.length
+        ? this.selectors.flatMap((selectorA) => {
+            return selectors.map((selectorB) => [...selectorA, ...selectorB]);
+          })
+        : [...this.selectors, ...selectors];
+
     return new StylesheetBuilder(
       this.options,
       mode,
@@ -413,7 +426,7 @@ export class StylesheetBuilder {
   }
 
   applyRuleToSelectors(selectorList = this.selectors): void {
-    if (!selectorList?.length) {
+    if (!selectorList.length) {
       // If there are no selectors, we cannot apply the rule
       return;
     }
@@ -422,7 +435,12 @@ export class StylesheetBuilder {
       return;
     }
 
-    for (const selector of selectorList) {
+    const normalizedSelectors = getClassNameSelectors(
+      selectorList,
+      this.options,
+    );
+
+    for (const selector of normalizedSelectors) {
       // We are going to be apply the current rule to n selectors, so we clone the rule
       const rule = this.cloneRule(this.rule);
 
@@ -435,6 +453,10 @@ export class StylesheetBuilder {
           pseudoClassesQuery,
           attributeQuery,
         } = selector;
+
+        if (!className) {
+          continue; // No className, nothing to do
+        }
 
         // Combine the specificity of the selector with the rule's specificity
         for (let i = 0; i < specificity.length; i++) {
@@ -459,14 +481,29 @@ export class StylesheetBuilder {
               continue;
             }
 
+            const [first, ...rest] = name.split(".");
+
+            if (typeof first !== "string") {
+              continue;
+            }
+
             const containerRule: StyleRule = {
               // These are not "real" rules, so they use the lowest specificity
               s: [0],
               c: [name],
             };
 
+            if (rest.length) {
+              containerRule.aq = rest.map((attr) => [
+                "a",
+                "className",
+                "*=",
+                attr,
+              ]);
+            }
+
             // Create rules for the parent classes
-            this.addRuleToRuleSet(name, containerRule);
+            this.addRuleToRuleSet(first, containerRule);
           }
         }
 
@@ -495,24 +532,15 @@ export class StylesheetBuilder {
         if (!this.rule.v) {
           continue;
         }
-
-        const { type, subtype } = selector;
-
+        const { type } = selector;
         for (const [name, value] of this.rule.v) {
           this.shared[type] ??= {};
           this.shared[type][name] ??= [];
-
-          const variableValue: VariableValue =
-            subtype === "light"
-              ? [value]
-              : [value, [["=", "prefers-color-scheme", "dark"]]];
-
+          const mediaQueries = this.rule.m;
+          const variableValue: VariableValue = mediaQueries
+            ? [value, [...mediaQueries]]
+            : [value];
           // Append extra media queries if they exist
-          if (this.rule.m) {
-            variableValue[1] ??= [];
-            variableValue[1].push(...this.rule.m);
-          }
-
           this.shared[type][name].push(variableValue);
         }
       }

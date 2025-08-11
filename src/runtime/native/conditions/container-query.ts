@@ -16,6 +16,7 @@ import {
   type ContainerContextValue,
   type Getter,
 } from "../reactivity";
+// import { testAttributes } from "./attributes";
 import type { RenderGuard } from "./guards";
 
 export const DEFAULT_CONTAINER_NAME = "c:___default___";
@@ -45,6 +46,10 @@ export function testContainerQuery(
   if (!container) {
     return false;
   }
+
+  // if (query.a && !testAttributes(query.a, container.props, guards)) {
+  //   return false;
+  // }
 
   if (query.m && !testContainerMediaCondition(query.m, container, get)) {
     return false;

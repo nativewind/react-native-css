@@ -94,8 +94,9 @@ test("tiers with multiple classes", () => {
         "three",
         [
           {
-            c: ["three"],
+            c: ["three.two"],
             s: [0],
+            aq: [["a", "className", "*=", "two"]],
           },
         ],
       ],
@@ -106,8 +107,7 @@ test("tiers with multiple classes", () => {
             cq: [
               { n: "one" },
               {
-                a: [["a", "className", "*=", "two"]],
-                n: "three",
+                n: "three.two",
               },
             ],
             d: [{ color: "#f00" }],
