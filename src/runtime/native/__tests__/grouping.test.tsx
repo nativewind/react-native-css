@@ -99,13 +99,13 @@ test.skip("group - active (animated)", () => {
 
 test("group selector", () => {
   registerCSS(
-    `.group.test .my-class {
+    `.my-a.my-b .my-class {
       color: red;
     }`,
   );
 
   const { rerender } = render(
-    <View className="group test">
+    <View className="my-a my-b">
       <View testID={childID} className="my-class" />
     </View>,
   );
@@ -115,7 +115,7 @@ test("group selector", () => {
   expect(child.props.style).toStrictEqual({ color: "#f00" });
 
   rerender(
-    <View>
+    <View className="my-b">
       <View testID={childID} className="my-class" />
     </View>,
   );

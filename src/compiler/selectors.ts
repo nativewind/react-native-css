@@ -11,6 +11,7 @@ import type {
   PseudoClassesQuery,
   SpecificityArray,
 } from "./compiler.types";
+import { StylesheetBuilder } from "./stylesheet";
 
 export type NormalizeSelector =
   | ClassNameSelector
@@ -35,13 +36,13 @@ type ClassNameSelector = {
 export function getSelectors(
   selectorList: SelectorList,
   isDarkMode: boolean,
-  options: CompilerOptions,
+  builder: StylesheetBuilder,
   selectors: NormalizeSelector[] = [],
 ) {
   for (let cssSelector of selectorList) {
-    // Ignore `:is()`, and just process its selectors
-    if (isIsPseudoClass(cssSelector)) {
-      getSelectors(cssSelector[0].selectors, isDarkMode, options, selectors);
+    // Ignore `:is()` & `:where()`, and just process its selectors
+    if (isIsPseudoClass(cssSelector) || isWherePseudoClass(cssSelector)) {
+      getSelectors(cssSelector[0].selectors, isDarkMode, builder, selectors);
     } else if (
       // Matches: :root {}
       isRootVariableSelector(cssSelector)
@@ -110,7 +111,7 @@ export function getSelectors(
       //     ["=", "prefers-color-scheme", "dark"],
       //   ]);
     } else {
-      const selector = classNameSelector(cssSelector, options);
+      const selector = classNameSelector(cssSelector, builder.getOptions());
 
       if (selector === null) {
         continue;
@@ -178,11 +179,12 @@ function classNameSelector(
     switch (component.type) {
       case "universal":
       case "namespace":
-      case "nesting":
       case "id":
       case "pseudo-element":
         // We don't support these selectors at all
         return null;
+      case "nesting":
+        continue;
       case "class": {
         if (!primaryClassName) {
           primaryClassName = component.name;
@@ -368,6 +370,18 @@ function isIsPseudoClass(
     selector.length === 1 &&
     selector[0]?.type === "pseudo-class" &&
     selector[0].kind === "is"
+  );
+}
+
+function isWherePseudoClass(
+  selector: Selector,
+): selector is [
+  { type: "pseudo-class"; kind: "where"; selectors: Selector[] },
+] {
+  return (
+    selector.length === 1 &&
+    selector[0]?.type === "pseudo-class" &&
+    selector[0].kind === "where"
   );
 }
 

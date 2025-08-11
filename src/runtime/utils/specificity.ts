@@ -8,6 +8,7 @@ export const Specificity = {
   Important: 2,
   Inline: 3,
   PseudoElements: 4,
+  PseudoClass: 1,
   // Id: 0, - We don't support ID yet
   // StyleSheet: 0, - We don't support multiple stylesheets
 };
