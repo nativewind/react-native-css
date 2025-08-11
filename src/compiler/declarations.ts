@@ -99,12 +99,13 @@ const parsers: {
   "border-block-start": parseBorderBlockStart,
   "border-block-start-color": parseColorDeclaration,
   "border-block-start-width": parseBorderSideWidthDeclaration,
-  "border-block-width": parseBorderBlockWidth,
   "border-block-style": parseBorderBlockStyle,
+  "border-block-width": parseBorderBlockWidth,
   "border-bottom": parseBorderSide,
   "border-bottom-color": parseColorDeclaration,
   "border-bottom-left-radius": parseSize2DDimensionPercentageDeclaration,
   "border-bottom-right-radius": parseSize2DDimensionPercentageDeclaration,
+  "border-bottom-style": parseBorderStyleDeclaration,
   "border-bottom-width": parseBorderSideWidthDeclaration,
   "border-color": parseBorderColor,
   "border-end-end-radius": parseSize2DDimensionPercentageDeclaration,
@@ -113,20 +114,22 @@ const parsers: {
   "border-inline-color": parseBorderBlockColor,
   "border-inline-end": parseBorderInlineEnd,
   "border-inline-end-color": parseColorDeclaration,
-  "border-inline-end-width": parseBorderSideWidthDeclaration,
   "border-inline-end-style": parseBorderInlineStyle,
+  "border-inline-end-width": parseBorderSideWidthDeclaration,
   "border-inline-start": parseBorderInlineStart,
   "border-inline-start-color": parseColorDeclaration,
-  "border-inline-start-width": parseBorderSideWidthDeclaration,
   "border-inline-start-style": parseBorderInlineStyle,
-  "border-inline-width": parseBorderInlineWidth,
+  "border-inline-start-width": parseBorderSideWidthDeclaration,
   "border-inline-style": parseBorderInlineStyle,
+  "border-inline-width": parseBorderInlineWidth,
   "border-left": parseBorderSide,
   "border-left-color": parseColorDeclaration,
+  "border-left-style": parseBorderStyleDeclaration,
   "border-left-width": parseBorderSideWidthDeclaration,
   "border-radius": parseBorderRadius,
   "border-right": parseBorderSide,
   "border-right-color": parseColorDeclaration,
+  "border-right-style": parseBorderStyleDeclaration,
   "border-right-width": parseBorderSideWidthDeclaration,
   "border-start-end-radius": parseSize2DDimensionPercentageDeclaration,
   "border-start-start-radius": parseSize2DDimensionPercentageDeclaration,
@@ -135,6 +138,7 @@ const parsers: {
   "border-top-color": parseColorDeclaration,
   "border-top-left-radius": parseSize2DDimensionPercentageDeclaration,
   "border-top-right-radius": parseSize2DDimensionPercentageDeclaration,
+  "border-top-style": parseBorderStyleDeclaration,
   "border-top-width": parseBorderSideWidthDeclaration,
   "border-width": parseBorderWidth,
   "bottom": parseSizeDeclaration,
@@ -1905,7 +1909,13 @@ export function parseOverflow(
 }
 
 export function parseBorderStyleDeclaration(
-  declaration: DeclarationType<"border-style">,
+  declaration: DeclarationType<
+    | "border-style"
+    | "border-left-style"
+    | "border-right-style"
+    | "border-top-style"
+    | "border-bottom-style"
+  >,
   builder: StylesheetBuilder,
 ) {
   return parseBorderStyle(declaration.value, builder);
