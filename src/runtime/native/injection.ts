@@ -7,9 +7,9 @@ import {
   family,
   observable,
   observableBatch,
-  rootVariables,
   type Observable,
 } from "./reactivity";
+import { rootVariables } from "./root";
 
 export function StyleCollection() {
   return null;
