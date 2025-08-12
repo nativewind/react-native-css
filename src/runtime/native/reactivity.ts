@@ -7,8 +7,7 @@ import {
   type LayoutRectangle,
 } from "react-native";
 
-import type { StyleDescriptor, VariableValue } from "../../compiler";
-import { testMediaQuery } from "./conditions/media-query";
+import type { StyleDescriptor } from "../../compiler";
 
 export type Effect = {
   observers: Set<Effect>;
@@ -189,33 +188,6 @@ export type VariableContextValue = Record<string, StyleDescriptor> & {
 export const VariableContext = createContext<VariableContextValue>({
   [VAR_SYMBOL]: true,
 });
-
-const rootVariableFamily = () => {
-  return family<string, Observable<StyleDescriptor, VariableValue[]>>(() => {
-    const obs = observable<StyleDescriptor, VariableValue[]>(
-      (read, variableValue) => {
-        if (!variableValue) return undefined;
-
-        for (const [value, mediaQuery] of variableValue) {
-          if (!mediaQuery) {
-            return value;
-          }
-
-          if (testMediaQuery(mediaQuery, read)) {
-            return value;
-          }
-        }
-
-        return undefined;
-      },
-    );
-
-    return obs;
-  });
-};
-
-export const rootVariables = rootVariableFamily();
-export const universalVariables = rootVariableFamily();
 
 /** Units *********************************************************************/
 

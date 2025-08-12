@@ -1,11 +1,7 @@
 import type { StyleDescriptor, StyleFunction } from "../../../compiler";
 import { isStyleDescriptorArray } from "../../utils";
-import {
-  rootVariables,
-  universalVariables,
-  VAR_SYMBOL,
-  type Getter,
-} from "../reactivity";
+import { VAR_SYMBOL, type Getter } from "../reactivity";
+import { rootVariables, universalVariables } from "../root";
 import type { ResolveValueOptions, SimpleResolveValue } from "./resolve";
 
 export function varResolver(
