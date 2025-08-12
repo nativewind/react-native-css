@@ -6,7 +6,7 @@ import connect from "connect";
 import debug from "debug";
 import type { MetroConfig } from "metro-config";
 
-import type { CompilerOptions } from "../compiler";
+import type { CompilerOptions, ReactNativeCssStyleSheet_V2 } from "../compiler";
 import { compile } from "../compiler/compiler";
 import { getNativeInjectionCode, getWebInjectionCode } from "./injection-code";
 import { nativeResolver, webResolver } from "./resolver";
@@ -93,7 +93,10 @@ export function withReactNativeCSS<
         if (!bundler.__react_native_css__patched) {
           bundler.__react_native_css__patched = true;
 
-          const nativeCSSFiles = new Map();
+          const nativeCSSFiles = new Map<
+            string,
+            [string, ReactNativeCssStyleSheet_V2]
+          >();
           const webCSSFiles = new Set<string>();
 
           const nativeInjectionPath = require.resolve(
@@ -174,7 +177,7 @@ export function withReactNativeCSS<
                     next,
                     compile(next, {
                       hexColors: options?.hexColors,
-                    }),
+                    }).stylesheet(),
                   ]);
 
                   watcher.emit("change", {
