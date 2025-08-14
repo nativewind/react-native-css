@@ -431,7 +431,7 @@ export class StylesheetBuilder {
       return;
     }
 
-    if (!this.rule.d && !this.rule.v) {
+    if (!this.rule.d && !this.rule.v && !this.rule.c) {
       return;
     }
 
