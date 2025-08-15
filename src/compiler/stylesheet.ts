@@ -411,7 +411,10 @@ export class StylesheetBuilder {
         declarations.push([value, propPath]);
       }
     } else if (forceTuple || Array.isArray(propPath)) {
-      declarations.push([value, propPath]);
+      declarations.push([
+        value,
+        Array.isArray(propPath) ? propPath : [propPath],
+      ]);
     } else if (Array.isArray(value) && value.some(isStyleFunction)) {
       declarations.push([value, propPath]);
     } else {
