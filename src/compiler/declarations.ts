@@ -274,9 +274,9 @@ export function parseDeclaration(
   }
 
   if (declaration.property === "unparsed") {
-    parseDeclarationUnparsed(declaration, builder);
+    parseUnparsedDeclaration(declaration, builder);
   } else if (declaration.property === "custom") {
-    parseDeclarationCustom(declaration, builder);
+    parseCustomDeclaration(declaration, builder);
   } else {
     parseWithParser(declaration, builder);
   }
@@ -888,7 +888,7 @@ function parseContainer(
   return;
 }
 
-export function parseDeclarationUnparsed(
+export function parseUnparsedDeclaration(
   declaration: Extract<Declaration, { property: "unparsed" }>,
   builder: StylesheetBuilder,
 ) {
@@ -946,7 +946,7 @@ export function parseDeclarationUnparsed(
   }
 }
 
-export function parseDeclarationCustom(
+export function parseCustomDeclaration(
   declaration: Extract<Declaration, { property: "custom" }>,
   builder: StylesheetBuilder,
 ) {
@@ -956,7 +956,6 @@ export function parseDeclarationCustom(
     property.startsWith("--") ||
     property.startsWith("-rn-")
   ) {
-    builder.setWarningProperty(property);
     builder.addDescriptor(
       property,
       parseUnparsed(declaration.value.value, builder, allowAuto.has(property)),
@@ -975,9 +974,10 @@ export function parseDeclarationCustom(
 export function reduceParseUnparsed(
   tokenOrValues: TokenOrValue[],
   builder: StylesheetBuilder,
+  allowAuto: boolean,
 ): StyleDescriptor {
   const result = tokenOrValues
-    .map((tokenOrValue) => parseUnparsed(tokenOrValue, builder))
+    .map((tokenOrValue) => parseUnparsed(tokenOrValue, builder, allowAuto))
     .filter((v) => v !== undefined);
 
   if (result.length === 0) {
@@ -1022,11 +1022,12 @@ export function reduceParseUnparsed(
 export function unparsedFunction(
   token: Extract<TokenOrValue, { type: "function" }>,
   builder: StylesheetBuilder,
+  allowAuto: boolean,
 ): StyleFunction {
   return [
     {},
     token.value.name,
-    reduceParseUnparsed(token.value.arguments, builder),
+    reduceParseUnparsed(token.value.arguments, builder, allowAuto),
   ];
 }
 
@@ -1066,7 +1067,7 @@ export function parseUnparsed(
   }
 
   if (Array.isArray(tokenOrValue)) {
-    const args = reduceParseUnparsed(tokenOrValue, builder);
+    const args = reduceParseUnparsed(tokenOrValue, builder, allowAuto);
     if (!args) return;
     if (Array.isArray(args) && args.length === 1) return args[0];
     return args;
@@ -1074,11 +1075,15 @@ export function parseUnparsed(
 
   switch (tokenOrValue.type) {
     case "unresolved-color": {
-      return parseUnresolvedColor(tokenOrValue.value, builder);
+      return parseUnresolvedColor(tokenOrValue.value, builder, allowAuto);
     }
     case "var": {
       let args: StyleDescriptor = tokenOrValue.value.name.ident.slice(2);
-      const fallback = parseUnparsed(tokenOrValue.value.fallback, builder);
+      const fallback = parseUnparsed(
+        tokenOrValue.value.fallback,
+        builder,
+        allowAuto,
+      );
       if (fallback !== undefined) {
         args = [args, fallback];
       }
@@ -1099,7 +1104,7 @@ export function parseUnparsed(
         case "translateX":
         case "translateY":
           tokenOrValue.value.name = `@${tokenOrValue.value.name}`;
-          return unparsedFunction(tokenOrValue, builder);
+          return unparsedFunction(tokenOrValue, builder, allowAuto);
         case "blur":
         case "brightness":
         case "contrast":
@@ -1124,7 +1129,7 @@ export function parseUnparsed(
         case "sepia":
         case "shadow":
         case "steps":
-          return unparsedFunction(tokenOrValue, builder);
+          return unparsedFunction(tokenOrValue, builder, allowAuto);
         case "hairlineWidth":
           return [{}, tokenOrValue.value.name, []];
         case "calc":
@@ -2631,6 +2636,7 @@ export function parseTranslateProp(
 export function parseUnresolvedColor(
   color: UnresolvedColor,
   builder: StylesheetBuilder,
+  allowAuto: boolean,
 ): StyleDescriptor {
   switch (color.type) {
     case "rgb":
@@ -2655,12 +2661,12 @@ export function parseUnresolvedColor(
         m: [["=", "prefers-color-scheme", "dark"]],
       });
       builder.addUnnamedDescriptor(
-        reduceParseUnparsed(color.dark, builder),
+        reduceParseUnparsed(color.dark, builder, allowAuto),
         false,
         extraRule,
       );
       builder.addExtraRule(extraRule);
-      return reduceParseUnparsed(color.light, builder);
+      return reduceParseUnparsed(color.light, builder, allowAuto);
     }
     default:
       color satisfies never;
