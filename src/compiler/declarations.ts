@@ -864,7 +864,11 @@ function parseZIndex(
   }
 }
 
-function parseContainerType(_value: unknown, _builder: StylesheetBuilder) {
+function parseContainerType(
+  _declaration: DeclarationType<"container-type">,
+  builder: StylesheetBuilder,
+) {
+  builder.addContainer(["___default___"]);
   return;
 }
 
