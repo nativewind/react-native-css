@@ -1137,7 +1137,7 @@ export function parseUnparsed(
         case "linear-gradient":
         case "opacity":
         case "pixelScale":
-        case "pixelSizeForLayoutSize":
+        case "getPixelSizeForLayoutSize":
         case "platformColor":
         case "radial-gradient":
         case "rgb":
