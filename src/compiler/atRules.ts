@@ -120,12 +120,17 @@ function propAtRuleBlock(
     return item.value.type === "colon";
   });
 
-  if (!from || from.length !== 1 || !to) {
+  if (!from || from.length !== 1) {
     return mapping;
   }
 
   const fromToken = from[0];
   if (!fromToken || fromToken.value.type !== "ident") {
+    return mapping;
+  }
+
+  if (!to) {
+    mapping["*"] = toRNProperty(fromToken.value.value);
     return mapping;
   }
 

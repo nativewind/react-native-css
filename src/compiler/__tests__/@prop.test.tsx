@@ -4,7 +4,43 @@ import { registerCSS, testID } from "react-native-css/jest";
 
 import { compile } from "../compiler";
 
-test("@prop single", () => {
+test("@prop target (nested @media)", () => {
+  const compiled = registerCSS(`
+    .my-class { 
+      @prop test; 
+      @media all {
+        color: #00f;
+      }
+    }
+  `);
+
+  expect(compiled.stylesheet()).toStrictEqual({
+    s: [
+      [
+        "my-class",
+        [
+          {
+            d: [["#00f", ["test"]]],
+            v: [["__rn-css-color", "#00f"]],
+            s: [2, 1],
+          },
+        ],
+      ],
+    ],
+  });
+
+  render(<View testID={testID} className="my-class" />);
+  const component = screen.getByTestId(testID);
+
+  expect(component.props).toStrictEqual({
+    testID,
+    children: undefined,
+    test: "#00f",
+    style: {},
+  });
+});
+
+test("@prop value: target", () => {
   const compiled = registerCSS(`
     .my-class { 
       color: red; 
@@ -46,7 +82,7 @@ test("@prop single", () => {
   });
 });
 
-test("@prop single, nested value", () => {
+test("@prop value: nested target", () => {
   const compiled = compile(`
     .test { 
       color: red; 
@@ -76,7 +112,7 @@ test("@prop single, nested value", () => {
   });
 });
 
-test("@prop single, on target", () => {
+test("@prop value: wildcard target", () => {
   const compiled = compile(`
     .test { 
       color: red; 
@@ -106,7 +142,7 @@ test("@prop single, on target", () => {
   });
 });
 
-test("@prop single, nested", () => {
+test("@prop value: wildcard nested target", () => {
   const compiled = registerCSS(`
     .my-class { 
       color: red; 
@@ -143,36 +179,6 @@ test("@prop single, nested", () => {
     myBackgroundColor: {
       test: "#00f",
     },
-  });
-});
-
-test("@prop single, top level, nested", () => {
-  const compiled = compile(`
-    .test { 
-      color: red; 
-      background-color: blue; 
-      @prop background-color: myBackgroundColor.test;
-    }
-  `);
-
-  expect(compiled.stylesheet()).toStrictEqual({
-    s: [
-      [
-        "test",
-        [
-          {
-            d: [
-              {
-                color: "#f00",
-              },
-              ["#00f", ["myBackgroundColor", "test"]],
-            ],
-            s: [1, 1],
-            v: [["__rn-css-color", "#f00"]],
-          },
-        ],
-      ],
-    ],
   });
 });
 
