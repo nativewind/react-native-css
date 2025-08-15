@@ -170,3 +170,16 @@ test("rem - dynamic", () => {
     style: { fontSize: 100 },
   });
 });
+
+test("<ratio>", () => {
+  registerCSS(`.my-class { aspect-ratio: 16 / 9; }`);
+
+  const { result } = renderHook(() => {
+    return useNativeCss(View, { className: "my-class" });
+  });
+
+  expect(result.current.type).toBe(View);
+  expect(result.current.props).toStrictEqual({
+    style: { aspectRatio: "16/9" },
+  });
+});

@@ -915,7 +915,7 @@ export function parseUnparsedDeclaration(
   builder.descriptorProperty = property;
 
   if (unparsedRuntimeParsing.has(property)) {
-    const args = parseUnparsed(declaration.value.value, builder);
+    const args = parseUnparsed(declaration.value.value, builder, property);
 
     if (property === "animation") {
       builder.addDescriptor("animation", [
@@ -932,7 +932,7 @@ export function parseUnparsedDeclaration(
       ]);
     }
   } else {
-    const value = parseUnparsed(declaration.value.value, builder);
+    const value = parseUnparsed(declaration.value.value, builder, property);
 
     builder.addDescriptor(property, value);
 
@@ -958,13 +958,13 @@ export function parseCustomDeclaration(
   ) {
     builder.addDescriptor(
       property,
-      parseUnparsed(declaration.value.value, builder, allowAuto.has(property)),
+      parseUnparsed(declaration.value.value, builder, property),
     );
   } else if (property === "-webkit-line-clamp") {
     builder.addMapping({ [property]: ["numberOfLines"] });
     builder.addDescriptor(
       property,
-      parseUnparsed(declaration.value.value, builder, allowAuto.has(property)),
+      parseUnparsed(declaration.value.value, builder, property),
     );
   } else {
     builder.addWarning("property", declaration.value.name);
@@ -974,10 +974,13 @@ export function parseCustomDeclaration(
 export function reduceParseUnparsed(
   tokenOrValues: TokenOrValue[],
   builder: StylesheetBuilder,
+  property: string,
   allowAuto: boolean,
 ): StyleDescriptor {
   const result = tokenOrValues
-    .map((tokenOrValue) => parseUnparsed(tokenOrValue, builder, allowAuto))
+    .map((tokenOrValue) =>
+      parseUnparsed(tokenOrValue, builder, property, allowAuto),
+    )
     .filter((v) => v !== undefined);
 
   if (result.length === 0) {
@@ -996,6 +999,8 @@ export function reduceParseUnparsed(
     }
   }
 
+  // Groups are the tokens grouped together by comma location
+  // If a group only has 1 item, it shouldn't be an array
   groups = groups.flatMap((group): StyleDescriptor[] => {
     if (!Array.isArray(group)) {
       return [];
@@ -1011,6 +1016,17 @@ export function reduceParseUnparsed(
       } else {
         return [first];
       }
+    } else if (
+      // This is a special case for <ratio> values
+      group.includes("/") &&
+      group.every((item) =>
+        typeof item === "string" && item === "/"
+          ? item
+          : typeof item === "number",
+      )
+    ) {
+      // eslint-disable-next-line @typescript-eslint/no-base-to-string
+      return [group.join(" ")];
     } else {
       return [group];
     }
@@ -1022,12 +1038,13 @@ export function reduceParseUnparsed(
 export function unparsedFunction(
   token: Extract<TokenOrValue, { type: "function" }>,
   builder: StylesheetBuilder,
+  property: string,
   allowAuto: boolean,
 ): StyleFunction {
   return [
     {},
     token.value.name,
-    reduceParseUnparsed(token.value.arguments, builder, allowAuto),
+    reduceParseUnparsed(token.value.arguments, builder, property, allowAuto),
   ];
 }
 
@@ -1044,7 +1061,8 @@ export function parseUnparsed(
     | undefined
     | null,
   builder: StylesheetBuilder,
-  allowAuto = false,
+  property: string,
+  allowAuto = allowAutoProperties.has(property),
 ): StyleDescriptor {
   if (tokenOrValue === undefined || tokenOrValue === null) {
     return;
@@ -1067,7 +1085,12 @@ export function parseUnparsed(
   }
 
   if (Array.isArray(tokenOrValue)) {
-    const args = reduceParseUnparsed(tokenOrValue, builder, allowAuto);
+    const args = reduceParseUnparsed(
+      tokenOrValue,
+      builder,
+      property,
+      allowAuto,
+    );
     if (!args) return;
     if (Array.isArray(args) && args.length === 1) return args[0];
     return args;
@@ -1075,13 +1098,19 @@ export function parseUnparsed(
 
   switch (tokenOrValue.type) {
     case "unresolved-color": {
-      return parseUnresolvedColor(tokenOrValue.value, builder, allowAuto);
+      return parseUnresolvedColor(
+        tokenOrValue.value,
+        builder,
+        property,
+        allowAuto,
+      );
     }
     case "var": {
       let args: StyleDescriptor = tokenOrValue.value.name.ident.slice(2);
       const fallback = parseUnparsed(
         tokenOrValue.value.fallback,
         builder,
+        property,
         allowAuto,
       );
       if (fallback !== undefined) {
@@ -1104,7 +1133,7 @@ export function parseUnparsed(
         case "translateX":
         case "translateY":
           tokenOrValue.value.name = `@${tokenOrValue.value.name}`;
-          return unparsedFunction(tokenOrValue, builder, allowAuto);
+          return unparsedFunction(tokenOrValue, builder, property, allowAuto);
         case "blur":
         case "brightness":
         case "contrast":
@@ -1129,7 +1158,7 @@ export function parseUnparsed(
         case "sepia":
         case "shadow":
         case "steps":
-          return unparsedFunction(tokenOrValue, builder, allowAuto);
+          return unparsedFunction(tokenOrValue, builder, property, allowAuto);
         case "hairlineWidth":
           return [{}, tokenOrValue.value.name, []];
         case "calc":
@@ -1140,6 +1169,7 @@ export function parseUnparsed(
             tokenOrValue.value.name,
             tokenOrValue.value.arguments,
             builder,
+            property,
           );
         default: {
           builder.addWarning("value", `${tokenOrValue.value.name}()`);
@@ -1188,11 +1218,16 @@ export function parseUnparsed(
           return parseDimension(tokenOrValue.value, builder);
         case "comma":
           return CommaSeparator as unknown as StyleDescriptor;
+        case "delim": {
+          if (property === "aspect-ratio" && tokenOrValue.value.value === "/") {
+            return tokenOrValue.value.value;
+          }
+          return;
+        }
         case "at-keyword":
         case "hash":
         case "id-hash":
         case "unquoted-url":
-        case "delim":
         case "white-space":
         case "comment":
         case "colon":
@@ -2440,7 +2475,7 @@ export function parseDimensionPercentageFor_LengthValue(
   }
 }
 
-const allowAuto = new Set(["pointer-events"]);
+const allowAutoProperties = new Set(["pointer-events"]);
 
 export function parseEnv(
   value: EnvironmentVariable,
@@ -2458,7 +2493,7 @@ export function parseEnv(
             "var",
             [
               `--react-native-css-${value.name.value}`,
-              parseUnparsed(value.fallback, builder),
+              parseUnparsed(value.fallback, builder, value.name.value),
             ],
             1,
           ];
@@ -2481,8 +2516,9 @@ export function parseCalcFn(
   name: string,
   tokens: TokenOrValue[],
   builder: StylesheetBuilder,
+  property: string,
 ): StyleDescriptor {
-  const args = parseCalcArguments(tokens, builder);
+  const args = parseCalcArguments(tokens, builder, property);
   if (args) {
     return [{}, name, args];
   }
@@ -2493,6 +2529,7 @@ export function parseCalcFn(
 export function parseCalcArguments(
   [...args]: TokenOrValue[],
   builder: StylesheetBuilder,
+  property: string,
 ) {
   const parsed: StyleDescriptor[] = [];
 
@@ -2507,7 +2544,7 @@ export function parseCalcArguments(
       case "var":
       case "function":
       case "unresolved-color": {
-        const value = parseUnparsed(arg, builder);
+        const value = parseUnparsed(arg, builder, property);
 
         if (value === undefined) {
           return undefined;
@@ -2583,7 +2620,7 @@ export function parseCalcArguments(
               // Then drop the surrounding parenthesis
               .slice(1, -1);
 
-            parsed.push(parseCalcFn("calc", innerCalcArgs, builder));
+            parsed.push(parseCalcFn("calc", innerCalcArgs, builder, property));
 
             break;
           }
@@ -2636,6 +2673,7 @@ export function parseTranslateProp(
 export function parseUnresolvedColor(
   color: UnresolvedColor,
   builder: StylesheetBuilder,
+  property: string,
   allowAuto: boolean,
 ): StyleDescriptor {
   switch (color.type) {
@@ -2647,26 +2685,31 @@ export function parseUnresolvedColor(
           round(color.r * 255),
           round(color.g * 255),
           round(color.b * 255),
-          parseUnparsed(color.alpha, builder),
+          parseUnparsed(color.alpha, builder, property),
         ],
       ];
     case "hsl":
       return [
         {},
         color.type,
-        [color.h, color.s, color.l, parseUnparsed(color.alpha, builder)],
+        [
+          color.h,
+          color.s,
+          color.l,
+          parseUnparsed(color.alpha, builder, property),
+        ],
       ];
     case "light-dark": {
       const extraRule = builder.extendRule({
         m: [["=", "prefers-color-scheme", "dark"]],
       });
       builder.addUnnamedDescriptor(
-        reduceParseUnparsed(color.dark, builder, allowAuto),
+        reduceParseUnparsed(color.dark, builder, property, allowAuto),
         false,
         extraRule,
       );
       builder.addExtraRule(extraRule);
-      return reduceParseUnparsed(color.light, builder, allowAuto);
+      return reduceParseUnparsed(color.light, builder, property, allowAuto);
     }
     default:
       color satisfies never;
