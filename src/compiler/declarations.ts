@@ -1202,6 +1202,8 @@ export function parseUnparsed(
             return true;
           } else if (value === "false") {
             return false;
+          } else if (value === "infinity") {
+            return Number.MAX_SAFE_INTEGER;
           } else {
             return value;
           }
@@ -1309,7 +1311,12 @@ export function parseLength(
         } else if (length.value === -Infinity) {
           return -9999;
         } else {
-          return round(length.value);
+          // Normalize large values to safe integers, e.g. `calc(infinity * 1px)`
+          const value = Math.max(
+            Math.min(length.value, Number.MAX_SAFE_INTEGER),
+            Number.MIN_SAFE_INTEGER,
+          );
+          return round(value);
         }
       }
       case "rem":
