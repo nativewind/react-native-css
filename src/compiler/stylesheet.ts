@@ -614,7 +614,7 @@ function postProcessStyleFunction(value: StyleDescriptor): [
   let [shouldDelay, usesVariables] = postProcessStyleFunction(value[2]);
 
   usesVariables ||= value[1] === "var";
-  shouldDelay ||= value[3] === 1;
+  shouldDelay ||= value[3] === 1 || usesVariables;
 
   if (shouldDelay) {
     return [true, usesVariables];
