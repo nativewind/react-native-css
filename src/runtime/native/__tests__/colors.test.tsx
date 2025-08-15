@@ -135,3 +135,33 @@ describe("hsla", () => {
     });
   });
 });
+
+describe("currentcolor", () => {
+  test("currentcolor and global variables", () => {
+    registerCSS(`
+      @layer theme {
+        :root {
+          --color-red-500: red;
+        }
+      }
+      @layer utilities {
+        .bg-current {
+          background-color: currentcolor;
+        }
+        .text-red-500 {
+          color: var(--color-red-500);
+        }
+      }
+    `);
+
+    render(<View testID={testID} className="bg-current text-red-500" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.type).toBe("View");
+    expect(component.props).toStrictEqual({
+      children: undefined,
+      style: { color: "red", backgroundColor: "red" },
+      testID,
+    });
+  });
+});
