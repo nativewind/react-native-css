@@ -32,21 +32,10 @@ const debugDefault = Boolean(
 
 export function registerCSS(
   css: string,
-  {
-    debug = debugDefault,
-    ...options
-  }: CompilerOptions & { debug?: boolean } = {},
+  options: CompilerOptions & { debug?: boolean } = {},
 ) {
-  const logger = debug
-    ? (text: string) => {
-        // Just log the rules
-        if (text.startsWith("[")) {
-          console.log(`Rules:\n---\n${text}`);
-        }
-      }
-    : undefined;
-
-  const compiled = compile(css, { ...options, logger });
+  const { debug } = options;
+  const compiled = compileWithAutoDebug(css, options);
   if (debug) {
     console.log(
       `Compiled:\n---\n${inspect(
@@ -62,4 +51,23 @@ export function registerCSS(
   StyleCollection.inject(compiled.stylesheet());
 
   return compiled;
+}
+
+export function compileWithAutoDebug(
+  css: string,
+  {
+    debug = debugDefault,
+    ...options
+  }: CompilerOptions & { debug?: boolean } = {},
+) {
+  const logger = debug
+    ? (text: string) => {
+        // Just log the rules
+        if (text.startsWith("[")) {
+          console.log(`Rules:\n---\n${text}`);
+        }
+      }
+    : undefined;
+
+  return compile(css, { ...options, logger });
 }
