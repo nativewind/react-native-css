@@ -79,7 +79,10 @@ function isPropAtRule(rule: Rule | PropAtRule): rule is PropAtRule {
 }
 
 export function parsePropAtRule(rules?: (Rule | PropAtRule)[]) {
-  const mapping: StyleRuleMapping = {};
+  // Include any default mapping here
+  const mapping: StyleRuleMapping = {
+    "caret-color": ["cursorColor"],
+  };
 
   if (!rules) return mapping;
 
