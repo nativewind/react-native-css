@@ -49,8 +49,13 @@ export function applyValue(
   prop: string,
   value: any,
 ) {
+  // This is confusing.
+  // An undefined value means "don't set anything" (something failed while parsing)
+  // While a null value means "remove this value", which in React Native means "set to undefined"
   if (value === undefined) {
     return;
+  } else if (value === null) {
+    value = undefined;
   }
 
   if (transformKeys.has(prop)) {

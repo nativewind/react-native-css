@@ -116,10 +116,16 @@ export function resolveValue(
     case "number":
     case "boolean":
       return value;
-    case "string":
-      return value.endsWith("px") // Inline vars() might set a value with a px suffix
-        ? parseInt(value.slice(0, -2), 10)
-        : value;
+    case "string": {
+      if (value === "unset") {
+        return null;
+      } else if (value.endsWith("px")) {
+        // Inline vars() might set a value with a px suffix
+        return parseInt(value.slice(0, -2), 10);
+      } else {
+        return value;
+      }
+    }
     case "object": {
       if (!Array.isArray(value)) {
         return value;

@@ -32,6 +32,8 @@ const staticDeclarations = new WeakMap<
 
 const extraRules = new WeakMap<StyleRule, Partial<StyleRule>[]>();
 
+const keywords = new Set(["unset"]);
+
 export class StylesheetBuilder {
   animationFrames?: AnimationKeyframes_V2[];
   animationDeclarations: StyleDeclaration[] = [];
@@ -417,6 +419,8 @@ export class StylesheetBuilder {
         Array.isArray(propPath) ? propPath : [propPath],
       ]);
     } else if (Array.isArray(value) && value.some(isStyleFunction)) {
+      declarations.push([value, propPath]);
+    } else if (typeof value === "string" && keywords.has(value)) {
       declarations.push([value, propPath]);
     } else {
       let staticDeclarationRecord = staticDeclarations.get(declarations);
