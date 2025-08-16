@@ -1210,7 +1210,7 @@ export function parseUnparsed(
         case "comma":
           return CommaSeparator as unknown as StyleDescriptor;
         case "delim": {
-          if (property === "aspect-ratio" && tokenOrValue.value.value === "/") {
+          if (tokenOrValue.value.value === "/") {
             return tokenOrValue.value.value;
           }
           return;

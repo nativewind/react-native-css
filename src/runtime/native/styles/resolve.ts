@@ -178,6 +178,7 @@ export function resolveValue(
               }
               return arg;
             })
+            .filter((value) => value !== "/")
             .join(", ");
 
           if (name === "radial-gradient") {
