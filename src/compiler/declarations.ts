@@ -762,21 +762,29 @@ function parseRotate(
   { value }: DeclarationType<"rotate">,
   builder: StylesheetBuilder,
 ) {
-  builder.addDescriptor("rotateX", [
-    {},
-    "rotateX",
-    parseAngle(value.x, builder),
-  ]);
-  builder.addDescriptor("rotateY", [
-    {},
-    "rotateY",
-    parseAngle(value.y, builder),
-  ]);
-  builder.addDescriptor("rotateZ", [
-    {},
-    "rotateZ",
-    parseAngle(value.z, builder),
-  ]);
+  if (value.x) {
+    builder.addDescriptor("rotateX", [
+      {},
+      "rotateX",
+      parseAngle(value.angle, builder),
+    ]);
+  }
+
+  if (value.y) {
+    builder.addDescriptor("rotateY", [
+      {},
+      "rotateY",
+      parseAngle(value.angle, builder),
+    ]);
+  }
+
+  if (value.z) {
+    builder.addDescriptor("rotateZ", [
+      {},
+      "rotateZ",
+      parseAngle(value.angle, builder),
+    ]);
+  }
 }
 
 function parseScale(

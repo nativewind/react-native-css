@@ -1,12 +1,15 @@
-import { compile } from "../compiler";
+import { compileWithAutoDebug } from "react-native-css/jest";
 
+// prettier-ignore
 const tests = [
   ["caret-color: black", [{ d: [["#000", ["cursorColor"]]], s: [1, 1] }]],
   ["stroke: black;", [{ d: [["#000", ["stroke"]]], s: [1, 1] }]],
+  ["rotate: 3deg;", [{ d: [[[{}, "rotateZ", "3deg"], "rotateZ"]], s: [1, 1] }]],
+  ["rotate: x 3deg;", [{ d: [[[{}, "rotateX", "3deg"], "rotateX"]], s: [1, 1] }]],
 ] as const;
 
 test.each(tests)("declarations for %s", (declarations, expected) => {
-  const compiled = compile(`.my-class { ${declarations} }`);
+  const compiled = compileWithAutoDebug(`.my-class { ${declarations} }`);
 
   const stylesheet = compiled.stylesheet();
 
