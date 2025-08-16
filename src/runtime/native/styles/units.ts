@@ -5,7 +5,7 @@ import type { StyleFunctionResolver } from "./resolve";
 export const em: StyleFunctionResolver = (resolve, func, get) => {
   let value = func[2];
 
-  if (!value) {
+  if (typeof value !== "number") {
     return;
   }
 
