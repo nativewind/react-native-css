@@ -27,9 +27,9 @@ import {
 } from "./filters";
 import {
   fontScale,
+  getPixelSizeForLayoutSize,
   hairlineWidth,
   pixelRatio,
-  pixelSizeForLayoutSize,
   platformColor,
   roundToNearestPixel,
 } from "./platform-functions";
@@ -79,7 +79,7 @@ const functions: Record<string, StyleFunctionResolver> = {
   invert,
   opacity,
   pixelRatio,
-  pixelSizeForLayoutSize,
+  getPixelSizeForLayoutSize,
   platformColor,
   rem,
   roundToNearestPixel,

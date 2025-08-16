@@ -25,7 +25,7 @@ export const fontScale: StyleFunctionResolver = () => {
   return PixelRatio.getFontScale();
 };
 
-export const pixelSizeForLayoutSize: StyleFunctionResolver = (
+export const getPixelSizeForLayoutSize: StyleFunctionResolver = (
   resolveValue,
   value,
 ) => {
