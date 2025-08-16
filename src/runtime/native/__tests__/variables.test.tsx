@@ -217,3 +217,17 @@ test("useUnsafeVariable", () => {
 
   expect(component.props.style).toStrictEqual({ color: "red" });
 });
+
+test("ratio values", () => {
+  registerCSS(`
+    :root { --my-var: 16 / 9; }
+    .test { aspect-ratio: var(--my-var); }
+  `);
+
+  // Since we can't directly test the hook in isolation with the render approach,
+  // we'll test that a component using the variable gets the correct value
+  render(<View testID={testID} className="test" />);
+  const component = screen.getByTestId(testID);
+
+  expect(component.props.style).toStrictEqual({ aspectRatio: "16 / 9" });
+});
