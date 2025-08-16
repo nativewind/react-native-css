@@ -142,7 +142,7 @@ const parsers: {
   "border-width": parseBorderWidth,
   "bottom": parseSizeDeclaration,
   "box-shadow": parseBoxShadow,
-  "caret-color": parseCaretColor,
+  "caret-color": parseColorOrAutoDeclaration,
   "color": parseFontColorDeclaration,
   "column-gap": parseGap,
   "container": parseContainer,
@@ -243,17 +243,6 @@ const parsers: {
   parsePointerEvents as Parser;
 
 const validProperties = new Set(Object.keys(parsers));
-
-function parseCaretColor(
-  declaration: DeclarationType<"caret-color">,
-  builder: StylesheetBuilder,
-) {
-  builder.addMapping({ [declaration.property]: ["cursorColor"] });
-  builder.addDescriptor(
-    "caret-color",
-    parseColorOrAutoDeclaration(declaration, builder),
-  );
-}
 
 export function parseDeclaration(
   declaration: Declaration,

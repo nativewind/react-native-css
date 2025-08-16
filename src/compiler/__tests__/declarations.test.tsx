@@ -1,6 +1,7 @@
 import { compile } from "../compiler";
 
 const tests = [
+  ["caret-color: black", [{ d: [["#000", ["cursorColor"]]], s: [1, 1] }]],
   ["stroke: black;", [{ d: [["#000", ["stroke"]]], s: [1, 1] }]],
 ] as const;
 

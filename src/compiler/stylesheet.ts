@@ -50,6 +50,7 @@ export class StylesheetBuilder {
     private ruleTemplate: StyleRule = {
       s: [],
     },
+    // Any default mapping should be included in the @prop parsing
     private mapping: StyleRuleMapping = {},
     public descriptorProperty?: string,
     private shared: {
