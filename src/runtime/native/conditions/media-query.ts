@@ -38,6 +38,8 @@ function testComparison(mediaQuery: MediaCondition, get: Getter): Boolean {
   const right = mediaQuery[2];
 
   switch (mediaQuery[1]) {
+    case "hover":
+      return true;
     case "platform":
       return right === "native" || right === Platform.OS;
     case "prefers-color-scheme": {

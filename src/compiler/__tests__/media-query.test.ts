@@ -61,3 +61,27 @@ describe.skip("platform media queries", () => {
     });
   });
 });
+
+test("@media (hover: hover)", () => {
+  const compiled = compile(`
+    @media (hover: hover) {
+      .my-class { color: red; }
+    }
+  `);
+
+  expect(compiled.stylesheet()).toStrictEqual({
+    s: [
+      [
+        "my-class",
+        [
+          {
+            s: [2, 1],
+            d: [{ color: "#f00" }],
+            m: [["=", "hover", "hover"]],
+            v: [["__rn-css-color", "#f00"]],
+          },
+        ],
+      ],
+    ],
+  });
+});
