@@ -1,9 +1,9 @@
 /* eslint-disable */
-import { setDeepPath } from "../../utils/objects";
-import { isStyleDescriptorArray } from "../../utils/style-value";
-import { ShortHandSymbol } from "./constants";
-import { defaultValues } from "./defaults";
-import type { StyleResolver } from "./resolve";
+import { setDeepPath } from "../../../utils/objects";
+import { isStyleDescriptorArray } from "../../../utils/style-value";
+import { ShortHandSymbol } from "../constants";
+import { defaultValues } from "../defaults";
+import type { StyleResolver } from "../resolve";
 
 type ShorthandType =
   | "string"

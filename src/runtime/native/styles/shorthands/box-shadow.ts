@@ -1,6 +1,6 @@
-import { isStyleDescriptorArray } from "../../utils";
-import type { StyleFunctionResolver } from "./resolve";
-import { shorthandHandler } from "./shorthand";
+import { isStyleDescriptorArray } from "../../../utils";
+import type { StyleFunctionResolver } from "../resolve";
+import { shorthandHandler } from "./_handler";
 
 const color = ["color", "string"] as const;
 const offsetX = ["offsetX", "number"] as const;

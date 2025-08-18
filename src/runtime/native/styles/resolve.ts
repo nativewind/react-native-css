@@ -7,34 +7,10 @@ import type {
 } from "../../../compiler";
 import type { RenderGuard } from "../conditions/guards";
 import { type Getter, type VariableContextValue } from "../reactivity";
-import { animation, timingFunctionResolver } from "./animation";
-import { border } from "./border";
-import { boxShadow } from "./box-shadow";
-import { calc } from "./calc";
 import type { calculateProps } from "./calculate-props";
 import { transformKeys } from "./defaults";
-import {
-  blur,
-  brightness,
-  contrast,
-  dropShadow,
-  grayscale,
-  hueRotate,
-  invert,
-  opacity,
-  saturate,
-  sepia,
-} from "./filters";
-import {
-  fontScale,
-  getPixelSizeForLayoutSize,
-  hairlineWidth,
-  pixelRatio,
-  platformColor,
-  roundToNearestPixel,
-} from "./platform-functions";
-import { textShadow } from "./text-shadow";
-import { transform } from "./transform";
+import * as functions from "./functions";
+import * as shorthands from "./shorthands";
 import { em, rem, vh, vw } from "./units";
 import { varResolver } from "./variables";
 
@@ -57,34 +33,12 @@ export type StyleResolver = (
   options: ResolveValueOptions,
 ) => unknown;
 
-const functions: Record<string, StyleFunctionResolver> = {
-  "@animation": animation,
-  "@border": border,
-  "@boxShadow": boxShadow,
-  "@textShadow": textShadow,
-  "@transform": transform,
-  "animationName": animation,
-  "cubic-bezier": timingFunctionResolver,
-  "steps": timingFunctionResolver,
-  "hue-rotate": hueRotate,
-  "drop-shadow": dropShadow,
-  blur,
-  brightness,
-  calc,
-  contrast,
+const functionResolvers = {
+  ...shorthands,
+  ...functions,
+  animationName: shorthands.animation,
   em,
-  fontScale,
-  grayscale,
-  hairlineWidth,
-  invert,
-  opacity,
-  pixelRatio,
-  getPixelSizeForLayoutSize,
-  platformColor,
   rem,
-  roundToNearestPixel,
-  saturate,
-  sepia,
   vh,
   vw,
 };
@@ -151,8 +105,8 @@ export function resolveValue(
 
       if (name === "var") {
         return varResolver(simpleResolve, value, get, options);
-      } else if (name in functions) {
-        const fn = functions[name];
+      } else if (name in functionResolvers) {
+        const fn = functionResolvers[name as keyof typeof functionResolvers];
 
         if (typeof fn !== "function") {
           throw new Error(`Unknown function: ${name}`);
@@ -166,11 +120,7 @@ export function resolveValue(
         ) as StyleDescriptor;
       } else if (transformKeys.has(name)) {
         // translate, rotate, scale, etc.
-        const args = value[2];
-        return simpleResolve(args, castToArray);
-      } else if (transformKeys.has(name.slice(1))) {
-        // @translate, @rotate, @scale, etc.
-        return { [name.slice(1)]: simpleResolve(value[2], castToArray) };
+        return { [name]: simpleResolve(value[2], castToArray) };
       } else {
         let args = simpleResolve(value[2], castToArray);
 

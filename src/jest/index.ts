@@ -34,8 +34,9 @@ export function registerCSS(
   css: string,
   options: CompilerOptions & { debug?: boolean } = {},
 ) {
-  const { debug } = options;
+  const { debug = debugDefault } = options;
   const compiled = compileWithAutoDebug(css, options);
+
   if (debug) {
     console.log(
       `Compiled:\n---\n${inspect(

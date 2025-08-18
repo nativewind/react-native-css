@@ -1,11 +1,8 @@
 /* eslint-disable */
-import type { ComponentType } from "react";
-
-import { applyShorthand } from "../../utils";
-import { StyleCollection } from "../injection";
-import { weakFamily } from "../reactivity";
-import type { StyleFunctionResolver } from "./resolve";
-import { shorthandHandler } from "./shorthand";
+import { applyShorthand } from "../../../utils";
+import { StyleCollection } from "../../injection";
+import type { StyleFunctionResolver } from "../resolve";
+import { shorthandHandler } from "./_handler";
 
 const name = ["animationName", "string", "none"] as const;
 const delay = ["animationDelay", "number", 0] as const;
@@ -59,22 +56,6 @@ export const animationShorthand = shorthandHandler(
     timingFunction,
   ],
   "tuples",
-);
-
-export const animatedComponentFamily = weakFamily(
-  (component: ComponentType) => {
-    if (
-      "displayName" in component &&
-      component.displayName?.startsWith("Animated.")
-    ) {
-      return component;
-    }
-
-    const createAnimatedComponent =
-      require("react-native-reanimated").createAnimatedComponent;
-
-    return createAnimatedComponent(component);
-  },
 );
 
 export const animation: StyleFunctionResolver = (
@@ -138,44 +119,4 @@ export const animation: StyleFunctionResolver = (
   nameTuple[0] = animation;
 
   return applyShorthand(animationShortHandTuples);
-};
-
-const advancedTimingFunctions: Record<
-  string,
-  () => (...args: any[]) => unknown
-> = {
-  "cubic-bezier": () => {
-    return (
-      require("react-native-reanimated") as typeof import("react-native-reanimated")
-    ).cubicBezier;
-  },
-  "steps": () => {
-    return (
-      require("react-native-reanimated") as typeof import("react-native-reanimated")
-    ).steps;
-  },
-};
-
-export const timingFunctionResolver: StyleFunctionResolver = (
-  resolveValue,
-  value,
-) => {
-  const name = value[1];
-  const resolver = advancedTimingFunctions[name];
-
-  if (!resolver) {
-    return;
-  }
-
-  const args = resolveValue(value[2]);
-
-  if (!Array.isArray(args)) {
-    return;
-  }
-
-  const fn = resolver();
-
-  const result = fn(...args);
-
-  return result;
 };

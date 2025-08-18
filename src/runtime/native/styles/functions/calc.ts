@@ -1,6 +1,6 @@
 /* eslint-disable */
-import { isStyleDescriptorArray } from "../../utils";
-import type { StyleFunctionResolver } from "./resolve";
+import { isStyleDescriptorArray } from "../../../utils";
+import type { StyleFunctionResolver } from "../resolve";
 
 const calcPrecedence: Record<string, number> = {
   "+": 1,

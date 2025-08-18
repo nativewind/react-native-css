@@ -2,14 +2,61 @@ import { render } from "@testing-library/react-native";
 import { View } from "react-native-css/components/View";
 import { registerCSS, testID } from "react-native-css/jest";
 
-test("translate", () => {
-  registerCSS(`.my-class { translate: 10%; }`);
-  const component = render(
-    <View testID={testID} className="my-class" />,
-  ).getByTestId(testID);
+describe("translate", () => {
+  test("parsed", () => {
+    registerCSS(`.my-class { translate: 10%; }`);
+    const component = render(
+      <View testID={testID} className="my-class" />,
+    ).getByTestId(testID);
 
-  expect(component.props.style).toStrictEqual({
-    transform: [{ translateX: "10%" }, { translateY: 0 }],
+    expect(component.props.style).toStrictEqual({
+      transform: [{ translateX: "10%" }, { translateY: 0 }],
+    });
+  });
+
+  test("unparsed", () => {
+    registerCSS(`
+      :root {
+        --translate-x: 2;
+        --translate-y: 3;
+      }
+      .my-class { translate: var(--translate-x) var(--translate-y); }`);
+    const component = render(
+      <View testID={testID} className="my-class" />,
+    ).getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({
+      transform: [{ translateX: 2 }, { translateY: 3 }],
+    });
+  });
+});
+
+describe("scale", () => {
+  test("parsed", () => {
+    registerCSS(`.my-class { scale: 2 3; }`);
+    const component = render(
+      <View testID={testID} className="my-class" />,
+    ).getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({
+      transform: [{ scaleX: 2 }, { scaleY: 3 }],
+    });
+  });
+
+  test("unparsed", () => {
+    registerCSS(`
+      :root {
+        --scale-x: 2;
+        --scale-y: 3;
+      }
+      .my-class { scale: var(--scale-x) var(--scale-y); }`);
+    const component = render(
+      <View testID={testID} className="my-class" />,
+    ).getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({
+      transform: [{ scaleX: 2 }, { scaleY: 3 }],
+    });
   });
 });
 
@@ -75,6 +122,18 @@ describe("transform", () => {
 
     expect(component.props.style).toStrictEqual({
       transform: [{ translateX: "20%" }],
+    });
+  });
+
+  test("multiple", () => {
+    registerCSS(`.my-class { transform: translateX(10%) scaleX(2); }`);
+
+    const component = render(
+      <View testID={testID} className="my-class" />,
+    ).getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({
+      transform: [{ translateX: "10%" }, { scaleX: 2 }],
     });
   });
 });

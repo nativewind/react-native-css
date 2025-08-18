@@ -87,7 +87,7 @@ test("transition", () => {
       ["default-transition-duration", [[150]]],
       [
         "default-transition-timing-function",
-        [[[{}, "cubic-bezier", [0.4, 0, 0.2, 1]]]],
+        [[[{}, "cubicBezier", [0.4, 0, 0.2, 1]]]],
       ],
     ],
   });
@@ -117,7 +117,7 @@ test("box-shadow", () => {
               [
                 [
                   {},
-                  "@boxShadow",
+                  "boxShadow",
                   [
                     [{}, "var", "tw-inset-shadow", 1],
                     [{}, "var", "tw-inset-ring-shadow", 1],
@@ -268,7 +268,7 @@ test("filter", () => {
                 "tw-drop-shadow-size",
                 [
                   {},
-                  "drop-shadow",
+                  "dropShadow",
                   [
                     0,
                     3,
@@ -279,7 +279,7 @@ test("filter", () => {
               ],
               [
                 "tw-drop-shadow",
-                [{}, "drop-shadow", [{}, "var", "drop-shadow-md", 1]],
+                [{}, "dropShadow", [{}, "var", "drop-shadow-md", 1]],
               ],
             ],
           },

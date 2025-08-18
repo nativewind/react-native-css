@@ -1,6 +1,6 @@
-import { isStyleDescriptorArray } from "../../utils";
-import type { StyleFunctionResolver } from "./resolve";
-import { shorthandHandler } from "./shorthand";
+import { isStyleDescriptorArray } from "../../../utils";
+import type { StyleFunctionResolver } from "../resolve";
+import { shorthandHandler } from "../shorthands/_handler";
 
 export const blur: StyleFunctionResolver = (resolveValue, value) => {
   const args = resolveValue(value[2]);

@@ -23,6 +23,8 @@ export function getDeepPath(source: any, paths: string | string[] | false) {
     }
 
     return target;
+  } else if (transformKeys.has(paths)) {
+    return source?.transform?.find((t: any) => t[paths] !== undefined);
   } else {
     return source?.[paths];
   }
@@ -63,12 +65,26 @@ export function applyValue(
       target.transform = [];
     }
 
-    const transform = target.transform.find((t: any) => t[prop] !== undefined);
+    const transformArray: Record<string, unknown>[] = target.transform;
+    const transform = transformArray.find((t: any) => t[prop] !== undefined);
 
+    /**
+     * If our value is an array, this means a shorthand was split into multiple values
+     * e.g scale -> scaleX, scaleY
+     */
     if (transform) {
-      transform[prop] = value;
+      if (Array.isArray(value)) {
+        target.transform = transformArray.filter((t) => !(prop in t));
+        target.transform.push(...value);
+      } else {
+        transform[prop] = value;
+      }
     } else {
-      target.transform.push({ [prop]: value });
+      if (Array.isArray(value)) {
+        transformArray.push(...value);
+      } else {
+        transformArray.push(value);
+      }
     }
     return;
   } else if (typeof value === "object" && value && ShortHandSymbol in value) {

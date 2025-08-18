@@ -62,12 +62,16 @@ const propertyRename: Record<string, string> = {
   "background-image": "experimental_backgroundImage",
 };
 
+// TODO: We need a better way to handle this
 const unparsedRuntimeParsing = new Set([
   "animation",
+  "border",
+  "box-shadow",
   "text-shadow",
   "transform",
-  "box-shadow",
-  "border",
+  "scale",
+  "rotate",
+  "translate",
 ]);
 
 const parsers: {
@@ -666,22 +670,22 @@ function parseTransform(
 ) {
   builder.addDescriptor("transform", [
     {},
-    "@transform",
+    "transform",
     value.flatMap((t): StyleDescriptor[] => {
       switch (t.type) {
         case "perspective":
-          return [[{}, "@perspective", parseLength(t.value, builder)]];
+          return [[{}, "perspective", parseLength(t.value, builder)]];
         case "translate":
           return [
             [
               {},
-              "@translateX",
+              "translateX",
               parseLengthOrCoercePercentageToRuntime(t.value[0], builder),
             ],
             [
               [
                 {},
-                "@translateY",
+                "translateY",
                 parseLengthOrCoercePercentageToRuntime(t.value[1], builder),
               ],
             ],
@@ -690,7 +694,7 @@ function parseTransform(
           return [
             [
               {},
-              "@translateX",
+              "translateX",
               parseLengthOrCoercePercentageToRuntime(t.value, builder),
             ],
           ];
@@ -698,22 +702,22 @@ function parseTransform(
           return [
             [
               {},
-              "@translateY",
+              "translateY",
               parseLengthOrCoercePercentageToRuntime(t.value, builder),
             ],
           ];
         case "rotate":
-          return [[{}, "@rotate", parseAngle(t.value, builder)]];
+          return [[{}, "rotate", parseAngle(t.value, builder)]];
         case "rotateX":
-          return [[{}, "@rotateX", parseAngle(t.value, builder)]];
+          return [[{}, "rotateX", parseAngle(t.value, builder)]];
         case "rotateY":
-          return [[{}, "@rotateY", parseAngle(t.value, builder)]];
+          return [[{}, "rotateY", parseAngle(t.value, builder)]];
         case "rotateZ":
-          return [[{}, "@rotateZ", parseAngle(t.value, builder)]];
+          return [[{}, "rotateZ", parseAngle(t.value, builder)]];
         case "scale":
           return [
-            [{}, "@scaleX", parseLength(t.value[0], builder)],
-            [{}, "@scaleY", parseLength(t.value[1], builder)],
+            [{}, "scaleX", parseLength(t.value[0], builder)],
+            [{}, "scaleY", parseLength(t.value[1], builder)],
           ];
         case "scaleX":
           return [[{}, "scaleX", parseLength(t.value, builder)]];
@@ -915,18 +919,9 @@ export function parseUnparsedDeclaration(
     const args = parseUnparsed(declaration.value.value, builder, property);
 
     if (property === "animation") {
-      builder.addDescriptor("animation", [
-        {},
-        `@${toRNProperty(property)}`,
-        args,
-      ]);
+      builder.addDescriptor("animation", [{}, property, args]);
     } else {
-      builder.addDescriptor(property, [
-        {},
-        `@${toRNProperty(property)}`,
-        args,
-        1,
-      ]);
+      builder.addDescriptor(property, [{}, toRNProperty(property), args, 1]);
     }
   } else {
     const value = parseUnparsed(declaration.value.value, builder, property);
@@ -1040,7 +1035,7 @@ export function unparsedFunction(
 ): StyleFunction {
   return [
     {},
-    token.value.name,
+    toRNProperty(token.value.name),
     reduceParseUnparsed(token.value.arguments, builder, property, allowAuto),
   ];
 }
@@ -1129,7 +1124,6 @@ export function parseUnparsed(
         case "scaleY":
         case "translateX":
         case "translateY":
-          tokenOrValue.value.name = `@${tokenOrValue.value.name}`;
           return unparsedFunction(tokenOrValue, builder, property, allowAuto);
         case "blur":
         case "brightness":
@@ -2959,7 +2953,7 @@ function parseGradient(
     case "linear": {
       return [
         {},
-        "@linear-gradient",
+        "linear-gradient",
         [
           parseLineDirection(gradient.direction, builder),
           ...gradient.items.map((item) => parseGradientItem(item, builder)),
@@ -3036,6 +3030,16 @@ function parseFilter(
             [value.type]: parseAngle(value.value, builder),
           } as unknown as StyleDescriptor;
         case "drop-shadow":
+          return [
+            {},
+            toRNProperty(value.type),
+            [
+              parseLength(value.value.xOffset, builder),
+              parseLength(value.value.yOffset, builder),
+              parseLength(value.value.blur, builder),
+              parseColor(value.value.color, builder),
+            ],
+          ] as unknown as StyleDescriptor;
         case "url":
           return;
       }
