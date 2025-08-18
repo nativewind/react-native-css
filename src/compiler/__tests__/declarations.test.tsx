@@ -2,6 +2,8 @@ import { compileWithAutoDebug } from "react-native-css/jest";
 
 // prettier-ignore
 const tests = [
+  ["-rn-ripple-color: black;", [{ d: [["black", ["android_ripple", "color"]]], s: [1, 1] }]],
+  ["-rn-ripple-style: borderless;", [{ d: [[true, ["android_ripple", "borderless"]]], s: [1, 1] }]],
   ["caret-color: black", [{ d: [["#000", ["cursorColor"]]], s: [1, 1] }]],
   ["stroke: black;", [{ d: [["#000", ["stroke"]]], s: [1, 1] }]],
   ["rotate: 3deg;", [{ d: [[[{}, "rotateZ", "3deg"], "rotateZ"]], s: [1, 1] }]],

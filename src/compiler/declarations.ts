@@ -943,17 +943,23 @@ export function parseCustomDeclaration(
   builder: StylesheetBuilder,
 ) {
   const property = declaration.value.name;
-  if (
-    validProperties.has(property) ||
-    property.startsWith("--") ||
-    property.startsWith("-rn-")
-  ) {
+
+  if (property === "-webkit-line-clamp") {
     builder.addDescriptor(
       property,
       parseUnparsed(declaration.value.value, builder, property),
     );
-  } else if (property === "-webkit-line-clamp") {
-    builder.addMapping({ [property]: ["numberOfLines"] });
+  } else if (property === "-rn-ripple-style") {
+    builder.addDescriptor(
+      property,
+      parseUnparsed(declaration.value.value, builder, property) ===
+        "borderless",
+    );
+  } else if (
+    validProperties.has(property) ||
+    property.startsWith("--") ||
+    property.startsWith("-rn-")
+  ) {
     builder.addDescriptor(
       property,
       parseUnparsed(declaration.value.value, builder, property),
