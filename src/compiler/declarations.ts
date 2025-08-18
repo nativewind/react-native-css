@@ -2458,7 +2458,6 @@ export function parseSVGPaint(
     return;
   }
 
-  builder.addMapping({ [property]: [property] });
   builder.addDescriptor(property, parsedValue);
 }
 
