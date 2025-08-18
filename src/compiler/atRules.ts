@@ -82,6 +82,9 @@ export function parsePropAtRule(rules?: (Rule | PropAtRule)[]) {
   // Include any default mapping here
   const mapping: StyleRuleMapping = {
     "caret-color": ["cursorColor"],
+    "-webkit-line-clamp": ["numberOfLines"],
+    "-rn-ripple-color": ["android_ripple", "color"],
+    "-rn-ripple-style": ["android_ripple", "borderless"],
   };
 
   if (!rules) return mapping;
