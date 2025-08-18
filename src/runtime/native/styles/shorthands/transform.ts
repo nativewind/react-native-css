@@ -1,4 +1,4 @@
-import type { StyleFunctionResolver } from "./resolve";
+import type { StyleFunctionResolver } from "../resolve";
 
 /**
  * Handle the unparsable transform property by converting its values into StyleDeclarations

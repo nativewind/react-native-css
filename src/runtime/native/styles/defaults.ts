@@ -1,5 +1,6 @@
 /* eslint-disable */
 export const transformKeys = new Set([
+  "translate",
   "translateX",
   "translateY",
   "scale",

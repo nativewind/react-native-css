@@ -1,4 +1,4 @@
-import { shorthandHandler } from "./shorthand";
+import { shorthandHandler } from "./_handler";
 
 const width = ["borderWidth", "number"] as const;
 const style = ["borderStyle", "string"] as const;

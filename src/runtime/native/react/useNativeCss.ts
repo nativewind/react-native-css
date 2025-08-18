@@ -20,8 +20,8 @@ import {
   type Getter,
   type VariableContextValue,
 } from "../reactivity";
+import { animatedComponentFamily } from "../reanimated";
 import { getStyledProps, stylesFamily } from "../styles";
-import { animatedComponentFamily } from "../styles/animation";
 import { updateRules } from "./rules";
 
 export type Config = {

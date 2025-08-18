@@ -342,7 +342,10 @@ export class StylesheetBuilder {
       const [delayed, usesVariables] = postProcessStyleFunction(value);
 
       rule.d ??= [];
-      if (value[1] === "@animation") {
+      if (
+        value[1].startsWith("animation") ||
+        value[1].startsWith("transition")
+      ) {
         rule.a ??= true;
       }
 

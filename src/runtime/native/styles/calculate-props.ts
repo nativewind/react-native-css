@@ -4,7 +4,7 @@ import type {
   StyleDeclaration,
   StyleRule,
 } from "../../../compiler";
-import { applyValue, Specificity as S } from "../../utils";
+import { applyValue, getDeepPath, Specificity as S } from "../../utils";
 import type { RenderGuard } from "../conditions/guards";
 import {
   VAR_SYMBOL,
@@ -147,9 +147,10 @@ export function applyDeclarations(
          * mutate the props object and not create a new one
          */
         const originalValue = value;
-        value = {};
+        // This needs to be a object with the [prop] so we can discover in transform arrays
+        value = { [prop]: true };
         delayedStyles.push(() => {
-          if (target[prop] === value) {
+          if (getDeepPath(target, prop) === value) {
             delete target[prop];
             value = resolveValue(originalValue, get, {
               inlineVariables,

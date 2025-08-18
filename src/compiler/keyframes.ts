@@ -30,7 +30,7 @@ export function parseEasingFunction(
       case "cubic-bezier":
         return [
           {},
-          "cubic-bezier",
+          "cubicBezier",
           [value.x1, value.y1, value.x2, value.y2],
         ] as const;
       case "steps":

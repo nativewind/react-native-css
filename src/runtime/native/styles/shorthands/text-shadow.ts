@@ -1,4 +1,4 @@
-import { shorthandHandler } from "./shorthand";
+import { shorthandHandler } from "./_handler";
 
 const width = [["textShadowOffset", "width"], "number"] as const;
 const height = [["textShadowOffset", "height"], "number"] as const;
