@@ -40,6 +40,46 @@ test("@prop target (nested @media)", () => {
   });
 });
 
+test("@prop target unparsed", () => {
+  const compiled = registerCSS(`
+    :root {
+      --color-black: #000;
+    }
+
+    .my-class { 
+      @prop test; 
+      color: var(--color-black);
+    }
+  `);
+
+  expect(compiled.stylesheet()).toStrictEqual({
+    s: [
+      [
+        "my-class",
+        [
+          {
+            d: [[[{}, "var", "color-black", 1], ["test"], 1]],
+            dv: 1,
+            s: [2, 1],
+            v: [["__rn-css-current-color", [{}, "var", "color-black", 1]]],
+          },
+        ],
+      ],
+    ],
+    vr: [["color-black", [["#000"]]]],
+  });
+
+  render(<View testID={testID} className="my-class" />);
+  const component = screen.getByTestId(testID);
+
+  expect(component.props).toStrictEqual({
+    testID,
+    children: undefined,
+    test: "#000",
+    style: {},
+  });
+});
+
 test("@prop value: target", () => {
   const compiled = registerCSS(`
     .my-class { 
