@@ -1119,43 +1119,53 @@ export function parseUnparsed(
     }
     case "function": {
       switch (tokenOrValue.value.name) {
-        case "translate":
-        case "rotate":
-        case "rotateX":
-        case "rotateY":
-        case "skewX":
-        case "skewY":
-        case "scale":
-        case "scaleX":
-        case "scaleY":
-        case "translateX":
-        case "translateY":
-          return unparsedFunction(tokenOrValue, builder, property, allowAuto);
         case "blur":
         case "brightness":
         case "contrast":
         case "cubic-bezier":
         case "drop-shadow":
         case "fontScale":
+        case "getPixelSizeForLayoutSize":
         case "grayscale":
         case "hsl":
         case "hsla":
         case "hue-rotate":
         case "invert":
-        case "linear-gradient":
         case "opacity":
         case "pixelScale":
-        case "getPixelSizeForLayoutSize":
         case "platformColor":
-        case "radial-gradient":
         case "rgb":
         case "rgba":
+        case "rotate":
+        case "rotateX":
+        case "rotateY":
         case "roundToNearestPixel":
         case "saturate":
+        case "scale":
+        case "scaleX":
+        case "scaleY":
         case "sepia":
         case "shadow":
+        case "skewX":
+        case "skewY":
         case "steps":
+        case "translate":
+        case "translateX":
+        case "translateY":
           return unparsedFunction(tokenOrValue, builder, property, allowAuto);
+        case "linear-gradient":
+        case "radial-gradient":
+          // These are special as React Native requires the '-' in their name
+          return [
+            {},
+            tokenOrValue.value.name,
+            reduceParseUnparsed(
+              tokenOrValue.value.arguments,
+              builder,
+              property,
+              allowAuto,
+            ),
+          ];
         case "hairlineWidth":
           return [{}, tokenOrValue.value.name, []];
         case "calc":
