@@ -12,6 +12,7 @@ import {
   hoverFamily,
   VAR_SYMBOL,
   weakFamily,
+  type ContainerContextValue,
   type VariableContextValue,
 } from "../reactivity";
 import { stylesFamily } from "../styles";
@@ -36,8 +37,8 @@ export function updateRules(
 
   let usesVariables = false;
 
-  let variables = state.variables ? inheritedVariables : undefined;
-  let containers = state.containers ? inheritedContainers : undefined;
+  let variables: VariableContextValue | undefined;
+  let containers: ContainerContextValue | undefined;
   const inlineVariables = new Set<InlineVariable>();
 
   let animated = false;
@@ -101,6 +102,16 @@ export function updateRules(
 
       usesVariables ||= Boolean(rule.dv);
 
+      // We do this even if the rule doesn't match so we can maintain a consistent render tree
+      // We we need to inject React context
+      if (rule.v) {
+        variables ??= inheritedVariables;
+      }
+
+      if (rule.c) {
+        containers ??= inheritedContainers;
+      }
+
       if (
         !testRule(
           rule,
@@ -114,11 +125,8 @@ export function updateRules(
       }
 
       if (rule.v) {
-        // We're going to set a value, so we need to create a new object
         if (variables === inheritedVariables) {
           variables = { ...inheritedVariables };
-        } else {
-          variables ??= { ...inheritedVariables };
         }
 
         for (const v of rule.v) {
@@ -199,6 +207,7 @@ export function updateRules(
       guards,
       animated,
       pressable,
+      variables,
     };
   }
 

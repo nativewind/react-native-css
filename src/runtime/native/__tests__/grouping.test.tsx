@@ -10,24 +10,24 @@ const childID = "child";
 jest.useFakeTimers();
 
 test("groups", () => {
-  registerCSS(
-    `.group\\/item .my-class {
+  registerCSS(`
+    .group\\/item .my-class {
       color: red;
-    }`,
-  );
+    }
+  `);
 
-  const { rerender, getByTestId } = render(
-    <View testID={parentID} className="group/item">
+  render(
+    <View testID={parentID} className="group/item will-change-container">
       <View testID={childID} className="my-class" />
     </View>,
   );
 
-  const component = getByTestId(childID);
+  const component = screen.getByTestId(childID);
 
   expect(component.props.style).toStrictEqual({ color: "#f00" });
 
-  rerender(
-    <View testID={parentID}>
+  screen.rerender(
+    <View testID={parentID} className="will-change-container">
       <View testID={childID} className="my-class" />
     </View>,
   );
