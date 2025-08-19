@@ -410,22 +410,21 @@ export class StylesheetBuilder {
       propPath = property;
     }
 
-    if (isStyleFunction(value)) {
+    if (forceTuple && !Array.isArray(propPath)) {
+      propPath = [propPath];
+    }
+
+    if (isStyleFunction(value) || Array.isArray(propPath)) {
       if (delayed) {
         declarations.push([value, propPath, 1]);
       } else {
         declarations.push([value, propPath]);
       }
-    } else if (forceTuple || Array.isArray(propPath)) {
-      declarations.push([
-        value,
-        Array.isArray(propPath) ? propPath : [propPath],
-      ]);
     } else if (Array.isArray(value) && value.some(isStyleFunction)) {
       declarations.push([value, propPath]);
     } else if (typeof value === "string" && keywords.has(value)) {
       declarations.push([value, propPath]);
-    } else {
+    } else if (typeof propPath === "string") {
       let staticDeclarationRecord = staticDeclarations.get(declarations);
       if (!staticDeclarationRecord) {
         staticDeclarationRecord = {};

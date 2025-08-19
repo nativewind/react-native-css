@@ -99,10 +99,8 @@ export type StyleDeclaration =
   | Record<string, StyleDescriptor>
   /** A style that needs to be set  */
   | [StyleDescriptor, string | string[]]
-  /** A value that can only be computed at runtime */
-  | [StyleFunction, string | string[]]
   /** A value that can only be computed at runtime, and only after styles have been calculated */
-  | [StyleFunction, string | string[], 1];
+  | [StyleDescriptor, string | string[], 1];
 
 export type StyleDescriptor =
   | string
