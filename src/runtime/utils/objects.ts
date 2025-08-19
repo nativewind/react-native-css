@@ -66,25 +66,14 @@ export function applyValue(
     }
 
     const transformArray: Record<string, unknown>[] = target.transform;
-    const transform = transformArray.find((t: any) => t[prop] !== undefined);
 
-    /**
-     * If our value is an array, this means a shorthand was split into multiple values
-     * e.g scale -> scaleX, scaleY
-     */
-    if (transform) {
-      if (Array.isArray(value)) {
-        target.transform = transformArray.filter((t) => !(prop in t));
-        target.transform.push(...value);
-      } else {
-        transform[prop] = value;
-      }
+    // Remove any existing values
+    target.transform = transformArray.filter((t) => !(prop in t));
+
+    if (Array.isArray(value)) {
+      target.transform.push(...value);
     } else {
-      if (Array.isArray(value)) {
-        transformArray.push(...value);
-      } else {
-        transformArray.push(value);
-      }
+      target.transform.push(value);
     }
     return;
   } else if (typeof value === "object" && value && ShortHandSymbol in value) {

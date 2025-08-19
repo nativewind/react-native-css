@@ -45,6 +45,23 @@ describe("scale", () => {
 
   test("unparsed", () => {
     registerCSS(`
+      .my-class { 
+        --scale-x: 2%;
+        --scale-y: 2%;
+        scale: var(--scale-x) var(--scale-y); 
+      }
+    `);
+    const component = render(
+      <View testID={testID} className="my-class" />,
+    ).getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({
+      transform: [{ scale: "2%" }],
+    });
+  });
+
+  test("unparsed - different values", () => {
+    registerCSS(`
       :root {
         --scale-x: 2;
         --scale-y: 3;
