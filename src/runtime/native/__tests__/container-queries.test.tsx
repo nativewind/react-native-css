@@ -5,6 +5,45 @@ import { registerCSS } from "react-native-css/jest";
 const parentID = "parent";
 const childID = "child";
 
+test("Unnamed containers", () => {
+  registerCSS(`
+    :root, :host {
+      --color-white: #fff;
+    }
+    .\\@container {
+      container-type: inline-size;
+    }
+    .\\@sm\\:text-white {
+      @container (width >= 24rem) {
+        color: var(--color-white);
+      }
+    }
+  `);
+
+  render(
+    <View testID={parentID} className="@container">
+      <View testID={childID} className="@sm:text-white" />
+    </View>,
+  );
+
+  const parent = screen.getByTestId(parentID);
+  const child = screen.getByTestId(childID);
+
+  expect(child).toHaveStyle(undefined);
+
+  // Jest does not fire layout events, so we need to manually
+  fireEvent(parent, "layout", {
+    nativeEvent: {
+      layout: {
+        width: 500,
+        height: 200,
+      },
+    },
+  });
+
+  expect(child).toHaveStyle({ color: "#fff" });
+});
+
 test("container query width", () => {
   registerCSS(`
       .container {

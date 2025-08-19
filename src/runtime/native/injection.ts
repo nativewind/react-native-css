@@ -3,6 +3,7 @@ import type {
   ReactNativeCssStyleSheet,
   StyleRuleSet,
 } from "../../compiler";
+import { DEFAULT_CONTAINER_NAME } from "./conditions/container-query";
 import {
   family,
   observable,
@@ -26,6 +27,36 @@ StyleCollection.keyframes = family<string, Observable<Animation_V2[1]>>(() => {
 
 StyleCollection.inject = function (options: ReactNativeCssStyleSheet) {
   observableBatch.current = new Set();
+
+  StyleCollection.styles("will-change-variable").set([
+    {
+      s: [0],
+      v: [],
+    },
+  ]);
+
+  StyleCollection.styles("will-change-container").set([
+    {
+      s: [0],
+      c: [DEFAULT_CONTAINER_NAME],
+    },
+  ]);
+
+  StyleCollection.styles("will-change-animation").set([
+    {
+      s: [0],
+      a: true,
+    },
+  ]);
+
+  StyleCollection.styles("will-change-pressable").set([
+    {
+      s: [0],
+      p: {
+        h: 1,
+      },
+    },
+  ]);
 
   if (options.s) {
     for (const style of options.s) {
@@ -99,33 +130,3 @@ function isDeepEqual(a: unknown, b: unknown): boolean {
 
   return true;
 }
-
-StyleCollection.styles("will-change-variable").set([
-  {
-    s: [0],
-    v: [],
-  },
-]);
-
-StyleCollection.styles("will-change-container").set([
-  {
-    s: [0],
-    c: [],
-  },
-]);
-
-StyleCollection.styles("will-change-animation").set([
-  {
-    s: [0],
-    a: true,
-  },
-]);
-
-StyleCollection.styles("will-change-pressable").set([
-  {
-    s: [0],
-    p: {
-      h: 1,
-    },
-  },
-]);
