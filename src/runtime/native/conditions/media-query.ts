@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { PixelRatio, Platform } from "react-native";
+import { I18nManager, PixelRatio, Platform } from "react-native";
 
 import type { MediaCondition } from "../../../compiler";
 import { colorScheme, vh, vw, type Getter } from "../reactivity";
@@ -34,34 +34,38 @@ function test(mediaQuery: MediaCondition, get: Getter): Boolean {
 }
 
 function testComparison(mediaQuery: MediaCondition, get: Getter): Boolean {
-  let left: number | undefined;
-  const right = mediaQuery[2];
+  const value = mediaQuery[2];
 
   switch (mediaQuery[1]) {
+    case "dir":
+      return (I18nManager.isRTL && value === "rtl") || value === "ltr";
     case "hover":
       return true;
     case "platform":
-      return right === "native" || right === Platform.OS;
+      return value === "native" || value === Platform.OS;
     case "prefers-color-scheme": {
-      return right === get(colorScheme);
+      return value === get(colorScheme);
     }
     case "display-mode":
-      return right === "native" || Platform.OS === right;
+      return value === "native" || Platform.OS === value;
     case "min-width":
-      return typeof right === "number" && get(vw) >= right;
+      return typeof value === "number" && get(vw) >= value;
     case "max-width":
-      return typeof right === "number" && get(vw) <= right;
+      return typeof value === "number" && get(vw) <= value;
     case "min-height":
-      return typeof right === "number" && get(vh) >= right;
+      return typeof value === "number" && get(vh) >= value;
     case "max-height":
-      return typeof right === "number" && get(vh) <= right;
+      return typeof value === "number" && get(vh) <= value;
     case "orientation":
-      return right === "landscape" ? get(vh) < get(vw) : get(vh) >= get(vw);
+      return value === "landscape" ? get(vh) < get(vw) : get(vh) >= get(vw);
   }
 
-  if (typeof right !== "number") {
+  if (typeof value !== "number") {
     return false;
   }
+
+  let left: number | undefined;
+  const right = value;
 
   switch (mediaQuery[1]) {
     case "width":
