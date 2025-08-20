@@ -2546,9 +2546,7 @@ export function parseCalcArguments(
 ) {
   const parsed: StyleDescriptor[] = [];
 
-  let mode: "number" | "percentage" | undefined;
-
-  for (const [currentIndex, arg] of args.entries()) {
+  for (const arg of args) {
     switch (arg.type) {
       case "env": {
         parsed.push(parseEnv(arg.value, builder));
@@ -2568,11 +2566,9 @@ export function parseCalcArguments(
       }
       case "length": {
         const value = parseLength(arg.value, builder);
-
         if (value !== undefined) {
           parsed.push(value);
         }
-
         break;
       }
       case "color":
@@ -2595,49 +2591,19 @@ export function parseCalcArguments(
             }
             break;
           case "percentage":
-            mode ??= "percentage";
-            if (mode !== "percentage") return;
-            parsed.push(`${arg.value.value * 100}%`);
+            parsed.push(`${round(arg.value.value * 100)}%`);
             break;
           case "number": {
-            mode ??= "number";
-            if (mode !== "number") return;
-            parsed.push(arg.value.value);
+            parsed.push(round(arg.value.value));
             break;
           }
           case "parenthesis-block": {
-            /**
-             * If we have a parenthesis block, we just treat it as a nested calc function
-             * Because there could be multiple parenthesis blocks, this is recursive
-             */
-            let closeParenthesisIndex = -1;
-            for (let index = args.length - 1; index > 0; index--) {
-              // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-              const value = args[index]!;
-              if (
-                value.type === "token" &&
-                value.value.type === "close-parenthesis"
-              ) {
-                closeParenthesisIndex = index;
-                break;
-              }
-            }
-
-            if (closeParenthesisIndex === -1) {
-              return;
-            }
-
-            const innerCalcArgs = args
-              // Extract the inner calcArgs including the parenthesis. This mutates args
-              .splice(currentIndex, closeParenthesisIndex - currentIndex + 1)
-              // Then drop the surrounding parenthesis
-              .slice(1, -1);
-
-            parsed.push(parseCalcFn("calc", innerCalcArgs, builder, property));
-
+            parsed.push("(");
             break;
           }
           case "close-parenthesis":
+            parsed.push(")");
+            break;
           case "string":
           case "function":
           case "ident":

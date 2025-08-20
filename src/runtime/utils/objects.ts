@@ -24,7 +24,9 @@ export function getDeepPath(source: any, paths: string | string[] | false) {
 
     return target;
   } else if (transformKeys.has(paths)) {
-    return source?.transform?.find((t: any) => t[paths] !== undefined);
+    return Array.isArray(source?.transform)
+      ? source.transform.find((t: any) => t[paths] !== undefined)
+      : source.transform;
   } else {
     return source?.[paths];
   }
