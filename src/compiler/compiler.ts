@@ -20,6 +20,7 @@ import { parseDeclaration } from "./declarations";
 import { extractKeyFrames } from "./keyframes";
 import { parseMediaQuery } from "./media-query";
 import { StylesheetBuilder } from "./stylesheet";
+import { supportsConditionValid } from "./supports";
 
 const defaultLogger = debug("react-native-css:compiler");
 
@@ -199,6 +200,13 @@ function extractRule(rule: Rule, builder: StylesheetBuilder) {
         extractRule(layerRule, builder);
       }
       break;
+    case "supports":
+      if (supportsConditionValid(rule.value.condition)) {
+        for (const layerRule of rule.value.rules) {
+          extractRule(layerRule, builder);
+        }
+      }
+      break;
     case "custom":
     case "font-face":
     case "font-palette-values":
@@ -211,7 +219,6 @@ function extractRule(rule: Rule, builder: StylesheetBuilder) {
     case "unknown":
     case "import":
     case "page":
-    case "supports":
     case "counter-style":
     case "moz-document":
     case "nesting":

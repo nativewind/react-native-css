@@ -55,6 +55,8 @@ export function getClassNameSelectors(
     (selector): (ReactNativeGlobalSelector | PartialSelector)[] => {
       if (isRootVariableSelector(selector)) {
         return [{ type: "rootVariables" }];
+      } else if (isUniversalSelector(selector)) {
+        return [{ type: "universalVariables" }];
       } else {
         return (
           parseComponents(
@@ -517,6 +519,10 @@ function isRootVariableSelector([first, second]: Selector) {
   return (
     first && !second && first.type === "pseudo-class" && first.kind === "root"
   );
+}
+
+function isUniversalSelector([first, second]: Selector) {
+  return first && first.type === "universal" && !second;
 }
 
 export function toRNProperty<T extends string>(str: T) {

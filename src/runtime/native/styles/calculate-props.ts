@@ -11,6 +11,7 @@ import {
   type Getter,
   type VariableContextValue,
 } from "../reactivity";
+import { transformKeys } from "./defaults";
 import { resolveValue } from "./resolve";
 
 export function calculateProps(
@@ -28,6 +29,7 @@ export function calculateProps(
   let important: Record<string, any> | undefined;
 
   const delayedStyles: (() => void)[] = [];
+  const transformStyles: (() => void)[] = [];
 
   for (const rule of rules) {
     if (VAR_SYMBOL in rule) {
@@ -67,6 +69,7 @@ export function calculateProps(
         inlineVariables,
         inheritedVariables,
         delayedStyles,
+        transformStyles,
         guards,
         target,
         topLevelTarget,
@@ -76,6 +79,10 @@ export function calculateProps(
 
   for (const delayedStyle of delayedStyles) {
     delayedStyle();
+  }
+
+  for (const transformStyle of transformStyles) {
+    transformStyle();
   }
 
   return {
@@ -91,6 +98,7 @@ export function applyDeclarations(
   inlineVariables: InlineVariable,
   inheritedVariables: VariableContextValue,
   delayedStyles: (() => void)[] = [],
+  transformStyles: (() => void)[] = [],
   guards: RenderGuard[] = [],
   target: Record<string, any> = {},
   topLevelTarget = target,
@@ -136,7 +144,7 @@ export function applyDeclarations(
 
       const shouldDelay = declaration[2];
 
-      if (shouldDelay) {
+      if (shouldDelay || transformKeys.has(prop)) {
         /**
          * We need to delay the resolution of this value until after all
          * styles have been calculated. But another style might override
@@ -149,9 +157,9 @@ export function applyDeclarations(
         const originalValue = value;
         // This needs to be a object with the [prop] so we can discover in transform arrays
         value = { [prop]: true };
-        delayedStyles.push(() => {
-          if (getDeepPath(target, prop) === value) {
-            delete target[prop];
+
+        if (transformKeys.has(prop)) {
+          transformStyles.push(() => {
             value = resolveValue(originalValue, get, {
               inlineVariables,
               inheritedVariables,
@@ -159,8 +167,21 @@ export function applyDeclarations(
               calculateProps,
             });
             applyValue(target, prop, value);
-          }
-        });
+          });
+        } else {
+          delayedStyles.push(() => {
+            if (getDeepPath(target, prop) === value) {
+              delete target[prop];
+              value = resolveValue(originalValue, get, {
+                inlineVariables,
+                inheritedVariables,
+                renderGuards: guards,
+                calculateProps,
+              });
+              applyValue(target, prop, value);
+            }
+          });
+        }
       } else {
         value = resolveValue(value, get, {
           inlineVariables,

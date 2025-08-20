@@ -7,6 +7,6 @@ process.env.REACT_NATIVE_CSS_TEST_DEBUG = true;
 
 module.exports = {
   ...jestExpo,
-  testPathIgnorePatterns: ["dist/"],
+  testPathIgnorePatterns: ["dist/", ".*/_[a-zA-Z]"],
   setupFilesAfterEnv: ["./.config/jest.setup.js"],
 };

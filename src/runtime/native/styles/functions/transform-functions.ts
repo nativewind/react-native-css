@@ -1,51 +1,84 @@
+import { isStyleDescriptorArray } from "../../../utils";
 import type { StyleFunctionResolver } from "../resolve";
 
 export const scale: StyleFunctionResolver = (resolveValue, descriptor) => {
-  const values = resolveValue(descriptor[2]);
+  const args = descriptor[2];
 
-  if (Array.isArray(values)) {
-    const [x, y] = values as [string | number][];
-
-    if (values.length === 2 && x === y) {
-      return { scale: x };
-    } else if (values.length === 2) {
-      return [{ scaleX: x }, { scaleY: y }];
-    } else {
-      return { scale: x };
-    }
-  } else {
-    return { scale: values };
+  if (!isStyleDescriptorArray(args)) {
+    return { scale: resolveValue(args) };
   }
+
+  const x = resolveValue(args[0]);
+  const y = resolveValue(args[1]);
+
+  const isXValid = typeof x === "string" || typeof x === "number";
+  const isYValid = typeof y === "string" || typeof y === "number";
+
+  if (isXValid && isYValid) {
+    return x === y ? { scale: x } : [{ scaleX: x }, { scaleY: y }];
+  } else if (isXValid) {
+    return { scaleX: x };
+  } else if (isYValid) {
+    return { scaleY: y };
+  }
+
+  return;
 };
 
 export const rotate: StyleFunctionResolver = (resolveValue, descriptor) => {
-  const values = resolveValue(descriptor[2]);
+  const args = descriptor[2];
 
-  if (Array.isArray(values)) {
-    const [x, y, z] = values as [string | number][];
-
-    if (values.length === 3 && x === y && x === z) {
-      return { rotate: values };
-    } else if (values.length === 3) {
-      return [{ rotateX: x }, { rotateY: y }, { rotateZ: z }];
-    } else if (values.length === 2) {
-      return [{ rotateX: x }, { rotateY: y }];
-    } else {
-      return { rotate: values };
-    }
-  } else {
-    return { rotate: values };
+  if (!isStyleDescriptorArray(args)) {
+    return { rotate: resolveValue(args) };
   }
+
+  const x = resolveValue(args[0]);
+  const y = resolveValue(args[1]);
+  const z = resolveValue(args[2]);
+
+  const isXValid = typeof x === "string" || typeof x === "number";
+  const isYValid = typeof y === "string" || typeof y === "number";
+  const isZValid = typeof z === "string" || typeof z === "number";
+
+  if (isXValid && isYValid && isZValid) {
+    return [{ rotateX: x }, { rotateY: y }, { rotateZ: z }];
+  } else if (isXValid && isYValid) {
+    return [{ rotateX: x }, { rotateY: y }];
+  } else if (isXValid && isZValid) {
+    return [{ rotateX: x }, { rotateZ: z }];
+  } else if (isYValid && isZValid) {
+    return [{ rotateY: y }, { rotateZ: z }];
+  } else if (isXValid) {
+    return { rotateX: x };
+  } else if (isYValid) {
+    return { rotateY: y };
+  } else if (isZValid) {
+    return { rotateZ: z };
+  }
+
+  return;
 };
 
 export const translate: StyleFunctionResolver = (resolveValue, descriptor) => {
-  const values = resolveValue(descriptor[2]);
+  const args = descriptor[2];
 
-  if (Array.isArray(values)) {
-    const [x, y] = values as [string | number][];
-
-    return [{ translateX: x }, { translateY: y }];
-  } else {
-    return { translateX: values };
+  if (!isStyleDescriptorArray(args)) {
+    return;
   }
+
+  const x = resolveValue(args[0]);
+  const y = resolveValue(args[1]);
+
+  const isXValid = typeof x === "string" || typeof x === "number";
+  const isYValid = typeof y === "string" || typeof y === "number";
+
+  if (isXValid && isYValid) {
+    return [{ translateX: x }, { translateY: y }];
+  } else if (isXValid) {
+    return { translateX: x };
+  } else if (isYValid) {
+    return { translateY: y };
+  }
+
+  return;
 };

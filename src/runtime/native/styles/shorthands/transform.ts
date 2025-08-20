@@ -11,7 +11,9 @@ export const transform: StyleFunctionResolver = (
   const transforms = resolveValue(transformDescriptor[2]);
 
   if (Array.isArray(transforms)) {
-    return transforms.filter((transform) => transform !== undefined) as unknown;
+    return transforms.filter(
+      (transform) => transform !== undefined && transform !== "initial",
+    ) as unknown;
   } else if (transforms) {
     // If it's a single transform, wrap it in an array
     return [transforms];
