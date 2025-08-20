@@ -11,12 +11,12 @@
     "web": "expo start --web"
   },
   "dependencies": {
-    "@expo/metro-runtime": "6.0.0-canary-20250713-8f814f8",
+    "@expo/metro-runtime": "6.0.0-canary-20250729-d8899ae",
     "@tailwindcss/postcss": "^4.1.11",
-    "expo": "54.0.0-canary-20250713-8f814f8",
+    "expo": "54.0.0-canary-20250729-d8899ae",
     "expo-dev-client": "5.2.4",
     "expo-status-bar": "~2.2.3",
-    "expo-system-ui": "5.0.11-canary-20250713-8f814f8",
+    "expo-system-ui": "5.0.11-canary-20250729-d8899ae",
     "metro-runtime": "^0.83.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
