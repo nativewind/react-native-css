@@ -21,6 +21,10 @@ import type {
   VariableRecord,
   VariableValue,
 } from "./compiler.types";
+import {
+  modifyRuleForPlaceholder,
+  modifyRuleForSelection,
+} from "./pseudo-elements";
 import { getClassNameSelectors, toRNProperty } from "./selector-builder";
 
 type BuilderMode = "style" | "media" | "container" | "keyframes";
@@ -452,7 +456,19 @@ export class StylesheetBuilder {
 
     for (const selector of normalizedSelectors) {
       // We are going to be apply the current rule to n selectors, so we clone the rule
-      const rule = this.cloneRule(this.rule);
+      let rule: StyleRule | undefined = this.cloneRule(this.rule);
+
+      if (selector.type === "className" && selector.pseudoElementQuery) {
+        if (selector.pseudoElementQuery.includes("selection")) {
+          rule = modifyRuleForSelection(rule);
+        } else if (selector.pseudoElementQuery.includes("placeholder")) {
+          rule = modifyRuleForPlaceholder(rule);
+        }
+      }
+
+      if (!rule) {
+        continue;
+      }
 
       if (selector.type === "className") {
         const {

@@ -177,7 +177,7 @@ export type MediaCondition =
   // Comparison
   | [
       MediaFeatureComparison,
-      MediaFeatureNameFor_MediaFeatureId | MediaFeatureNameFor_MediaFeatureId,
+      MediaFeatureNameFor_MediaFeatureId | "dir",
       StyleDescriptor,
     ]
   // [Start, End]

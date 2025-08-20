@@ -39,10 +39,12 @@ export function testRule(
 }
 
 function pseudoClasses(query: PseudoClassesQuery, get: Getter) {
-  if (query.h && !get(hoverFamily(get))) {
+  // IMPORTANT: active needs: to be first. Modifies a global value
+  // that we use to determine if the component should be a pressable
+  if (query.a && !get(activeFamily(get))) {
     return false;
   }
-  if (query.a && !get(activeFamily(get))) {
+  if (query.h && !get(hoverFamily(get))) {
     return false;
   }
   if (query.f && !get(focusFamily(get))) {

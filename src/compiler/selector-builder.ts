@@ -1,4 +1,4 @@
-import type { Selector, SelectorList } from "lightningcss";
+import type { AttrOperation, Selector, SelectorList } from "lightningcss";
 
 import { Specificity } from "../runtime/utils";
 import type {
@@ -19,6 +19,7 @@ interface ReactNativeClassNameSelector {
   containerQuery?: ContainerQuery[];
   pseudoClassesQuery?: PseudoClassesQuery;
   attributeQuery?: AttributeQuery[];
+  pseudoElementQuery?: string[];
 }
 
 interface ReactNativeGlobalSelector {
@@ -32,10 +33,12 @@ type PartialSelector = Partial<ReactNativeClassNameSelector> & {
 
 const containerQueryMap = new WeakMap<WeakKey, ContainerQuery[]>();
 const attributeQueryMap = new WeakMap<WeakKey, AttributeQuery[]>();
+const mediaQueryMap = new WeakMap<WeakKey, MediaCondition[]>();
 const pseudoClassesQueryMap = new WeakMap<WeakKey, PseudoClassesQuery>();
 
 type ContainerQueryWithSpecificity = ContainerQuery & {
   specificity: SpecificityArray;
+  m?: MediaCondition;
 };
 
 export function getClassNameSelectors(
@@ -123,8 +126,19 @@ function parseComponents(
       return [];
     }
     case "pseudo-element": {
-      // TODO: Support ::selection, ::placeholder, etc
-      return [];
+      switch (component.kind) {
+        case "selection":
+        case "placeholder": {
+          specificity[Specificity.PseudoElements] =
+            (specificity[Specificity.PseudoElements] ?? 0) + 1;
+          root.pseudoElementQuery ??= [];
+          root.pseudoElementQuery.push(component.kind);
+          return parseComponents(rest, options, root, ref, specificity);
+        }
+        default: {
+          return [];
+        }
+      }
     }
     case "pseudo-class": {
       switch (component.kind) {
@@ -185,12 +199,16 @@ function parseComponents(
           return parents.flatMap((parent) => {
             const originalParent = { ...parent };
 
-            return isWhereContainerQueries.map(({ specificity, ...query }) => {
+            return isWhereContainerQueries.map((containerQuery) => {
+              const { specificity, m, ...query } = containerQuery;
               parent = { ...originalParent };
               parent.specificity = [...originalParent.specificity];
-              parent.containerQuery = [
-                ...(originalParent.containerQuery ?? []),
-              ];
+
+              if (m && m.length > 1) {
+                parent.mediaQuery = originalParent.mediaQuery
+                  ? [["&", [...originalParent.mediaQuery, m]]]
+                  : [m];
+              }
 
               if (component.kind === "is") {
                 for (let i = 0; i < specificity.length; i++) {
@@ -202,7 +220,12 @@ function parseComponents(
                 }
               }
 
-              parent.containerQuery.push(query);
+              if (query.a || query.p || query.n !== undefined) {
+                parent.containerQuery = [
+                  ...(originalParent.containerQuery ?? []),
+                ];
+                parent.containerQuery.push(query);
+              }
 
               return parent;
             });
@@ -214,47 +237,63 @@ function parseComponents(
       }
     }
     case "attribute": {
-      // specificity[Specificity.ClassName] =
-      //   (specificity[Specificity.ClassName] ?? 0) + 1;
-      const attributeQuery: AttributeQuery = component.name.startsWith("data-")
-        ? // [data-*] are turned into `dataSet` queries
-          ["d", toRNProperty(component.name.replace("data-", ""))]
-        : // Everything else is turned into `attribute` queries
-          ["a", toRNProperty(component.name)];
-      if (component.operation) {
-        let operator: AttrSelectorOperator | undefined;
-        switch (component.operation.operator) {
-          case "equal":
-            operator = "=";
-            break;
-          case "includes":
-            operator = "~=";
-            break;
-          case "dash-match":
-            operator = "|=";
-            break;
-          case "prefix":
-            operator = "^=";
-            break;
-          case "substring":
-            operator = "*=";
-            break;
-          case "suffix":
-            operator = "$=";
-            break;
-          default:
-            component.operation.operator satisfies never;
-            break;
+      if (component.name === "dir") {
+        if (!component.operation) {
+          return [];
         }
-        if (operator) {
-          // Append the operator onto the attribute query
-          attributeQuery.push(operator, component.operation.value);
+        const operator = operatorMap[component.operation.operator];
+
+        if (operator !== "=") {
+          return [];
         }
+
+        getMediaQuery(ref).push([operator, "dir", component.operation.value]);
+        return parseComponents(rest, options, root, ref, specificity);
+      } else {
+        // specificity[Specificity.ClassName] =
+        //   (specificity[Specificity.ClassName] ?? 0) + 1;
+        const attributeQuery: AttributeQuery = component.name.startsWith(
+          "data-",
+        )
+          ? // [data-*] are turned into `dataSet` queries
+            ["d", toRNProperty(component.name.replace("data-", ""))]
+          : // Everything else is turned into `attribute` queries
+            ["a", toRNProperty(component.name)];
+        if (component.operation) {
+          let operator: AttrSelectorOperator | undefined;
+          switch (component.operation.operator) {
+            case "equal":
+              operator = "=";
+              break;
+            case "includes":
+              operator = "~=";
+              break;
+            case "dash-match":
+              operator = "|=";
+              break;
+            case "prefix":
+              operator = "^=";
+              break;
+            case "substring":
+              operator = "*=";
+              break;
+            case "suffix":
+              operator = "$=";
+              break;
+            default:
+              component.operation.operator satisfies never;
+              break;
+          }
+          if (operator) {
+            // Append the operator onto the attribute query
+            attributeQuery.push(operator, component.operation.value);
+          }
+        }
+        getAttributeQuery(ref).push(attributeQuery);
+        specificity[Specificity.ClassName] =
+          (specificity[Specificity.ClassName] ?? 0) + 1;
+        return parseComponents(rest, options, root, ref, specificity);
       }
-      getAttributeQuery(ref).push(attributeQuery);
-      specificity[Specificity.ClassName] =
-        (specificity[Specificity.ClassName] ?? 0) + 1;
-      return parseComponents(rest, options, root, ref, specificity);
     }
     case "class": {
       if (component.name === options.selectorPrefix) {
@@ -354,6 +393,13 @@ function parseIsWhereComponents(
       //   specificity[Specificity.ClassName] =
       //     (specificity[Specificity.ClassName] ?? 0) + 1;
       switch (component.kind) {
+        case "dir": {
+          queries ??= [{ specificity: [] }];
+          queries.forEach((query) => {
+            getMediaQuery(query).push(["=", "dir", component.direction]);
+          });
+          return parseIsWhereComponents(type, selector, index + 1, queries);
+        }
         case "hover": {
           queries ??= [{ specificity: [] }];
           queries.forEach((query) => {
@@ -409,6 +455,10 @@ function parseIsWhereComponents(
       }
     }
     case "attribute": {
+      if (component.name === "dir") {
+        return null;
+      }
+
       if (type !== "where") {
         // specificity[Specificity.ClassName] =
         //   (specificity[Specificity.ClassName] ?? 0) + 1;
@@ -419,34 +469,9 @@ function parseIsWhereComponents(
         : // Everything else is turned into `attribute` queries
           ["a", toRNProperty(component.name)];
       if (component.operation) {
-        let operator: AttrSelectorOperator | undefined;
-        switch (component.operation.operator) {
-          case "equal":
-            operator = "=";
-            break;
-          case "includes":
-            operator = "~=";
-            break;
-          case "dash-match":
-            operator = "|=";
-            break;
-          case "prefix":
-            operator = "^=";
-            break;
-          case "substring":
-            operator = "*=";
-            break;
-          case "suffix":
-            operator = "$=";
-            break;
-          default:
-            component.operation.operator satisfies never;
-            break;
-        }
-        if (operator) {
-          // Append the operator onto the attribute query
-          attributeQuery.push(operator, component.operation.value);
-        }
+        const operator = operatorMap[component.operation.operator];
+        // Append the operator onto the attribute query
+        attributeQuery.push(operator, component.operation.value);
       }
       queries ??= [{ specificity: [] }];
       for (const query of queries) {
@@ -515,6 +540,24 @@ function getAttributeQuery(
   return attributeQuery;
 }
 
+function getMediaQuery(
+  key: PartialSelector | ContainerQuery,
+): MediaCondition[] {
+  let mediaQuery = mediaQueryMap.get(key);
+  if (!mediaQuery) {
+    if ("type" in key) {
+      mediaQuery = [];
+      key.mediaQuery = mediaQuery;
+    } else {
+      mediaQuery = [];
+      key.m ??= ["&", mediaQuery];
+    }
+    mediaQueryMap.set(key, mediaQuery);
+  }
+
+  return mediaQuery;
+}
+
 function isRootVariableSelector([first, second]: Selector) {
   return (
     first && !second && first.type === "pseudo-class" && first.kind === "root"
@@ -535,3 +578,12 @@ type CamelCase<S extends string> =
   S extends `${infer P1}-${infer P2}${infer P3}`
     ? `${Lowercase<P1>}${Uppercase<P2>}${CamelCase<P3>}`
     : Lowercase<S>;
+
+const operatorMap: Record<AttrOperation["operator"], AttrSelectorOperator> = {
+  "equal": "=",
+  "includes": "~=",
+  "dash-match": "|=",
+  "prefix": "^=",
+  "substring": "*=",
+  "suffix": "$=",
+};
