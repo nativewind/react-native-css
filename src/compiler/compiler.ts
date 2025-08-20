@@ -294,7 +294,7 @@ function extractContainer(
   };
 
   if (containerRule.name) {
-    query.n = containerRule.name;
+    query.n = `c:${containerRule.name}`;
   }
 
   builder.addContainerQuery(query);

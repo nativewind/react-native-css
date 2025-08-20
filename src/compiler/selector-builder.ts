@@ -323,7 +323,7 @@ function parseComponents(
           containerQueries.unshift(ref);
         }
 
-        ref.n = ref.n ? `${ref.n}.${component.name}` : component.name;
+        ref.n = ref.n ? `${ref.n}.${component.name}` : `g:${component.name}`;
       }
 
       specificity[Specificity.ClassName] =
@@ -492,7 +492,9 @@ function parseIsWhereComponents(
             (query.specificity[Specificity.ClassName] ?? 0) + 1;
         }
 
-        query.n = query.n ? `${query.n}.${component.name}` : component.name;
+        query.n = query.n
+          ? `${query.n}.${component.name}`
+          : `g:${component.name}`;
       }
 
       return parseIsWhereComponents(type, selector, index + 1, queries);

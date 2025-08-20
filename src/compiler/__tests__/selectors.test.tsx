@@ -60,7 +60,7 @@ test(".my-class { &:is(:where(.my-parent, .my-second-parent):hover *) {} }", () 
       className: "my-class",
       containerQuery: [
         {
-          n: "my-parent",
+          n: "g:my-parent",
           p: {
             h: 1,
           },
@@ -73,7 +73,7 @@ test(".my-class { &:is(:where(.my-parent, .my-second-parent):hover *) {} }", () 
       className: "my-class",
       containerQuery: [
         {
-          n: "my-second-parent",
+          n: "g:my-second-parent",
           p: {
             h: 1,
           },
