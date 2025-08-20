@@ -42,6 +42,7 @@ export function updateRules(
   const inlineVariables = new Set<InlineVariable>();
 
   let animated = false;
+  let pressable = false;
 
   for (const config of state.configs) {
     const source = currentProps?.[config.source];
@@ -94,22 +95,19 @@ export function updateRules(
     }
 
     for (let rule of styleRuleSet) {
-      // Even if a rule does not match, make sure we register that it could set
-      // a variable or container or be animated.
-      if (rule.v) usesVariables = true;
-      if (rule.c) containers ??= inheritedContainers;
-      if (rule.a) animated = true;
-
       usesVariables ||= Boolean(rule.dv);
 
       // We do this even if the rule doesn't match so we can maintain a consistent render tree
       // We we need to inject React context
+      if (rule.a) animated = true;
+
       if (rule.v) {
         variables ??= inheritedVariables;
       }
 
       if (rule.c) {
         containers ??= inheritedContainers;
+        activeFamily(state.ruleEffectGetter);
       }
 
       if (
@@ -171,7 +169,7 @@ export function updateRules(
 
     if (process.env.NODE_ENV !== "production") {
       if (isRerender) {
-        let pressable = activeFamily.has(state.ruleEffectGetter);
+        const pressable = activeFamily.has(state.ruleEffectGetter);
 
         if (Boolean(variables) !== Boolean(state.variables)) {
           console.log(
@@ -194,11 +192,7 @@ export function updateRules(
     }
   }
 
-  // We only track this in development
-  let pressable =
-    process.env.NODE_ENV === "production"
-      ? undefined
-      : activeFamily.has(state.ruleEffectGetter);
+  pressable = activeFamily.has(state.ruleEffectGetter);
 
   if (!rules.size && !state.stylesObs && !inlineVariables.size) {
     return {
@@ -208,6 +202,7 @@ export function updateRules(
       animated,
       pressable,
       variables,
+      containers,
     };
   }
 

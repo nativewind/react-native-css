@@ -437,11 +437,6 @@ function parseIsWhereComponents(
         }
         case "where":
         case "is": {
-          // :is() and :where() need to be at the start of the selector,
-          if (index !== 0) {
-            return null;
-          }
-
           // Now get the selectors inside the `is` or `where` pseudo-class
           queries = component.selectors.flatMap((selector) => {
             return parseIsWhereComponents(type, selector, 0, queries) ?? [];
