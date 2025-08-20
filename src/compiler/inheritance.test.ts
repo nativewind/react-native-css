@@ -12,7 +12,7 @@ test("nested classes", () => {
         "my-class",
         [
           {
-            c: ["my-class"],
+            c: ["g:my-class"],
             s: [0],
           },
         ],
@@ -21,7 +21,7 @@ test("nested classes", () => {
         "test",
         [
           {
-            cq: [{ n: "my-class" }],
+            cq: [{ n: "g:my-class" }],
             d: [{ color: "#f00" }],
             v: [["__rn-css-color", "#f00"]],
             s: [1, 2],
@@ -44,7 +44,7 @@ test("multiple tiers classes", () => {
         "one",
         [
           {
-            c: ["one"],
+            c: ["g:one"],
             s: [0],
           },
         ],
@@ -53,7 +53,7 @@ test("multiple tiers classes", () => {
         "two",
         [
           {
-            c: ["two"],
+            c: ["g:two"],
             s: [0],
           },
         ],
@@ -62,7 +62,7 @@ test("multiple tiers classes", () => {
         "test",
         [
           {
-            cq: [{ n: "one" }, { n: "two" }],
+            cq: [{ n: "g:one" }, { n: "g:two" }],
             d: [{ color: "#f00" }],
             v: [["__rn-css-color", "#f00"]],
             s: [1, 3],
@@ -85,7 +85,7 @@ test("tiers with multiple classes", () => {
         "one",
         [
           {
-            c: ["one"],
+            c: ["g:one"],
             s: [0],
           },
         ],
@@ -94,7 +94,7 @@ test("tiers with multiple classes", () => {
         "three",
         [
           {
-            c: ["three.two"],
+            c: ["g:three.two"],
             s: [0],
             aq: [["a", "className", "*=", "two"]],
           },
@@ -105,9 +105,9 @@ test("tiers with multiple classes", () => {
         [
           {
             cq: [
-              { n: "one" },
+              { n: "g:one" },
               {
-                n: "three.two",
+                n: "g:three.two",
               },
             ],
             d: [{ color: "#f00" }],

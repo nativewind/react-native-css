@@ -507,7 +507,7 @@ export class StylesheetBuilder {
               continue;
             }
 
-            const [first, ...rest] = name.split(".");
+            const [first, ...rest] = name.slice(2).split(".");
 
             if (typeof first !== "string") {
               continue;
