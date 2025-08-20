@@ -85,7 +85,7 @@ export async function render(
     console.log(`Output CSS:\n---\n${output}\n---\n`);
   }
 
-  const compiled = registerCSS(output, { debug });
+  const compiled = registerCSS(output, { debug: false });
 
   return Object.assign(
     {},
