@@ -84,3 +84,69 @@ test(".my-class { &:is(:where(.my-parent, .my-second-parent):hover *) {} }", () 
     },
   ]);
 });
+
+test(".group-[.test]:text-white { &:is(:where(.group):is(.test) *) {}", () => {
+  const result = getClassNameSelectors([
+    [
+      {
+        type: "class",
+        name: "group-[.test]:text-white",
+      },
+      {
+        type: "nesting",
+      },
+      {
+        type: "pseudo-class",
+        kind: "is",
+        selectors: [
+          [
+            {
+              type: "pseudo-class",
+              kind: "where",
+              selectors: [
+                [
+                  {
+                    type: "class",
+                    name: "group",
+                  },
+                ],
+              ],
+            },
+            {
+              type: "pseudo-class",
+              kind: "is",
+              selectors: [
+                [
+                  {
+                    type: "class",
+                    name: "test",
+                  },
+                ],
+              ],
+            },
+            {
+              type: "combinator",
+              value: "descendant",
+            },
+            {
+              type: "universal",
+            },
+          ],
+        ],
+      },
+    ],
+  ]);
+
+  expect(result).toStrictEqual([
+    {
+      className: "group-[.test]:text-white",
+      containerQuery: [
+        {
+          n: "g:group.test",
+        },
+      ],
+      specificity: [0, 3],
+      type: "className",
+    },
+  ]);
+});
