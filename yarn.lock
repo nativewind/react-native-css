@@ -2254,12 +2254,23 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@expo/metro-runtime@npm:6.0.0-canary-20250713-8f814f8":
-  version: 6.0.0-canary-20250713-8f814f8
-  resolution: "@expo/metro-runtime@npm:6.0.0-canary-20250713-8f814f8"
+"@expo/metro-runtime@npm:6.1.0":
+  version: 6.1.0
+  resolution: "@expo/metro-runtime@npm:6.1.0"
+  dependencies:
+    anser: "npm:^1.4.9"
+    pretty-format: "npm:^29.7.0"
+    stacktrace-parser: "npm:^0.1.10"
+    whatwg-fetch: "npm:^3.0.0"
   peerDependencies:
+    expo: "*"
+    react: "*"
+    react-dom: "*"
     react-native: "*"
-  checksum: 10c0/fba6c62f6b38c603988d93681410b5eb96028f4951b8edbcbed2837ecf4ec84a7b296b70fef123ad1b4a97c2b4100b087c60006ec4ffb7b04384619aeebac24e
+  peerDependenciesMeta:
+    react-dom:
+      optional: true
+  checksum: 10c0/00fdd9744f10c831e89533b0de0555c326728fb5f586f98e17e5ef007c0d0387c7c3e305ee36e0a8ac07d1f1bb8020b25fcbdde93ca6c36672a302c949fc4020
   languageName: node
   linkType: hard
 
@@ -11207,7 +11218,7 @@ __metadata:
   resolution: "react-native-css-example@workspace:example"
   dependencies:
     "@babel/core": "npm:^7.20.0"
-    "@expo/metro-runtime": "npm:6.0.0-canary-20250713-8f814f8"
+    "@expo/metro-runtime": "npm:6.1.0"
     "@tailwindcss/postcss": "npm:^4.1.11"
     expo: "npm:54.0.0-canary-20250713-8f814f8"
     expo-dev-client: "npm:5.2.4"
