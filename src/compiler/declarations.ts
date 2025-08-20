@@ -1198,7 +1198,7 @@ export function parseUnparsed(
             return;
           }
 
-          if (value === "inherit") {
+          if (value === "inherit" || value === "initial") {
             builder.addWarning("value", value);
             return;
           } else if (value === "currentcolor") {
