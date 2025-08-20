@@ -11,17 +11,15 @@
     "web": "expo start --web"
   },
   "dependencies": {
-    "@expo/metro-runtime": "6.0.0-canary-20250713-8f814f8",
     "@tailwindcss/postcss": "^4.1.11",
-    "expo": "54.0.0-canary-20250713-8f814f8",
+    "expo": "54.0.0-preview.4",
     "expo-dev-client": "5.2.4",
     "expo-status-bar": "~2.2.3",
-    "expo-system-ui": "5.0.11-canary-20250713-8f814f8",
-    "metro-runtime": "^0.83.0",
+    "expo-system-ui": "6.0.2",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "react-native": "0.80.1",
-    "react-native-reanimated": "4.0.1",
+    "react-native": "0.81.0",
+    "react-native-reanimated": "4.0.2",
     "react-native-web": "~0.20.0",
     "react-native-worklets": "0.4.1",
     "react-refresh": "^0.17.0"
