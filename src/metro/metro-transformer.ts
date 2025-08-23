@@ -1,3 +1,4 @@
+import { unstable_transformerPath } from "@expo/metro-config";
 import type {
   JsTransformerConfig,
   JsTransformOptions,
@@ -5,8 +6,8 @@ import type {
 } from "metro-transform-worker";
 
 const worker =
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  require("@expo/metro-config/build/transform-worker/transform-worker.js") as typeof import("metro-transform-worker");
+  // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-argument
+  require(unstable_transformerPath) as typeof import("metro-transform-worker");
 
 export function transform(
   config: JsTransformerConfig,
