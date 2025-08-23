@@ -9,6 +9,6 @@
     "index.js",
     "postcss.config.mjs",
     "react-native-css-env.d.ts",
-    "../types.d.ts"
+    "example-env.d.ts"
   ]
 }
