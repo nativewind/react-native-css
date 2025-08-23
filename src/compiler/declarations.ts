@@ -101,6 +101,7 @@ const parsers: {
   "border-block-end-width": parseBorderSideWidthDeclaration,
   "border-block-start": parseBorderBlockStart,
   "border-block-start-color": parseColorDeclaration,
+  "border-block-start-style": parseBorderStyleDeclaration,
   "border-block-start-width": parseBorderSideWidthDeclaration,
   "border-block-style": parseBorderBlockStyle,
   "border-block-width": parseBorderBlockWidth,
@@ -435,18 +436,14 @@ function parseBorderBlock(
   { value }: DeclarationType<"border-block">,
   builder: StylesheetBuilder,
 ) {
-  builder.addDescriptor("border-top-color", parseColor(value.color, builder));
+  builder.addDescriptor("border-block-color", parseColor(value.color, builder));
   builder.addDescriptor(
-    "border-bottom-color",
-    parseColor(value.color, builder),
-  );
-  builder.addDescriptor(
-    "border-top-width",
+    "border-block-width",
     parseBorderSideWidth(value.width, builder),
   );
   builder.addDescriptor(
-    "border-bottom-width",
-    parseBorderSideWidth(value.width, builder),
+    "border-block-style",
+    parseBorderStyle(value.style, builder),
   );
 }
 
@@ -454,9 +451,12 @@ function parseBorderBlockStart(
   { value }: DeclarationType<"border-block-start">,
   builder: StylesheetBuilder,
 ) {
-  builder.addDescriptor("border-top-color", parseColor(value.color, builder));
   builder.addDescriptor(
-    "border-top-width",
+    "border-block-start-color",
+    parseColor(value.color, builder),
+  );
+  builder.addDescriptor(
+    "border-block-start-width",
     parseBorderSideWidth(value.width, builder),
   );
 }
@@ -466,11 +466,11 @@ function parseBorderBlockEnd(
   builder: StylesheetBuilder,
 ) {
   builder.addDescriptor(
-    "border-bottom-color",
+    "border-block-end-color",
     parseColor(value.color, builder),
   );
   builder.addDescriptor(
-    "border-bottom-width",
+    "border-block-end-width",
     parseBorderSideWidth(value.width, builder),
   );
 }
@@ -479,15 +479,17 @@ function parseBorderInline(
   { value }: DeclarationType<"border-inline">,
   builder: StylesheetBuilder,
 ) {
-  builder.addDescriptor("border-left-color", parseColor(value.color, builder));
-  builder.addDescriptor("border-right-color", parseColor(value.color, builder));
   builder.addDescriptor(
-    "border-left-width",
+    "border-inline-color",
+    parseColor(value.color, builder),
+  );
+  builder.addDescriptor(
+    "border-inline-width",
     parseBorderSideWidth(value.width, builder),
   );
   builder.addDescriptor(
-    "border-right-width",
-    parseBorderSideWidth(value.width, builder),
+    "border-inline-style",
+    parseBorderStyle(value.style, builder),
   );
 }
 
@@ -495,10 +497,17 @@ function parseBorderInlineStart(
   { value }: DeclarationType<"border-inline-start">,
   builder: StylesheetBuilder,
 ) {
-  builder.addDescriptor("border-left-color", parseColor(value.color, builder));
   builder.addDescriptor(
-    "border-left-width",
+    "border-inline-start-color",
+    parseColor(value.color, builder),
+  );
+  builder.addDescriptor(
+    "border-inline-start-width",
     parseBorderSideWidth(value.width, builder),
+  );
+  builder.addDescriptor(
+    "border-inline-start-style",
+    parseBorderStyle(value.style, builder),
   );
 }
 
@@ -506,10 +515,17 @@ function parseBorderInlineEnd(
   { value }: DeclarationType<"border-inline-end">,
   builder: StylesheetBuilder,
 ) {
-  builder.addDescriptor("border-right-color", parseColor(value.color, builder));
   builder.addDescriptor(
-    "border-right-width",
+    "border-inline-end-color",
+    parseColor(value.color, builder),
+  );
+  builder.addDescriptor(
+    "border-inline-end-width",
     parseBorderSideWidth(value.width, builder),
+  );
+  builder.addDescriptor(
+    "border-inline-end-style",
+    parseBorderStyle(value.style, builder),
   );
 }
 
@@ -518,12 +534,8 @@ export function parseBorderInlineWidth(
   builder: StylesheetBuilder,
 ) {
   builder.addDescriptor(
-    "border-left-width",
+    "border-inline-width",
     parseBorderSideWidth(declaration.value.start, builder),
-  );
-  builder.addDescriptor(
-    "border-right-width",
-    parseBorderSideWidth(declaration.value.end, builder),
   );
 }
 
@@ -537,16 +549,23 @@ export function parseBorderInlineStyle(
 ) {
   if (typeof declaration.value === "string") {
     builder.addDescriptor(
-      "border-style",
+      declaration.property,
       parseBorderStyle(declaration.value, builder),
     );
   } else if (declaration.value.start === declaration.value.end) {
     builder.addDescriptor(
-      "border-style",
+      declaration.property,
       parseBorderStyle(declaration.value.start, builder),
     );
   } else {
-    builder.addWarning("property", "border-inline-style");
+    builder.addDescriptor(
+      "border-inline-start-style",
+      parseBorderStyle(declaration.value.start, builder),
+    );
+    builder.addDescriptor(
+      "border-inline-end-style",
+      parseBorderStyle(declaration.value.end, builder),
+    );
   }
 }
 
@@ -2003,12 +2022,9 @@ export function parseOverflow(
 }
 
 export function parseBorderStyleDeclaration(
-  declaration: DeclarationType<
-    | "border-style"
-    | "border-left-style"
-    | "border-right-style"
-    | "border-top-style"
-    | "border-bottom-style"
+  declaration: Extract<
+    DeclarationType<Declaration["property"]>,
+    { value: LineStyle | BorderStyle }
   >,
   builder: StylesheetBuilder,
 ) {
@@ -2046,27 +2062,29 @@ export function parseBorderBlockWidth(
   declaration: DeclarationType<"border-block-width">,
   builder: StylesheetBuilder,
 ) {
-  builder.addDescriptor(
-    "border-top-width",
-    parseBorderSideWidth(declaration.value.start, builder),
-  );
-  builder.addDescriptor(
-    "border-bottom-width",
-    parseBorderSideWidth(declaration.value.end, builder),
-  );
+  const start = parseBorderSideWidth(declaration.value.start, builder);
+  const end = parseBorderSideWidth(declaration.value.end, builder);
+
+  if (start === end) {
+    builder.addDescriptor("border-block-width", start);
+  } else {
+    builder.addDescriptor("border-block-start-width", start);
+    builder.addDescriptor("border-block-end-width", end);
+  }
 }
 
 function parseBorderBlockStyle(
   declaration: DeclarationType<"border-block-style">,
   builder: StylesheetBuilder,
 ) {
-  if (declaration.value.start === declaration.value.end) {
-    builder.addDescriptor(
-      "border-style",
-      parseBorderStyle(declaration.value.start, builder),
-    );
+  const start = parseBorderStyle(declaration.value.start, builder);
+  const end = parseBorderStyle(declaration.value.end, builder);
+
+  if (start == end) {
+    builder.addDescriptor("border-block-style", start);
   } else {
-    builder.addWarning("property", "border-block-style");
+    builder.addDescriptor("border-block-start-style", start);
+    builder.addDescriptor("border-block-end-style", end);
   }
 }
 
@@ -2083,21 +2101,10 @@ export function parseBorderSideWidthDeclaration(
   >,
   builder: StylesheetBuilder,
 ) {
-  if (declaration.property.includes("block")) {
-    builder.addDescriptor(
-      `border-${declaration.property.includes("start") ? "top" : "bottom"}-width`,
-      parseBorderSideWidth(declaration.value, builder),
-    );
-    return;
-  } else if (declaration.property.includes("inline")) {
-    builder.addDescriptor(
-      `border-${declaration.property.includes("start") ? "left" : "right"}-width`,
-      parseBorderSideWidth(declaration.value, builder),
-    );
-    return;
-  } else {
-    return parseBorderSideWidth(declaration.value, builder);
-  }
+  builder.addDescriptor(
+    declaration.property,
+    parseBorderSideWidth(declaration.value, builder),
+  );
 }
 
 export function parseBorderSideWidth(
