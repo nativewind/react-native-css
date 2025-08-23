@@ -12,9 +12,9 @@
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.1.11",
-    "expo": "54.0.0-preview.4",
-    "expo-dev-client": "5.2.4",
-    "expo-status-bar": "~2.2.3",
+    "expo": "54.0.0-preview.6",
+    "expo-dev-client": "6.0.4",
+    "expo-status-bar": "3.0.3",
     "expo-system-ui": "6.0.2",
     "react": "19.1.0",
     "react-dom": "19.1.0",
