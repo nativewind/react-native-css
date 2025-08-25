@@ -9,7 +9,7 @@ import { compile, type CompilerOptions } from "../compiler";
 import { getNativeInjectionCode } from "./injection-code";
 
 const worker =
-  // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-argument
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   require(unstable_transformerPath) as typeof import("metro-transform-worker");
 
 export async function transform(
