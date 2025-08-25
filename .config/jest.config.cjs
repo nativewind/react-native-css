@@ -1,5 +1,5 @@
-/* eslint-disable no-undef */
-/* eslint-disable @typescript-eslint/no-require-imports */
+/* eslint-disable no-undef, @typescript-eslint/no-require-imports */
+
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 const jestExpo = require("jest-expo/jest-preset");
 

@@ -16,6 +16,17 @@
     "./types": {
       "types": "./types.d.ts"
     },
+    "./style-collection": {
+      "source": "./src/runtime/native/style-collection/index.ts",
+      "import": {
+        "types": "./dist/typescript/module/src/style-collection/index.d.ts",
+        "default": "./dist/module/style-collection/index.js"
+      },
+      "require": {
+        "types": "./dist/typescript/commonjs/src/style-collection/index.d.ts",
+        "default": "./dist/commonjs/style-collection/index.js"
+      }
+    },
     "./metro": {
       "source": "./src/metro/index.ts",
       "import": {

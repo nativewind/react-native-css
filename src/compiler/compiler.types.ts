@@ -5,8 +5,9 @@ import type { MediaFeatureNameFor_MediaFeatureId } from "lightningcss";
 import { VAR_SYMBOL } from "../runtime/native/reactivity";
 
 export interface CompilerOptions {
+  filename?: string;
+  projectRoot?: string;
   inlineRem?: number | false;
-  grouping?: (string | RegExp)[];
   selectorPrefix?: string;
   stylesheetOrder?: number;
   features?: FeatureFlagRecord;

@@ -1,6 +1,7 @@
 /* eslint-disable */
+import { StyleCollection } from "react-native-css/style-collection";
+
 import { applyShorthand } from "../../../utils";
-import { StyleCollection } from "../../injection";
 import type { StyleFunctionResolver } from "../resolve";
 import { shorthandHandler } from "./_handler";
 

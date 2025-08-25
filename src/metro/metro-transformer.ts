@@ -5,28 +5,44 @@ import type {
   TransformResponse,
 } from "metro-transform-worker";
 
+import { compile, type CompilerOptions } from "../compiler";
+import { getNativeInjectionCode } from "./injection-code";
+
 const worker =
   // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-argument
   require(unstable_transformerPath) as typeof import("metro-transform-worker");
 
-export function transform(
+export async function transform(
   config: JsTransformerConfig,
   projectRoot: string,
   filePath: string,
   data: Buffer,
-  options: JsTransformOptions,
+  options: JsTransformOptions & {
+    reactNativeCSS?: CompilerOptions | undefined;
+  },
 ): Promise<TransformResponse> {
   const isCss = options.type !== "asset" && /\.(s?css|sass)$/.test(filePath);
-  const skipCompile =
-    options.customTransformOptions &&
-    "reactNativeCSSCompile" in options.customTransformOptions &&
-    options.customTransformOptions.reactNativeCSSCompile === false;
 
-  if (!isCss || skipCompile) {
+  if (options.platform === "web" || !isCss) {
     return worker.transform(config, projectRoot, filePath, data, options);
   }
 
-  // TODO - compile the CSS file inline
+  const cssFile = (await worker.transform(config, projectRoot, filePath, data, {
+    ...options,
+    platform: "web",
+  })) as TransformResponse & {
+    output: [{ data: { css: { code: Buffer } } }];
+  };
 
-  return worker.transform(config, projectRoot, filePath, data, options);
+  const css = cssFile.output[0].data.css.code.toString();
+
+  const productionJS = compile(css, {
+    ...options.reactNativeCSS,
+    filename: filePath,
+    projectRoot: projectRoot,
+  }).stylesheet();
+
+  data = Buffer.from(getNativeInjectionCode([], [productionJS]));
+
+  return worker.transform(config, projectRoot, `${filePath}.js`, data, options);
 }
