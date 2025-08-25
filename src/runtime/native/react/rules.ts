@@ -71,7 +71,6 @@ export function updateRules(
     if (target) {
       if (Array.isArray(target)) {
         for (const item of target) {
-          
           // undefined or falsy is allowed in the style array
           if (!item) {
             continue;
