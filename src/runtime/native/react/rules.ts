@@ -71,6 +71,10 @@ export function updateRules(
     if (target) {
       if (Array.isArray(target)) {
         for (const item of target) {
+          // undefined is allowed in style array
+          if (!item) {
+            continue;
+          }
           if (VAR_SYMBOL in item) {
             inlineVariables.add(item);
           } else if (
