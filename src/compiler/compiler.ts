@@ -105,9 +105,10 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
 
   // Use the lightningcss library to traverse the CSS AST and extract style declarations and animations
   lightningcss({
-    filename: "style.css", // This is ignored, but required
     code: typeof code === "string" ? new TextEncoder().encode(code) : code,
     visitor,
+    filename: options.filename ?? "style.css",
+    projectRoot: options.projectRoot ?? process.cwd(),
   });
 
   return {

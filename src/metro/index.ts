@@ -53,16 +53,18 @@ export function withReactNativeCSS<
   const originalMiddleware = config.server?.enhanceMiddleware;
   const originalResolver = config.resolver?.resolveRequest;
 
-  const poisonPillPath = "./poison.pill";
-
   return {
     ...config,
     transformerPath: require.resolve("./metro-transformer"),
+    transformer: {
+      ...config.transformer,
+      reactNativeCSS: options,
+    },
     resolver: {
       ...config.resolver,
       sourceExts: [...(config?.resolver?.sourceExts || []), "css"],
       resolveRequest: (context, moduleName, platform) => {
-        if (moduleName === poisonPillPath) {
+        if (moduleName.includes("poison.pill")) {
           return { type: "empty" };
         }
 
@@ -161,7 +163,7 @@ export function withReactNativeCSS<
                     // Let the transformer know that we will handle compilation
                     customTransformOptions: {
                       ...transformOptions.customTransformOptions,
-                      reactNativeCSSCompile: false,
+                      reactNativeCSS: options,
                     },
                   },
                   fileBuffer,

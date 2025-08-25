@@ -21,7 +21,7 @@ import {
 } from "./reactivity";
 import { resolveValue } from "./styles/resolve";
 
-export { StyleCollection } from "./injection";
+export { StyleCollection } from "react-native-css/style-collection";
 
 /**
  * Generates a new Higher-Order component the wraps the base component and applies the styles.

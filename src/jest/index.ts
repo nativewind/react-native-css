@@ -2,8 +2,9 @@ import { Appearance, Dimensions } from "react-native";
 
 import { inspect } from "node:util";
 
+import { StyleCollection } from "react-native-css/style-collection";
+
 import { compile, type CompilerOptions } from "../compiler";
-import { StyleCollection } from "../runtime/native/injection";
 import { colorScheme, dimensions, rem } from "../runtime/native/reactivity";
 
 declare global {
