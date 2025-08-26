@@ -202,7 +202,7 @@
     "react-refresh": "^0.17.0",
     "react-test-renderer": "^19.1.0",
     "release-it": "^19.0.4",
-    "tailwindcss": "^4.1.11",
+    "tailwindcss": "^4.1.12",
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.40.0"
   },
