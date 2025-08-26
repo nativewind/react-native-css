@@ -239,6 +239,7 @@ const parsers: {
   "translate": parseTranslate,
   "user-select": parseUserSelect,
   "vertical-align": parseVerticalAlign,
+  "visibility": parseVisibility,
   "width": parseSizeDeclaration,
   "z-index": parseZIndex,
 };
@@ -2792,7 +2793,12 @@ export function addTransitionValue(
         declaration.property,
         declaration.value
           .map((v) => v.property)
-          .filter((v) => v in parsers || v === "all" || v === "none")
+          .filter(
+            (v) =>
+              (v in parsers && !["visibility"].includes(v)) ||
+              v === "all" ||
+              v === "none",
+          )
           .map((v) => toRNProperty(v)),
       );
       return;
@@ -2988,6 +2994,19 @@ function parseGradientItem(
     }
     case "hint":
       return parseLength(item.value, builder);
+  }
+}
+
+function parseVisibility(
+  declaration: DeclarationType<"visibility">,
+  builder: StylesheetBuilder,
+) {
+  if (declaration.value === "visible") {
+    builder.addDescriptor("opacity", 1);
+  } else if (declaration.value === "hidden") {
+    builder.addDescriptor("opacity", 0);
+  } else {
+    builder.addWarning("value", declaration.value);
   }
 }
 
