@@ -33,22 +33,42 @@ export const boxShadow: StyleFunctionResolver = (
   if (!isStyleDescriptorArray(args)) {
     return args;
   } else {
-    return args.flatMap((shadows) => {
-      if (shadows === undefined) {
-        return [];
-      } else if (isStyleDescriptorArray(shadows)) {
-        if (shadows.length === 0) {
+    return args
+      .flatMap((shadows) => {
+        if (shadows === undefined) {
           return [];
-        } else if (Array.isArray(shadows[0])) {
-          return shadows
-            .map((shadow) => handler(resolveValue, shadow, get, options))
-            .filter((v) => v !== undefined);
+        } else if (isStyleDescriptorArray(shadows)) {
+          if (shadows.length === 0) {
+            return [];
+          } else if (Array.isArray(shadows[0])) {
+            return shadows
+              .map((shadow) => {
+                return omitTransparentShadows(
+                  handler(resolveValue, shadow, get, options),
+                );
+              })
+              .filter((v) => v !== undefined);
+          } else {
+            return omitTransparentShadows(
+              handler(resolveValue, shadows, get, options),
+            );
+          }
         } else {
-          return handler(resolveValue, shadows, get, options);
+          return omitTransparentShadows(
+            handler(resolveValue, shadows, get, options),
+          );
         }
-      } else {
-        return handler(resolveValue, shadows, get, options);
-      }
-    });
+      })
+      .filter((v) => v !== undefined);
   }
 };
+
+function omitTransparentShadows(style: unknown) {
+  if (typeof style === "object" && style && "color" in style) {
+    if (style.color === "#0000" || style.color === "transparent") {
+      return;
+    }
+  }
+
+  return style;
+}
