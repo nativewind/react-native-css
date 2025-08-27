@@ -22,6 +22,7 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Set nightly version
+        id: set-version
         run: |
           SHORT_SHA=$(git rev-parse --short HEAD)
           VERSION=0.0.0-nightly.$SHORT_SHA
