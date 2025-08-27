@@ -9,10 +9,9 @@ import {
   type RenderOptions,
 } from "@testing-library/react-native";
 import postcss from "postcss";
+import type { compile } from "react-native-css/compiler";
+import { View } from "react-native-css/components";
 import { registerCSS } from "react-native-css/jest";
-
-import type { compile } from "../../../compiler";
-import { View } from "../../../components";
 
 const testID = "tailwind";
 

@@ -1,8 +1,7 @@
 import { render, screen } from "@testing-library/react-native";
 import { View } from "react-native-css/components/View";
 import { registerCSS, testID } from "react-native-css/jest";
-
-import { vars } from "../api";
+import { vars } from "react-native-css/runtime";
 
 test("vars", () => {
   registerCSS(
