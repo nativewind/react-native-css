@@ -27,15 +27,25 @@ jobs:
           VERSION=0.0.0-nightly.$SHORT_SHA
           npm version $VERSION --no-git-tag-version
           echo "version=$VERSION" >> $GITHUB_ENV
-
-      - name: Check if version already exists
-        run: |
-          if npm view react-native-css@$version > /dev/null 2>&1; then
-            echo "Version $version already exists. Skipping publish."
-            exit 0
-          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Publish nightly
         run: npm publish --tag nightly
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Check if version already exists
+        id: check-version
+        run: |
+          if npm view react-native-css@${{ steps.set-version.outputs.version }} > /dev/null 2>&1; then
+            echo "Version ${{ steps.set-version.outputs.version }} already exists. Skipping publish."
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publish nightly
+        if: steps.check-version.outputs.exists == 'false'
+        run: npm publish --tag nightly
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
