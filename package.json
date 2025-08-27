@@ -1,6 +1,7 @@
 {
   "name": "react-native-css",
   "version": "2.1.2",
+  "description": "A CSS polyfill for React Native",
   "exports": {
     ".": {
       "source": "./src/index.ts",

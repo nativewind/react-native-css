@@ -2,8 +2,8 @@ import { View } from "react-native";
 
 import { act, renderHook } from "@testing-library/react-native";
 import { registerCSS } from "react-native-css/jest";
+import { useNativeCss } from "react-native-css/runtime/native";
 
-import { useNativeCss } from "../react/useNativeCss";
 import {
   dimensions,
   rem,
@@ -11,8 +11,8 @@ import {
   VariableContext,
   vh,
   vw,
-} from "../reactivity";
-import { emVariableName } from "../styles/constants";
+} from "../../runtime/native/reactivity";
+import { emVariableName } from "../../runtime/native/styles/constants";
 
 test("px", () => {
   registerCSS(`.my-class { width: 10px; }`);

@@ -1,8 +1,9 @@
 import type {
-  Animation_V2,
+  Animation,
   ReactNativeCssStyleSheet,
   StyleRuleSet,
-} from "../compiler";
+} from "react-native-css/compiler";
+
 import { DEFAULT_CONTAINER_NAME } from "../runtime/native/conditions/container-query";
 import {
   family,
@@ -16,7 +17,7 @@ export { rootVariables, universalVariables };
 
 interface StyleCollectionType {
   styles: ReturnType<typeof family<string, Observable<StyleRuleSet>>>;
-  keyframes: ReturnType<typeof family<string, Observable<Animation_V2[1]>>>;
+  keyframes: ReturnType<typeof family<string, Observable<Animation[1]>>>;
   inject: (options: ReactNativeCssStyleSheet) => void;
 }
 
@@ -28,7 +29,7 @@ globalThis.__react_native_css_style_collection ??= {
   styles: family<string, Observable<StyleRuleSet>>(() => {
     return observable([], isDeepEqual);
   }),
-  keyframes: family<string, Observable<Animation_V2[1]>>(() => {
+  keyframes: family<string, Observable<Animation[1]>>(() => {
     return observable([], isDeepEqual);
   }),
   inject: function (options: ReactNativeCssStyleSheet) {

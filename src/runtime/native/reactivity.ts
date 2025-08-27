@@ -209,6 +209,18 @@ export const vh = observable<number>(
   (read, value) => value ?? read(dimensions)?.height,
 );
 
+Dimensions.addEventListener("change", ({ window }) => {
+  observableBatch.current = new Set();
+  vw.set(window.width);
+  vh.set(window.height);
+
+  for (const effect of observableBatch.current) {
+    effect.run();
+  }
+
+  observableBatch.current = undefined;
+});
+
 /** Color Scheme **************************************************************/
 
 export const colorScheme = observable<ColorSchemeName>(
