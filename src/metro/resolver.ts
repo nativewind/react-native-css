@@ -45,6 +45,14 @@ export function nativeResolver(
     return resolver(context, `react-native-css/components`, platform);
   }
 
+  if (moduleName === "react-native-safe-area-context") {
+    return resolver(
+      context,
+      `react-native-css/components/react-native-safe-area-context`,
+      platform,
+    );
+  }
+
   // We only care about `react-native/Library/Components/<module>.js` components
   const segments = resolution.filePath.split(sep);
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
