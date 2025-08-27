@@ -1,8 +1,7 @@
 import { render, screen } from "@testing-library/react-native";
+import { compile } from "react-native-css/compiler";
 import { View } from "react-native-css/components";
 import { registerCSS, testID } from "react-native-css/jest";
-
-import { compile } from "../compiler";
 
 test("@prop target (nested @media)", () => {
   const compiled = registerCSS(`
