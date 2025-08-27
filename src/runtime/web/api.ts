@@ -66,7 +66,7 @@ export const colorScheme: ColorScheme = {
   },
 };
 
-export function vars(variables: Record<`--${string}`, string | number>) {
+export function vars(variables: Record<string, string | number>) {
   const $variables: Record<string, string> = {};
 
   for (const [key, value] of Object.entries(variables)) {

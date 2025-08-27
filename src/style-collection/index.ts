@@ -2,7 +2,8 @@ import type {
   Animation_V2,
   ReactNativeCssStyleSheet,
   StyleRuleSet,
-} from "../compiler";
+} from "react-native-css/compiler";
+
 import { DEFAULT_CONTAINER_NAME } from "../runtime/native/conditions/container-query";
 import {
   family,

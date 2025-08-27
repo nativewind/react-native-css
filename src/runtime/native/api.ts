@@ -23,6 +23,8 @@ import { resolveValue } from "./styles/resolve";
 
 export { StyleCollection } from "react-native-css/style-collection";
 
+export { useNativeCss };
+
 /**
  * Generates a new Higher-Order component the wraps the base component and applies the styles.
  * This is added to the `interopComponents` map so that it can be used in the `wrapJSX` function
