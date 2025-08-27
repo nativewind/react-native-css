@@ -2247,6 +2247,26 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@expo/metro-runtime@npm:~6.1.1":
+  version: 6.1.1
+  resolution: "@expo/metro-runtime@npm:6.1.1"
+  dependencies:
+    anser: "npm:^1.4.9"
+    pretty-format: "npm:^29.7.0"
+    stacktrace-parser: "npm:^0.1.10"
+    whatwg-fetch: "npm:^3.0.0"
+  peerDependencies:
+    expo: "*"
+    react: "*"
+    react-dom: "*"
+    react-native: "*"
+  peerDependenciesMeta:
+    react-dom:
+      optional: true
+  checksum: 10c0/6ecb5889e07c5200f51e4dffb8a04b4bc0926468630bb2f23ca53e06d565d3c00c8734e377b0d3b74a082a37aed06c0f50c7772ba066dded8d22b8a7354c9cd8
+  languageName: node
+  linkType: hard
+
 "@expo/metro@npm:~0.1.1":
   version: 0.1.1
   resolution: "@expo/metro@npm:0.1.1"
@@ -11330,6 +11350,7 @@ __metadata:
     "@babel/core": "npm:^7.28.0"
     "@commitlint/config-conventional": "npm:^19.8.1"
     "@eslint/js": "npm:^9.30.1"
+    "@expo/metro-runtime": "npm:~6.1.1"
     "@ianvs/prettier-plugin-sort-imports": "npm:^4.4.2"
     "@tailwindcss/postcss": "npm:^4.1.12"
     "@testing-library/react-native": "npm:^13.3.3"
