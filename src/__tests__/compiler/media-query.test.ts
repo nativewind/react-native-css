@@ -1,4 +1,4 @@
-import { compile } from "../compiler";
+import { compile } from "react-native-css/compiler";
 
 describe.skip("platform media queries", () => {
   test("android", () => {
