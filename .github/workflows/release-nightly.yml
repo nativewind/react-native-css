@@ -3,7 +3,7 @@ name: Release & Publish to NPM
 on: workflow_dispatch
 
 jobs:
-  release:
+  nightly:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -24,9 +24,9 @@ jobs:
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Run release
+      - name: Run nightly release
         run: |
-          yarn release --ci --preRelease=preview --dry-run
+          yarn release:nightly --ci
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
