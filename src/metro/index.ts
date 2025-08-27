@@ -6,7 +6,7 @@ import connect from "connect";
 import debug from "debug";
 import type { MetroConfig } from "metro-config";
 
-import type { CompilerOptions, ReactNativeCssStyleSheet_V2 } from "../compiler";
+import type { CompilerOptions, ReactNativeCssStyleSheet } from "../compiler";
 import { compile } from "../compiler/compiler";
 import { getNativeInjectionCode, getWebInjectionCode } from "./injection-code";
 import { nativeResolver, webResolver } from "./resolver";
@@ -97,7 +97,7 @@ export function withReactNativeCSS<
 
           const nativeCSSFiles = new Map<
             string,
-            [string, ReactNativeCssStyleSheet_V2]
+            [string, ReactNativeCssStyleSheet]
           >();
           const webCSSFiles = new Set<string>();
 
