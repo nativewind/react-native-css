@@ -116,7 +116,6 @@
     "prepare": "bob build",
     "prepublishOnly": "bob build",
     "release": "release-it --config ./.config/release-it.config.ts",
-    "release:nightly": "release-it --config ./.config/release-it.nightly.config.ts --preRelease=nightly && git restore :/",
     "start": "yarn example start",
     "start:build": "yarn build && yarn example build",
     "start:debug": "yarn build && yarn example debug",

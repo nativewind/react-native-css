@@ -1,6 +1,9 @@
-name: Release & Publish to NPM
+name: Nightly Release & Publish to NPM
 
-on: workflow_dispatch
+on:
+  schedule:
+    - cron: "0 0 * * *" # every day at midnight UTC
+  workflow_dispatch: # allow manual trigger
 
 jobs:
   nightly:
@@ -12,21 +15,27 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
-      - name: Initialize Git user
-        shell: bash
-        run: |
-          git config user.name "github-actions"
-          git config user.email "mwlawlor@gmail.com"
-
       - name: Setup NPM registry
         run: |
           npm config set //registry.npmjs.org/:_authToken $NPM_TOKEN
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Run nightly release
+      - name: Set nightly version
         run: |
-          yarn release:nightly --ci
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          VERSION=0.0.0-nightly.$SHORT_SHA
+          npm version $VERSION --no-git-tag-version
+          echo "version=$VERSION" >> $GITHUB_ENV
+
+      - name: Check if version already exists
+        run: |
+          if npm view react-native-css@$version > /dev/null 2>&1; then
+            echo "Version $version already exists. Skipping publish."
+            exit 0
+          fi
+
+      - name: Publish nightly
+        run: npm publish --tag nightly
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
