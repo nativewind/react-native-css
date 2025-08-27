@@ -7,6 +7,7 @@ import type {
   BorderStyle,
   ColorOrAuto,
   CssColor,
+  CustomProperty,
   Declaration,
   DimensionPercentageFor_LengthValue,
   EnvironmentVariable,
@@ -975,6 +976,12 @@ export function parseCustomDeclaration(
       parseUnparsed(declaration.value.value, builder, property) ===
         "borderless",
     );
+  } else if (property === "object-fit") {
+    // https://github.com/parcel-bundler/lightningcss/issues/1046
+    parseObjectFit(declaration.value, builder);
+  } else if (property === "object-position") {
+    // https://github.com/parcel-bundler/lightningcss/issues/1047
+    parseObjectPosition(declaration.value, builder);
   } else if (
     validProperties.has(property) ||
     property.startsWith("--") ||
@@ -2995,6 +3002,33 @@ function parseGradientItem(
     case "hint":
       return parseLength(item.value, builder);
   }
+}
+
+function parseObjectFit(
+  declaration: CustomProperty,
+  builder: StylesheetBuilder,
+) {
+  builder.addMapping({
+    "object-fit": "contentFit",
+  });
+  builder.addDescriptor(
+    "object-fit",
+    parseUnparsed(declaration.value, builder, "object-fit"),
+  );
+}
+
+function parseObjectPosition(
+  declaration: CustomProperty,
+  builder: StylesheetBuilder,
+) {
+  builder.addMapping({
+    "object-position": "contentPosition",
+  });
+  builder.addDescriptor("object-position", [
+    {},
+    "join",
+    [parseUnparsed(declaration.value, builder, "object-position"), " "],
+  ]);
 }
 
 function parseVisibility(

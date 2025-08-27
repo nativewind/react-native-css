@@ -1,5 +1,7 @@
 import type { PropsWithChildren, ReactElement } from "react";
 
+import { inspect } from "node:util";
+
 import tailwind from "@tailwindcss/postcss";
 import {
   screen,
@@ -30,7 +32,7 @@ export type NativewindRenderOptions = RenderOptions & {
   /** Whether to include the plugin in the generated CSS. @default true */
   plugin?: boolean;
   /** Enable debug logging. @default false - Set process.env.NATIVEWIND_TEST_AUTO_DEBUG and run tests with the node inspector   */
-  debug?: boolean;
+  debug?: boolean | "verbose";
 };
 
 const debugDefault = Boolean(process.env.NODE_OPTIONS?.includes("--inspect"));
@@ -69,7 +71,7 @@ export async function render(
     css += `\n${extraCss}`;
   }
 
-  if (debug) {
+  if (debug === "verbose") {
     console.log(`Input CSS:\n---\n${css}\n---\n`);
   }
 
@@ -86,6 +88,16 @@ export async function render(
   }
 
   const compiled = registerCSS(output, { debug: false });
+
+  if (debug) {
+    console.log(
+      inspect(compiled.stylesheet(), {
+        colors: true,
+        compact: false,
+        depth: null,
+      }),
+    );
+  }
 
   return Object.assign(
     {},

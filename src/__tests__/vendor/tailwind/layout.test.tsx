@@ -393,32 +393,42 @@ describe("Layout - Isolation", () => {
 describe("Layout - Object Fit", () => {
   test("object-contain", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { properties: ["object-fit"] },
+      props: {
+        contentFit: "contain",
+        style: {},
+      },
     });
   });
   test("object-cover", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { properties: ["object-fit"] },
+      props: {
+        contentFit: "cover",
+        style: {},
+      },
     });
   });
   test("object-fill", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { properties: ["object-fit"] },
+      props: {
+        contentFit: "fill",
+        style: {},
+      },
     });
   });
   test("object-none", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { properties: ["object-fit"] },
+      props: {
+        contentFit: "none",
+        style: {},
+      },
     });
   });
   test("object-scale-down", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { properties: ["object-fit"] },
+      props: {
+        contentFit: "scale-down",
+        style: {},
+      },
     });
   });
 });
@@ -426,56 +436,74 @@ describe("Layout - Object Fit", () => {
 describe("Layout - Object Position", () => {
   test("object-bottom", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { properties: ["object-position"] },
+      props: {
+        contentPosition: "bottom",
+        style: {},
+      },
     });
   });
   test("object-center", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { properties: ["object-position"] },
+      props: {
+        contentPosition: "center",
+        style: {},
+      },
     });
   });
   test("object-left", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { properties: ["object-position"] },
+      props: {
+        contentPosition: "left",
+        style: {},
+      },
     });
   });
   test("object-left-bottom", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { properties: ["object-position"] },
+      props: {
+        contentPosition: "left bottom",
+        style: {},
+      },
     });
   });
   test("object-left-top", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { properties: ["object-position"] },
+      props: {
+        contentPosition: "left top",
+        style: {},
+      },
     });
   });
   test("object-right", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { properties: ["object-position"] },
+      props: {
+        contentPosition: "right",
+        style: {},
+      },
     });
   });
   test("object-right-bottom", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { properties: ["object-position"] },
+      props: {
+        contentPosition: "right bottom",
+        style: {},
+      },
     });
   });
   test("object-right-top", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { properties: ["object-position"] },
+      props: {
+        contentPosition: "right top",
+        style: {},
+      },
     });
   });
   test("object-top", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { properties: ["object-position"] },
+      props: {
+        contentPosition: "top",
+        style: {},
+      },
     });
   });
 });
