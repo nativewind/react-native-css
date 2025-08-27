@@ -30,11 +30,6 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_ENV
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Publish nightly
-        run: npm publish --tag nightly
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-
       - name: Check if version already exists
         id: check-version
         run: |
