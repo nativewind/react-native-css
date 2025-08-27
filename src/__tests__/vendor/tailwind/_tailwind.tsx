@@ -60,7 +60,7 @@ export async function render(
       css += `@import "tailwindcss/preflight.css" layer(base);\n`;
     }
 
-    css += `@import "tailwindcss/utilities.css" layer(utilities) source(none);\n`;
+    css += `@import "tailwindcss/utilities.css" layer(utilities) source(none);\n@import "tailwindcss-safe-area";`;
   }
 
   css += sourceInline

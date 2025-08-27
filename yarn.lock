@@ -11370,6 +11370,7 @@ __metadata:
     react-test-renderer: "npm:^19.1.0"
     release-it: "npm:^19.0.4"
     tailwindcss: "npm:^4.1.12"
+    tailwindcss-safe-area: "npm:^1.1.0"
     typescript: "npm:^5.9.2"
     typescript-eslint: "npm:^8.40.0"
   peerDependencies:
@@ -12529,6 +12530,15 @@ __metadata:
   dependencies:
     "@pkgr/core": "npm:^0.2.4"
   checksum: 10c0/a1de5131ee527512afcaafceb2399b2f3e63678e56b831e1cb2dc7019c972a8b654703a3b94ef4166868f87eb984ea252b467c9d9e486b018ec2e6a55c24dfd8
+  languageName: node
+  linkType: hard
+
+"tailwindcss-safe-area@npm:^1.1.0":
+  version: 1.1.0
+  resolution: "tailwindcss-safe-area@npm:1.1.0"
+  peerDependencies:
+    tailwindcss: ^4.0.0
+  checksum: 10c0/93e48186ebb06f7034f5a01160abad916fcce90f331017d7f350d7de5fd934d742fd7186819e48ff9987d4c2c8a6c4ba6da572af72a125312d8b3786c8415162
   languageName: node
   linkType: hard
 
