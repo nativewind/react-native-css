@@ -33,3 +33,5 @@ const rootVariableFamily = () => {
 
 export const rootVariables = rootVariableFamily();
 export const universalVariables = rootVariableFamily();
+
+rootVariables("__rn-css-rem").set([[14]]);

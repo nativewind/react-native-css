@@ -189,10 +189,6 @@ export const VariableContext = createContext<VariableContextValue>({
   [VAR_SYMBOL]: true,
 });
 
-/** Units *********************************************************************/
-
-export const rem = observable(14);
-
 /** Pseudo Classes ************************************************************/
 
 export const hoverFamily = weakFamily(() => observable(false));
