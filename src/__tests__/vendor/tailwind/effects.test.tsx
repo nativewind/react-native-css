@@ -1,5 +1,9 @@
 import { renderCurrentTest } from "./_tailwind";
 
+/**
+ * TODO: Add tests for full coverage of https://tailwindcss.com/docs/box-shadow
+ */
+
 describe("Effects - Box Shadow", () => {
   test("shadow-sm", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
