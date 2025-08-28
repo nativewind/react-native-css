@@ -146,7 +146,7 @@ const parsers: {
   "border-top-style": parseBorderStyleDeclaration,
   "border-top-width": parseBorderSideWidthDeclaration,
   "border-width": parseBorderWidth,
-  "bottom": parseSizeDeclaration,
+  "bottom": parseSizeWithAutoDeclaration,
   "box-shadow": parseBoxShadow,
   "box-sizing": parseBoxSizing,
   "caret-color": parseColorOrAutoDeclaration,
@@ -159,7 +159,7 @@ const parsers: {
   "fill": parseSVGPaint,
   "filter": parseFilter,
   "flex": parseFlex,
-  "flex-basis": parseLengthPercentageOrAutoDeclaration,
+  "flex-basis": parseLengthPercentageDeclaration,
   "flex-direction": ({ value }) => value,
   "flex-flow": parseFlexFlow,
   "flex-grow": ({ value }) => value,
@@ -176,26 +176,26 @@ const parsers: {
   "inline-size": parseSizeDeclaration,
   "inset": parseInset,
   "inset-block": parseInsetBlock,
-  "inset-block-end": parseLengthPercentageOrAutoDeclaration,
-  "inset-block-start": parseLengthPercentageOrAutoDeclaration,
+  "inset-block-end": parseLengthPercentageDeclaration,
+  "inset-block-start": parseLengthPercentageDeclaration,
   "inset-inline": parseInsetInline,
-  "inset-inline-end": parseLengthPercentageOrAutoDeclaration,
-  "inset-inline-start": parseLengthPercentageOrAutoDeclaration,
+  "inset-inline-end": parseLengthPercentageDeclaration,
+  "inset-inline-start": parseLengthPercentageDeclaration,
   "justify-content": parseJustifyContent,
-  "left": parseSizeDeclaration,
+  "left": parseSizeWithAutoDeclaration,
   "letter-spacing": parseLetterSpacing,
   "line-height": parseLineHeightDeclaration,
   "margin": parseMargin,
   "margin-block": parseMarginBlock,
   "margin-block-end": parseLengthPercentageOrAutoDeclaration,
   "margin-block-start": parseLengthPercentageOrAutoDeclaration,
-  "margin-bottom": parseSizeDeclaration,
+  "margin-bottom": parseSizeWithAutoDeclaration,
   "margin-inline": parseMarginInline,
   "margin-inline-end": parseLengthPercentageOrAutoDeclaration,
   "margin-inline-start": parseLengthPercentageOrAutoDeclaration,
-  "margin-left": parseSizeDeclaration,
-  "margin-right": parseSizeDeclaration,
-  "margin-top": parseSizeDeclaration,
+  "margin-left": parseSizeWithAutoDeclaration,
+  "margin-right": parseSizeWithAutoDeclaration,
+  "margin-top": parseSizeWithAutoDeclaration,
   "max-block-size": parseSizeDeclaration,
   "max-height": parseSizeDeclaration,
   "max-inline-size": parseSizeDeclaration,
@@ -206,23 +206,22 @@ const parsers: {
   "min-width": parseSizeDeclaration,
   "opacity": ({ value }) => value,
   "outline-color": parseColorDeclaration,
-  // "outline-offset": parseColorDeclaration,
   "outline-style": parseOutlineStyle,
   "outline-width": parseBorderSideWidthDeclaration,
   "overflow": parseOverflow,
   "padding": parsePadding,
   "padding-block": parsePaddingBlock,
-  "padding-block-end": parseLengthPercentageOrAutoDeclaration,
-  "padding-block-start": parseLengthPercentageOrAutoDeclaration,
+  "padding-block-end": parseLengthPercentageDeclaration,
+  "padding-block-start": parseLengthPercentageDeclaration,
   "padding-bottom": parseSizeDeclaration,
   "padding-inline": parsePaddingInline,
-  "padding-inline-end": parseLengthPercentageOrAutoDeclaration,
-  "padding-inline-start": parseLengthPercentageOrAutoDeclaration,
+  "padding-inline-end": parseLengthPercentageDeclaration,
+  "padding-inline-start": parseLengthPercentageDeclaration,
   "padding-left": parseSizeDeclaration,
   "padding-right": parseSizeDeclaration,
   "padding-top": parseSizeDeclaration,
   "position": parsePosition,
-  "right": parseSizeDeclaration,
+  "right": parseSizeWithAutoDeclaration,
   "rotate": parseRotate,
   "row-gap": parseGap,
   "scale": parseScale,
@@ -235,7 +234,7 @@ const parsers: {
   "text-decoration-style": parseTextDecorationStyle,
   "text-shadow": parseTextShadow,
   "text-transform": ({ value }) => value.case,
-  "top": parseSizeDeclaration,
+  "top": parseSizeWithAutoDeclaration,
   "transform": parseTransform,
   "transition": addTransitionValue,
   "transition-delay": addTransitionValue,
@@ -616,8 +615,11 @@ function parseMarginBlock(
     "margin-block-start": parseLengthPercentageOrAuto(
       value.blockStart,
       builder,
+      { allowAuto: true },
     ),
-    "margin-block-end": parseLengthPercentageOrAuto(value.blockEnd, builder),
+    "margin-block-end": parseLengthPercentageOrAuto(value.blockEnd, builder, {
+      allowAuto: true,
+    }),
   });
 }
 
@@ -629,8 +631,11 @@ function parseMarginInline(
     "margin-inline-start": parseLengthPercentageOrAuto(
       value.inlineStart,
       builder,
+      { allowAuto: true },
     ),
-    "margin-inline-end": parseLengthPercentageOrAuto(value.inlineEnd, builder),
+    "margin-inline-end": parseLengthPercentageOrAuto(value.inlineEnd, builder, {
+      allowAuto: true,
+    }),
   });
 }
 
@@ -1468,6 +1473,13 @@ export function parseSizeDeclaration(
   return parseSize(declaration.value, builder);
 }
 
+export function parseSizeWithAutoDeclaration(
+  declaration: { value: Size | MaxSize },
+  builder: StylesheetBuilder,
+) {
+  return parseSize(declaration.value, builder, { allowAuto: true });
+}
+
 export function parsePointerEvents(
   { value }: { value: string },
   builder: StylesheetBuilder,
@@ -1720,11 +1732,18 @@ export function parseColor(cssColor: CssColor, builder: StylesheetBuilder) {
   }
 }
 
-export function parseLengthPercentageOrAutoDeclaration(
+export function parseLengthPercentageDeclaration(
   value: { value: LengthPercentageOrAuto },
   builder: StylesheetBuilder,
 ) {
   return parseLengthPercentageOrAuto(value.value, builder);
+}
+
+export function parseLengthPercentageOrAutoDeclaration(
+  value: { value: LengthPercentageOrAuto },
+  builder: StylesheetBuilder,
+) {
+  return parseLengthPercentageOrAuto(value.value, builder, { allowAuto: true });
 }
 
 export function parseLengthPercentageOrAuto(
