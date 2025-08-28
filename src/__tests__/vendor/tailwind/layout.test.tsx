@@ -828,26 +828,22 @@ describe("Layout - Top Right Bottom Left", () => {
   });
   test("top-auto", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { values: { top: "auto" } },
+      props: { style: { top: "auto" } },
     });
   });
   test("right-auto", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { values: { right: "auto" } },
+      props: { style: { right: "auto" } },
     });
   });
   test("bottom-auto", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { values: { bottom: "auto" } },
+      props: { style: { bottom: "auto" } },
     });
   });
   test("left-auto", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { values: { left: "auto" } },
+      props: { style: { left: "auto" } },
     });
   });
 });
