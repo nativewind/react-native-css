@@ -204,7 +204,7 @@ const parsers: {
   "min-height": parseSizeDeclaration,
   "min-inline-size": parseSizeDeclaration,
   "min-width": parseSizeDeclaration,
-  "opacity": ({ value }) => value,
+  "opacity": ({ value }) => round(value),
   "outline-color": parseColorDeclaration,
   "outline-style": parseOutlineStyle,
   "outline-width": parseBorderSideWidthDeclaration,
