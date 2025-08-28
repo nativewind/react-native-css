@@ -157,6 +157,7 @@ const parsers: {
   "container-name": parseContainerName,
   "container-type": parseContainerType,
   "display": parseDisplay,
+  "direction": parseDirection,
   "fill": parseSVGPaint,
   "filter": parseFilter,
   "flex": parseFlex,
@@ -2448,6 +2449,19 @@ export function parseDisplay(
       }
     }
   }
+}
+
+export function parseDirection(
+  declaration: DeclarationType<"direction">,
+  builder: StylesheetBuilder,
+) {
+  if (["ltr", "rtl"].includes(declaration.value)) {
+    builder.addDescriptor("direction", declaration.value);
+    builder.addDescriptor("--__rn-css-direction", declaration.value);
+  }
+
+  builder.addWarning("value", declaration.value);
+  return;
 }
 
 export function parseAspectRatio({
