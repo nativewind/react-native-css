@@ -188,14 +188,12 @@ describe("Layout - Box Decoration Break", () => {
 describe("Layout - Box Sizing", () => {
   test("box-border", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { properties: ["box-sizing"] },
+      props: { style: { boxSizing: "border-box" } },
     });
   });
   test("box-content", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { properties: ["box-sizing"] },
+      props: { style: { boxSizing: "content-box" } },
     });
   });
 });
