@@ -148,6 +148,7 @@ const parsers: {
   "border-width": parseBorderWidth,
   "bottom": parseSizeDeclaration,
   "box-shadow": parseBoxShadow,
+  "box-sizing": parseBoxSizing,
   "caret-color": parseColorOrAutoDeclaration,
   "color": parseFontColorDeclaration,
   "column-gap": parseGap,
@@ -2358,6 +2359,18 @@ export function parseBoxShadow(
       shadow.inset ? true : undefined,
     );
   }
+}
+
+export function parseBoxSizing(
+  declaration: DeclarationType<"box-sizing">,
+  builder: StylesheetBuilder,
+) {
+  if (["border-box", "content-box"].includes(declaration.value)) {
+    return declaration.value;
+  }
+
+  builder.addWarning("value", declaration.value);
+  return undefined;
 }
 
 export function parseDisplay(
