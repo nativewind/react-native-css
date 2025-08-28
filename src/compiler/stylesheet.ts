@@ -568,6 +568,12 @@ export class StylesheetBuilder {
             : [value];
           // Append extra media queries if they exist
           this.shared[type][name].push(variableValue);
+
+          if (type === "rootVariables" && name === "__rn-css-em") {
+            const remName = "__rn-css-rem";
+            this.shared[type][remName] ??= [];
+            this.shared[type][remName].push(variableValue);
+          }
         }
       }
     }

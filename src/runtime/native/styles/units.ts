@@ -1,9 +1,8 @@
-/* eslint-disable */
-import { rem as remObs, vh as vhObs, vw as vwObs } from "../reactivity";
+import { vh as vhObs, vw as vwObs } from "../reactivity";
 import type { StyleFunctionResolver } from "./resolve";
 
-export const em: StyleFunctionResolver = (resolve, func, get) => {
-  let value = func[2];
+export const em: StyleFunctionResolver = (resolve, func) => {
+  const value = func[2];
 
   if (typeof value !== "number") {
     return;
@@ -12,14 +11,14 @@ export const em: StyleFunctionResolver = (resolve, func, get) => {
   let emValue = resolve([{}, "var", ["__rn-css-em"]]);
 
   if (typeof emValue !== "number") {
-    emValue = get(remObs);
+    emValue = resolve([{}, "var", ["__rn-css-rem"]]);
   }
 
   if (typeof emValue !== "number") {
     return;
   }
 
-  return round(Number(value) * emValue);
+  return round(value * emValue);
 };
 
 export const vw: StyleFunctionResolver = (_, func, get) => {
@@ -42,14 +41,20 @@ export const vh: StyleFunctionResolver = (_, func, get) => {
   return round((value / 100) * get(vhObs));
 };
 
-export const rem: StyleFunctionResolver = (_, func, get) => {
+export const rem: StyleFunctionResolver = (resolve, func) => {
   const value = func[2];
 
   if (typeof value !== "number") {
     return;
   }
 
-  return round(value * get(remObs));
+  const remValue = resolve([{}, "var", ["__rn-css-rem"]]);
+
+  if (typeof remValue === "number") {
+    return round(value * remValue);
+  }
+
+  return;
 };
 
 function round(number: number) {
