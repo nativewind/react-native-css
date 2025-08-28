@@ -1,4 +1,4 @@
-// cSpell:ignore rcap,vmin,svmin,lvmin,dvmin,cqmin,vmax,svmax,lvmax,dvmax,cqmax,currentcolor,oklab,oklch,prophoto
+// cSpell:ignore rcap,vmin,svmin,lvmin,dvmin,cqmin,vmax,svmax,lvmax,dvmax,cqmax,currentcolor,oklab,oklch,prophoto,squircle,oldstyle,nums
 
 import Color from "colorjs.io";
 import type {
@@ -1000,6 +1000,8 @@ export function parseCustomDeclaration(
       property,
       parseUnparsed(declaration.value.value, builder, property),
     );
+  } else if (property === "corner-shape") {
+    parseCornerShape(declaration.value, builder);
   } else if (
     validProperties.has(property) ||
     property.startsWith("--") ||
@@ -3089,6 +3091,19 @@ function parseObjectPosition(
     "join",
     [parseUnparsed(declaration.value, builder, "object-position"), " "],
   ]);
+}
+
+function parseCornerShape(
+  declaration: CustomProperty,
+  builder: StylesheetBuilder,
+) {
+  const shape = parseUnparsed(declaration.value, builder, "corner-shape");
+
+  if (shape === "round") {
+    builder.addDescriptor("borderCurve", "circular");
+  } else if (shape === "squircle") {
+    builder.addDescriptor("borderCurve", "continuous");
+  }
 }
 
 function parseVisibility(
