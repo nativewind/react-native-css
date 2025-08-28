@@ -1,8 +1,8 @@
 /* eslint-disable  */
-import { useContext, useState } from "react";
+import { useContext, useMemo, useState, type PropsWithChildren } from "react";
 import { Appearance } from "react-native";
 
-import type { InlineVariable, StyleDescriptor } from "../../compiler";
+import type { StyleDescriptor } from "../../compiler";
 import type {
   ColorScheme,
   Props,
@@ -18,6 +18,7 @@ import {
   VariableContext,
   type Effect,
   type Getter,
+  type VariableContextValue,
 } from "./reactivity";
 import { resolveValue } from "./styles/resolve";
 
@@ -102,7 +103,33 @@ export function useNativeVariable(name: string) {
   return resolveValue([{}, "var", [name]], effect.get, { inheritedVariables });
 }
 
+/**
+ * @deprecated Use `<VariableContextProvider />` instead.
+ */
 export function vars(variables: Record<string, StyleDescriptor>) {
-  (variables as InlineVariable)[VAR_SYMBOL] = "inline";
-  return variables;
+  return Object.assign(
+    { [VAR_SYMBOL]: "inline" },
+    Object.fromEntries(
+      Object.entries(variables).map(([k, v]) => [k.replace(/^--/, ""), v]),
+    ),
+  );
+}
+
+export function VariableContextProvider(
+  props: PropsWithChildren<{ value: Record<`--${string}`, StyleDescriptor> }>,
+) {
+  const inheritedVariables = useContext(VariableContext);
+
+  const value: VariableContextValue = useMemo(
+    () => ({
+      ...inheritedVariables,
+      ...Object.fromEntries(
+        Object.entries(props.value).map(([k, v]) => [k.replace(/^--/, ""), v]),
+      ),
+      [VAR_SYMBOL]: true,
+    }),
+    [inheritedVariables, props.value],
+  );
+
+  return <VariableContext value={value}>{props.children}</VariableContext>;
 }
