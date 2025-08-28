@@ -204,6 +204,10 @@ const parsers: {
   "min-inline-size": parseSizeDeclaration,
   "min-width": parseSizeDeclaration,
   "opacity": ({ value }) => value,
+  "outline-color": parseColorDeclaration,
+  // "outline-offset": parseColorDeclaration,
+  "outline-style": parseOutlineStyle,
+  "outline-width": parseBorderSideWidthDeclaration,
   "overflow": parseOverflow,
   "padding": parsePadding,
   "padding-block": parsePaddingBlock,
@@ -982,6 +986,12 @@ export function parseCustomDeclaration(
   } else if (property === "object-position") {
     // https://github.com/parcel-bundler/lightningcss/issues/1047
     parseObjectPosition(declaration.value, builder);
+  } else if (property === "outline-offset") {
+    // https://github.com/parcel-bundler/lightningcss/issues/1048
+    builder.addDescriptor(
+      property,
+      parseUnparsed(declaration.value.value, builder, property),
+    );
   } else if (
     validProperties.has(property) ||
     property.startsWith("--") ||
@@ -2097,16 +2107,7 @@ function parseBorderBlockStyle(
 }
 
 export function parseBorderSideWidthDeclaration(
-  declaration: DeclarationType<
-    | "border-block-end-width"
-    | "border-block-start-width"
-    | "border-bottom-width"
-    | "border-inline-end-width"
-    | "border-inline-start-width"
-    | "border-left-width"
-    | "border-right-width"
-    | "border-top-width"
-  >,
+  declaration: Extract<Declaration, { value: BorderSideWidth }>,
   builder: StylesheetBuilder,
 ) {
   builder.addDescriptor(
@@ -3041,6 +3042,25 @@ function parseVisibility(
     builder.addDescriptor("opacity", 0);
   } else {
     builder.addWarning("value", declaration.value);
+  }
+}
+
+function parseOutlineStyle(
+  declaration: DeclarationType<"outline-style">,
+  builder: StylesheetBuilder,
+) {
+  const allowed = ["solid", "dotted", "dashed"];
+
+  if (
+    declaration.value.type !== "auto" &&
+    allowed.includes(declaration.value.value)
+  ) {
+    builder.addDescriptor("outlineStyle", declaration.value.value);
+  } else {
+    builder.addWarning(
+      "value",
+      declaration.value.type === "auto" ? "auto" : declaration.value.value,
+    );
   }
 }
 
