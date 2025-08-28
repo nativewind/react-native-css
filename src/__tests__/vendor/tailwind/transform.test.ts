@@ -1,5 +1,26 @@
 import { renderCurrentTest, renderSimple } from "./_tailwind";
 
+describe("Transforms - backface-visibility", () => {
+  test("backface-visible", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: {
+        style: {
+          backfaceVisibility: "visible",
+        },
+      },
+    });
+  });
+  test("backface-hidden", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: {
+        style: {
+          backfaceVisibility: "hidden",
+        },
+      },
+    });
+  });
+});
+
 describe("Transforms - Scale", () => {
   test("scale-0", async () => {
     expect(await renderCurrentTest()).toStrictEqual({

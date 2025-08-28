@@ -91,6 +91,7 @@ const parsers: {
   "animation-play-state": addAnimationValue,
   "animation-timing-function": addAnimationValue,
   "aspect-ratio": parseAspectRatio,
+  "backface-visibility": parseBackfaceVisibility,
   "background-color": parseColorDeclaration,
   "background-image": parseBackgroundImage,
   "block-size": parseSizeDeclaration,
@@ -2463,6 +2464,18 @@ export function parseAspectRatio({
     } else {
       return `${width}/${height}`;
     }
+  }
+}
+
+export function parseBackfaceVisibility(
+  { value }: DeclarationType<"backface-visibility">,
+  builder: StylesheetBuilder,
+): StyleDescriptor {
+  if (["visible", "hidden"].includes(value)) {
+    return value;
+  } else {
+    builder.addWarning("value", value);
+    return;
   }
 }
 
