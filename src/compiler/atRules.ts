@@ -88,6 +88,8 @@ export function parsePropAtRule(rules?: (Rule | PropAtRule)[]) {
     "-webkit-line-clamp": ["numberOfLines"],
     "-rn-ripple-color": ["android_ripple", "color"],
     "-rn-ripple-style": ["android_ripple", "borderless"],
+    "-rn-ripple-radius": ["android_ripple", "radius"],
+    "-rn-ripple-layer": ["android_ripple", "foreground"],
   };
 
   if (!rules) return mapping;
