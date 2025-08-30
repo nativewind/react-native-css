@@ -983,11 +983,17 @@ export function parseCustomDeclaration(
       parseUnparsed(declaration.value.value, builder, property),
     );
   } else if (property === "-rn-ripple-style") {
-    builder.addDescriptor(
-      property,
-      parseUnparsed(declaration.value.value, builder, property) ===
-        "borderless",
-    );
+    if (
+      parseUnparsed(declaration.value.value, builder, property) === "borderless"
+    ) {
+      builder.addDescriptor(property, true);
+    }
+  } else if (property === "-rn-ripple-layer") {
+    if (
+      parseUnparsed(declaration.value.value, builder, property) === "foreground"
+    ) {
+      builder.addDescriptor(property, true);
+    }
   } else if (property === "object-fit") {
     // https://github.com/parcel-bundler/lightningcss/issues/1046
     parseObjectFit(declaration.value, builder);
