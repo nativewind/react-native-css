@@ -1828,6 +1828,7 @@ export function parseAlignContent(
     "stretch",
     "space-between",
     "space-around",
+    "space-evenly",
   ]);
 
   let value: string | undefined;
@@ -2411,7 +2412,7 @@ export function parseDisplay(
   builder: StylesheetBuilder,
 ) {
   if (value.type === "keyword") {
-    if (value.value === "none") {
+    if (value.value === "none" || value.value === "contents") {
       return value.value;
     } else {
       builder.addWarning("value", value.value);
