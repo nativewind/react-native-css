@@ -599,12 +599,12 @@ describe("Flexbox & Grid - Align Content", () => {
   });
   test("content-evenly", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: {
-        values: {
-          "align-content": "space-evenly",
-        },
-      },
+      props: { style: { alignContent: "space-evenly" } },
+    });
+  });
+  test("content-stretch", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: { style: { alignContent: "stretch" } },
     });
   });
 });
