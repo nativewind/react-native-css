@@ -26,18 +26,16 @@ describe("Accessibility - Screen Readers", () => {
     expect(result).toStrictEqual({
       props: {
         style: {
+          height: "auto",
           margin: 0,
           overflow: "visible",
           padding: 0,
           position: "static",
+          width: "auto",
         },
       },
       warnings: {
         properties: ["clip", "white-space"],
-        values: {
-          width: "auto",
-          height: "auto",
-        },
       },
     });
   });
