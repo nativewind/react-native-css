@@ -2048,7 +2048,11 @@ export function parsePosition(
   { value }: DeclarationType<"position">,
   builder: StylesheetBuilder,
 ) {
-  if (value.type === "absolute" || value.type === "relative") {
+  if (
+    value.type === "absolute" ||
+    value.type === "relative" ||
+    value.type === "static"
+  ) {
     return value.type;
   }
 

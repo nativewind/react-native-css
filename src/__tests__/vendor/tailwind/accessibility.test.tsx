@@ -29,12 +29,12 @@ describe("Accessibility - Screen Readers", () => {
           margin: 0,
           overflow: "visible",
           padding: 0,
+          position: "static",
         },
       },
       warnings: {
         properties: ["clip", "white-space"],
         values: {
-          position: "static",
           width: "auto",
           height: "auto",
         },

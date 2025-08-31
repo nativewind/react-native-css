@@ -666,8 +666,7 @@ describe("Layout - Position", () => {
   });
   test("static", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { values: { position: "static" } },
+      props: { style: { position: "static" } },
     });
   });
   test("fixed", async () => {
