@@ -1828,6 +1828,7 @@ export function parseAlignContent(
     "stretch",
     "space-between",
     "space-around",
+    "space-evenly",
   ]);
 
   let value: string | undefined;
