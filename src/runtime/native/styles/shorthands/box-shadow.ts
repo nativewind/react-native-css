@@ -1,3 +1,4 @@
+import type { StyleDescriptor } from "../../../../compiler";
 import { isStyleDescriptorArray } from "../../../utils";
 import type { StyleFunctionResolver } from "../resolve";
 import { shorthandHandler } from "./_handler";
@@ -8,6 +9,27 @@ const offsetY = ["offsetY", "number"] as const;
 const blurRadius = ["blurRadius", "number"] as const;
 const spreadDistance = ["spreadDistance", "number"] as const;
 // const inset = ["inset", "string"] as const;
+
+function deepFlattenToArrayOfStyleDescriptors(
+  arr: StyleDescriptor[],
+): StyleDescriptor[] {
+  const result: StyleDescriptor[] = [];
+  const stack = [arr];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (Array.isArray(current)) {
+      if (current.length > 0 && Array.isArray(current[0])) {
+        for (let i = current.length - 1; i >= 0; i--) {
+          const elem = current[i];
+          if (isStyleDescriptorArray(elem)) stack.push(elem);
+        }
+      } else {
+        result.push(current);
+      }
+    }
+  }
+  return result;
+}
 
 const handler = shorthandHandler(
   [
@@ -33,26 +55,10 @@ export const boxShadow: StyleFunctionResolver = (
   if (!isStyleDescriptorArray(args)) {
     return args;
   } else {
-    return args
-      .flatMap((shadows) => {
+    return deepFlattenToArrayOfStyleDescriptors(args)
+      .map((shadows) => {
         if (shadows === undefined) {
           return [];
-        } else if (isStyleDescriptorArray(shadows)) {
-          if (shadows.length === 0) {
-            return [];
-          } else if (Array.isArray(shadows[0])) {
-            return shadows
-              .map((shadow) => {
-                return omitTransparentShadows(
-                  handler(resolveValue, shadow, get, options),
-                );
-              })
-              .filter((v) => v !== undefined);
-          } else {
-            return omitTransparentShadows(
-              handler(resolveValue, shadows, get, options),
-            );
-          }
         } else {
           return omitTransparentShadows(
             handler(resolveValue, shadows, get, options),
