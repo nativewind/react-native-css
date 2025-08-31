@@ -209,6 +209,11 @@ describe("Layout - Display", () => {
       props: { style: { display: "none" } },
     });
   });
+  test("contents", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: { style: { display: "contents" } },
+    });
+  });
   test("block", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: {},
@@ -309,12 +314,6 @@ describe("Layout - Display", () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: {},
       warnings: { values: { display: "inline-grid" } },
-    });
-  });
-  test("contents", async () => {
-    expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { values: { display: "contents" } },
     });
   });
   test("list-item", async () => {
