@@ -30,8 +30,7 @@ describe("Sizing - Width", () => {
   });
   test("w-auto", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { values: { width: "auto" } },
+      props: { style: { width: "auto" } },
     });
   });
   test("w-min", async () => {
@@ -149,8 +148,7 @@ describe("Sizing - Height", () => {
   });
   test("h-auto", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { values: { height: "auto" } },
+      props: { style: { height: "auto" } },
     });
   });
   test("h-min", async () => {
@@ -268,8 +266,7 @@ describe("Sizing - Size", () => {
   });
   test("size-auto", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { values: { width: "auto", height: "auto" } },
+      props: { style: { width: "auto", height: "auto" } },
     });
   });
   test("size-min", async () => {

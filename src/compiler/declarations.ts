@@ -174,8 +174,8 @@ const parsers: {
   "font-variant-caps": parseFontVariantCapsDeclaration,
   "font-weight": parseFontWeightDeclaration,
   "gap": parseGap,
-  "height": parseSizeDeclaration,
-  "inline-size": parseSizeDeclaration,
+  "height": parseSizeWithAutoDeclaration,
+  "inline-size": parseSizeWithAutoDeclaration,
   "inset": parseInset,
   "inset-block": parseInsetBlock,
   "inset-block-end": parseLengthPercentageDeclaration,
@@ -247,7 +247,7 @@ const parsers: {
   "user-select": parseUserSelect,
   "vertical-align": parseVerticalAlign,
   "visibility": parseVisibility,
-  "width": parseSizeDeclaration,
+  "width": parseSizeWithAutoDeclaration,
   "z-index": parseZIndex,
 };
 
