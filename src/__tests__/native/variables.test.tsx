@@ -209,8 +209,6 @@ test("useUnsafeVariable", () => {
     .test { color: var(--my-var); }
   `);
 
-  // Since we can't directly test the hook in isolation with the render approach,
-  // we'll test that a component using the variable gets the correct value
   render(<View testID={testID} className="test" />);
   const component = screen.getByTestId(testID);
 
@@ -223,8 +221,6 @@ test("ratio values", () => {
     .test { aspect-ratio: var(--my-var); }
   `);
 
-  // Since we can't directly test the hook in isolation with the render approach,
-  // we'll test that a component using the variable gets the correct value
   render(<View testID={testID} className="test" />);
   const component = screen.getByTestId(testID);
 
