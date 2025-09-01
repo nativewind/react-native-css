@@ -4,8 +4,7 @@ import type { ViewProps } from "react-native";
 import { render, screen } from "@testing-library/react-native";
 import { View } from "react-native-css/components/View";
 import { registerCSS, testID } from "react-native-css/jest";
-
-import { styled } from "../api";
+import { styled, VariableContextProvider } from "react-native-css/runtime";
 
 test("inline variable", () => {
   registerCSS(`.my-class { width: var(--my-var); --my-var: 10px; }`);
@@ -210,8 +209,6 @@ test("useUnsafeVariable", () => {
     .test { color: var(--my-var); }
   `);
 
-  // Since we can't directly test the hook in isolation with the render approach,
-  // we'll test that a component using the variable gets the correct value
   render(<View testID={testID} className="test" />);
   const component = screen.getByTestId(testID);
 
@@ -224,10 +221,23 @@ test("ratio values", () => {
     .test { aspect-ratio: var(--my-var); }
   `);
 
-  // Since we can't directly test the hook in isolation with the render approach,
-  // we'll test that a component using the variable gets the correct value
   render(<View testID={testID} className="test" />);
   const component = screen.getByTestId(testID);
 
   expect(component.props.style).toStrictEqual({ aspectRatio: "16 / 9" });
+});
+
+test("VariableContextProvider", () => {
+  registerCSS(`
+    .test { color: var(--my-var); }
+  `);
+
+  render(
+    <VariableContextProvider value={{ "--my-var": "red" }}>
+      <View testID={testID} className="test" />
+    </VariableContextProvider>,
+  );
+
+  const component = screen.getByTestId(testID);
+  expect(component.props.style).toStrictEqual({ color: "red" });
 });

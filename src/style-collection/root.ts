@@ -1,7 +1,11 @@
 import type { StyleDescriptor, VariableValue } from "react-native-css/compiler";
 
-import { testMediaQuery } from "./conditions/media-query";
-import { family, observable, type Observable } from "./reactivity";
+import { testMediaQuery } from "../runtime/native/conditions/media-query";
+import {
+  family,
+  observable,
+  type Observable,
+} from "../runtime/native/reactivity";
 
 const rootVariableFamily = () => {
   return family<string, Observable<StyleDescriptor, VariableValue[]>>(() => {
@@ -29,3 +33,5 @@ const rootVariableFamily = () => {
 
 export const rootVariables = rootVariableFamily();
 export const universalVariables = rootVariableFamily();
+
+rootVariables("__rn-css-rem").set([[14]]);

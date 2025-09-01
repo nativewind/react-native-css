@@ -1,4 +1,9 @@
-import { createElement, type ComponentProps } from "react";
+import {
+  createElement,
+  useMemo,
+  type ComponentProps,
+  type PropsWithChildren,
+} from "react";
 import { Appearance } from "react-native";
 
 import type {
@@ -24,7 +29,7 @@ export const styled = <
   };
 };
 
-export const useCssElement = <const C extends ReactComponent>(
+export const useCssElement = <C extends ReactComponent>(
   component: C,
   incomingProps: Props,
   mapping: StyledConfiguration<C>,
@@ -66,7 +71,10 @@ export const colorScheme: ColorScheme = {
   },
 };
 
-export function vars(variables: Record<`--${string}`, string | number>) {
+/**
+ * @deprecated Use `<VariableContextProvider />` instead.
+ */
+export function vars(variables: Record<string, string | number>) {
   const $variables: Record<string, string> = {};
 
   for (const [key, value] of Object.entries(variables)) {
@@ -77,6 +85,24 @@ export function vars(variables: Record<`--${string}`, string | number>) {
     }
   }
   return $variables;
+}
+
+export function VariableContextProvider(
+  props: PropsWithChildren<{ value: Record<`--${string}`, string> }>,
+) {
+  const style = useMemo(() => {
+    return {
+      display: "content",
+      ...Object.fromEntries(
+        Object.entries(props.value).map(([key, value]) => [
+          key.startsWith("--") ? key : `--${key}`,
+          value,
+        ]),
+      ),
+    };
+  }, [props.value]);
+
+  return <div style={style}>{props.children}</div>;
 }
 
 export const useNativeVariable = () => {

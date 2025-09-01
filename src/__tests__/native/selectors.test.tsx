@@ -1,8 +1,7 @@
 import { act, render, screen } from "@testing-library/react-native";
 import { View } from "react-native-css/components/View";
 import { registerCSS, testID } from "react-native-css/jest";
-
-import { colorScheme } from "../api";
+import { colorScheme } from "react-native-css/runtime";
 
 test.skip(":is(.dark *)", () => {
   registerCSS(`@cssInterop set darkMode class dark;

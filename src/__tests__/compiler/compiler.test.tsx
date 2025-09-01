@@ -1,4 +1,4 @@
-import { compile } from "../compiler";
+import { compile } from "react-native-css/compiler";
 
 test("hello world", () => {
   const compiled = compile(`

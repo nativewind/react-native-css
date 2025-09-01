@@ -1,10 +1,11 @@
 /* eslint-disable */
+import { StyleCollection } from "react-native-css/style-collection";
+
 import type { InlineVariable, StyleRule } from "../../../compiler";
 import { getDeepPath } from "../../utils";
 import { testRule } from "../conditions";
 import { DEFAULT_CONTAINER_NAME } from "../conditions/container-query";
 import type { RenderGuard } from "../conditions/guards";
-import { StyleCollection } from "../injection";
 import {
   activeFamily,
   containerLayoutFamily,
@@ -70,6 +71,11 @@ export function updateRules(
     if (target) {
       if (Array.isArray(target)) {
         for (const item of target) {
+          // undefined or falsy is allowed in the style array
+          if (!item) {
+            continue;
+          }
+          
           if (VAR_SYMBOL in item) {
             inlineVariables.add(item);
           } else if (

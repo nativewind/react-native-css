@@ -3,8 +3,7 @@ import { StyleSheet, type ViewProps } from "react-native";
 import { fireEvent, render } from "@testing-library/react-native";
 import { Text } from "react-native-css/components/Text";
 import { registerCSS, testID } from "react-native-css/jest";
-
-import { styled } from "../api";
+import { styled } from "react-native-css/runtime";
 
 test("inline styles", () => {
   registerCSS(`.red { background-color: red; }`);

@@ -1,7 +1,11 @@
+import {
+  rootVariables,
+  universalVariables,
+} from "react-native-css/style-collection";
+
 import type { StyleDescriptor, StyleFunction } from "../../../compiler";
 import { isStyleDescriptorArray } from "../../utils";
 import { VAR_SYMBOL, type Getter } from "../reactivity";
-import { rootVariables, universalVariables } from "../root";
 import type { ResolveValueOptions, SimpleResolveValue } from "./resolve";
 
 export function varResolver(

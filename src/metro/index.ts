@@ -6,7 +6,7 @@ import connect from "connect";
 import debug from "debug";
 import type { MetroConfig } from "metro-config";
 
-import type { CompilerOptions, ReactNativeCssStyleSheet_V2 } from "../compiler";
+import type { CompilerOptions, ReactNativeCssStyleSheet } from "../compiler";
 import { compile } from "../compiler/compiler";
 import { getNativeInjectionCode, getWebInjectionCode } from "./injection-code";
 import { nativeResolver, webResolver } from "./resolver";
@@ -53,16 +53,18 @@ export function withReactNativeCSS<
   const originalMiddleware = config.server?.enhanceMiddleware;
   const originalResolver = config.resolver?.resolveRequest;
 
-  const poisonPillPath = "./poison.pill";
-
   return {
     ...config,
     transformerPath: require.resolve("./metro-transformer"),
+    transformer: {
+      ...config.transformer,
+      reactNativeCSS: options,
+    },
     resolver: {
       ...config.resolver,
       sourceExts: [...(config?.resolver?.sourceExts || []), "css"],
       resolveRequest: (context, moduleName, platform) => {
-        if (moduleName === poisonPillPath) {
+        if (moduleName.includes("poison.pill")) {
           return { type: "empty" };
         }
 
@@ -95,7 +97,7 @@ export function withReactNativeCSS<
 
           const nativeCSSFiles = new Map<
             string,
-            [string, ReactNativeCssStyleSheet_V2]
+            [string, ReactNativeCssStyleSheet]
           >();
           const webCSSFiles = new Set<string>();
 
@@ -161,7 +163,7 @@ export function withReactNativeCSS<
                     // Let the transformer know that we will handle compilation
                     customTransformOptions: {
                       ...transformOptions.customTransformOptions,
-                      reactNativeCSSCompile: false,
+                      reactNativeCSS: options,
                     },
                   },
                   fileBuffer,

@@ -5,8 +5,9 @@ import type { MediaFeatureNameFor_MediaFeatureId } from "lightningcss";
 import { VAR_SYMBOL } from "../runtime/native/reactivity";
 
 export interface CompilerOptions {
+  filename?: string;
+  projectRoot?: string;
   inlineRem?: number | false;
-  grouping?: (string | RegExp)[];
   selectorPrefix?: string;
   stylesheetOrder?: number;
   features?: FeatureFlagRecord;
@@ -23,9 +24,7 @@ export interface CompilerOptions {
 /**
  * A `react-native-css` StyleSheet
  */
-export type ReactNativeCssStyleSheet = ReactNativeCssStyleSheet_V2;
-
-export interface ReactNativeCssStyleSheet_V2 {
+export interface ReactNativeCssStyleSheet {
   /** Feature flags */
   f?: FeatureFlagRecord;
   /** rem */
@@ -33,7 +32,7 @@ export interface ReactNativeCssStyleSheet_V2 {
   /** StyleRuleSets */
   s?: (readonly [string, StyleRuleSet])[];
   /** KeyFrames */
-  k?: Animation_V2[];
+  k?: Animation[];
   /** Root Variables */
   vr?: RootVariables;
   /** Universal Variables */
@@ -157,11 +156,11 @@ export type InlineVariable = {
   [key: string]: unknown | undefined;
 };
 
-/******************************   Animations V2  ******************************/
+/******************************   Animations  ******************************/
 
-export type Animation_V2 = [string, AnimationKeyframes_V2[]];
-export type AnimationRecord = Record<string, AnimationKeyframes_V2[]>;
-export type AnimationKeyframes_V2 = [string | number, StyleDeclaration[]];
+export type Animation = [string, AnimationKeyframes[]];
+export type AnimationRecord = Record<string, AnimationKeyframes[]>;
+export type AnimationKeyframes = [string | number, StyleDeclaration[]];
 
 /******************************    Conditions    ******************************/
 
@@ -256,7 +255,7 @@ export type LoggerOptions = {
 export interface CompilerCollection extends CompilerOptions {
   features: FeatureFlagRecord;
   rules: Map<string, StyleRule[]>;
-  keyframes: Map<string, AnimationKeyframes_V2[]>;
+  keyframes: Map<string, AnimationKeyframes[]>;
   darkMode?: string | null;
   rootVariables: VariableRecord;
   universalVariables: VariableRecord;
