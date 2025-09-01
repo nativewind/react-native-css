@@ -6775,15 +6775,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"expo-status-bar@npm:3.0.3":
-  version: 3.0.3
-  resolution: "expo-status-bar@npm:3.0.3"
+"expo-status-bar@npm:3.0.6":
+  version: 3.0.6
+  resolution: "expo-status-bar@npm:3.0.6"
   dependencies:
     react-native-is-edge-to-edge: "npm:^1.2.1"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10c0/77bd3d1198dcd15621eb41a077d15dcce007cf657faaf7d225fb9f5195deb46b929ce56abd71115dc5639ca6e3b2a38f4835befde4517684f26be4678ab045ba
+  checksum: 10c0/78e535b878b2e04f072172d4f0139d3491b8a20e1e9dd9a3467748f233cd26ab318e4786a4dc8dc0fe22f00550818dba0eda96a5cf22e8327ba541f9ccd1a28d
   languageName: node
   linkType: hard
 
@@ -11329,7 +11329,7 @@ __metadata:
     "@tailwindcss/postcss": "npm:^4.1.11"
     expo: "npm:54.0.0-preview.6"
     expo-dev-client: "npm:6.0.4"
-    expo-status-bar: "npm:3.0.3"
+    expo-status-bar: "npm:3.0.6"
     expo-system-ui: "npm:6.0.2"
     react: "npm:19.1.0"
     react-dom: "npm:19.1.0"
