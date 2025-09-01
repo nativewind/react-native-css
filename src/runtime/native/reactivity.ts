@@ -189,10 +189,6 @@ export const VariableContext = createContext<VariableContextValue>({
   [VAR_SYMBOL]: true,
 });
 
-/** Units *********************************************************************/
-
-export const rem = observable(14);
-
 /** Pseudo Classes ************************************************************/
 
 export const hoverFamily = weakFamily(() => observable(false));
@@ -208,6 +204,18 @@ export const vw = observable<number>(
 export const vh = observable<number>(
   (read, value) => value ?? read(dimensions)?.height,
 );
+
+Dimensions.addEventListener("change", ({ window }) => {
+  observableBatch.current = new Set();
+  vw.set(window.width);
+  vh.set(window.height);
+
+  for (const effect of observableBatch.current) {
+    effect.run();
+  }
+
+  observableBatch.current = undefined;
+});
 
 /** Color Scheme **************************************************************/
 

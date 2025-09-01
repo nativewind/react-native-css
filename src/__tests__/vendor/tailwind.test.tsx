@@ -36,6 +36,7 @@ test("transition", () => {
                   "color",
                   "backgroundColor",
                   "borderColor",
+                  "outlineColor",
                   "textDecorationColor",
                   "fill",
                   "stroke",

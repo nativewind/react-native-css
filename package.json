@@ -1,6 +1,7 @@
 {
   "name": "react-native-css",
-  "version": "2.1.2",
+  "version": "3.0.0-preview.1",
+  "description": "A CSS polyfill for React Native",
   "exports": {
     ".": {
       "source": "./src/index.ts",
@@ -115,7 +116,6 @@
     "prepare": "bob build",
     "prepublishOnly": "bob build",
     "release": "release-it --config ./.config/release-it.config.ts",
-    "release:nightly": "release-it --config ./.config/release-it.nightly.config.ts 3.0.0-nightly.\"$(git rev-parse --short HEAD)\" --npm.tag=beta && git restore :/",
     "start": "yarn example start",
     "start:build": "yarn build && yarn example build",
     "start:debug": "yarn build && yarn example debug",
@@ -152,6 +152,7 @@
     "!**/__mocks__"
   ],
   "dependencies": {
+    "@expo/metro-runtime": "~6.1.1",
     "babel-plugin-react-compiler": "^19.1.0-rc.2",
     "colorjs.io": "0.6.0-alpha.1",
     "comment-json": "^4.2.5",
@@ -197,12 +198,13 @@
     "react-native": "0.81.0",
     "react-native-builder-bob": "^0.40.13",
     "react-native-reanimated": "4.0.2",
-    "react-native-safe-area-context": "5.6.0",
+    "react-native-safe-area-context": "5.6.1",
     "react-native-worklets": "0.4.1",
     "react-refresh": "^0.17.0",
     "react-test-renderer": "^19.1.0",
     "release-it": "^19.0.4",
     "tailwindcss": "^4.1.12",
+    "tailwindcss-safe-area": "^1.1.0",
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.40.0"
   },

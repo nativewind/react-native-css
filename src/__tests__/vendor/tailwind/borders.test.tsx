@@ -391,34 +391,79 @@ describe.skip("Borders - Divide Style", () => {
   // TODO
 });
 
-describe.skip("Borders - Outline Width", () => {
-  // TODO
+describe("Borders - Outline Width", () => {
+  test("outline-1", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: { style: { outlineWidth: 1, outlineStyle: "solid" } },
+    });
+  });
+
+  test("outline-5", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: { style: { outlineWidth: 5, outlineStyle: "solid" } },
+    });
+  });
 });
 
-describe.skip("Borders - Outline Color", () => {
-  // TODO
+describe("Borders - Outline Color", () => {
+  test("outline-black", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: { style: { outlineColor: "#000" } },
+    });
+  });
+
+  test("outline-white", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: { style: { outlineColor: "#fff" } },
+    });
+  });
 });
 
-describe.skip("Borders - Outline Style", () => {
-  // TODO
+describe("Borders - Outline Style", () => {
+  test("outline-solid", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: { style: { outlineStyle: "solid" } },
+    });
+  });
+
+  test("outline-dashed", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: { style: { outlineStyle: "dashed" } },
+    });
+  });
+
+  test("outline-dotted", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: { style: { outlineStyle: "dotted" } },
+    });
+  });
+
+  test("outline-double", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: {},
+      warnings: { values: { "outline-style": "double" } },
+    });
+  });
 });
 
-describe.skip("Borders - Outline Offset", () => {
-  // TODO
-});
+describe("Borders - Outline Offset", () => {
+  test("outline-offset-1", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: {
+        style: {
+          outlineOffset: 1,
+        },
+      },
+    });
+  });
 
-describe.skip("Borders - Ring Width", () => {
-  // TODO
-});
-
-describe.skip("Borders - Ring Color", () => {
-  // TODO
-});
-
-describe.skip("Borders - Ring Offset Width", () => {
-  // TODO
-});
-
-describe.skip("Borders - Ring Offset Color", () => {
-  // TODO
+  test("-outline-offset-1", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: {
+        style: {
+          outlineOffset: -1,
+        },
+      },
+    });
+  });
 });

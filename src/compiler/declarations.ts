@@ -1,4 +1,4 @@
-// cSpell:ignore rcap,vmin,svmin,lvmin,dvmin,cqmin,vmax,svmax,lvmax,dvmax,cqmax,currentcolor,oklab,oklch,prophoto
+// cSpell:ignore rcap,vmin,svmin,lvmin,dvmin,cqmin,vmax,svmax,lvmax,dvmax,cqmax,currentcolor,oklab,oklch,prophoto,squircle,oldstyle,nums
 
 import Color from "colorjs.io";
 import type {
@@ -7,6 +7,7 @@ import type {
   BorderStyle,
   ColorOrAuto,
   CssColor,
+  CustomProperty,
   Declaration,
   DimensionPercentageFor_LengthValue,
   EnvironmentVariable,
@@ -90,6 +91,7 @@ const parsers: {
   "animation-play-state": addAnimationValue,
   "animation-timing-function": addAnimationValue,
   "aspect-ratio": parseAspectRatio,
+  "backface-visibility": parseBackfaceVisibility,
   "background-color": parseColorDeclaration,
   "background-image": parseBackgroundImage,
   "block-size": parseSizeDeclaration,
@@ -145,8 +147,9 @@ const parsers: {
   "border-top-style": parseBorderStyleDeclaration,
   "border-top-width": parseBorderSideWidthDeclaration,
   "border-width": parseBorderWidth,
-  "bottom": parseSizeDeclaration,
+  "bottom": parseSizeWithAutoDeclaration,
   "box-shadow": parseBoxShadow,
+  "box-sizing": parseBoxSizing,
   "caret-color": parseColorOrAutoDeclaration,
   "color": parseFontColorDeclaration,
   "column-gap": parseGap,
@@ -154,10 +157,11 @@ const parsers: {
   "container-name": parseContainerName,
   "container-type": parseContainerType,
   "display": parseDisplay,
+  "direction": parseDirection,
   "fill": parseSVGPaint,
   "filter": parseFilter,
   "flex": parseFlex,
-  "flex-basis": parseLengthPercentageOrAutoDeclaration,
+  "flex-basis": parseLengthPercentageDeclaration,
   "flex-direction": ({ value }) => value,
   "flex-flow": parseFlexFlow,
   "flex-grow": ({ value }) => value,
@@ -170,30 +174,30 @@ const parsers: {
   "font-variant-caps": parseFontVariantCapsDeclaration,
   "font-weight": parseFontWeightDeclaration,
   "gap": parseGap,
-  "height": parseSizeDeclaration,
-  "inline-size": parseSizeDeclaration,
+  "height": parseSizeWithAutoDeclaration,
+  "inline-size": parseSizeWithAutoDeclaration,
   "inset": parseInset,
   "inset-block": parseInsetBlock,
-  "inset-block-end": parseLengthPercentageOrAutoDeclaration,
-  "inset-block-start": parseLengthPercentageOrAutoDeclaration,
+  "inset-block-end": parseLengthPercentageDeclaration,
+  "inset-block-start": parseLengthPercentageDeclaration,
   "inset-inline": parseInsetInline,
-  "inset-inline-end": parseLengthPercentageOrAutoDeclaration,
-  "inset-inline-start": parseLengthPercentageOrAutoDeclaration,
+  "inset-inline-end": parseLengthPercentageDeclaration,
+  "inset-inline-start": parseLengthPercentageDeclaration,
   "justify-content": parseJustifyContent,
-  "left": parseSizeDeclaration,
+  "left": parseSizeWithAutoDeclaration,
   "letter-spacing": parseLetterSpacing,
   "line-height": parseLineHeightDeclaration,
   "margin": parseMargin,
   "margin-block": parseMarginBlock,
   "margin-block-end": parseLengthPercentageOrAutoDeclaration,
   "margin-block-start": parseLengthPercentageOrAutoDeclaration,
-  "margin-bottom": parseSizeDeclaration,
+  "margin-bottom": parseSizeWithAutoDeclaration,
   "margin-inline": parseMarginInline,
   "margin-inline-end": parseLengthPercentageOrAutoDeclaration,
   "margin-inline-start": parseLengthPercentageOrAutoDeclaration,
-  "margin-left": parseSizeDeclaration,
-  "margin-right": parseSizeDeclaration,
-  "margin-top": parseSizeDeclaration,
+  "margin-left": parseSizeWithAutoDeclaration,
+  "margin-right": parseSizeWithAutoDeclaration,
+  "margin-top": parseSizeWithAutoDeclaration,
   "max-block-size": parseSizeDeclaration,
   "max-height": parseSizeDeclaration,
   "max-inline-size": parseSizeDeclaration,
@@ -202,21 +206,24 @@ const parsers: {
   "min-height": parseSizeDeclaration,
   "min-inline-size": parseSizeDeclaration,
   "min-width": parseSizeDeclaration,
-  "opacity": ({ value }) => value,
+  "opacity": ({ value }) => round(value),
+  "outline-color": parseColorDeclaration,
+  "outline-style": parseOutlineStyle,
+  "outline-width": parseBorderSideWidthDeclaration,
   "overflow": parseOverflow,
   "padding": parsePadding,
   "padding-block": parsePaddingBlock,
-  "padding-block-end": parseLengthPercentageOrAutoDeclaration,
-  "padding-block-start": parseLengthPercentageOrAutoDeclaration,
+  "padding-block-end": parseLengthPercentageDeclaration,
+  "padding-block-start": parseLengthPercentageDeclaration,
   "padding-bottom": parseSizeDeclaration,
   "padding-inline": parsePaddingInline,
-  "padding-inline-end": parseLengthPercentageOrAutoDeclaration,
-  "padding-inline-start": parseLengthPercentageOrAutoDeclaration,
+  "padding-inline-end": parseLengthPercentageDeclaration,
+  "padding-inline-start": parseLengthPercentageDeclaration,
   "padding-left": parseSizeDeclaration,
   "padding-right": parseSizeDeclaration,
   "padding-top": parseSizeDeclaration,
   "position": parsePosition,
-  "right": parseSizeDeclaration,
+  "right": parseSizeWithAutoDeclaration,
   "rotate": parseRotate,
   "row-gap": parseGap,
   "scale": parseScale,
@@ -229,7 +236,7 @@ const parsers: {
   "text-decoration-style": parseTextDecorationStyle,
   "text-shadow": parseTextShadow,
   "text-transform": ({ value }) => value.case,
-  "top": parseSizeDeclaration,
+  "top": parseSizeWithAutoDeclaration,
   "transform": parseTransform,
   "transition": addTransitionValue,
   "transition-delay": addTransitionValue,
@@ -240,7 +247,7 @@ const parsers: {
   "user-select": parseUserSelect,
   "vertical-align": parseVerticalAlign,
   "visibility": parseVisibility,
-  "width": parseSizeDeclaration,
+  "width": parseSizeWithAutoDeclaration,
   "z-index": parseZIndex,
 };
 
@@ -610,8 +617,11 @@ function parseMarginBlock(
     "margin-block-start": parseLengthPercentageOrAuto(
       value.blockStart,
       builder,
+      { allowAuto: true },
     ),
-    "margin-block-end": parseLengthPercentageOrAuto(value.blockEnd, builder),
+    "margin-block-end": parseLengthPercentageOrAuto(value.blockEnd, builder, {
+      allowAuto: true,
+    }),
   });
 }
 
@@ -623,8 +633,11 @@ function parseMarginInline(
     "margin-inline-start": parseLengthPercentageOrAuto(
       value.inlineStart,
       builder,
+      { allowAuto: true },
     ),
-    "margin-inline-end": parseLengthPercentageOrAuto(value.inlineEnd, builder),
+    "margin-inline-end": parseLengthPercentageOrAuto(value.inlineEnd, builder, {
+      allowAuto: true,
+    }),
   });
 }
 
@@ -970,11 +983,31 @@ export function parseCustomDeclaration(
       parseUnparsed(declaration.value.value, builder, property),
     );
   } else if (property === "-rn-ripple-style") {
+    if (
+      parseUnparsed(declaration.value.value, builder, property) === "borderless"
+    ) {
+      builder.addDescriptor(property, true);
+    }
+  } else if (property === "-rn-ripple-layer") {
+    if (
+      parseUnparsed(declaration.value.value, builder, property) === "foreground"
+    ) {
+      builder.addDescriptor(property, true);
+    }
+  } else if (property === "object-fit") {
+    // https://github.com/parcel-bundler/lightningcss/issues/1046
+    parseObjectFit(declaration.value, builder);
+  } else if (property === "object-position") {
+    // https://github.com/parcel-bundler/lightningcss/issues/1047
+    parseObjectPosition(declaration.value, builder);
+  } else if (property === "outline-offset") {
+    // https://github.com/parcel-bundler/lightningcss/issues/1048
     builder.addDescriptor(
       property,
-      parseUnparsed(declaration.value.value, builder, property) ===
-        "borderless",
+      parseUnparsed(declaration.value.value, builder, property),
     );
+  } else if (property === "corner-shape") {
+    parseCornerShape(declaration.value, builder);
   } else if (
     validProperties.has(property) ||
     property.startsWith("--") ||
@@ -1450,6 +1483,13 @@ export function parseSizeDeclaration(
   return parseSize(declaration.value, builder);
 }
 
+export function parseSizeWithAutoDeclaration(
+  declaration: { value: Size | MaxSize },
+  builder: StylesheetBuilder,
+) {
+  return parseSize(declaration.value, builder, { allowAuto: true });
+}
+
 export function parsePointerEvents(
   { value }: { value: string },
   builder: StylesheetBuilder,
@@ -1702,11 +1742,18 @@ export function parseColor(cssColor: CssColor, builder: StylesheetBuilder) {
   }
 }
 
-export function parseLengthPercentageOrAutoDeclaration(
+export function parseLengthPercentageDeclaration(
   value: { value: LengthPercentageOrAuto },
   builder: StylesheetBuilder,
 ) {
   return parseLengthPercentageOrAuto(value.value, builder);
+}
+
+export function parseLengthPercentageOrAutoDeclaration(
+  value: { value: LengthPercentageOrAuto },
+  builder: StylesheetBuilder,
+) {
+  return parseLengthPercentageOrAuto(value.value, builder, { allowAuto: true });
 }
 
 export function parseLengthPercentageOrAuto(
@@ -1781,6 +1828,7 @@ export function parseAlignContent(
     "stretch",
     "space-between",
     "space-around",
+    "space-evenly",
   ]);
 
   let value: string | undefined;
@@ -2000,7 +2048,11 @@ export function parsePosition(
   { value }: DeclarationType<"position">,
   builder: StylesheetBuilder,
 ) {
-  if (value.type === "absolute" || value.type === "relative") {
+  if (
+    value.type === "absolute" ||
+    value.type === "relative" ||
+    value.type === "static"
+  ) {
     return value.type;
   }
 
@@ -2090,16 +2142,7 @@ function parseBorderBlockStyle(
 }
 
 export function parseBorderSideWidthDeclaration(
-  declaration: DeclarationType<
-    | "border-block-end-width"
-    | "border-block-start-width"
-    | "border-bottom-width"
-    | "border-inline-end-width"
-    | "border-inline-start-width"
-    | "border-left-width"
-    | "border-right-width"
-    | "border-top-width"
-  >,
+  declaration: Extract<Declaration, { value: BorderSideWidth }>,
   builder: StylesheetBuilder,
 ) {
   builder.addDescriptor(
@@ -2352,12 +2395,24 @@ export function parseBoxShadow(
   }
 }
 
+export function parseBoxSizing(
+  declaration: DeclarationType<"box-sizing">,
+  builder: StylesheetBuilder,
+) {
+  if (["border-box", "content-box"].includes(declaration.value)) {
+    return declaration.value;
+  }
+
+  builder.addWarning("value", declaration.value);
+  return undefined;
+}
+
 export function parseDisplay(
   { value }: DeclarationType<"display">,
   builder: StylesheetBuilder,
 ) {
   if (value.type === "keyword") {
-    if (value.value === "none") {
+    if (value.value === "none" || value.value === "contents") {
       return value.value;
     } else {
       builder.addWarning("value", value.value);
@@ -2409,6 +2464,19 @@ export function parseDisplay(
   }
 }
 
+export function parseDirection(
+  declaration: DeclarationType<"direction">,
+  builder: StylesheetBuilder,
+) {
+  if (["ltr", "rtl"].includes(declaration.value)) {
+    builder.addDescriptor("direction", declaration.value);
+    builder.addDescriptor("--__rn-css-direction", declaration.value);
+  }
+
+  builder.addWarning("value", declaration.value);
+  return;
+}
+
 export function parseAspectRatio({
   value,
 }: DeclarationType<"aspect-ratio">): StyleDescriptor {
@@ -2423,6 +2491,18 @@ export function parseAspectRatio({
     } else {
       return `${width}/${height}`;
     }
+  }
+}
+
+export function parseBackfaceVisibility(
+  { value }: DeclarationType<"backface-visibility">,
+  builder: StylesheetBuilder,
+): StyleDescriptor {
+  if (["visible", "hidden"].includes(value)) {
+    return value;
+  } else {
+    builder.addWarning("value", value);
+    return;
   }
 }
 
@@ -2997,6 +3077,46 @@ function parseGradientItem(
   }
 }
 
+function parseObjectFit(
+  declaration: CustomProperty,
+  builder: StylesheetBuilder,
+) {
+  builder.addMapping({
+    "object-fit": "contentFit",
+  });
+  builder.addDescriptor(
+    "object-fit",
+    parseUnparsed(declaration.value, builder, "object-fit"),
+  );
+}
+
+function parseObjectPosition(
+  declaration: CustomProperty,
+  builder: StylesheetBuilder,
+) {
+  builder.addMapping({
+    "object-position": "contentPosition",
+  });
+  builder.addDescriptor("object-position", [
+    {},
+    "join",
+    [parseUnparsed(declaration.value, builder, "object-position"), " "],
+  ]);
+}
+
+function parseCornerShape(
+  declaration: CustomProperty,
+  builder: StylesheetBuilder,
+) {
+  const shape = parseUnparsed(declaration.value, builder, "corner-shape");
+
+  if (shape === "round") {
+    builder.addDescriptor("borderCurve", "circular");
+  } else if (shape === "squircle") {
+    builder.addDescriptor("borderCurve", "continuous");
+  }
+}
+
 function parseVisibility(
   declaration: DeclarationType<"visibility">,
   builder: StylesheetBuilder,
@@ -3007,6 +3127,25 @@ function parseVisibility(
     builder.addDescriptor("opacity", 0);
   } else {
     builder.addWarning("value", declaration.value);
+  }
+}
+
+function parseOutlineStyle(
+  declaration: DeclarationType<"outline-style">,
+  builder: StylesheetBuilder,
+) {
+  const allowed = ["solid", "dotted", "dashed"];
+
+  if (
+    declaration.value.type !== "auto" &&
+    allowed.includes(declaration.value.value)
+  ) {
+    builder.addDescriptor("outlineStyle", declaration.value.value);
+  } else {
+    builder.addWarning(
+      "value",
+      declaration.value.type === "auto" ? "auto" : declaration.value.value,
+    );
   }
 }
 

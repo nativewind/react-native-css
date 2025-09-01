@@ -4,6 +4,8 @@ import { compileWithAutoDebug } from "react-native-css/jest";
 const tests = [
   ["-rn-ripple-color: black;", [{ d: [["black", ["android_ripple", "color"]]], s: [1, 1] }]],
   ["-rn-ripple-style: borderless;", [{ d: [[true, ["android_ripple", "borderless"]]], s: [1, 1] }]],
+  ["-rn-ripple-radius: 10;", [{ d: [[10, ["android_ripple", "radius"]]], s: [1, 1] }]],
+  ["-rn-ripple-layer: foreground;", [{ d: [[true, ["android_ripple", "foreground"]]], s: [1, 1] }]],
   ["caret-color: black", [{ d: [["#000", ["cursorColor"]]], s: [1, 1] }]],
   ["fill: black;", [{ d: [["#000", ["fill"]]], s: [1, 1] }]],
   ["rotate: 3deg;", [{ d: [[[{}, "rotateZ", "3deg"], "rotateZ"]], s: [1, 1] }]],

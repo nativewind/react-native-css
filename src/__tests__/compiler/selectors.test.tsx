@@ -1,4 +1,4 @@
-import { getClassNameSelectors } from "../selector-builder";
+import { getClassNameSelectors } from "../../compiler/selector-builder";
 
 test("empty", () => {
   expect(getClassNameSelectors([])).toStrictEqual([]);

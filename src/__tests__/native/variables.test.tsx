@@ -4,8 +4,7 @@ import type { ViewProps } from "react-native";
 import { render, screen } from "@testing-library/react-native";
 import { View } from "react-native-css/components/View";
 import { registerCSS, testID } from "react-native-css/jest";
-
-import { styled } from "../api";
+import { styled, VariableContextProvider } from "react-native-css/runtime";
 
 test("inline variable", () => {
   registerCSS(`.my-class { width: var(--my-var); --my-var: 10px; }`);
@@ -230,4 +229,19 @@ test("ratio values", () => {
   const component = screen.getByTestId(testID);
 
   expect(component.props.style).toStrictEqual({ aspectRatio: "16 / 9" });
+});
+
+test("VariableContextProvider", () => {
+  registerCSS(`
+    .test { color: var(--my-var); }
+  `);
+
+  render(
+    <VariableContextProvider value={{ "--my-var": "red" }}>
+      <View testID={testID} className="test" />
+    </VariableContextProvider>,
+  );
+
+  const component = screen.getByTestId(testID);
+  expect(component.props.style).toStrictEqual({ color: "red" });
 });

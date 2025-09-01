@@ -3,9 +3,9 @@ import { PixelRatio } from "react-native";
 import { act, render, screen } from "@testing-library/react-native";
 import { View } from "react-native-css/components/View";
 import { registerCSS, testID } from "react-native-css/jest";
+import { colorScheme } from "react-native-css/runtime";
 
-import { colorScheme } from "../api";
-import { dimensions } from "../reactivity";
+import { dimensions } from "../../runtime/native/reactivity";
 
 jest.mock("react-native", () => {
   const RN = jest.requireActual("react-native");
@@ -105,10 +105,7 @@ test("width (range)", () => {
   });
 
   act(() => {
-    dimensions.set({
-      ...dimensions.get(),
-      width: 500,
-    });
+    dimensions.set({ ...dimensions.get(), width: 500 });
   });
 
   expect(component.props.style).toStrictEqual({

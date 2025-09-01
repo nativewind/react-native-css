@@ -188,14 +188,12 @@ describe("Layout - Box Decoration Break", () => {
 describe("Layout - Box Sizing", () => {
   test("box-border", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { properties: ["box-sizing"] },
+      props: { style: { boxSizing: "border-box" } },
     });
   });
   test("box-content", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { properties: ["box-sizing"] },
+      props: { style: { boxSizing: "content-box" } },
     });
   });
 });
@@ -209,6 +207,11 @@ describe("Layout - Display", () => {
   test("hidden", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: { style: { display: "none" } },
+    });
+  });
+  test("contents", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: { style: { display: "contents" } },
     });
   });
   test("block", async () => {
@@ -313,12 +316,6 @@ describe("Layout - Display", () => {
       warnings: { values: { display: "inline-grid" } },
     });
   });
-  test("contents", async () => {
-    expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { values: { display: "contents" } },
-    });
-  });
   test("list-item", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: {},
@@ -393,32 +390,42 @@ describe("Layout - Isolation", () => {
 describe("Layout - Object Fit", () => {
   test("object-contain", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { properties: ["object-fit"] },
+      props: {
+        contentFit: "contain",
+        style: {},
+      },
     });
   });
   test("object-cover", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { properties: ["object-fit"] },
+      props: {
+        contentFit: "cover",
+        style: {},
+      },
     });
   });
   test("object-fill", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { properties: ["object-fit"] },
+      props: {
+        contentFit: "fill",
+        style: {},
+      },
     });
   });
   test("object-none", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { properties: ["object-fit"] },
+      props: {
+        contentFit: "none",
+        style: {},
+      },
     });
   });
   test("object-scale-down", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { properties: ["object-fit"] },
+      props: {
+        contentFit: "scale-down",
+        style: {},
+      },
     });
   });
 });
@@ -426,56 +433,74 @@ describe("Layout - Object Fit", () => {
 describe("Layout - Object Position", () => {
   test("object-bottom", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { properties: ["object-position"] },
+      props: {
+        contentPosition: "bottom",
+        style: {},
+      },
     });
   });
   test("object-center", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { properties: ["object-position"] },
+      props: {
+        contentPosition: "center",
+        style: {},
+      },
     });
   });
   test("object-left", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { properties: ["object-position"] },
+      props: {
+        contentPosition: "left",
+        style: {},
+      },
     });
   });
   test("object-left-bottom", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { properties: ["object-position"] },
+      props: {
+        contentPosition: "left bottom",
+        style: {},
+      },
     });
   });
   test("object-left-top", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { properties: ["object-position"] },
+      props: {
+        contentPosition: "left top",
+        style: {},
+      },
     });
   });
   test("object-right", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { properties: ["object-position"] },
+      props: {
+        contentPosition: "right",
+        style: {},
+      },
     });
   });
   test("object-right-bottom", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { properties: ["object-position"] },
+      props: {
+        contentPosition: "right bottom",
+        style: {},
+      },
     });
   });
   test("object-right-top", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { properties: ["object-position"] },
+      props: {
+        contentPosition: "right top",
+        style: {},
+      },
     });
   });
   test("object-top", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { properties: ["object-position"] },
+      props: {
+        contentPosition: "top",
+        style: {},
+      },
     });
   });
 });
@@ -641,8 +666,7 @@ describe("Layout - Position", () => {
   });
   test("static", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { values: { position: "static" } },
+      props: { style: { position: "static" } },
     });
   });
   test("fixed", async () => {
@@ -802,26 +826,22 @@ describe("Layout - Top Right Bottom Left", () => {
   });
   test("top-auto", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { values: { top: "auto" } },
+      props: { style: { top: "auto" } },
     });
   });
   test("right-auto", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { values: { right: "auto" } },
+      props: { style: { right: "auto" } },
     });
   });
   test("bottom-auto", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { values: { bottom: "auto" } },
+      props: { style: { bottom: "auto" } },
     });
   });
   test("left-auto", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { values: { left: "auto" } },
+      props: { style: { left: "auto" } },
     });
   });
 });

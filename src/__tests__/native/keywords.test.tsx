@@ -2,8 +2,7 @@ import { View } from "react-native";
 
 import { renderHook } from "@testing-library/react-native";
 import { registerCSS } from "react-native-css/jest";
-
-import { useNativeCss } from "../react/useNativeCss";
+import { useNativeCss } from "react-native-css/runtime/native";
 
 test("unset", () => {
   registerCSS(`.my-class { background-color: unset; }`);

@@ -2,17 +2,16 @@ import { View } from "react-native";
 
 import { act, renderHook } from "@testing-library/react-native";
 import { registerCSS } from "react-native-css/jest";
+import { useNativeCss } from "react-native-css/runtime/native";
 
-import { useNativeCss } from "../react/useNativeCss";
 import {
   dimensions,
-  rem,
   VAR_SYMBOL,
   VariableContext,
   vh,
   vw,
-} from "../reactivity";
-import { emVariableName } from "../styles/constants";
+} from "../../runtime/native/reactivity";
+import { emVariableName } from "../../runtime/native/styles/constants";
 
 test("px", () => {
   registerCSS(`.my-class { width: 10px; }`);
@@ -112,7 +111,7 @@ test("rem - default", () => {
   });
 });
 
-test("rem - override", () => {
+test("rem - inline override", () => {
   registerCSS(`.my-class { font-size: 10rem; }`, {
     inlineRem: 10,
   });
@@ -133,32 +132,21 @@ test("rem - override", () => {
   });
 });
 
-test("rem - dynamic", () => {
-  registerCSS(`.my-class { font-size: 10rem; }`, {
-    inlineRem: false,
-  });
+test("rem - css override", () => {
+  registerCSS(
+    `
+    :root { font-size: 10px; }
+    .my-class { font-size: 10rem; }
+  `,
+    {
+      inlineRem: false,
+    },
+  );
 
   const { result } = renderHook(() => {
     return useNativeCss(View, { className: "my-class" });
   });
 
-  expect(rem.get()).toEqual(14);
-  expect(result.current.type).toBe(VariableContext.Provider);
-  expect(result.current.props.value).toStrictEqual({
-    [VAR_SYMBOL]: true,
-    [emVariableName]: [{}, "rem", 10],
-  });
-
-  expect(result.current.props.children.type).toBe(View);
-  expect(result.current.props.children.props).toStrictEqual({
-    style: { fontSize: 140 },
-  });
-
-  act(() => {
-    rem.set(10);
-  });
-
-  expect(rem.get()).toEqual(10);
   expect(result.current.type).toBe(VariableContext.Provider);
   expect(result.current.props.value).toStrictEqual({
     [VAR_SYMBOL]: true,

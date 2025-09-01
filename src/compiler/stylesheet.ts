@@ -6,7 +6,7 @@ import {
   specificityCompareFn,
 } from "../runtime/utils";
 import type {
-  AnimationKeyframes_V2,
+  AnimationKeyframes,
   AnimationRecord,
   CompilerOptions,
   ContainerQuery,
@@ -39,7 +39,7 @@ const extraRules = new WeakMap<StyleRule, Partial<StyleRule>[]>();
 const keywords = new Set(["unset"]);
 
 export class StylesheetBuilder {
-  animationFrames?: AnimationKeyframes_V2[];
+  animationFrames?: AnimationKeyframes[];
   animationDeclarations: StyleDeclaration[] = [];
 
   stylesheet: ReactNativeCssStyleSheet = {};
@@ -568,6 +568,12 @@ export class StylesheetBuilder {
             : [value];
           // Append extra media queries if they exist
           this.shared[type][name].push(variableValue);
+
+          if (type === "rootVariables" && name === "__rn-css-em") {
+            const remName = "__rn-css-rem";
+            this.shared[type][remName] ??= [];
+            this.shared[type][remName].push(variableValue);
+          }
         }
       }
     }

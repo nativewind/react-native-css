@@ -30,8 +30,7 @@ describe("Sizing - Width", () => {
   });
   test("w-auto", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { values: { width: "auto" } },
+      props: { style: { width: "auto" } },
     });
   });
   test("w-min", async () => {
@@ -149,8 +148,7 @@ describe("Sizing - Height", () => {
   });
   test("h-auto", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { values: { height: "auto" } },
+      props: { style: { height: "auto" } },
     });
   });
   test("h-min", async () => {
@@ -236,6 +234,57 @@ describe("Sizing - Max Height", () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: {},
       warnings: { values: { "max-height": "fit-content" } },
+    });
+  });
+});
+
+describe("Sizing - Size", () => {
+  test("size-0", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: { style: { width: 0, height: 0 } },
+    });
+  });
+  test("size-px", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: { style: { width: 1, height: 1 } },
+    });
+  });
+  test("size-1", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: { style: { width: 3.5, height: 3.5 } },
+    });
+  });
+  test("size-1/2", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: { style: { width: "50%", height: "50%" } },
+    });
+  });
+  test("size-full", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: { style: { width: "100%", height: "100%" } },
+    });
+  });
+  test("size-auto", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: { style: { width: "auto", height: "auto" } },
+    });
+  });
+  test("size-min", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: {},
+      warnings: { values: { width: "min-content", height: "min-content" } },
+    });
+  });
+  test("size-max", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: {},
+      warnings: { values: { width: "max-content", height: "max-content" } },
+    });
+  });
+  test("size-fit", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: {},
+      warnings: { values: { width: "fit-content", height: "fit-content" } },
     });
   });
 });

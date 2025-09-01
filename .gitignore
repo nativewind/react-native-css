@@ -86,3 +86,4 @@ nitrogen/
 dist/
 
 .env
+.npmrc

@@ -99,6 +99,31 @@ describe("Spacing - Margin", () => {
       props: { style: { margin: "auto" } },
     });
   });
+  test("mt-auto", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: { style: { marginTop: "auto" } },
+    });
+  });
+  test("mb-auto", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: { style: { marginBottom: "auto" } },
+    });
+  });
+  test("ms-auto", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: { style: { marginInlineStart: "auto" } },
+    });
+  });
+  test("me-auto", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: { style: { marginInlineEnd: "auto" } },
+    });
+  });
+  test("mx-auto", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: { style: { marginInline: "auto" } },
+    });
+  });
 });
 
 describe.skip("Spacing - Space Between", () => {
