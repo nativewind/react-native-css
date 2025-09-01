@@ -9055,90 +9055,90 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lefthook-darwin-arm64@npm:1.12.2":
-  version: 1.12.2
-  resolution: "lefthook-darwin-arm64@npm:1.12.2"
+"lefthook-darwin-arm64@npm:1.12.3":
+  version: 1.12.3
+  resolution: "lefthook-darwin-arm64@npm:1.12.3"
   conditions: os=darwin & cpu=arm64
   languageName: node
   linkType: hard
 
-"lefthook-darwin-x64@npm:1.12.2":
-  version: 1.12.2
-  resolution: "lefthook-darwin-x64@npm:1.12.2"
+"lefthook-darwin-x64@npm:1.12.3":
+  version: 1.12.3
+  resolution: "lefthook-darwin-x64@npm:1.12.3"
   conditions: os=darwin & cpu=x64
   languageName: node
   linkType: hard
 
-"lefthook-freebsd-arm64@npm:1.12.2":
-  version: 1.12.2
-  resolution: "lefthook-freebsd-arm64@npm:1.12.2"
+"lefthook-freebsd-arm64@npm:1.12.3":
+  version: 1.12.3
+  resolution: "lefthook-freebsd-arm64@npm:1.12.3"
   conditions: os=freebsd & cpu=arm64
   languageName: node
   linkType: hard
 
-"lefthook-freebsd-x64@npm:1.12.2":
-  version: 1.12.2
-  resolution: "lefthook-freebsd-x64@npm:1.12.2"
+"lefthook-freebsd-x64@npm:1.12.3":
+  version: 1.12.3
+  resolution: "lefthook-freebsd-x64@npm:1.12.3"
   conditions: os=freebsd & cpu=x64
   languageName: node
   linkType: hard
 
-"lefthook-linux-arm64@npm:1.12.2":
-  version: 1.12.2
-  resolution: "lefthook-linux-arm64@npm:1.12.2"
+"lefthook-linux-arm64@npm:1.12.3":
+  version: 1.12.3
+  resolution: "lefthook-linux-arm64@npm:1.12.3"
   conditions: os=linux & cpu=arm64
   languageName: node
   linkType: hard
 
-"lefthook-linux-x64@npm:1.12.2":
-  version: 1.12.2
-  resolution: "lefthook-linux-x64@npm:1.12.2"
+"lefthook-linux-x64@npm:1.12.3":
+  version: 1.12.3
+  resolution: "lefthook-linux-x64@npm:1.12.3"
   conditions: os=linux & cpu=x64
   languageName: node
   linkType: hard
 
-"lefthook-openbsd-arm64@npm:1.12.2":
-  version: 1.12.2
-  resolution: "lefthook-openbsd-arm64@npm:1.12.2"
+"lefthook-openbsd-arm64@npm:1.12.3":
+  version: 1.12.3
+  resolution: "lefthook-openbsd-arm64@npm:1.12.3"
   conditions: os=openbsd & cpu=arm64
   languageName: node
   linkType: hard
 
-"lefthook-openbsd-x64@npm:1.12.2":
-  version: 1.12.2
-  resolution: "lefthook-openbsd-x64@npm:1.12.2"
+"lefthook-openbsd-x64@npm:1.12.3":
+  version: 1.12.3
+  resolution: "lefthook-openbsd-x64@npm:1.12.3"
   conditions: os=openbsd & cpu=x64
   languageName: node
   linkType: hard
 
-"lefthook-windows-arm64@npm:1.12.2":
-  version: 1.12.2
-  resolution: "lefthook-windows-arm64@npm:1.12.2"
+"lefthook-windows-arm64@npm:1.12.3":
+  version: 1.12.3
+  resolution: "lefthook-windows-arm64@npm:1.12.3"
   conditions: os=win32 & cpu=arm64
   languageName: node
   linkType: hard
 
-"lefthook-windows-x64@npm:1.12.2":
-  version: 1.12.2
-  resolution: "lefthook-windows-x64@npm:1.12.2"
+"lefthook-windows-x64@npm:1.12.3":
+  version: 1.12.3
+  resolution: "lefthook-windows-x64@npm:1.12.3"
   conditions: os=win32 & cpu=x64
   languageName: node
   linkType: hard
 
-"lefthook@npm:^1.12.2":
-  version: 1.12.2
-  resolution: "lefthook@npm:1.12.2"
+"lefthook@npm:^1.12.3":
+  version: 1.12.3
+  resolution: "lefthook@npm:1.12.3"
   dependencies:
-    lefthook-darwin-arm64: "npm:1.12.2"
-    lefthook-darwin-x64: "npm:1.12.2"
-    lefthook-freebsd-arm64: "npm:1.12.2"
-    lefthook-freebsd-x64: "npm:1.12.2"
-    lefthook-linux-arm64: "npm:1.12.2"
-    lefthook-linux-x64: "npm:1.12.2"
-    lefthook-openbsd-arm64: "npm:1.12.2"
-    lefthook-openbsd-x64: "npm:1.12.2"
-    lefthook-windows-arm64: "npm:1.12.2"
-    lefthook-windows-x64: "npm:1.12.2"
+    lefthook-darwin-arm64: "npm:1.12.3"
+    lefthook-darwin-x64: "npm:1.12.3"
+    lefthook-freebsd-arm64: "npm:1.12.3"
+    lefthook-freebsd-x64: "npm:1.12.3"
+    lefthook-linux-arm64: "npm:1.12.3"
+    lefthook-linux-x64: "npm:1.12.3"
+    lefthook-openbsd-arm64: "npm:1.12.3"
+    lefthook-openbsd-x64: "npm:1.12.3"
+    lefthook-windows-arm64: "npm:1.12.3"
+    lefthook-windows-x64: "npm:1.12.3"
   dependenciesMeta:
     lefthook-darwin-arm64:
       optional: true
@@ -9162,7 +9162,7 @@ __metadata:
       optional: true
   bin:
     lefthook: bin/index.js
-  checksum: 10c0/7677c0918b352154e436886416ca925357f23a44722efd022aad2a2fff4f8a4160fd2ea85fd7bcfbc6ae4f844f725e5f2e435ed2a7f323e24c7939789a2a02de
+  checksum: 10c0/3819d8146491cfb9c42573c7f1bf3660fcb9216c60dcc4d21093aea793227ba3d67b49651c48377af260f217cc0d6e6c951d5f23f2e18ce0848105bb835b95bc
   languageName: node
   linkType: hard
 
@@ -11376,7 +11376,7 @@ __metadata:
     expo: "npm:54.0.0-preview.6"
     jest: "npm:^29.7.0"
     jest-expo: "npm:54.0.2"
-    lefthook: "npm:^1.12.2"
+    lefthook: "npm:^1.12.3"
     lightningcss: "npm:^1.30.1"
     metro-runtime: "npm:^0.83.0"
     postcss: "npm:^8.5.6"
