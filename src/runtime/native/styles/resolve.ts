@@ -10,6 +10,7 @@ import { type Getter, type VariableContextValue } from "../reactivity";
 import type { calculateProps } from "./calculate-props";
 import { transformKeys } from "./defaults";
 import * as functions from "./functions";
+import { lineHeight } from "./line-height";
 import * as shorthands from "./shorthands";
 import { em, rem, vh, vw } from "./units";
 import { varResolver } from "./variables";
@@ -37,6 +38,7 @@ const functionResolvers = {
   ...shorthands,
   ...functions,
   animationName: shorthands.animation,
+  lineHeight,
   em,
   rem,
   vh,

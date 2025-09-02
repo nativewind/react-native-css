@@ -63,15 +63,15 @@ const propertyRename: Record<string, string> = {
   "background-image": "experimental_backgroundImage",
 };
 
-// TODO: We need a better way to handle this
 const unparsedRuntimeParsing = new Set([
   "animation",
   "border",
   "box-shadow",
+  "line-height",
+  "rotate",
+  "scale",
   "text-shadow",
   "transform",
-  "scale",
-  "rotate",
   "translate",
 ]);
 
@@ -2190,7 +2190,12 @@ export function parseLineHeightDeclaration(
   declaration: DeclarationType<"line-height">,
   builder: StylesheetBuilder,
 ) {
-  return parseLineHeight(declaration.value, builder);
+  builder.addDescriptor("line-height", [
+    {},
+    "lineHeight",
+    [parseLineHeight(declaration.value, builder)],
+    1,
+  ]);
 }
 
 export function parseLineHeight(
