@@ -331,15 +331,6 @@ export class StylesheetBuilder {
         forceTuple,
       );
     } else if (property.startsWith("--")) {
-      // If we have enabled variable usage tracking, skip unused variables
-      if (
-        this.options.stripUnusedVariables &&
-        !property.startsWith("--__rn-css") &&
-        !this.varUsage.has(property)
-      ) {
-        return;
-      }
-
       rule.v ??= [];
       rule.v.push([property.slice(2), value]);
     } else if (isStyleFunction(value)) {
