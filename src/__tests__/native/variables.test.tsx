@@ -241,3 +241,33 @@ test("VariableContextProvider", () => {
   const component = screen.getByTestId(testID);
   expect(component.props.style).toStrictEqual({ color: "red" });
 });
+
+test("variable overriding with classes", () => {
+  registerCSS(`
+  :root {
+   --tier-red-500: red;
+   --tier-red-700: red;
+
+   --tier-blue-500: blue;
+   --tier-blue-700: blue;
+  }
+
+  .tier-red {
+    --tier-500: var(--tier-red-500);
+    --tier-700: var(--tier-red-700);
+  }
+
+  .test {
+    color: var(--tier-500)
+  }
+`);
+
+  render(
+    <View className="tier-red">
+      <View testID={testID} className="test" />
+    </View>,
+  );
+
+  const component = screen.getByTestId(testID);
+  expect(component.props.style).toStrictEqual({ color: "red" });
+});

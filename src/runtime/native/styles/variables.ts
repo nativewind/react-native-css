@@ -48,7 +48,7 @@ export function varResolver(
 
   if (name in variables) {
     renderGuards?.push(["v", name, variables[name]]);
-    return variables[name];
+    return resolve(variables[name]);
   }
 
   variableHistory.add(name);
