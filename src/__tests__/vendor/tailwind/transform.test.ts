@@ -191,11 +191,6 @@ describe("Transforms - Skew", () => {
           transform: [{ skewX: "0deg" }],
         },
       },
-      warnings: {
-        values: {
-          transform: ["initial", "initial", "initial", "initial", "initial"],
-        },
-      },
     });
   });
   test("skew-y-0", async () => {
@@ -203,11 +198,6 @@ describe("Transforms - Skew", () => {
       props: {
         style: {
           transform: [{ skewY: "0deg" }],
-        },
-      },
-      warnings: {
-        values: {
-          transform: ["initial", "initial", "initial", "initial", "initial"],
         },
       },
     });
@@ -219,11 +209,6 @@ describe("Transforms - Skew", () => {
           transform: [{ skewX: "1deg" }],
         },
       },
-      warnings: {
-        values: {
-          transform: ["initial", "initial", "initial", "initial", "initial"],
-        },
-      },
     });
   });
   test("skew-y-1", async () => {
@@ -231,11 +216,6 @@ describe("Transforms - Skew", () => {
       props: {
         style: {
           transform: [{ skewY: "1deg" }],
-        },
-      },
-      warnings: {
-        values: {
-          transform: ["initial", "initial", "initial", "initial", "initial"],
         },
       },
     });
@@ -256,11 +236,6 @@ describe("Transforms - Mixed", () => {
             { translateX: 3.5 },
             { rotateZ: "90deg" },
           ],
-        },
-      },
-      warnings: {
-        values: {
-          transform: ["initial", "initial", "initial", "initial", "initial"],
         },
       },
     });

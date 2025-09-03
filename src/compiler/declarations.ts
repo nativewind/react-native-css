@@ -1367,9 +1367,9 @@ export function parseLength(
     switch (length.unit) {
       case "px": {
         if (length.value === Infinity) {
-          return 9999;
+          return Number.MAX_SAFE_INTEGER;
         } else if (length.value === -Infinity) {
-          return -9999;
+          return Number.MIN_SAFE_INTEGER;
         } else {
           // Normalize large values to safe integers, e.g. `calc(infinity * 1px)`
           const value = Math.max(
@@ -2824,7 +2824,7 @@ export function equal(a: unknown, b: unknown) {
 }
 
 export function parseTime(time: Time) {
-  return time.type === "milliseconds" ? time.value : time.value * 1000;
+  return round(time.type === "milliseconds" ? time.value : time.value * 1000);
 }
 
 export function parseSize2DDimensionPercentageDeclaration(

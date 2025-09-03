@@ -44,11 +44,6 @@ type ContainerQueryWithSpecificity = ContainerQuery & {
 export function getClassNameSelectors(
   selectors: SelectorList,
   options: CompilerOptions = {},
-  specificity: SpecificityArray = [0],
-  root: PartialSelector = {
-    type: "className",
-    specificity: [],
-  },
 ) {
   if (!selectors.length) {
     return [];
@@ -56,6 +51,13 @@ export function getClassNameSelectors(
 
   return selectors.flatMap(
     (selector): (ReactNativeGlobalSelector | PartialSelector)[] => {
+      const root: PartialSelector = {
+        type: "className",
+        specificity: [],
+      };
+
+      const specificity: SpecificityArray = [0];
+
       if (isRootVariableSelector(selector)) {
         return [{ type: "rootVariables" }];
       } else if (isUniversalSelector(selector)) {

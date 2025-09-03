@@ -49,31 +49,16 @@ describe("Typography - Font Weight", () => {
   test("font-thin", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: { style: { fontWeight: 100 } },
-      warnings: {
-        values: {
-          "font-weight": "initial",
-        },
-      },
     });
   });
   test("font-normal", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: { style: { fontWeight: 400 } },
-      warnings: {
-        values: {
-          "font-weight": "initial",
-        },
-      },
     });
   });
   test("font-black", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: { style: { fontWeight: 900 } },
-      warnings: {
-        values: {
-          "font-weight": "initial",
-        },
-      },
     });
   });
 });
@@ -140,63 +125,33 @@ describe("Typography - Letter Spacing", () => {
     // 14 * -0.05
     expect(await renderCurrentTest()).toStrictEqual({
       props: { style: { letterSpacing: -0.7 } },
-      warnings: {
-        values: {
-          "letter-spacing": "initial",
-        },
-      },
     });
   });
   test("tracking-tight", async () => {
     // 14 * -0.025
     expect(await renderCurrentTest()).toStrictEqual({
       props: { style: { letterSpacing: -0.35 } },
-      warnings: {
-        values: {
-          "letter-spacing": "initial",
-        },
-      },
     });
   });
   test("tracking-normal", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: { style: { letterSpacing: 0 } },
-      warnings: {
-        values: {
-          "letter-spacing": "initial",
-        },
-      },
     });
   });
   test("tracking-wide", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
       // 14 * 0.025
       props: { style: { letterSpacing: 0.35 } },
-      warnings: {
-        values: {
-          "letter-spacing": "initial",
-        },
-      },
     });
   });
   test("tracking-wider", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: { style: { letterSpacing: 0.7 } },
-      warnings: {
-        values: {
-          "letter-spacing": "initial",
-        },
-      },
     });
   });
   test("tracking-widest", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: { style: { letterSpacing: 1.4 } },
-      warnings: {
-        values: {
-          "letter-spacing": "initial",
-        },
-      },
     });
   });
 });
@@ -246,11 +201,6 @@ describe("Typography - Line Height", () => {
       }),
     ).toStrictEqual({
       props: { style: { lineHeight: 10.5 } },
-      warnings: {
-        values: {
-          "line-height": "initial",
-        },
-      },
     });
   });
   test("leading-4", async () => {
@@ -262,11 +212,6 @@ describe("Typography - Line Height", () => {
       }),
     ).toStrictEqual({
       props: { style: { lineHeight: 14 } },
-      warnings: {
-        values: {
-          "line-height": "initial",
-        },
-      },
     });
   });
 });

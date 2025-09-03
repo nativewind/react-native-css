@@ -381,3 +381,27 @@ test("warnings", () => {
     },
   });
 });
+
+test("simplifies rem", () => {
+  const compiled = compile(`.test {
+    border-width: calc(10rem + 2px);
+  }`);
+
+  expect(compiled.stylesheet()).toStrictEqual({
+    s: [
+      [
+        "test",
+        [
+          {
+            d: [
+              {
+                borderWidth: 142,
+              },
+            ],
+            s: [1, 1],
+          },
+        ],
+      ],
+    ],
+  });
+});
