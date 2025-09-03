@@ -152,7 +152,6 @@
     "!**/__mocks__"
   ],
   "dependencies": {
-    "@expo/metro-runtime": "~6.1.1",
     "babel-plugin-react-compiler": "^19.1.0-rc.2",
     "colorjs.io": "0.6.0-alpha.1",
     "comment-json": "^4.2.5",
@@ -168,6 +167,7 @@
     "@babel/core": "^7.28.0",
     "@commitlint/config-conventional": "^19.8.1",
     "@eslint/js": "^9.30.1",
+    "@expo/metro-runtime": "~6.1.1",
     "@ianvs/prettier-plugin-sort-imports": "^4.4.2",
     "@tailwindcss/postcss": "^4.1.12",
     "@testing-library/react-native": "^13.3.3",
