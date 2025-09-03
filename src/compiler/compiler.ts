@@ -9,7 +9,6 @@ import {
   type CustomAtRules,
   type MediaRule,
   type Rule,
-  type TokenOrValue,
   type Visitor,
 } from "lightningcss";
 
@@ -89,7 +88,8 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
     } else {
       logger(
         `firstPass buffer too large to log in full (${firstPass.length} bytes). Preview: ` +
-        firstPass.subarray(0, 1024).toString() + "..."
+          firstPass.subarray(0, 1024).toString() +
+          "...",
       );
     }
   }
@@ -125,27 +125,6 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
       return sheet;
     },
   };
-
-  if (options.stripUnusedVariables) {
-    const onVarUsage = (token: TokenOrValue) => {
-      if (token.type === "function") {
-        token.value.arguments.forEach((token) => onVarUsage(token));
-      } else if (token.type === "var") {
-        builder.varUsage.add(token.value.name.ident);
-        if (token.value.fallback) {
-          const fallbackValues = token.value.fallback;
-          fallbackValues.forEach((varObj) => onVarUsage(varObj));
-        }
-      }
-    };
-
-    visitor.Declaration = (decl) => {
-      if (decl.property === "unparsed" || decl.property === "custom") {
-        decl.value.value.forEach((token) => onVarUsage(token));
-      }
-      return decl;
-    };
-  }
 
   lightningcss({
     code: firstPass,

@@ -37,37 +37,13 @@ export interface ReactNativeAtRule {
 
 export function maybeMutateReactNativeOptions(
   rule: Rule | ReactNativeAtRule,
-  builder: StylesheetBuilder,
+  _builder: StylesheetBuilder,
 ) {
   if (rule.type !== "custom" || rule.value?.name !== "react-native") {
     return;
   }
 
-  const { declarations } = rule.value.body.value;
-  if (!declarations) return;
-
-  for (const declaration of declarations) {
-    if (declaration.property !== "custom") continue;
-
-    switch (declaration.value.name) {
-      case "preserve-variables": {
-        declaration.value.value.forEach((token) => {
-          if (token.type !== "dashed-ident") {
-            return;
-          }
-
-          if (token.value !== "true" && token.value !== "false") {
-            return;
-          }
-
-          builder.setOptions("preserveVariables", token.value === "true");
-        });
-        break;
-      }
-      default:
-        break;
-    }
-  }
+  // TODO: Add inline options
 }
 
 /***********************************************
