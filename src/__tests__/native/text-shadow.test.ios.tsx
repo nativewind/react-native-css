@@ -5,13 +5,18 @@ import { registerCSS, testID } from "react-native-css/jest";
 describe("text-shadow", () => {
   test("<offsetX> <offsetY>", () => {
     registerCSS(
-      `.my-class { --my-var: 10px 10px; text-shadow: var(--my-var); }`,
+      `.my-class { 
+        --my-var: 10px 10px; 
+        text-shadow: var(--my-var); 
+      }`,
     );
 
     render(<Text testID={testID} className="my-class" />);
 
     expect(screen.getByTestId(testID).props.style).toStrictEqual({
-      textShadowColor: "black",
+      textShadowColor: {
+        semantic: ["label", "labelColor"],
+      },
       textShadowOffset: {
         height: 10,
         width: 10,
@@ -28,7 +33,7 @@ describe("text-shadow", () => {
     render(<Text testID={testID} className="my-class" />);
 
     expect(screen.getByTestId(testID).props.style).toStrictEqual({
-      textShadowColor: "red",
+      textShadowColor: "#f00",
       textShadowOffset: {
         height: 10,
         width: 10,
@@ -45,7 +50,7 @@ describe("text-shadow", () => {
     render(<Text testID={testID} className="my-class" />);
 
     expect(screen.getByTestId(testID).props.style).toStrictEqual({
-      textShadowColor: "red",
+      textShadowColor: "#f00",
       textShadowOffset: {
         height: 10,
         width: 10,

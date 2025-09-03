@@ -139,7 +139,6 @@ test("calc(var(--variable) + 20%)", () => {
   expect(component.type).toBe("View");
   expect(component.props).toStrictEqual({
     children: undefined,
-    style: {},
     testID,
   });
 });
@@ -159,7 +158,6 @@ test("calc(var(--percent) + 20px)", () => {
   expect(component.type).toBe("View");
   expect(component.props).toStrictEqual({
     children: undefined,
-    style: {},
     testID,
   });
 });
@@ -185,7 +183,7 @@ test("calc & colors", () => {
   expect(component.props).toStrictEqual({
     children: undefined,
     style: {
-      backgroundColor: "hsl(120, 90%, 80%)",
+      backgroundColor: "#9efa9e",
     },
     testID,
   });

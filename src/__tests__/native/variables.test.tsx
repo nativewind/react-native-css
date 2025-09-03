@@ -20,7 +20,7 @@ test("inline variable", () => {
   });
 });
 
-test("combined inline variable", () => {
+test("combined inline variables", () => {
   registerCSS(`
     .my-class-1 { width: var(--my-var); }
     .my-class-2 { --my-var: 10px; }
@@ -142,7 +142,7 @@ test(":root variables", () => {
     <View testID={testID} className="my-class" />,
   ).getByTestId(testID);
 
-  expect(component.props.style).toStrictEqual({ color: "red" });
+  expect(component.props.style).toStrictEqual({ color: "#f00" });
 });
 
 test("can apply and set new variables", () => {
@@ -166,13 +166,13 @@ test("can apply and set new variables", () => {
   );
 
   expect(screen.getByTestId(testIDs.one).props.style).toStrictEqual({
-    color: "red",
+    color: "#f00",
   });
   expect(screen.getByTestId(testIDs.two).props.style).toStrictEqual({
-    color: "red",
+    color: "#f00",
   });
   expect(screen.getByTestId(testIDs.three).props.style).toStrictEqual({
-    color: "green",
+    color: "#008000",
   });
 });
 
@@ -199,7 +199,7 @@ test("variables will be inherited", () => {
   );
 
   expect(screen.getByTestId(testIDs.three).props.style).toStrictEqual({
-    color: "green",
+    color: "#008000",
   });
 });
 
@@ -212,7 +212,7 @@ test("useUnsafeVariable", () => {
   render(<View testID={testID} className="test" />);
   const component = screen.getByTestId(testID);
 
-  expect(component.props.style).toStrictEqual({ color: "red" });
+  expect(component.props.style).toStrictEqual({ color: "#f00" });
 });
 
 test("ratio values", () => {
@@ -224,7 +224,7 @@ test("ratio values", () => {
   render(<View testID={testID} className="test" />);
   const component = screen.getByTestId(testID);
 
-  expect(component.props.style).toStrictEqual({ aspectRatio: "16 / 9" });
+  expect(component.props.style).toStrictEqual({ aspectRatio: "16/9" });
 });
 
 test("VariableContextProvider", () => {
@@ -269,5 +269,5 @@ test("variable overriding with classes", () => {
   );
 
   const component = screen.getByTestId(testID);
-  expect(component.props.style).toStrictEqual({ color: "red" });
+  expect(component.props.style).toStrictEqual({ color: "#f00" });
 });

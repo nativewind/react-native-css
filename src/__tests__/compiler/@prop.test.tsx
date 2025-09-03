@@ -61,15 +61,13 @@ test("@prop target unparsed", () => {
         "my-class",
         [
           {
-            d: [[[{}, "var", "color-black", 1], ["test"], 1]],
-            dv: 1,
-            s: [2, 1],
-            v: [["__rn-css-current-color", [{}, "var", "color-black", 1]]],
+            d: [["#000", ["test"]]],
+            s: [1, 1],
+            v: [["__rn-css-color", "#000"]],
           },
         ],
       ],
     ],
-    vr: [["color-black", [["#000"]]]],
   });
 
   render(<View testID={testID} className="my-class" />);

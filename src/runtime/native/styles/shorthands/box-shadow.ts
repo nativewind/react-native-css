@@ -10,32 +10,11 @@ const blurRadius = ["blurRadius", "number"] as const;
 const spreadDistance = ["spreadDistance", "number"] as const;
 // const inset = ["inset", "string"] as const;
 
-function deepFlattenToArrayOfStyleDescriptors(
-  arr: StyleDescriptor[],
-): StyleDescriptor[] {
-  const result: StyleDescriptor[] = [];
-  const stack = [arr];
-  while (stack.length > 0) {
-    const current = stack.pop();
-    if (Array.isArray(current)) {
-      if (current.length > 0 && Array.isArray(current[0])) {
-        for (let i = current.length - 1; i >= 0; i--) {
-          const elem = current[i];
-          if (isStyleDescriptorArray(elem)) stack.push(elem);
-        }
-      } else {
-        result.push(current);
-      }
-    }
-  }
-  return result;
-}
-
 const handler = shorthandHandler(
   [
+    [offsetX, offsetY, blurRadius, spreadDistance],
     [offsetX, offsetY, blurRadius, spreadDistance, color],
     [color, offsetX, offsetY],
-    [color, offsetX, offsetY, blurRadius],
     [color, offsetX, offsetY, blurRadius, spreadDistance],
     [offsetX, offsetY, color],
     [offsetX, offsetY, blurRadius, color],
@@ -55,10 +34,11 @@ export const boxShadow: StyleFunctionResolver = (
   if (!isStyleDescriptorArray(args)) {
     return args;
   } else {
-    return deepFlattenToArrayOfStyleDescriptors(args)
+    return args
+      .flatMap(flattenShadowDescriptor)
       .map((shadows) => {
         if (shadows === undefined) {
-          return [];
+          return;
         } else {
           return omitTransparentShadows(
             handler(resolveValue, shadows, get, options),
@@ -68,6 +48,16 @@ export const boxShadow: StyleFunctionResolver = (
       .filter((v) => v !== undefined);
   }
 };
+
+function flattenShadowDescriptor(arg: StyleDescriptor): StyleDescriptor[] {
+  if (isStyleDescriptorArray(arg) && isStyleDescriptorArray(arg[0])) {
+    return arg.map((arg) => {
+      return flattenShadowDescriptor(arg);
+    });
+  }
+
+  return [arg];
+}
 
 function omitTransparentShadows(style: unknown) {
   if (typeof style === "object" && style && "color" in style) {

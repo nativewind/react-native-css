@@ -402,7 +402,7 @@ describe("Flexbox & Grid - Gap", () => {
   });
   test("gap-px", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: { style: { columnGap: 1, rowGap: 1 } },
+      props: { style: { gap: 1 } },
     });
   });
   test("gap-x-1", async () => {

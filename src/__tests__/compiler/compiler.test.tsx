@@ -27,12 +27,17 @@ test("hello world", () => {
 });
 
 test("reads global CSS variables", () => {
-  const compiled = compile(`
+  const compiled = compile(
+    `
 @layer theme {
   :root, :host {
     --color-red-500: oklch(63.7% 0.237 25.331);
   }
-}`);
+}`,
+    {
+      inlineVariables: false,
+    },
+  );
 
   expect(compiled.stylesheet()).toStrictEqual({
     vr: [["color-red-500", [["#fb2c36"]]]],
@@ -236,11 +241,16 @@ test.skip("animations", () => {
 });
 
 test("breaks apart comma separated variables", () => {
-  const compiled = compile(`
+  const compiled = compile(
+    `
     :root { 
       --test: blue, green;
     }
-  `);
+  `,
+    {
+      inlineVariables: false,
+    },
+  );
 
   expect(compiled.stylesheet()).toStrictEqual({
     vr: [["test", [[["blue", "green"]]]]],

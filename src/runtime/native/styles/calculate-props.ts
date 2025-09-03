@@ -115,7 +115,7 @@ export function applyDeclarations(
       // Dynamic styles
       let value: any = declaration[0];
       let propPath = declaration[1];
-      let prop: string;
+      let prop: string | number;
 
       if (Array.isArray(propPath)) {
         const [first, ...rest] = propPath;
@@ -132,7 +132,21 @@ export function applyDeclarations(
             target = topLevelTarget[first];
           }
 
+          let previousProp: string | number = first;
+          let previousTarget = topLevelTarget;
+
           for (prop of rest) {
+            if (prop.startsWith("[") && prop.endsWith("]")) {
+              prop = Number(prop.slice(1, -1));
+
+              if (!Array.isArray(previousTarget[previousProp])) {
+                previousTarget[previousProp] = [];
+                target = previousTarget[previousProp];
+              }
+            }
+            previousTarget = target;
+            previousProp = prop;
+
             target[prop] ??= {};
             target = target[prop];
           }

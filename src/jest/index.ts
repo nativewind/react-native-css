@@ -59,12 +59,12 @@ export function compileWithAutoDebug(
   {
     debug = debugDefault,
     ...options
-  }: CompilerOptions & { debug?: boolean } = {},
+  }: CompilerOptions & { debug?: boolean | "verbose" } = {},
 ) {
   const logger = debug
     ? (text: string) => {
         // Just log the rules
-        if (text.startsWith("[")) {
+        if (text.startsWith("[") && debug === "verbose") {
           console.log(`Rules:\n---\n${text}`);
         }
       }

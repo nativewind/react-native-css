@@ -8,7 +8,7 @@ describe("Layout - Aspect Ratio", () => {
   });
   test("aspect-video", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: { style: { aspectRatio: "16 / 9" } },
+      props: { style: { aspectRatio: "16/9" } },
     });
   });
   test("aspect-[4/3]", async () => {

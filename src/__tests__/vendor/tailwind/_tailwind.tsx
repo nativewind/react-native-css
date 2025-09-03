@@ -1,7 +1,5 @@
 import type { PropsWithChildren, ReactElement } from "react";
 
-import { inspect } from "node:util";
-
 import tailwind from "@tailwindcss/postcss";
 import {
   screen,
@@ -87,16 +85,6 @@ export async function render(
   }
 
   const compiled = registerCSS(output, { debug: Boolean(debug) });
-
-  if (debug) {
-    console.log(
-      inspect(compiled.stylesheet(), {
-        colors: true,
-        compact: false,
-        depth: null,
-      }),
-    );
-  }
 
   return Object.assign(
     {},

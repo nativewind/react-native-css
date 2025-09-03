@@ -60,7 +60,12 @@ describe("Interactivity - Caret Color", () => {
   });
   test("caret-current", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: { style: {} },
+      props: {
+        cursorColor: {
+          semantic: ["label", "labelColor"],
+        },
+        style: {},
+      },
     });
   });
   test("caret-white", async () => {
