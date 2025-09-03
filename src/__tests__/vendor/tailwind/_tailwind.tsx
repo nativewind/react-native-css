@@ -86,7 +86,7 @@ export async function render(
     console.log(`Output CSS:\n---\n${output}\n---\n`);
   }
 
-  const compiled = registerCSS(output, { debug: false });
+  const compiled = registerCSS(output, { debug: Boolean(debug) });
 
   if (debug) {
     console.log(

@@ -8,24 +8,6 @@ describe("Filters - Blur", () => {
           filter: [{ blur: 4 }],
         },
       },
-      warnings: {
-        values: {
-          filter: [
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-          ],
-        },
-      },
     });
   });
 });
@@ -36,24 +18,6 @@ describe("Filters - Brightness", () => {
       props: {
         style: {
           filter: [{ brightness: "0%" }],
-        },
-      },
-      warnings: {
-        values: {
-          filter: [
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-          ],
         },
       },
     });
@@ -68,24 +32,6 @@ describe("Filters - Contrast", () => {
           filter: [{ contrast: "0%" }],
         },
       },
-      warnings: {
-        values: {
-          filter: [
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-          ],
-        },
-      },
     });
   });
   test("contrast-50", async () => {
@@ -95,24 +41,6 @@ describe("Filters - Contrast", () => {
           filter: [{ contrast: "50%" }],
         },
       },
-      warnings: {
-        values: {
-          filter: [
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-          ],
-        },
-      },
     });
   });
   test("contrast-200", async () => {
@@ -120,24 +48,6 @@ describe("Filters - Contrast", () => {
       props: {
         style: {
           filter: [{ contrast: "200%" }],
-        },
-      },
-      warnings: {
-        values: {
-          filter: [
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-          ],
         },
       },
     });
@@ -171,24 +81,6 @@ describe("Filters - Drop Shadow", () => {
           ],
         },
       },
-      warnings: {
-        values: {
-          filter: [
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-          ],
-        },
-      },
     });
   });
 });
@@ -201,24 +93,6 @@ describe("Filters - Grayscale", () => {
           filter: [{ grayscale: "100%" }],
         },
       },
-      warnings: {
-        values: {
-          filter: [
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-          ],
-        },
-      },
     });
   });
   test("grayscale-0", async () => {
@@ -226,24 +100,6 @@ describe("Filters - Grayscale", () => {
       props: {
         style: {
           filter: [{ grayscale: "0%" }],
-        },
-      },
-      warnings: {
-        values: {
-          filter: [
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-          ],
         },
       },
     });
@@ -258,24 +114,6 @@ describe("Filters - Hue Rotate", () => {
           filter: [{ hueRotate: "0deg" }],
         },
       },
-      warnings: {
-        values: {
-          filter: [
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-          ],
-        },
-      },
     });
   });
   test("hue-rotate-180", async () => {
@@ -283,24 +121,6 @@ describe("Filters - Hue Rotate", () => {
       props: {
         style: {
           filter: [{ hueRotate: "180deg" }],
-        },
-      },
-      warnings: {
-        values: {
-          filter: [
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-          ],
         },
       },
     });
@@ -315,25 +135,6 @@ describe("Filters - Invert", () => {
           filter: [{ invert: "0%" }],
         },
       },
-
-      warnings: {
-        values: {
-          filter: [
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-          ],
-        },
-      },
     });
   });
   test("invert", async () => {
@@ -341,25 +142,6 @@ describe("Filters - Invert", () => {
       props: {
         style: {
           filter: [{ invert: "100%" }],
-        },
-      },
-
-      warnings: {
-        values: {
-          filter: [
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-          ],
         },
       },
     });
@@ -374,25 +156,6 @@ describe("Filters - Saturate", () => {
           filter: [{ saturate: "0%" }],
         },
       },
-
-      warnings: {
-        values: {
-          filter: [
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-          ],
-        },
-      },
     });
   });
   test("saturate-100", async () => {
@@ -400,25 +163,6 @@ describe("Filters - Saturate", () => {
       props: {
         style: {
           filter: [{ saturate: "100%" }],
-        },
-      },
-
-      warnings: {
-        values: {
-          filter: [
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-          ],
         },
       },
     });
@@ -433,24 +177,6 @@ describe("Filters - Sepia", () => {
           filter: [{ sepia: "100%" }],
         },
       },
-      warnings: {
-        values: {
-          filter: [
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-            "initial",
-          ],
-        },
-      },
     });
   });
 });
@@ -459,7 +185,7 @@ describe("Filters - Backdrop Blur", () => {
   test("backdrop-blur-none", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: {},
-      warnings: { properties: ["backdrop-filter", "backdrop-filter"] },
+      warnings: { properties: ["backdrop-filter"] },
     });
   });
 });
@@ -468,7 +194,7 @@ describe("Filters - Backdrop Brightness", () => {
   test("backdrop-brightness-0", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: {},
-      warnings: { properties: ["backdrop-filter", "backdrop-filter"] },
+      warnings: { properties: ["backdrop-filter"] },
     });
   });
 });
@@ -477,7 +203,7 @@ describe("Filters - Backdrop Contrast", () => {
   test("backdrop-contrast-0", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: {},
-      warnings: { properties: ["backdrop-filter", "backdrop-filter"] },
+      warnings: { properties: ["backdrop-filter"] },
     });
   });
 });
@@ -486,7 +212,7 @@ describe("Filters - Backdrop Grayscale", () => {
   test("backdrop-grayscale-0", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: {},
-      warnings: { properties: ["backdrop-filter", "backdrop-filter"] },
+      warnings: { properties: ["backdrop-filter"] },
     });
   });
 });
@@ -495,7 +221,7 @@ describe("Filters - Backdrop Hue Rotate", () => {
   test("backdrop-hue-rotate-0", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: {},
-      warnings: { properties: ["backdrop-filter", "backdrop-filter"] },
+      warnings: { properties: ["backdrop-filter"] },
     });
   });
 });
@@ -504,7 +230,7 @@ describe("Filters - Backdrop Invert", () => {
   test("backdrop-invert-0", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: {},
-      warnings: { properties: ["backdrop-filter", "backdrop-filter"] },
+      warnings: { properties: ["backdrop-filter"] },
     });
   });
 });
@@ -513,7 +239,7 @@ describe("Filters - Backdrop Opacity", () => {
   test("backdrop-opacity-0", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: {},
-      warnings: { properties: ["backdrop-filter", "backdrop-filter"] },
+      warnings: { properties: ["backdrop-filter"] },
     });
   });
 });
@@ -522,7 +248,7 @@ describe("Filters - Backdrop Saturate", () => {
   test("backdrop-saturate-0", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: {},
-      warnings: { properties: ["backdrop-filter", "backdrop-filter"] },
+      warnings: { properties: ["backdrop-filter"] },
     });
   });
 });
@@ -531,7 +257,7 @@ describe("Filters - Backdrop Sepia", () => {
   test("backdrop-sepia-0", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: {},
-      warnings: { properties: ["backdrop-filter", "backdrop-filter"] },
+      warnings: { properties: ["backdrop-filter"] },
     });
   });
 });

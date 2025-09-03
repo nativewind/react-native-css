@@ -27,11 +27,6 @@ describe("Effects - Box Shadow", () => {
           ],
         },
       },
-      warnings: {
-        values: {
-          "box-shadow": ["initial", "initial", "initial", "initial", "initial"],
-        },
-      },
     });
   });
 
@@ -57,11 +52,6 @@ describe("Effects - Box Shadow", () => {
           ],
         },
       },
-      warnings: {
-        values: {
-          "box-shadow": ["initial", "initial", "initial", "initial", "initial"],
-        },
-      },
     });
   });
   test("shadow-none", async () => {
@@ -69,11 +59,6 @@ describe("Effects - Box Shadow", () => {
       props: {
         style: {
           boxShadow: [],
-        },
-      },
-      warnings: {
-        values: {
-          "box-shadow": ["initial", "initial", "initial", "initial", "initial"],
         },
       },
     });

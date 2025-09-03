@@ -103,7 +103,11 @@ export function applyDeclarations(
   target: Record<string, any> = {},
   topLevelTarget = target,
 ) {
+  const originalTarget = target;
+
   for (const declaration of declarations) {
+    target = originalTarget;
+
     if (!Array.isArray(declaration)) {
       // Static styles
       Object.assign(target, declaration);

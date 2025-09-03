@@ -209,11 +209,6 @@ describe("Backgrounds - Background Image", () => {
             "linear-gradient(to top in oklab, #fb2c36 0%, #2b7fff 100%)",
         },
       },
-      warnings: {
-        values: {
-          "background-image": ["initial", "initial", "initial"],
-        },
-      },
     });
   });
   test("bg-gradient-to-tr", async () => {
@@ -226,11 +221,6 @@ describe("Backgrounds - Background Image", () => {
         style: {
           experimental_backgroundImage:
             "linear-gradient(to top right in oklab, #fb2c36 0%, #2b7fff 100%)",
-        },
-      },
-      warnings: {
-        values: {
-          "background-image": ["initial", "initial", "initial"],
         },
       },
     });
@@ -247,11 +237,6 @@ describe("Backgrounds - Background Image", () => {
             "linear-gradient(to right in oklab, #fb2c36 0%, #2b7fff 100%)",
         },
       },
-      warnings: {
-        values: {
-          "background-image": ["initial", "initial", "initial"],
-        },
-      },
     });
   });
   test("bg-gradient-to-br", async () => {
@@ -264,11 +249,6 @@ describe("Backgrounds - Background Image", () => {
         style: {
           experimental_backgroundImage:
             "linear-gradient(to bottom right in oklab, #fb2c36 0%, #2b7fff 100%)",
-        },
-      },
-      warnings: {
-        values: {
-          "background-image": ["initial", "initial", "initial"],
         },
       },
     });
@@ -285,11 +265,6 @@ describe("Backgrounds - Background Image", () => {
             "linear-gradient(to bottom in oklab, #fb2c36 0%, #2b7fff 100%)",
         },
       },
-      warnings: {
-        values: {
-          "background-image": ["initial", "initial", "initial"],
-        },
-      },
     });
   });
   test("bg-gradient-to-bl", async () => {
@@ -302,11 +277,6 @@ describe("Backgrounds - Background Image", () => {
         style: {
           experimental_backgroundImage:
             "linear-gradient(to bottom left in oklab, #fb2c36 0%, #2b7fff 100%)",
-        },
-      },
-      warnings: {
-        values: {
-          "background-image": ["initial", "initial", "initial"],
         },
       },
     });
@@ -323,11 +293,6 @@ describe("Backgrounds - Background Image", () => {
             "linear-gradient(to left in oklab, #fb2c36 0%, #2b7fff 100%)",
         },
       },
-      warnings: {
-        values: {
-          "background-image": ["initial", "initial", "initial"],
-        },
-      },
     });
   });
   test("bg-gradient-to-tl", async () => {
@@ -340,11 +305,6 @@ describe("Backgrounds - Background Image", () => {
         style: {
           experimental_backgroundImage:
             "linear-gradient(to top left in oklab, #fb2c36 0%, #2b7fff 100%)",
-        },
-      },
-      warnings: {
-        values: {
-          "background-image": ["initial", "initial", "initial"],
         },
       },
     });

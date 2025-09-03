@@ -20,7 +20,7 @@ describe("Border - Border Radius", () => {
   });
   test("rounded-full", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: { style: { borderRadius: 9999 } },
+      props: { style: { borderRadius: 9007199254740990 } },
     });
   });
 });

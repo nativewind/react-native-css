@@ -330,10 +330,10 @@ test("line-clamp", () => {
         [
           {
             d: [
+              [1, ["numberOfLines"]],
               {
                 overflow: "hidden",
               },
-              [1, ["numberOfLines"]],
             ],
             s: [1, 1],
           },

@@ -16,7 +16,7 @@ import {
 import { maybeMutateReactNativeOptions, parsePropAtRule } from "./atRules";
 import type { CompilerOptions, ContainerQuery } from "./compiler.types";
 import { parseContainerCondition } from "./container-query";
-import { parseDeclaration } from "./declarations";
+import { parseDeclaration, round } from "./declarations";
 import { extractKeyFrames } from "./keyframes";
 import { parseMediaQuery } from "./media-query";
 import { StylesheetBuilder } from "./stylesheet";
@@ -33,6 +33,7 @@ const defaultLogger = debug("react-native-css:compiler");
  */
 export function compile(code: Buffer | string, options: CompilerOptions = {}) {
   const { logger = defaultLogger } = options;
+
   const isLoggerEnabled =
     "enabled" in logger ? logger.enabled : Boolean(logger);
 
@@ -52,7 +53,38 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
 
   const builder = new StylesheetBuilder(options);
 
-  logger(`Start lightningcss`);
+  logger(`Lightningcss first pass`);
+
+  /**
+   * Use the lightningcss library to traverse the CSS AST and extract style declarations and animations
+   *
+   * devongovett on Aug 20, 2023
+   * > calc simplification happens during the initial parse phase, which is before custom visitors run. Currently there is not an additional simplification pass done after transforms, resulting in the output you see here.
+   * https://github.com/parcel-bundler/lightningcss/issues/554#issuecomment-1685143494
+   *
+   * Due to the above issue, we run lightningcss twice
+   */
+  const { code: firstPass } = lightningcss({
+    code: typeof code === "string" ? new TextEncoder().encode(code) : code,
+    visitor: {
+      Length(length) {
+        if (length.unit !== "rem" || options.inlineRem === false) {
+          return length;
+        }
+
+        return {
+          unit: "px",
+          value: round(length.value * (options.inlineRem ?? 14)),
+        };
+      },
+    },
+    filename: options.filename ?? "style.css",
+    projectRoot: options.projectRoot ?? process.cwd(),
+  });
+
+  logger(firstPass.toString());
+
+  logger(`Lightningcss second pass`);
 
   const customAtRules: CustomAtRules = {
     "react-native": {
@@ -63,6 +95,7 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
   const visitor: Visitor<typeof customAtRules> = {
     Rule(rule) {
       maybeMutateReactNativeOptions(rule, builder);
+      return rule;
     },
     StyleSheetExit(sheet) {
       if (isLoggerEnabled) {
@@ -79,6 +112,7 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
       }
 
       logger(`Exiting lightningcss`);
+      return sheet;
     },
   };
 
@@ -103,9 +137,8 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
     };
   }
 
-  // Use the lightningcss library to traverse the CSS AST and extract style declarations and animations
   lightningcss({
-    code: typeof code === "string" ? new TextEncoder().encode(code) : code,
+    code: firstPass,
     visitor,
     filename: options.filename ?? "style.css",
     projectRoot: options.projectRoot ?? process.cwd(),

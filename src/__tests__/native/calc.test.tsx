@@ -201,6 +201,6 @@ test("infinity", () => {
 
   expect(component.type).toBe("View");
   expect(component.props.style).toStrictEqual({
-    borderRadius: 9999,
+    borderRadius: 9007199254740990,
   });
 });
