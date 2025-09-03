@@ -82,7 +82,17 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
     projectRoot: options.projectRoot ?? process.cwd(),
   });
 
-  logger(firstPass.toString());
+  if (isLoggerEnabled) {
+    const MAX_LOG_SIZE = 100 * 1024; // 100KB
+    if (firstPass.length <= MAX_LOG_SIZE) {
+      logger(firstPass.toString());
+    } else {
+      logger(
+        `firstPass buffer too large to log in full (${firstPass.length} bytes). Preview: ` +
+        firstPass.subarray(0, 1024).toString() + "..."
+      );
+    }
+  }
 
   logger(`Lightningcss second pass`);
 
