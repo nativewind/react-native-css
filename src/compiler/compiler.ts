@@ -3,6 +3,7 @@ import { inspect } from "node:util";
 
 import { debug } from "debug";
 import {
+  Features,
   transform as lightningcss,
   type ContainerRule,
   type MediaQuery as CSSMediaQuery,
@@ -65,6 +66,8 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
    */
   const { code: firstPass } = lightningcss({
     code: typeof code === "string" ? new TextEncoder().encode(code) : code,
+    include: Features.DoublePositionGradients | Features.ColorFunction,
+    exclude: Features.VendorPrefixes,
     visitor: {
       Length(length) {
         if (length.unit !== "rem" || options.inlineRem === false) {
@@ -84,7 +87,7 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
   if (isLoggerEnabled) {
     const MAX_LOG_SIZE = 100 * 1024; // 100KB
     if (firstPass.length <= MAX_LOG_SIZE) {
-      logger(firstPass.toString());
+      console.log(firstPass.toString());
     } else {
       logger(
         `firstPass buffer too large to log in full (${firstPass.length} bytes). Preview: ` +
