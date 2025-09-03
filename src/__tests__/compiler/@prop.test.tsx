@@ -1,7 +1,11 @@
 import { render, screen } from "@testing-library/react-native";
 import { compile } from "react-native-css/compiler";
 import { View } from "react-native-css/components";
-import { registerCSS, testID } from "react-native-css/jest";
+import {
+  compileWithAutoDebug,
+  registerCSS,
+  testID,
+} from "react-native-css/jest";
 
 test("@prop target (nested @media)", () => {
   const compiled = registerCSS(`
@@ -222,10 +226,10 @@ test("@prop value: wildcard nested target", () => {
 });
 
 test("@prop multiple", () => {
-  const compiled = compile(`
+  const compiled = compileWithAutoDebug(`
     .test { 
       color: red; 
-      background-color: blue; 
+      background-color: oklab(40.1% 0.1143 0.045); 
       @prop {
         background-color: *.myBackgroundColor;
         color: *.myColor;
@@ -241,7 +245,7 @@ test("@prop multiple", () => {
           {
             d: [
               {
-                myBackgroundColor: "#00f",
+                myBackgroundColor: "#7d2429",
                 myColor: "#f00",
               },
             ],
