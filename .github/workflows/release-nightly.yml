@@ -4,9 +4,17 @@ on:
   schedule:
     - cron: "0 0 * * *" # every day at midnight UTC
   workflow_dispatch: # allow manual trigger
+  pull_request: # When a PR had the "publish-nightly" label
+    types: [closed]
+    branches: [main]
 
 jobs:
   nightly:
+    if: |
+      github.event_name != 'pull_request' ||
+      (github.event.pull_request.merged == true &&
+       contains(github.event.pull_request.labels.*.name, 'publish-nightly'))
+
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
