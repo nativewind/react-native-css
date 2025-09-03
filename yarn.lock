@@ -11464,6 +11464,7 @@ __metadata:
     "@babel/core": "npm:^7.28.0"
     "@commitlint/config-conventional": "npm:^19.8.1"
     "@eslint/js": "npm:^9.30.1"
+    "@expo/metro-config": "npm:0.21.8"
     "@ianvs/prettier-plugin-sort-imports": "npm:^4.4.2"
     "@tailwindcss/postcss": "npm:^4.1.12"
     "@testing-library/react-native": "npm:^13.3.3"
@@ -11506,7 +11507,7 @@ __metadata:
     typescript: "npm:^5.9.2"
     typescript-eslint: "npm:^8.40.0"
   peerDependencies:
-    expo: 54.0.0-preview.13
+    "@expo/metro-config": ">=0.21.8"
     lightningcss: ">=1.27.0"
     react: 19.1.0
     react-native: 0.81.1
