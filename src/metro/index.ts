@@ -2,7 +2,6 @@
 import { dirname, relative, sep } from "node:path";
 import { versions } from "node:process";
 
-import connect from "connect";
 import debug from "debug";
 import type { MetroConfig } from "metro-config";
 
@@ -50,9 +49,6 @@ export function withReactNativeCSS<
     setupTypeScript(typescriptEnvPath);
   }
 
-  const originalMiddleware = config.server?.enhanceMiddleware;
-  const originalResolver = config.resolver?.resolveRequest;
-
   return {
     ...config,
     transformerPath: require.resolve("./metro-transformer"),
@@ -68,13 +64,14 @@ export function withReactNativeCSS<
           return { type: "empty" };
         }
 
+        const parentResolver =
+          config.resolver?.resolveRequest ?? context.resolveRequest;
+
         // Don't hijack the resolution of react-native imports
         if (!globalClassNamePolyfill) {
-          const parentResolver = originalResolver ?? context.resolveRequest;
           return parentResolver(context, moduleName, platform);
         }
 
-        const parentResolver = originalResolver ?? context.resolveRequest;
         const resolver = platform === "web" ? webResolver : nativeResolver;
         const resolved = resolver(
           parentResolver,
@@ -88,8 +85,7 @@ export function withReactNativeCSS<
     },
     server: {
       ...config.server,
-      enhanceMiddleware(middleware, metroServer) {
-        const server = connect();
+      enhanceMiddleware(metroMiddleware, metroServer) {
         const bundler: any = metroServer.getBundler().getBundler();
 
         if (!bundler.__react_native_css__patched) {
@@ -230,9 +226,14 @@ export function withReactNativeCSS<
           };
         }
 
-        return originalMiddleware
-          ? server.use(originalMiddleware(middleware, metroServer))
-          : server.use(middleware);
+        /**
+         * We don't modify the middleware, we just use this function to get the metroServer
+         * So simply return the existing middleware
+         */
+        return (
+          config.server?.enhanceMiddleware?.(metroMiddleware, metroServer) ??
+          metroMiddleware
+        );
       },
     },
   };
