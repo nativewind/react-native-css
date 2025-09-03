@@ -110,8 +110,7 @@ test("disabled", async () => {
     expect.objectContaining({
       testID,
       style: {
-        height: 31,
-        width: 51,
+        alignSelf: "flex-start",
       },
     }),
   );
@@ -123,8 +122,7 @@ test("disabled", async () => {
       testID,
       style: [
         {
-          height: 31,
-          width: 51,
+          alignSelf: "flex-start",
         },
         {
           backgroundColor: "#000",
@@ -141,8 +139,7 @@ test("disabled", async () => {
     expect.objectContaining({
       testID,
       style: {
-        height: 31,
-        width: 51,
+        alignSelf: "flex-start",
       },
     }),
   );
