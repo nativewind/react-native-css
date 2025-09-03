@@ -35,6 +35,7 @@ import type {
   Translate,
   UnresolvedColor,
 } from "lightningcss";
+import { isStyleFunction } from "react-native-css/runtime/utils";
 
 import type {
   StyleDescriptor,
@@ -966,7 +967,13 @@ export function parseUnparsedDeclaration(
     }
 
     if (property === "color") {
-      builder.addDescriptor("--__rn-css-current-color", value);
+      if (
+        !isStyleFunction(value) ||
+        value[1] !== "var" ||
+        value[2] !== "-css-color"
+      ) {
+        builder.addDescriptor("--__rn-css-color", value);
+      }
     }
   }
 }
@@ -1125,7 +1132,7 @@ export function parseUnparsed(
     } else if (tokenOrValue === "false") {
       return false;
     } else if (tokenOrValue === "currentcolor") {
-      return [{}, "var", "__rn-css-current-color"] as const;
+      return [{}, "var", "__rn-css-color"] as const;
     } else {
       return tokenOrValue;
     }
@@ -1255,7 +1262,7 @@ export function parseUnparsed(
             builder.addWarning("value", value);
             return;
           } else if (value === "currentcolor") {
-            return [{}, "var", "__rn-css-current-color"] as const;
+            return [{}, "var", "__rn-css-color"] as const;
           }
 
           if (value === "true") {
@@ -1579,10 +1586,15 @@ export function parseFontColorDeclaration(
 ) {
   parseColorDeclaration(declaration, builder);
 
-  builder.addDescriptor(
-    "--__rn-css-color",
-    parseColor(declaration.value, builder),
-  );
+  if (
+    typeof declaration.value !== "object" ||
+    declaration.value.type !== "currentcolor"
+  ) {
+    builder.addDescriptor(
+      "--__rn-css-color",
+      parseColor(declaration.value, builder),
+    );
+  }
 }
 
 export function parseColorDeclaration(
@@ -1609,7 +1621,7 @@ export function parseColor(cssColor: CssColor, builder: StylesheetBuilder) {
 
   switch (cssColor.type) {
     case "currentcolor":
-      return [{}, "var", "__rn-css-current-color"] as const;
+      return [{}, "var", "__rn-css-color"] as const;
     case "light-dark": {
       const extraRule: StyleRule = {
         s: [],
@@ -1982,11 +1994,11 @@ export function parseTextShadow(
     parseColor(textShadow.color, builder),
   );
   builder.addDescriptor(
-    "textShadowOffset.width",
+    "*.textShadowOffset.width",
     parseLength(textShadow.xOffset, builder),
   );
   builder.addDescriptor(
-    "textShadowOffset.height",
+    "*.textShadowOffset.height",
     parseLength(textShadow.yOffset, builder),
   );
   builder.addDescriptor(

@@ -391,6 +391,10 @@ export class StylesheetBuilder {
     let propPath: string | string[] | undefined =
       this.mapping[rawProperty] ?? this.mapping[property] ?? this.mapping["*"];
 
+    if (typeof property === "string" && property.includes(".")) {
+      propPath = property.split(".");
+    }
+
     if (Array.isArray(propPath)) {
       const [first, second] = propPath;
 

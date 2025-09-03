@@ -313,7 +313,11 @@ describe("Typography - Text Color", () => {
   test("text-current", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: {
-        style: {},
+        style: {
+          color: {
+            semantic: ["label", "labelColor"],
+          },
+        },
       },
     });
   });

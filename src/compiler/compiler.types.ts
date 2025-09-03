@@ -1,6 +1,9 @@
 /* eslint-disable */
 import type { Debugger } from "debug";
-import type { MediaFeatureNameFor_MediaFeatureId } from "lightningcss";
+import type {
+  MediaFeatureNameFor_MediaFeatureId,
+  TokenOrValue,
+} from "lightningcss";
 
 import { VAR_SYMBOL } from "../runtime/native/reactivity";
 
@@ -8,12 +11,17 @@ export interface CompilerOptions {
   filename?: string;
   projectRoot?: string;
   inlineRem?: number | false;
+  inlineVariables?: false | InlineVariableOptions;
   selectorPrefix?: string;
   stylesheetOrder?: number;
   features?: FeatureFlagRecord;
   logger?: (message: string) => void | Debugger;
   hexColors?: boolean;
   colorPrecision?: number;
+}
+
+export interface InlineVariableOptions {
+  exclude?: `--${string}`[];
 }
 
 /**
@@ -150,6 +158,8 @@ export type InlineVariable = {
   [VAR_SYMBOL]: "inline";
   [key: string]: unknown | undefined;
 };
+
+export type UniqueVarInfo = { count: number; value: TokenOrValue[] };
 
 /******************************   Animations  ******************************/
 
