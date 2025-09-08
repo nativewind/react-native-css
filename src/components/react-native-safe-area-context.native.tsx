@@ -1,12 +1,11 @@
 import { useContext, useMemo, type PropsWithChildren } from "react";
 
+import { VariableContext } from "react-native-css/style-collection";
 import {
   SafeAreaProvider as OriginalSafeAreaProvider,
   useSafeAreaInsets,
   type SafeAreaProviderProps,
 } from "react-native-safe-area-context";
-
-import { VariableContext } from "../runtime/native/reactivity";
 
 export * from "react-native-safe-area-context";
 
