@@ -1,3 +1,5 @@
+import { Platform, PlatformColor } from "react-native";
+
 import type { StyleDescriptor, VariableValue } from "react-native-css/compiler";
 
 import { testMediaQuery } from "../runtime/native/conditions/media-query";
@@ -35,3 +37,12 @@ export const rootVariables = rootVariableFamily();
 export const universalVariables = rootVariableFamily();
 
 rootVariables("__rn-css-rem").set([[14]]);
+// eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+rootVariables("__rn-css-color").set([
+  [
+    Platform.OS === "ios"
+      ? PlatformColor("label", "labelColor")
+      : PlatformColor("?attr/textColorPrimary", "SystemBaseHighColor"),
+  ],
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+] as any);

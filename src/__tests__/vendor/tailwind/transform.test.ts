@@ -95,7 +95,7 @@ describe("Transforms - Translate", () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: {
         style: {
-          transform: [{ translateX: 0 }],
+          transform: [{ translateX: 0 }, { translateY: 0 }],
         },
       },
     });
@@ -104,7 +104,7 @@ describe("Transforms - Translate", () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: {
         style: {
-          transform: [{ translateY: 0 }],
+          transform: [{ translateX: 0 }, { translateY: 0 }],
         },
       },
     });
@@ -113,7 +113,7 @@ describe("Transforms - Translate", () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: {
         style: {
-          transform: [{ translateX: 1 }],
+          transform: [{ translateX: 1 }, { translateY: 0 }],
         },
       },
     });
@@ -122,7 +122,7 @@ describe("Transforms - Translate", () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: {
         style: {
-          transform: [{ translateY: 1 }],
+          transform: [{ translateX: 0 }, { translateY: 1 }],
         },
       },
     });
@@ -131,7 +131,7 @@ describe("Transforms - Translate", () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: {
         style: {
-          transform: [{ translateX: 3.5 }],
+          transform: [{ translateX: 3.5 }, { translateY: 0 }],
         },
       },
     });
@@ -140,7 +140,7 @@ describe("Transforms - Translate", () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: {
         style: {
-          transform: [{ translateY: 3.5 }],
+          transform: [{ translateX: 0 }, { translateY: 3.5 }],
         },
       },
     });
@@ -150,7 +150,9 @@ describe("Transforms - Translate", () => {
 describe("Transforms - Translate (%)", () => {
   test("translate-x-1/2", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: { style: { transform: [{ translateX: "50%" }] } },
+      props: {
+        style: { transform: [{ translateX: "50%" }, { translateY: 0 }] },
+      },
     });
   });
 
@@ -158,7 +160,7 @@ describe("Transforms - Translate (%)", () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: {
         style: {
-          transform: [{ translateY: "50%" }],
+          transform: [{ translateX: 0 }, { translateY: "50%" }],
         },
       },
     });
@@ -167,7 +169,7 @@ describe("Transforms - Translate (%)", () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: {
         style: {
-          transform: [{ translateX: "100%" }],
+          transform: [{ translateX: "100%" }, { translateY: 0 }],
         },
       },
     });
@@ -176,7 +178,7 @@ describe("Transforms - Translate (%)", () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: {
         style: {
-          transform: [{ translateY: "100%" }],
+          transform: [{ translateX: 0 }, { translateY: "100%" }],
         },
       },
     });
@@ -234,6 +236,7 @@ describe("Transforms - Mixed", () => {
           transform: [
             { skewY: "1deg" },
             { translateX: 3.5 },
+            { translateY: 0 },
             { rotateZ: "90deg" },
           ],
         },

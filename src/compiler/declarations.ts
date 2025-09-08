@@ -36,6 +36,7 @@ import type {
   UnresolvedColor,
 } from "lightningcss";
 
+import { isStyleFunction } from "../runtime/utils";
 import type {
   StyleDescriptor,
   StyleFunction,
@@ -369,35 +370,26 @@ function parseBorderColor(
   >,
   builder: StylesheetBuilder,
 ) {
-  switch (declaration.property) {
-    case "border-color":
-      builder.addShorthand("border-color", {
-        "border-top-color": parseColor(declaration.value.top, builder),
-        "border-bottom-color": parseColor(declaration.value.bottom, builder),
-        "border-left-color": parseColor(declaration.value.left, builder),
-        "border-right-color": parseColor(declaration.value.right, builder),
-      });
-      break;
-    case "border-block-color":
-      builder.addDescriptor(
-        "border-top-color",
-        parseColor(declaration.value.start, builder),
-      );
-      builder.addDescriptor(
-        "border-bottom-color",
-        parseColor(declaration.value.end, builder),
-      );
-      break;
-    case "border-inline-color":
-      builder.addDescriptor(
-        "border-left-color",
-        parseColor(declaration.value.start, builder),
-      );
-      builder.addDescriptor(
-        "border-right-color",
-        parseColor(declaration.value.end, builder),
-      );
-      break;
+  if (declaration.property === "border-color") {
+    builder.addShorthand("border-color", {
+      "border-top-color": parseColor(declaration.value.top, builder),
+      "border-bottom-color": parseColor(declaration.value.bottom, builder),
+      "border-left-color": parseColor(declaration.value.left, builder),
+      "border-right-color": parseColor(declaration.value.right, builder),
+    });
+  } else {
+    const start = parseColor(declaration.value.start, builder);
+    const end = parseColor(declaration.value.end, builder);
+
+    if (start === end) {
+      builder.addDescriptor(declaration.property, start);
+    } else if (declaration.property === "border-block-color") {
+      builder.addDescriptor("border-top-color", start);
+      builder.addDescriptor("border-bottom-color", end);
+    } else {
+      builder.addDescriptor("border-left-color", start);
+      builder.addDescriptor("border-right-color", end);
+    }
   }
 }
 
@@ -859,17 +851,8 @@ function parseLetterSpacing(
   if (value.type === "normal") {
     return;
   }
-  const descriptor = parseLength(value.value, builder);
 
-  if (
-    Array.isArray(descriptor) &&
-    descriptor[1] === "em" &&
-    typeof descriptor[2] === "number"
-  ) {
-    return descriptor[2];
-  }
-
-  return descriptor;
+  return parseLength(value.value, builder);
 }
 
 function parseTextDecoration(
@@ -966,7 +949,13 @@ export function parseUnparsedDeclaration(
     }
 
     if (property === "color") {
-      builder.addDescriptor("--__rn-css-current-color", value);
+      if (
+        !isStyleFunction(value) ||
+        value[1] !== "var" ||
+        value[2] !== "-css-color"
+      ) {
+        builder.addDescriptor("--__rn-css-color", value);
+      }
     }
   }
 }
@@ -1125,7 +1114,7 @@ export function parseUnparsed(
     } else if (tokenOrValue === "false") {
       return false;
     } else if (tokenOrValue === "currentcolor") {
-      return [{}, "var", "__rn-css-current-color"] as const;
+      return [{}, "var", "__rn-css-color"] as const;
     } else {
       return tokenOrValue;
     }
@@ -1143,8 +1132,16 @@ export function parseUnparsed(
       allowAuto,
     );
     if (!args) return;
-    if (Array.isArray(args) && args.length === 1) return args[0];
-    return args;
+    if (Array.isArray(args) && args.length === 1) {
+      return args[0];
+    } else if (
+      (property === "filter" || property === "transform") &&
+      isStyleFunction(args)
+    ) {
+      return [args];
+    } else {
+      return args;
+    }
   }
 
   switch (tokenOrValue.type) {
@@ -1255,7 +1252,7 @@ export function parseUnparsed(
             builder.addWarning("value", value);
             return;
           } else if (value === "currentcolor") {
-            return [{}, "var", "__rn-css-current-color"] as const;
+            return [{}, "var", "__rn-css-color"] as const;
           }
 
           if (value === "true") {
@@ -1579,10 +1576,15 @@ export function parseFontColorDeclaration(
 ) {
   parseColorDeclaration(declaration, builder);
 
-  builder.addDescriptor(
-    "--__rn-css-color",
-    parseColor(declaration.value, builder),
-  );
+  if (
+    typeof declaration.value !== "object" ||
+    declaration.value.type !== "currentcolor"
+  ) {
+    builder.addDescriptor(
+      "--__rn-css-color",
+      parseColor(declaration.value, builder),
+    );
+  }
 }
 
 export function parseColorDeclaration(
@@ -1609,7 +1611,7 @@ export function parseColor(cssColor: CssColor, builder: StylesheetBuilder) {
 
   switch (cssColor.type) {
     case "currentcolor":
-      return [{}, "var", "__rn-css-current-color"] as const;
+      return [{}, "var", "__rn-css-color"] as const;
     case "light-dark": {
       const extraRule: StyleRule = {
         s: [],
@@ -1952,7 +1954,7 @@ export function parseFontWeight(
   switch (fontWeight.type) {
     case "absolute":
       if (fontWeight.value.type === "weight") {
-        return fontWeight.value.value.toString();
+        return fontWeight.value.value;
       } else {
         return fontWeight.value.type;
       }
@@ -1982,11 +1984,11 @@ export function parseTextShadow(
     parseColor(textShadow.color, builder),
   );
   builder.addDescriptor(
-    "textShadowOffset.width",
+    "*.textShadowOffset.width",
     parseLength(textShadow.xOffset, builder),
   );
   builder.addDescriptor(
-    "textShadowOffset.height",
+    "*.textShadowOffset.height",
     parseLength(textShadow.yOffset, builder),
   );
   builder.addDescriptor(
@@ -2324,24 +2326,22 @@ export function parseGap(
   builder: StylesheetBuilder,
 ) {
   if ("column" in declaration.value) {
-    builder.addDescriptor(
-      "row-gap",
-      parseGapValue(declaration.value.row, builder),
-    );
-    builder.addDescriptor(
-      "column-gap",
-      parseGapValue(declaration.value.column, builder),
-    );
+    const row = parseGapValue(declaration.value.row, builder);
+    const column = parseGapValue(declaration.value.column, builder);
 
-    return;
-  } else {
-    if (declaration.value.type === "normal") {
-      builder.addWarning("value", declaration.value.type);
-      return;
+    if (row !== column) {
+      builder.addDescriptor("row-gap", row);
+      builder.addDescriptor("column-gap", column);
+    } else {
+      builder.addDescriptor("gap", row);
     }
-
+  } else if (declaration.value.type === "normal") {
+    builder.addWarning("value", declaration.value.type);
+  } else {
     return parseLength(declaration.value.value, builder);
   }
+
+  return;
 }
 
 function parseGapValue(
@@ -2374,27 +2374,27 @@ export function parseBoxShadow(
 ) {
   for (const [index, shadow] of value.entries()) {
     builder.addDescriptor(
-      `boxShadow.[${index}].color`,
+      `*.boxShadow.[${index}].color`,
       parseColor(shadow.color, builder),
     );
     builder.addDescriptor(
-      `boxShadow.[${index}].offsetX`,
+      `*.boxShadow.[${index}].offsetX`,
       parseLength(shadow.xOffset, builder),
     );
     builder.addDescriptor(
-      `boxShadow.[${index}].offsetY`,
+      `*.boxShadow.[${index}].offsetY`,
       parseLength(shadow.yOffset, builder),
     );
     builder.addDescriptor(
-      `boxShadow.[${index}].blurRadius`,
+      `*.boxShadow.[${index}].blurRadius`,
       parseLength(shadow.blur, builder),
     );
     builder.addDescriptor(
-      `boxShadow.[${index}].spreadDistance`,
+      `*.boxShadow.[${index}].spreadDistance`,
       parseLength(shadow.spread, builder),
     );
     builder.addDescriptor(
-      `boxShadow.[${index}].inset`,
+      `*.boxShadow.[${index}].inset`,
       shadow.inset ? true : undefined,
     );
   }

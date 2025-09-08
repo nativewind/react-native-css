@@ -14,9 +14,14 @@ import {
 } from "lightningcss";
 
 import { maybeMutateReactNativeOptions, parsePropAtRule } from "./atRules";
-import type { CompilerOptions, ContainerQuery } from "./compiler.types";
+import type {
+  CompilerOptions,
+  ContainerQuery,
+  UniqueVarInfo,
+} from "./compiler.types";
 import { parseContainerCondition } from "./container-query";
 import { parseDeclaration, round } from "./declarations";
+import { inlineVariables } from "./inline-variables";
 import { extractKeyFrames } from "./keyframes";
 import { parseMediaQuery } from "./media-query";
 import { StylesheetBuilder } from "./stylesheet";
@@ -64,22 +69,54 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
    *
    * Due to the above issue, we run lightningcss twice
    */
+
+  const vars = new Map<string, UniqueVarInfo>();
+
+  const firstPassVisitor: Visitor<CustomAtRules> = {};
+
+  if (options.inlineRem !== false) {
+    firstPassVisitor.Length = (length) => {
+      if (length.unit !== "rem" || options.inlineRem === false) {
+        return length;
+      }
+
+      return {
+        unit: "px",
+        value: round(length.value * (options.inlineRem ?? 14)),
+      };
+    };
+  }
+
+  if (options.inlineVariables !== false) {
+    const exclusionList: string[] = options.inlineVariables?.exclude ?? [];
+
+    firstPassVisitor.Declaration = (decl) => {
+      if (
+        decl.property === "custom" &&
+        decl.value.name.startsWith("--") &&
+        !exclusionList.includes(decl.value.name)
+      ) {
+        const entry = vars.get(decl.value.name) ?? {
+          count: 0,
+          value: [
+            ...decl.value.value,
+            { type: "token", value: { type: "white-space", value: " " } },
+          ],
+        };
+        entry.count++;
+        vars.set(decl.value.name, entry);
+      }
+    };
+    firstPassVisitor.StyleSheetExit = (sheet) => {
+      return inlineVariables(sheet, vars);
+    };
+  }
+
   const { code: firstPass } = lightningcss({
     code: typeof code === "string" ? new TextEncoder().encode(code) : code,
     include: Features.DoublePositionGradients | Features.ColorFunction,
     exclude: Features.VendorPrefixes,
-    visitor: {
-      Length(length) {
-        if (length.unit !== "rem" || options.inlineRem === false) {
-          return length;
-        }
-
-        return {
-          unit: "px",
-          value: round(length.value * (options.inlineRem ?? 14)),
-        };
-      },
-    },
+    visitor: firstPassVisitor,
     filename: options.filename ?? "style.css",
     projectRoot: options.projectRoot ?? process.cwd(),
   });
