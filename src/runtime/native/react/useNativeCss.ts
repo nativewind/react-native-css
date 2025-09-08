@@ -9,12 +9,13 @@ import {
 } from "react";
 import { Pressable, View } from "react-native";
 
+import { VariableContext } from "react-native-css/style-collection";
+
 import type { StyledConfiguration } from "../../runtime.types";
 import { testGuards, type RenderGuard } from "../conditions/guards";
 import {
   cleanupEffect,
   ContainerContext,
-  VariableContext,
   type ContainerContextValue,
   type Effect,
   type Getter,

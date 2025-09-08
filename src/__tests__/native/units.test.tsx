@@ -3,11 +3,11 @@ import { View } from "react-native";
 import { act, renderHook } from "@testing-library/react-native";
 import { registerCSS } from "react-native-css/jest";
 import { useNativeCss } from "react-native-css/runtime/native";
+import { VariableContext } from "react-native-css/style-collection";
 
 import {
   dimensions,
   VAR_SYMBOL,
-  VariableContext,
   vh,
   vw,
 } from "../../runtime/native/reactivity";

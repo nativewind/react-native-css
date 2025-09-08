@@ -2,6 +2,8 @@
 import { useContext, useMemo, useState, type PropsWithChildren } from "react";
 import { Appearance } from "react-native";
 
+import { VariableContext } from "react-native-css/style-collection";
+
 import type { StyleDescriptor } from "../../compiler";
 import type {
   ColorScheme,
@@ -15,14 +17,16 @@ import { usePassthrough } from "./react/usePassthrough";
 import {
   colorScheme as colorSchemeObs,
   VAR_SYMBOL,
-  VariableContext,
   type Effect,
   type Getter,
   type VariableContextValue,
 } from "./reactivity";
 import { resolveValue } from "./styles/resolve";
 
-export { StyleCollection } from "react-native-css/style-collection";
+export {
+  StyleCollection,
+  VariableContext,
+} from "react-native-css/style-collection";
 
 export { useNativeCss };
 
