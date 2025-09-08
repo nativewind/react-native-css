@@ -1,3 +1,5 @@
+import { createContext, type Context } from "react";
+
 import type {
   Animation,
   ReactNativeCssStyleSheet,
@@ -9,7 +11,9 @@ import {
   family,
   observable,
   observableBatch,
+  VAR_SYMBOL,
   type Observable,
+  type VariableContextValue,
 } from "../runtime/native/reactivity";
 import { rootVariables, universalVariables } from "./root";
 
@@ -23,6 +27,9 @@ interface StyleCollectionType {
 
 declare global {
   var __react_native_css_style_collection: StyleCollectionType | undefined;
+  var __react_native_css_variable_context:
+    | Context<VariableContextValue>
+    | undefined;
 }
 
 globalThis.__react_native_css_style_collection ??= {
@@ -140,3 +147,10 @@ function isDeepEqual(a: unknown, b: unknown): boolean {
 
   return true;
 }
+
+globalThis.__react_native_css_variable_context ??=
+  createContext<VariableContextValue>({
+    [VAR_SYMBOL]: true,
+  });
+
+export const VariableContext = globalThis.__react_native_css_variable_context;

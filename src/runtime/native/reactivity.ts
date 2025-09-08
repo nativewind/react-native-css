@@ -181,13 +181,10 @@ export function weakFamily<Key extends WeakKey, Args = undefined, Result = Key>(
 
 /********************************* Variables **********************************/
 
-export const VAR_SYMBOL = Symbol("react-native-css.var");
+export const VAR_SYMBOL = Symbol.for("react-native-css.var");
 export type VariableContextValue = Record<string, StyleDescriptor> & {
   [VAR_SYMBOL]: true;
 };
-export const VariableContext = createContext<VariableContextValue>({
-  [VAR_SYMBOL]: true,
-});
 
 /** Pseudo Classes ************************************************************/
 
