@@ -13,9 +13,11 @@ The goal of this library is to provide the most complete CSS support for React N
 ### Metro based projects
 
 > [!TIP]  
-> All Expo and React Native Community CLI projects use Metro as the bundler, so this guide applies to them.
+> Most React Native projects use Metro as the bundler.
 
 You will need to add `withReactNativeCSS` to your Metro configuration.
+
+#### Expo Projects
 
 ```ts
 import { getDefaultConfig } from "expo/metro-config";
@@ -29,6 +31,17 @@ export default withReactNativeCSS(defaultConfig);
 export default withReactNativeCSS(defaultConfig, {
   globalClassNamePolyfill: true,
 });
+```
+
+#### Non-Expo Projects
+
+`react-native-css` relies on the bundler to process CSS files. Currently only Expo provides a CSS asset pipeline. Since the Expo SDK is modular, you can add this functionality by just using the `@expo/metro-config` package.
+
+Follow the Expo instructions, but replace the `expo` package with `@expo/metro-config`.
+
+```diff
+- import { getDefaultConfig } from "expo/metro-config";
++ import { getDefaultConfig } from "@expo/metro-config";
 ```
 
 ### Other bundlers
@@ -88,23 +101,42 @@ module.exports = withReactNativeCSS(
 );
 ```
 
-### Via hooks
+### Via `styled`
 
-#### `useCssElement`
+You can also use the `styled` function to get styled components.
+
+```ts
+import { View } from 'react-native';
+import { styled } from 'react-native-css';
+
+import "./styles.css";
+
+const MyView = styled(View)
+
+export default function App() {
+  return (
+    <MyView className="container">
+      <MyView className="box" />
+    </View>
+  );
+}
+```
+
+### Via hooks
 
 You can also use the `useCssElement` hook.
 
 ```ts
-import { View as RNView } from 'react-native';
+import { View } from 'react-native';
 import { useCssElement } from 'react-native-css';
 
 export default function App() {
-  const Container = useCssElement(RNView, {
+  const Container = useCssElement(View, {
     className: "container",
   });
 
-  const Box = useCssElement(RNView, {
-    className: "container",
+  const Box = useCssElement(View, {
+    className: "box",
   });
 
   return (
@@ -116,11 +148,11 @@ export default function App() {
 ```
 
 > [!IMPORTANT]  
-> The hook returns a React Element, not a style object. The element will work on all platforms and will correctly apply the React context needed to support all features of the library
+> The hook returns a React Element, not a style object.
 
 #### `useNativeCssStyle`
 
-If you just require the style object, you can use the `useNativeCssStyle` hook:
+If you just require the style object, you can use the `useNativeCssStyle` hook
 
 ```ts
 import { View as RNView } from 'react-native';
@@ -152,7 +184,7 @@ If you just require a CSS variable value, you can use the `useNativeCssVariable`
 import { useNativeCssVariable } from 'react-native-css';
 
 export default function App() {
-  const myColor = useNativeCssVariable("my-color");
+  const myColor = useNativeCssVariable("--my-color");
 
   return (
     <View style={{ backgroundColor: myColor }}>
@@ -167,6 +199,102 @@ export default function App() {
 > [!IMPORTANT]  
 > This hook may will only work on native platforms. It will return `undefined` on web.
 > This hook may not support all features of the library.
+
+## CSS variables
+
+It is preferable that all CSS variables are set via CSS. If you need values to change dynamically, we recommend using a class to change the values.
+
+```css
+.theme-red {
+  --brand-color: red;
+}
+
+.theme-blue {
+  --brand-color: blue;
+}
+```
+
+As a last resort, you can use `VariableContext` to dynamically set CSS variables in JavaScript
+
+```ts
+import { VariableContext } from 'react-native-css';
+
+export default function App() {
+  return (
+    <VariableContext values={{ "--my-color": "red" }}>
+      <Text className="my-color-text">
+        Hello, world!
+      </Text>
+    </VariableContext>
+  )
+}
+```
+
+This API only allows for setting CSS variables as primitive values. For more complex styles, you will need to use a helper CSS class.
+
+> [!IMPORTANT]  
+> By using `VariableContext` you may need to disable the `inlineVariable` optimization
+
+## Optimizations
+
+CSS is a dynamic styling language that use highly optimized engines that are not available in React Native. Instead, we optimize the styles to improve performance
+
+These optimizations are only applied in native environments and are enabled by default.
+
+### Inline REM units
+
+All `rem` units are converted to `dp` units at build time. On native, the default dp is 14. You can change the default `rem` by passing a `inlineRem` option to the `withReactNativeCSS` function.
+
+```tsx
+export default withReactNativeCSS(defaultConfig, {
+  inlineRem: 16, // change to 16dp,
+});
+```
+
+### Inline CSS Custom Properties (variables)
+
+Custom properties (sometimes referred to as CSS variables or cascading variables) are a way to store values that can be reused throughout a CSS document. They are defined using a property name that starts with `--`, and their values can be accessed using the `var()` function.
+
+To improve performance, Custom properties that are only set **once** in the CSS file are inlined at build time.
+
+For example
+
+```css
+:root {
+  --my-var: red;
+  --var-with-two-possible-values: blue;
+}
+
+.my-class {
+  --var-with-two-possible-values: green;
+  color: var(--my-var);
+  background-color: var(--var-with-two-possible-values);
+}
+```
+
+Is converted to:
+
+```css
+:root {
+  --var-with-two-possible-values: blue;
+}
+
+.my-class {
+  color: red; /* This was inlined and the variable was removed */
+
+  /* These are preserved as there are multiple possible values */
+  --var-with-two-possible-values: green;
+  background-color: var(--var-with-two-possible-values);
+}
+```
+
+Using `VariableContext` with `inlineVariables` may have unexpected results, as rules may have been rewritten not to use a variable. You can disable this behavior by setting `inlineVariables: false`
+
+```tsx
+export default withReactNativeCSS(defaultConfig, {
+  inlineVariables: false,
+});
+```
 
 ## Contributing
 
