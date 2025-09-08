@@ -1,7 +1,7 @@
 /* eslint-disable */
 import type { Selector, SelectorList } from "lightningcss";
 
-import { Specificity } from "../runtime/utils/specificity";
+import { Specificity } from "../utilities";
 import type {
   AttributeQuery,
   AttrSelectorOperator,

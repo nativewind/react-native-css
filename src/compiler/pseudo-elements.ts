@@ -1,4 +1,4 @@
-import { isStyleFunction } from "../runtime/utils";
+import { isStyleFunction } from "../utilities";
 import type { StyleDeclaration, StyleRule } from "./compiler.types";
 
 export function modifyRuleForSelection(rule: StyleRule): StyleRule | undefined {

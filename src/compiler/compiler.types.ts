@@ -5,7 +5,7 @@ import type {
   TokenOrValue,
 } from "lightningcss";
 
-import { VAR_SYMBOL } from "../runtime/native/reactivity";
+import { VAR_SYMBOL } from "../native/reactivity";
 
 export interface CompilerOptions {
   filename?: string;

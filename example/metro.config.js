@@ -1,6 +1,6 @@
 const path = require("path");
 const { getDefaultConfig } = require("@expo/metro-config");
-const { withReactNativeCSS } = require("../dist/commonjs/metro");
+const { withReactNativeCSS } = require("react-native-css/metro");
 
 /**
  * Metro configuration
@@ -11,10 +11,6 @@ const { withReactNativeCSS } = require("../dist/commonjs/metro");
 const config = getDefaultConfig(__dirname);
 
 config.resolver.unstable_enablePackageExports = true;
-
-config.resolver.extraNodeModules = {
-  "react-native-css": path.resolve(__dirname, "../"),
-};
 
 config.resolver.nodeModulesPaths = [
   path.resolve(__dirname, "node_modules"),

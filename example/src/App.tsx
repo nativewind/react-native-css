@@ -15,7 +15,7 @@ export default function App() {
           "--custom": "pink",
         }}
       >
-        <View className="bg-[var(--custom,purple)] w-10 h-10" />
+        <View className="bg-[var(--custom,green)] w-10 h-10" />
 
         <CustomView className="bg-[var(--custom,purple)] w-10 h-10" />
       </VariableContextProvider>

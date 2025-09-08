@@ -5,8 +5,11 @@ import { versions } from "node:process";
 import debug from "debug";
 import type { MetroConfig } from "metro-config";
 
-import type { CompilerOptions, ReactNativeCssStyleSheet } from "../compiler";
-import { compile } from "../compiler/compiler";
+import {
+  compile,
+  type CompilerOptions,
+  type ReactNativeCssStyleSheet,
+} from "../compiler";
 import { getNativeInjectionCode, getWebInjectionCode } from "./injection-code";
 import { nativeResolver, webResolver } from "./resolver";
 import { setupTypeScript } from "./typescript";
@@ -97,9 +100,7 @@ export function withReactNativeCSS<
           >();
           const webCSSFiles = new Set<string>();
 
-          const nativeInjectionPath = require.resolve(
-            "../runtime/native/metro",
-          );
+          const nativeInjectionPath = require.resolve("../native/metro");
           const nativeInjectionFilepaths = [
             // CommonJS
             nativeInjectionPath,
@@ -114,7 +115,7 @@ export function withReactNativeCSS<
               .replace(".js", ".ts"),
           ];
 
-          const webInjectionPath = require.resolve("../runtime/web/metro");
+          const webInjectionPath = require.resolve("../web/metro");
           const webInjectionFilepaths = [
             // CommonJS
             webInjectionPath,

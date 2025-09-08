@@ -1,6 +1,9 @@
 import { useContext, useMemo, type PropsWithChildren } from "react";
 
-import { VariableContext } from "react-native-css/style-collection";
+import {
+  VariableContext,
+  VariableContextProvider,
+} from "react-native-css/native-internal";
 import {
   SafeAreaProvider as OriginalSafeAreaProvider,
   useSafeAreaInsets,
@@ -35,5 +38,7 @@ function SafeAreaEnv({ children }: PropsWithChildren) {
     [parentVars, insets],
   );
 
-  return <VariableContext value={value}>{children}</VariableContext>;
+  return (
+    <VariableContextProvider value={value}>{children}</VariableContextProvider>
+  );
 }
