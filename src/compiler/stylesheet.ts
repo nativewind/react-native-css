@@ -4,7 +4,7 @@ import {
   isStyleDescriptorArray,
   Specificity,
   specificityCompareFn,
-} from "../runtime/utils";
+} from "../utilities";
 import type {
   AnimationKeyframes,
   AnimationRecord,

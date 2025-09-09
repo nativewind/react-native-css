@@ -36,7 +36,7 @@ import type {
   UnresolvedColor,
 } from "lightningcss";
 
-import { isStyleFunction } from "../runtime/utils";
+import { isStyleFunction } from "../utilities";
 import type {
   StyleDescriptor,
   StyleFunction,
@@ -2593,16 +2593,17 @@ export function parseEnv(
         case "safe-area-inset-top":
         case "safe-area-inset-right":
         case "safe-area-inset-bottom":
-        case "safe-area-inset-left":
-          return [
-            {},
-            "var",
-            [
-              `--react-native-css-${value.name.value}`,
-              parseUnparsed(value.fallback, builder, value.name.value),
-            ],
-            1,
-          ];
+        case "safe-area-inset-left": {
+          const fallback = parseUnparsed(
+            value.fallback,
+            builder,
+            value.name.value,
+          );
+
+          return fallback
+            ? [{}, "var", [`react-native-css-${value.name.value}`, fallback], 1]
+            : [{}, "var", [`react-native-css-${value.name.value}`], 1];
+        }
         case "viewport-segment-width":
         case "viewport-segment-height":
         case "viewport-segment-top":

@@ -4,7 +4,7 @@ import {
   useCssElement,
   type StyledConfiguration,
   type StyledProps,
-} from "../runtime";
+} from "react-native-css/native";
 
 const mapping = {
   className: "style",

@@ -1,6 +1,6 @@
 import type { AttrOperation, Selector, SelectorList } from "lightningcss";
 
-import { Specificity } from "../runtime/utils";
+import { Specificity } from "../utilities";
 import type {
   AttributeQuery,
   AttrSelectorOperator,

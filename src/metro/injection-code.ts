@@ -29,6 +29,6 @@ export function getNativeInjectionCode(
     .join("\n");
 
   return Buffer.from(
-    `import { StyleCollection } from "react-native-css/style-collection";\n${importStatements}\n${contents};export {};`,
+    `import { StyleCollection } from "react-native-css/native-internal";\n${importStatements}\n${contents};export {};`,
   );
 }

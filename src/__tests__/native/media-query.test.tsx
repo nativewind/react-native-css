@@ -5,7 +5,7 @@ import { View } from "react-native-css/components/View";
 import { registerCSS, testID } from "react-native-css/jest";
 import { colorScheme } from "react-native-css/runtime";
 
-import { dimensions } from "../../runtime/native/reactivity";
+import { dimensions } from "../../native/reactivity";
 
 jest.mock("react-native", () => {
   const RN = jest.requireActual("react-native");
