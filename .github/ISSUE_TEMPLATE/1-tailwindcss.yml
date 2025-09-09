@@ -54,7 +54,7 @@ body:
             children: undefined,
             testID,
             style: {
-              color: "red"
+              color: "#ef4444"
             }
           });
         })
