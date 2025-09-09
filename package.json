@@ -194,7 +194,7 @@
   "peerDependencies": {
     "@expo/metro-config": ">=0.21.8",
     "lightningcss": ">=1.27.0",
-    "react": "19.1.0",
+    "react": "19.1.1",
     "react-native": "0.81.1"
   },
   "devDependencies": {
@@ -226,7 +226,7 @@
     "metro-runtime": "^0.83.0",
     "postcss": "^8.5.6",
     "prettier": "^3.6.2",
-    "react": "19.1.0",
+    "react": "19.1.1",
     "react-native": "0.81.1",
     "react-native-builder-bob": "^0.40.13",
     "react-native-reanimated": "~4.1.0",
