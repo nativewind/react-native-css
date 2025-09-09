@@ -24,7 +24,7 @@ body:
           required: true
         - label: I checked that React Native supports the styles I am using.
           required: true
-        - label: If using animations/transitions, I check that React Native Reanimated supports the styles I am using.
+        - label: If using animations/transitions, I checked that React Native Reanimated supports the styles I am using.
           required: true
   - type: textarea
     id: summary
