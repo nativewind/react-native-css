@@ -16,7 +16,7 @@ describe("Accessibility - Screen Readers", () => {
         },
       },
       warnings: {
-        properties: ["clip", "white-space"],
+        properties: ["clip-path", "white-space"],
       },
     });
   });
@@ -35,7 +35,7 @@ describe("Accessibility - Screen Readers", () => {
         },
       },
       warnings: {
-        properties: ["clip", "white-space"],
+        properties: ["clip-path", "white-space"],
       },
     });
   });
