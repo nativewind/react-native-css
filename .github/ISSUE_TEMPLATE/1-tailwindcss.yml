@@ -43,6 +43,7 @@ body:
         Provide a minimal reproducible example of the issue.
         You can either modify the test case before, or provide a link to a Github repro.
       value: |
+        ```tsx
         const testID = "my-test-id";
 
         test("my-tailwindcss-bug", () => {
@@ -58,14 +59,7 @@ body:
             }
           });
         })
-    validations:
-      required: true
-  - type: input
-    id: library-version
-    attributes:
-      label: Library version
-      description: What version of the library are you using?
-      placeholder: "x.x.x"
+        ```
     validations:
       required: true
   - type: textarea
