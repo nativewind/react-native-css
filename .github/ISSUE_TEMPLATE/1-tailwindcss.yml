@@ -1,0 +1,78 @@
+name: 💨 Tailwind CSS Issue
+description: Report a reproducible bug or regression while using Tailwind CSS
+labels: [bug, tailwindcss]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        # Tailwind CSS report
+
+        👋 Hi!
+
+        **Please fill the following carefully before opening a new issue ❗**
+        *(Your issue may be closed if it doesn't provide the required pieces of information)*
+  - type: checkboxes
+    attributes:
+      label: Before submitting a new issue
+      description: Please perform simple checks first.
+      options:
+        - label: I tested using the latest version of the library, as the bug might be already fixed.
+          required: true
+        - label: I tested using a [supported version](https://github.com/reactwg/react-native-releases/blob/main/docs/support.md) of react native.
+          required: true
+        - label: I checked for possible duplicate issues, with possible answers.
+          required: true
+        - label: I checked that React Native supports the styles I am using.
+          required: true
+        - label: If using animations/transitions, I checked that React Native Reanimated supports the styles I am using.
+          required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: Bug summary
+      description: |
+        Provide a clear and concise description of what the bug is.
+        If needed, you can also provide other samples: error messages / stack traces, screenshots, gifs, etc.
+    validations:
+      required: true
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Tailwind CSS classes
+      description: |
+        Provide a minimal reproducible example of the issue.
+        You can either modify the test case before, or provide a link to a Github repro.
+      value: |
+        const testID = "my-test-id";
+
+        test("my-tailwindcss-bug", () => {
+          render(<Text testID={testID} className="text-red-500" />);
+
+          const component = screen.getByTestId(testID);
+
+          expect(component.props).toStrictEqual({
+            children: undefined,
+            testID,
+            style: {
+              color: "#ef4444"
+            }
+          });
+        })
+    validations:
+      required: true
+  - type: input
+    id: library-version
+    attributes:
+      label: Library version
+      description: What version of the library are you using?
+      placeholder: "x.x.x"
+    validations:
+      required: true
+  - type: textarea
+    id: react-native-info
+    attributes:
+      label: Environment info
+      description: Run `npx envinfo --npmPackages react,react-native,react-native-css,tailwindcss` in your terminal and paste the results here.
+      render: shell
+    validations:
+      required: true
