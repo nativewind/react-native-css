@@ -557,9 +557,13 @@ function getMediaQuery(
   return mediaQuery;
 }
 
-function isRootVariableSelector([first, second]: Selector) {
+function isRootVariableSelector([first, ...rest]: Selector) {
+  rest = rest.filter((item) => item.type !== "nesting");
   return (
-    first && !second && first.type === "pseudo-class" && first.kind === "root"
+    first &&
+    rest.length === 0 &&
+    first.type === "pseudo-class" &&
+    first.kind === "root"
   );
 }
 

@@ -3,8 +3,6 @@ import { inspect } from "node:util";
 
 import { debug } from "debug";
 import {
-  Features,
-  transform as lightningcss,
   type ContainerRule,
   type MediaQuery as CSSMediaQuery,
   type CustomAtRules,
@@ -17,12 +15,14 @@ import { maybeMutateReactNativeOptions, parsePropAtRule } from "./atRules";
 import type {
   CompilerOptions,
   ContainerQuery,
+  StyleRuleMapping,
   UniqueVarInfo,
 } from "./compiler.types";
 import { parseContainerCondition } from "./container-query";
 import { parseDeclaration, round } from "./declarations";
 import { inlineVariables } from "./inline-variables";
 import { extractKeyFrames } from "./keyframes";
+import { lightningcssLoader } from "./lightningcss-loader";
 import { parseMediaQuery } from "./media-query";
 import { StylesheetBuilder } from "./stylesheet";
 import { supportsConditionValid } from "./supports";
@@ -57,6 +57,8 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
   }
 
   const builder = new StylesheetBuilder(options);
+
+  const { lightningcss, Features } = lightningcssLoader();
 
   logger(`Lightningcss first pass`);
 
@@ -182,7 +184,11 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
 /**
  * Extracts style declarations and animations from a given CSS rule, based on its type.
  */
-function extractRule(rule: Rule, builder: StylesheetBuilder) {
+function extractRule(
+  rule: Rule,
+  builder: StylesheetBuilder,
+  mapping: StyleRuleMapping = {},
+) {
   // Check the rule's type to determine which extraction function to call
   switch (rule.type) {
     case "keyframes": {
@@ -192,12 +198,12 @@ function extractRule(rule: Rule, builder: StylesheetBuilder) {
     }
     case "container": {
       // If the rule is a container, extract it with the `extractedContainer` function
-      extractContainer(rule.value, builder);
+      extractContainer(rule.value, builder, mapping);
       break;
     }
     case "media": {
       // If the rule is a media query, extract it with the `extractMedia` function
-      extractMedia(rule.value, builder);
+      extractMedia(rule.value, builder, mapping);
       break;
     }
     case "nested-declarations": {
@@ -227,13 +233,13 @@ function extractRule(rule: Rule, builder: StylesheetBuilder) {
       const value = rule.value;
 
       const declarationBlock = value.declarations;
-      const mapping = parsePropAtRule(value.rules);
+      mapping = { ...mapping, ...parsePropAtRule(value.rules) };
 
       // If the rule is a style declaration, extract it with the `getExtractedStyle` function and store it in the `declarations` map
       builder = builder.fork("style", value.selectors);
 
       if (declarationBlock) {
-        if (declarationBlock.declarations) {
+        if (declarationBlock.declarations?.length) {
           builder.newRule(mapping);
           for (const declaration of declarationBlock.declarations) {
             parseDeclaration(declaration, builder);
@@ -241,7 +247,7 @@ function extractRule(rule: Rule, builder: StylesheetBuilder) {
           builder.applyRuleToSelectors();
         }
 
-        if (declarationBlock.importantDeclarations) {
+        if (declarationBlock.importantDeclarations?.length) {
           builder.newRule(mapping, { important: true });
           for (const declaration of declarationBlock.importantDeclarations) {
             parseDeclaration(declaration, builder);
@@ -252,7 +258,7 @@ function extractRule(rule: Rule, builder: StylesheetBuilder) {
 
       if (value.rules) {
         for (const nestedRule of value.rules) {
-          extractRule(nestedRule, builder);
+          extractRule(nestedRule, builder, mapping);
         }
       }
 
@@ -260,13 +266,13 @@ function extractRule(rule: Rule, builder: StylesheetBuilder) {
     }
     case "layer-block":
       for (const layerRule of rule.value.rules) {
-        extractRule(layerRule, builder);
+        extractRule(layerRule, builder, mapping);
       }
       break;
     case "supports":
       if (supportsConditionValid(rule.value.condition)) {
         for (const layerRule of rule.value.rules) {
-          extractRule(layerRule, builder);
+          extractRule(layerRule, builder, mapping);
         }
       }
       break;
@@ -303,7 +309,11 @@ function extractRule(rule: Rule, builder: StylesheetBuilder) {
  *
  * @returns undefined if no screen media queries are found in the mediaRule, else it returns the extracted styles.
  */
-function extractMedia(mediaRule: MediaRule, builder: StylesheetBuilder) {
+function extractMedia(
+  mediaRule: MediaRule,
+  builder: StylesheetBuilder,
+  mapping: StyleRuleMapping,
+) {
   builder = builder.fork("media");
 
   // Initialize an empty array to store screen media queries
@@ -336,7 +346,7 @@ function extractMedia(mediaRule: MediaRule, builder: StylesheetBuilder) {
 
   // Iterate over all rules in the mediaRule and extract their styles using the updated CompilerCollection
   for (const rule of mediaRule.rules) {
-    extractRule(rule, builder);
+    extractRule(rule, builder, mapping);
   }
 }
 
@@ -348,6 +358,7 @@ function extractMedia(mediaRule: MediaRule, builder: StylesheetBuilder) {
 function extractContainer(
   containerRule: ContainerRule,
   builder: StylesheetBuilder,
+  mapping: StyleRuleMapping,
 ) {
   builder = builder.fork("container");
 
@@ -363,6 +374,6 @@ function extractContainer(
   builder.addContainerQuery(query);
 
   for (const rule of containerRule.rules) {
-    extractRule(rule, builder);
+    extractRule(rule, builder, mapping);
   }
 }
