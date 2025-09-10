@@ -25,7 +25,45 @@ test("@prop target (nested @media)", () => {
           {
             d: [["#00f", ["test"]]],
             v: [["__rn-css-color", "#00f"]],
-            s: [2, 1],
+            s: [3, 1],
+          },
+        ],
+      ],
+    ],
+  });
+
+  render(<View testID={testID} className="my-class" />);
+  const component = screen.getByTestId(testID);
+
+  expect(component.props).toStrictEqual({
+    testID,
+    children: undefined,
+    test: "#00f",
+    style: {},
+  });
+});
+
+test("@prop target (nested @media and nested declarations)", () => {
+  const compiled = registerCSS(`
+    .my-class { 
+      @prop test; 
+      @media all {
+        & {
+          color: #00f;
+        }
+      }
+    }
+  `);
+
+  expect(compiled.stylesheet()).toStrictEqual({
+    s: [
+      [
+        "my-class",
+        [
+          {
+            d: [["#00f", ["test"]]],
+            v: [["__rn-css-color", "#00f"]],
+            s: [3, 1],
           },
         ],
       ],

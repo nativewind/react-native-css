@@ -28,12 +28,11 @@ test("hello world", () => {
 
 test("reads global CSS variables", () => {
   const compiled = compile(
-    `
-@layer theme {
-  :root, :host {
-    --color-red-500: oklch(63.7% 0.237 25.331);
-  }
-}`,
+    `@layer theme {
+      :root, :host {
+        --color-red-500: oklch(63.7% 0.237 25.331);
+      }
+    }`,
     {
       inlineVariables: false,
     },
@@ -41,6 +40,40 @@ test("reads global CSS variables", () => {
 
   expect(compiled.stylesheet()).toStrictEqual({
     vr: [["color-red-500", [["#fb2c36"]]]],
+  });
+});
+
+test(":root CSS variables with media queries", () => {
+  const compiled = compile(
+    `:root {
+        @media ios {
+          & {
+            --my-var: System;
+          }
+        }
+
+        @media android {
+          & {
+            --my-var: SystemAndroid;
+          }
+        }
+      }
+    `,
+    {
+      inlineVariables: false,
+    },
+  );
+
+  expect(compiled.stylesheet()).toStrictEqual({
+    vr: [
+      [
+        "my-var",
+        [
+          ["SystemAndroid", [["=", "platform", "android"]]],
+          ["System", [["=", "platform", "ios"]]],
+        ],
+      ],
+    ],
   });
 });
 
@@ -326,7 +359,7 @@ test("media query nested in rules", () => {
               },
             ],
             m: [[">=", "width", 600]],
-            s: [2, 1],
+            s: [3, 1],
             v: [["__rn-css-color", "#00f"]],
           },
           {
@@ -335,12 +368,12 @@ test("media query nested in rules", () => {
               [">=", "width", 600],
               [">=", "width", 400],
             ],
-            s: [3, 1],
+            s: [5, 1],
           },
           {
             d: [{ backgroundColor: "#ff0" }],
             m: [[">=", "width", 100]],
-            s: [4, 1],
+            s: [7, 1],
           },
         ],
       ],
