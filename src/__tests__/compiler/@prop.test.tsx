@@ -25,7 +25,7 @@ test("@prop target (nested @media)", () => {
           {
             d: [["#00f", ["test"]]],
             v: [["__rn-css-color", "#00f"]],
-            s: [3, 1],
+            s: [2, 1],
           },
         ],
       ],

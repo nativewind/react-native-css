@@ -236,7 +236,7 @@ function extractRule(
       mapping = { ...mapping, ...parsePropAtRule(value.rules) };
 
       // If the rule is a style declaration, extract it with the `getExtractedStyle` function and store it in the `declarations` map
-      builder = builder.fork("style", value.selectors);
+      builder = builder.fork("style", value.selectors, mapping);
 
       if (declarationBlock) {
         if (declarationBlock.declarations?.length) {
