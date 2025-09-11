@@ -359,7 +359,7 @@ test("media query nested in rules", () => {
               },
             ],
             m: [[">=", "width", 600]],
-            s: [3, 1],
+            s: [2, 1],
             v: [["__rn-css-color", "#00f"]],
           },
           {
@@ -368,12 +368,12 @@ test("media query nested in rules", () => {
               [">=", "width", 600],
               [">=", "width", 400],
             ],
-            s: [5, 1],
+            s: [3, 1],
           },
           {
             d: [{ backgroundColor: "#ff0" }],
             m: [[">=", "width", 100]],
-            s: [7, 1],
+            s: [4, 1],
           },
         ],
       ],
