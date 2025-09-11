@@ -81,11 +81,7 @@ export class StylesheetBuilder {
     private selectors: SelectorList = [],
   ) {}
 
-  fork(
-    mode = this.mode,
-    selectors: SelectorList = [],
-    mapping: StyleRuleMapping = {},
-  ): StylesheetBuilder {
+  fork(mode = this.mode, selectors: SelectorList = []): StylesheetBuilder {
     this.shared.ruleOrder++;
 
     /**
@@ -105,7 +101,7 @@ export class StylesheetBuilder {
       this.options,
       mode,
       this.cloneRule(),
-      { ...this.mapping, ...mapping },
+      { ...this.mapping },
       this.descriptorProperty,
       this.shared,
       selectors,
