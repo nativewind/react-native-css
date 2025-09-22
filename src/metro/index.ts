@@ -54,7 +54,7 @@ export function withReactNativeCSS<
 
   return {
     ...config,
-    transformerPath: require.resolve("./metro-transformer"),
+    // transformerPath: require.resolve("./metro-transformer"),
     transformer: {
       ...config.transformer,
       reactNativeCSS: options,

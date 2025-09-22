@@ -1,6 +1,6 @@
 const path = require("path");
 const { getDefaultConfig } = require("@expo/metro-config");
-const { withReactNativeCSS } = require("react-native-css/metro");
+// const { withReactNativeCSS } = require("react-native-css/metro");
 
 /**
  * Metro configuration
@@ -10,8 +10,6 @@ const { withReactNativeCSS } = require("react-native-css/metro");
  */
 const config = getDefaultConfig(__dirname);
 
-config.resolver.unstable_enablePackageExports = true;
-
 config.resolver.nodeModulesPaths = [
   path.resolve(__dirname, "node_modules"),
   path.resolve(__dirname, "../node_modules"),
@@ -19,6 +17,8 @@ config.resolver.nodeModulesPaths = [
 
 config.watchFolders = [path.resolve(__dirname, "../")];
 
-module.exports = withReactNativeCSS(config, {
-  globalClassNamePolyfill: true,
-});
+module.exports = config;
+
+// module.exports = withReactNativeCSS(config, {
+//   globalClassNamePolyfill: false,
+// });

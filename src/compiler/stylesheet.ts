@@ -263,8 +263,8 @@ export class StylesheetBuilder {
   }
 
   /** Used by nested declarations (for example @media inside a RuleSet) */
-  newNestedRule({ important = false } = {}) {
-    this.newRule(this.mapping, { important });
+  newNestedRule({ important = false, mapping = this.mapping } = {}) {
+    this.newRule(mapping, { important });
   }
 
   /** Hack for light-dark, which requires adding a new rule without changing the current rule */

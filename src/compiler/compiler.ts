@@ -212,7 +212,7 @@ function extractRule(
       const declarationBlock = value.declarations;
       if (declarationBlock) {
         if (declarationBlock.declarations?.length) {
-          builder.newNestedRule();
+          builder.newNestedRule({ mapping });
           for (const declaration of declarationBlock.declarations) {
             parseDeclaration(declaration, builder);
           }
@@ -220,7 +220,7 @@ function extractRule(
         }
 
         if (declarationBlock.importantDeclarations?.length) {
-          builder.newNestedRule({ important: true });
+          builder.newNestedRule({ mapping, important: true });
           for (const declaration of declarationBlock.importantDeclarations) {
             parseDeclaration(declaration, builder);
           }

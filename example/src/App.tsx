@@ -1,24 +1,22 @@
-import { View as RNView } from "react-native";
+import { StyleSheet, Text } from "react-native";
 
-import { styled, VariableContextProvider } from "react-native-css";
-import { View } from "react-native-css/components";
-
-import "../global.css";
-
-const CustomView = styled(RNView, { className: "style" });
+import { StatusBar } from "expo-status-bar";
+import { View } from "react-native-css/components/View";
 
 export default function App() {
   return (
-    <View className="flex-1 items-center justify-center">
-      <VariableContextProvider
-        value={{
-          "--custom": "pink",
-        }}
-      >
-        <View className="bg-[var(--custom,green)] w-10 h-10" />
-
-        <CustomView className="bg-[var(--custom,purple)] w-10 h-10" />
-      </VariableContextProvider>
+    <View style={styles.container}>
+      <Text>Hello world!!</Text>
+      <StatusBar style="auto" />
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});
