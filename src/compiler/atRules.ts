@@ -108,7 +108,7 @@ function propAtRuleBlock(
   });
 
   // @props <to>; (has no from value)
-  if (!to && from) {
+  if (!to) {
     to = from;
     from = [
       {
@@ -119,7 +119,7 @@ function propAtRuleBlock(
   }
 
   // We can only map from a single property
-  if (!from || from.length !== 1) {
+  if (!from || from.length !== 1 || !to) {
     return mapping;
   }
 
@@ -128,17 +128,12 @@ function propAtRuleBlock(
     return mapping;
   }
 
-  if (!to) {
-    mapping["*"] = toRNProperty(fromToken.value.value);
-    return mapping;
-  }
-
   mapping[toRNProperty(fromToken.value.value)] = to.flatMap((item, index) => {
     switch (item.value.type) {
       case "delim":
         return index === 0 && item.value.value === "*" ? ["*"] : [];
       case "ident":
-        return [toRNProperty(item.value.value)];
+        return item.value.value.split(".").map((part) => toRNProperty(part));
       default:
         return [];
     }

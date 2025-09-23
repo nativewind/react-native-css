@@ -294,10 +294,48 @@ test("@prop multiple", () => {
   });
 });
 
-test("@prop dot notation", () => {
+test("@prop dot notation shorthand", () => {
   const compiled = registerCSS(`
     .my-class { 
       @prop test.nested; 
+      @media all {
+        color: red;
+      }
+    }
+  `);
+
+  expect(compiled.stylesheet()).toStrictEqual({
+    s: [
+      [
+        "my-class",
+        [
+          {
+            d: [["#f00", ["test", "nested"]]],
+            v: [["__rn-css-color", "#f00"]],
+            s: [2, 1],
+          },
+        ],
+      ],
+    ],
+  });
+
+  render(<View testID={testID} className="my-class" />);
+  const component = screen.getByTestId(testID);
+
+  expect(component.props).toStrictEqual({
+    children: undefined,
+    style: {},
+    test: {
+      nested: "#f00",
+    },
+    testID: "react-native-css",
+  });
+});
+
+test("@prop dot notation, escaped", () => {
+  const compiled = registerCSS(`
+    .my-class { 
+      @prop test\\.nested; 
       @media all {
         color: red;
       }
