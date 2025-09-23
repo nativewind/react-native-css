@@ -6,9 +6,9 @@ import {
   type StyledProps,
 } from "../runtime";
 
-const mapping = {
+const mapping: StyledConfiguration<typeof RNImage> = {
   className: "style",
-} satisfies StyledConfiguration<typeof RNImage>;
+};
 
 export function Image(props: StyledProps<ImageProps, typeof mapping>) {
   return useCssElement(RNImage, props, mapping);

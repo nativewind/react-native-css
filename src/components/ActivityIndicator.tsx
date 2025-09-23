@@ -9,14 +9,14 @@ import {
   type StyledProps,
 } from "../runtime";
 
-const mapping = {
+const mapping: StyledConfiguration<typeof RNActivityIndicator> = {
   className: {
     target: "style",
     nativeStyleMapping: {
       color: "color",
     },
   },
-} satisfies StyledConfiguration<typeof RNActivityIndicator>;
+};
 
 export function ActivityIndicator(
   props: StyledProps<ActivityIndicatorProps, typeof mapping>,

@@ -6,9 +6,14 @@ import {
   type StyledProps,
 } from "../runtime";
 
-const mapping = {
-  className: "style",
-} satisfies StyledConfiguration<typeof RNTextInput>;
+const mapping: StyledConfiguration<typeof RNTextInput> = {
+  className: {
+    target: "style",
+    nativeStyleMapping: {
+      textAlign: true,
+    },
+  },
+};
 
 export function TextInput(props: StyledProps<TextInputProps, typeof mapping>) {
   return useCssElement(RNTextInput, props, mapping);

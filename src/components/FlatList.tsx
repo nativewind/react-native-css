@@ -6,11 +6,12 @@ import {
   type StyledProps,
 } from "../runtime";
 
-const mapping = {
-  columnWrapperStyle: "columnWrapperStyle",
-  listFooterComponentClassName: "ListFooterComponentStyle",
-  listHeaderComponentClassName: "ListHeaderComponentStyle",
-} satisfies StyledConfiguration<typeof RNFlatList>;
+const mapping: StyledConfiguration<typeof RNFlatList> = {
+  ListFooterComponentClassName: "ListFooterComponentStyle",
+  ListHeaderComponentClassName: "ListHeaderComponentStyle",
+  columnWrapperClassName: "columnWrapperStyle",
+  contentContainerClassName: "contentContainerStyle",
+};
 
 export function FlatList<ItemT>(
   props: StyledProps<FlatListProps<ItemT>, typeof mapping>,

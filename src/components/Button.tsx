@@ -6,14 +6,14 @@ import {
   type StyledProps,
 } from "../runtime";
 
-const mapping = {
+const mapping: StyledConfiguration<typeof RNButton> = {
   className: {
     target: false,
     nativeStyleMapping: {
       color: "color",
     },
   },
-} satisfies StyledConfiguration<typeof RNButton>;
+};
 
 export function Button(props: StyledProps<ButtonProps, typeof mapping>) {
   return useCssElement(RNButton, props, mapping);
