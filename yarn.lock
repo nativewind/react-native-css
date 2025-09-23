@@ -2269,6 +2269,26 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@expo/metro-runtime@npm:~6.1.2":
+  version: 6.1.2
+  resolution: "@expo/metro-runtime@npm:6.1.2"
+  dependencies:
+    anser: "npm:^1.4.9"
+    pretty-format: "npm:^29.7.0"
+    stacktrace-parser: "npm:^0.1.10"
+    whatwg-fetch: "npm:^3.0.0"
+  peerDependencies:
+    expo: "*"
+    react: "*"
+    react-dom: "*"
+    react-native: "*"
+  peerDependenciesMeta:
+    react-dom:
+      optional: true
+  checksum: 10c0/8cc8fa526f5718449dfd256331db222cd48f5d18cbd5a4156205d84111dc40519b700392ee2c9ee99efedc14fa793d17e51d0d9c33b0cc60869d016c00acc7d1
+  languageName: node
+  linkType: hard
+
 "@expo/metro@npm:~0.1.1":
   version: 0.1.1
   resolution: "@expo/metro@npm:0.1.1"
@@ -10992,6 +11012,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "react-native-css-example@workspace:example"
   dependencies:
+    "@expo/metro-runtime": "npm:~6.1.2"
     "@tailwindcss/postcss": "npm:^4.1.11"
     expo: "npm:54.0.1"
     expo-status-bar: "npm:~3.0.8"
