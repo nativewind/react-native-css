@@ -103,10 +103,22 @@ function propAtRuleBlock(
   token: Extract<TokenOrValue, { type: "token" }>[],
   mapping: StyleRuleMapping = {},
 ): StyleRuleMapping {
-  const [from, to] = splitByDelimiter(token, (item) => {
+  let [from, to] = splitByDelimiter(token, (item) => {
     return item.value.type === "colon";
   });
 
+  // @props <to>; (has no from value)
+  if (!to && from) {
+    to = from;
+    from = [
+      {
+        type: "token",
+        value: { type: "ident", value: "*" },
+      },
+    ];
+  }
+
+  // We can only map from a single property
   if (!from || from.length !== 1) {
     return mapping;
   }
