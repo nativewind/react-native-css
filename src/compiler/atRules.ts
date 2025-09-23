@@ -128,16 +128,22 @@ function propAtRuleBlock(
     return mapping;
   }
 
-  mapping[toRNProperty(fromToken.value.value)] = to.flatMap((item, index) => {
+  let value: string | string[] = to.flatMap((item, index) => {
     switch (item.value.type) {
       case "delim":
-        return index === 0 && item.value.value === "*" ? ["*"] : [];
+        return index === 0 && item.value.value === "&" ? ["&"] : [];
       case "ident":
         return item.value.value.split(".").map((part) => toRNProperty(part));
       default:
         return [];
     }
   });
+
+  if (value.length === 2 && value[0] === "&" && value[1]) {
+    value = value[1];
+  }
+
+  mapping[toRNProperty(fromToken.value.value)] = value;
 
   return mapping;
 }

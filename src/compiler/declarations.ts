@@ -1984,11 +1984,11 @@ export function parseTextShadow(
     parseColor(textShadow.color, builder),
   );
   builder.addDescriptor(
-    "*.textShadowOffset.width",
+    "&.textShadowOffset.width",
     parseLength(textShadow.xOffset, builder),
   );
   builder.addDescriptor(
-    "*.textShadowOffset.height",
+    "&.textShadowOffset.height",
     parseLength(textShadow.yOffset, builder),
   );
   builder.addDescriptor(
@@ -2374,27 +2374,27 @@ export function parseBoxShadow(
 ) {
   for (const [index, shadow] of value.entries()) {
     builder.addDescriptor(
-      `*.boxShadow.[${index}].color`,
+      `&.boxShadow.[${index}].color`,
       parseColor(shadow.color, builder),
     );
     builder.addDescriptor(
-      `*.boxShadow.[${index}].offsetX`,
+      `&.boxShadow.[${index}].offsetX`,
       parseLength(shadow.xOffset, builder),
     );
     builder.addDescriptor(
-      `*.boxShadow.[${index}].offsetY`,
+      `&.boxShadow.[${index}].offsetY`,
       parseLength(shadow.yOffset, builder),
     );
     builder.addDescriptor(
-      `*.boxShadow.[${index}].blurRadius`,
+      `&.boxShadow.[${index}].blurRadius`,
       parseLength(shadow.blur, builder),
     );
     builder.addDescriptor(
-      `*.boxShadow.[${index}].spreadDistance`,
+      `&.boxShadow.[${index}].spreadDistance`,
       parseLength(shadow.spread, builder),
     );
     builder.addDescriptor(
-      `*.boxShadow.[${index}].inset`,
+      `&.boxShadow.[${index}].inset`,
       shadow.inset ? true : undefined,
     );
   }
@@ -3088,7 +3088,7 @@ function parseObjectFit(
   builder: StylesheetBuilder,
 ) {
   builder.addMapping({
-    "object-fit": "contentFit",
+    "object-fit": ["contentFit"],
   });
   builder.addDescriptor(
     "object-fit",
@@ -3101,7 +3101,7 @@ function parseObjectPosition(
   builder: StylesheetBuilder,
 ) {
   builder.addMapping({
-    "object-position": "contentPosition",
+    "object-position": ["contentPosition"],
   });
   builder.addDescriptor("object-position", [
     {},

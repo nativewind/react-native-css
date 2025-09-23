@@ -129,7 +129,7 @@ export function applyDeclarations(
         const final = rest.pop();
 
         if (final) {
-          if (first !== "*") {
+          if (first !== "&") {
             topLevelTarget[first] ??= {};
             target = topLevelTarget[first];
           }

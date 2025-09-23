@@ -196,7 +196,7 @@ test("@prop value: wildcard target", () => {
     .test { 
       color: red; 
       background-color: blue; 
-      @prop background-color: *.myBackgroundColor;
+      @prop background-color: &.myBackgroundColor;
     }
   `);
 
@@ -226,7 +226,7 @@ test("@prop value: wildcard nested target", () => {
     .my-class { 
       color: red; 
       background-color: blue; 
-      @prop background-color: *.myBackgroundColor.test;
+      @prop background-color: &.myBackgroundColor.test;
     }
   `);
 
@@ -240,7 +240,7 @@ test("@prop value: wildcard nested target", () => {
               {
                 color: "#f00",
               },
-              ["#00f", ["*", "myBackgroundColor", "test"]],
+              ["#00f", ["&", "myBackgroundColor", "test"]],
             ],
             v: [["__rn-css-color", "#f00"]],
             s: [1, 1],
@@ -267,8 +267,8 @@ test("@prop multiple", () => {
       color: red; 
       background-color: oklab(40.1% 0.1143 0.045); 
       @prop {
-        background-color: *.myBackgroundColor;
-        color: *.myColor;
+        background-color: &.myBackgroundColor;
+        color: &.myColor;
       }
     }
   `);

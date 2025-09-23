@@ -403,11 +403,9 @@ export class StylesheetBuilder {
       } else {
         forceTuple = true;
       }
-    } else if (propPath) {
-      forceTuple = true;
-    } else {
-      propPath = property;
     }
+
+    propPath ??= property;
 
     if (forceTuple && !Array.isArray(propPath)) {
       propPath = [propPath];
