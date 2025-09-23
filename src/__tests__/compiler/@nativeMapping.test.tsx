@@ -7,10 +7,10 @@ import {
   testID,
 } from "react-native-css/jest";
 
-test("@prop target (nested @media)", () => {
+test("@nativeMapping target (nested @media)", () => {
   const compiled = registerCSS(`
     .my-class { 
-      @prop test; 
+      @nativeMapping test; 
       @media all {
         color: #00f;
       }
@@ -43,10 +43,10 @@ test("@prop target (nested @media)", () => {
   });
 });
 
-test("@prop target (nested @media and nested declarations)", () => {
+test("@nativeMapping target (nested @media and nested declarations)", () => {
   const compiled = registerCSS(`
     .my-class { 
-      @prop test; 
+      @nativeMapping test; 
       @media all {
         & {
           color: #00f;
@@ -81,14 +81,14 @@ test("@prop target (nested @media and nested declarations)", () => {
   });
 });
 
-test("@prop target unparsed", () => {
+test("@nativeMapping target unparsed", () => {
   const compiled = registerCSS(`
     :root {
       --color-black: #000;
     }
 
     .my-class { 
-      @prop test; 
+      @nativeMapping test; 
       color: var(--color-black);
     }
   `);
@@ -119,12 +119,12 @@ test("@prop target unparsed", () => {
   });
 });
 
-test("@prop value: target", () => {
+test("@nativeMapping value: target", () => {
   const compiled = registerCSS(`
     .my-class { 
       color: red; 
       background-color: blue; 
-      @prop background-color: myBackgroundColor;
+      @nativeMapping background-color: myBackgroundColor;
     }
   `);
 
@@ -161,12 +161,12 @@ test("@prop value: target", () => {
   });
 });
 
-test("@prop value: nested target", () => {
+test("@nativeMapping value: nested target", () => {
   const compiled = compile(`
     .test { 
       color: red; 
       background-color: blue; 
-      @prop background-color: myBackgroundColor.nested;
+      @nativeMapping background-color: myBackgroundColor.nested;
     }
   `);
 
@@ -191,12 +191,12 @@ test("@prop value: nested target", () => {
   });
 });
 
-test("@prop value: wildcard target", () => {
+test("@nativeMapping value: wildcard target", () => {
   const compiled = compile(`
     .test { 
       color: red; 
       background-color: blue; 
-      @prop background-color: &.myBackgroundColor;
+      @nativeMapping background-color: &.myBackgroundColor;
     }
   `);
 
@@ -221,12 +221,12 @@ test("@prop value: wildcard target", () => {
   });
 });
 
-test("@prop value: wildcard nested target", () => {
+test("@nativeMapping value: wildcard nested target", () => {
   const compiled = registerCSS(`
     .my-class { 
       color: red; 
       background-color: blue; 
-      @prop background-color: &.myBackgroundColor.test;
+      @nativeMapping background-color: &.myBackgroundColor.test;
     }
   `);
 
@@ -261,12 +261,12 @@ test("@prop value: wildcard nested target", () => {
   });
 });
 
-test("@prop multiple", () => {
+test("@nativeMapping multiple", () => {
   const compiled = compileWithAutoDebug(`
     .test { 
       color: red; 
       background-color: oklab(40.1% 0.1143 0.045); 
-      @prop {
+      @nativeMapping {
         background-color: &.myBackgroundColor;
         color: &.myColor;
       }
@@ -294,10 +294,10 @@ test("@prop multiple", () => {
   });
 });
 
-test("@prop dot notation shorthand", () => {
+test("@nativeMapping dot notation shorthand", () => {
   const compiled = registerCSS(`
     .my-class { 
-      @prop test.nested; 
+      @nativeMapping test.nested; 
       @media all {
         color: red;
       }
@@ -332,10 +332,10 @@ test("@prop dot notation shorthand", () => {
   });
 });
 
-test("@prop dot notation, escaped", () => {
+test("@nativeMapping dot notation, escaped", () => {
   const compiled = registerCSS(`
     .my-class { 
-      @prop test\\.nested; 
+      @nativeMapping test\\.nested; 
       @media all {
         color: red;
       }

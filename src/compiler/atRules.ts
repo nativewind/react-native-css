@@ -47,11 +47,11 @@ export function maybeMutateReactNativeOptions(
 }
 
 /***********************************************
- * @prop                                       *
+ * @nativeMapping                                       *
  ***********************************************/
 
-function isPropAtRule(rule: Rule | PropAtRule): rule is PropAtRule {
-  return rule.type === "unknown" && rule.value.name === "prop";
+function isNativeMappingAtRule(rule: Rule | PropAtRule): rule is PropAtRule {
+  return rule.type === "unknown" && rule.value.name === "nativeMapping";
 }
 
 export function parsePropAtRule(rules?: (Rule | PropAtRule)[]) {
@@ -71,14 +71,14 @@ export function parsePropAtRule(rules?: (Rule | PropAtRule)[]) {
   if (!rules) return mapping;
 
   for (const rule of rules) {
-    if (!isPropAtRule(rule)) continue;
+    if (!isNativeMappingAtRule(rule)) continue;
 
     if (rule.value.prelude.length > 0) {
       const prelude = rule.value.prelude.filter((item) => {
         return item.value.type !== "white-space";
       });
 
-      propAtRuleBlock(prelude, mapping);
+      nativeMappingAtRuleBlock(prelude, mapping);
     } else if (rule.value.block) {
       // Remove all whitespace tokens
       const blocks = rule.value.block.filter((item) => {
@@ -91,7 +91,7 @@ export function parsePropAtRule(rules?: (Rule | PropAtRule)[]) {
       });
 
       for (const block of blockRules) {
-        propAtRuleBlock(block, mapping);
+        nativeMappingAtRuleBlock(block, mapping);
       }
     }
   }
@@ -99,7 +99,7 @@ export function parsePropAtRule(rules?: (Rule | PropAtRule)[]) {
   return mapping;
 }
 
-function propAtRuleBlock(
+function nativeMappingAtRuleBlock(
   token: Extract<TokenOrValue, { type: "token" }>[],
   mapping: StyleRuleMapping = {},
 ): StyleRuleMapping {
@@ -107,7 +107,7 @@ function propAtRuleBlock(
     return item.value.type === "colon";
   });
 
-  // @props <to>; (has no from value)
+  // @nativeMapping <to>; (has no from value)
   if (!to) {
     to = from;
     from = [
