@@ -193,8 +193,8 @@
   },
   "peerDependencies": {
     "@expo/metro-config": ">=54",
-    "react": "19.1.0",
-    "react-native": "0.81.1"
+    "react": ">=19",
+    "react-native": ">=0.81"
   },
   "devDependencies": {
     "@babel/core": "^7.28.0",
