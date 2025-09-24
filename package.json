@@ -38,12 +38,13 @@
     },
     "./components": {
       "source": "./src/components/index.cts",
-      "types": "./src/components/index.d.ts",
       "import": {
-        "default": "./dist/module/components/index.cjs"
+        "default": "./dist/module/components/index.cjs",
+        "types": "./dist/typescript/module/src/components/index.d.ts"
       },
       "require": {
-        "default": "./dist/commonjs/components/index.cjs"
+        "default": "./dist/commonjs/components/index.cjs",
+        "types": "./dist/typescript/commonjs/src/components/index.d.ts"
       }
     },
     "./components/*": {
