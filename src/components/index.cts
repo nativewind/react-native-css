@@ -50,7 +50,6 @@ module.exports = {
   /**
    * We need to return
    */
-
   get DrawerLayoutAndroid() {
     return require("react-native").DrawerLayoutAndroid;
   },

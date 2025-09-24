@@ -1,6 +1,6 @@
 import { fireEvent, screen } from "@testing-library/react-native";
+import { Switch, TextInput, View } from "react-native-css/components";
 
-import { Switch, TextInput, View } from "../../../components";
 import { render } from "./_tailwind";
 
 const testID = "component";
