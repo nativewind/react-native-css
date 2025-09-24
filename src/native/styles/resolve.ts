@@ -38,7 +38,6 @@ export type StyleResolver = (
 const functionResolvers = {
   ...shorthands,
   ...functions,
-  animationName: shorthands.animation,
   lineHeight,
   em,
   rem,

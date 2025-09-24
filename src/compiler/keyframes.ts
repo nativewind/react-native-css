@@ -10,9 +10,9 @@ import type { StylesheetBuilder } from "./stylesheet";
 
 export function parseIterationCount(
   value: AnimationIterationCount[],
-): number[] {
+): (number | "infinite")[] {
   return value.map((value) => {
-    return value.type === "infinite" ? -1 : value.value;
+    return value.type === "infinite" ? value.type : value.value;
   });
 }
 

@@ -258,7 +258,7 @@ test.skip("animations", () => {
                   animationDirection: ["normal"],
                   animationDuration: [1000],
                   animationFillMode: ["none"],
-                  animationIterationCount: [-1],
+                  animationIterationCount: ["infinite"],
                   animationName: [[{}, "animation", ["spin"], 1]],
                   animationPlayState: ["running"],
                   animationTimingFunction: ["linear"],

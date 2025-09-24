@@ -76,8 +76,6 @@ export const animation: StyleFunctionResolver = (
     return;
   }
 
-  animationShortHandTuples.pop();
-
   const nameTuple = animationShortHandTuples.find(
     (tuple) => tuple[1] === "animationName",
   );
@@ -120,4 +118,14 @@ export const animation: StyleFunctionResolver = (
   nameTuple[0] = animation;
 
   return applyShorthand(animationShortHandTuples);
+};
+
+export const animationName: StyleFunctionResolver = (
+  resolveValue,
+  value,
+  get,
+  options,
+) => {
+  const shorthand: any = animation(resolveValue, value, get, options);
+  return shorthand.animationName;
 };
