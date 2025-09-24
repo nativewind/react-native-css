@@ -1,6 +1,6 @@
 {
   "name": "react-native-css",
-  "version": "3.0.0-preview.4",
+  "version": "3.0.0-preview.5",
   "description": "A CSS polyfill for React Native",
   "exports": {
     ".": {
