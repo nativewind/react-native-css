@@ -24,45 +24,39 @@ export function nativeResolver(
   platform: string | null,
 ): Resolution {
   const resolution = resolver(context, moduleName, platform);
+  const isInternal = isFromThisModule(context.originModulePath);
+  const isReactNativeIndex = context.originModulePath.endsWith(
+    `react-native${sep}index.js`,
+  );
 
-  if (
-    // Don't include our internal files
-    isFromThisModule(context.originModulePath) ||
-    // Only operate on source files
-    resolution.type !== "sourceFile" ||
-    // Skip the React Native barrel file to prevent infinite recursion
-    context.originModulePath.endsWith("react-native/index.js") ||
-    // Skip anything that isn't importing a React Native component
-    !(
-      moduleName.startsWith("react-native") ||
-      moduleName.startsWith("react-native/")
-    )
-  ) {
+  if (isInternal || resolution.type !== "sourceFile" || isReactNativeIndex) {
     return resolution;
   }
 
   if (moduleName === "react-native") {
     return resolver(context, `react-native-css/components`, platform);
-  }
-
-  if (moduleName === "react-native-safe-area-context") {
+  } else if (moduleName === "react-native-safe-area-context") {
     return resolver(
       context,
       `react-native-css/components/react-native-safe-area-context`,
       platform,
     );
+  } else if (
+    resolution.filePath.includes(`${sep}react-native${sep}Libraries${sep}`)
+  ) {
+    const filename = basename(resolution.filePath.split(sep).at(-1) ?? "");
+    const module = filename.split(".").at(0);
+
+    if (module && allowedModules.has(module)) {
+      return resolver(
+        context,
+        `react-native-css/components/${module}`,
+        platform,
+      );
+    }
   }
 
-  // We only care about `react-native/Library/Components/<module>.js` components
-  const segments = resolution.filePath.split(sep);
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-  const module = basename(segments.at(-1)!).split(".")[0];
-
-  if (!module || !allowedModules.has(module)) {
-    return resolution;
-  }
-
-  return resolver(context, `react-native-css/components/${module}`, platform);
+  return resolution;
 }
 
 export function webResolver(

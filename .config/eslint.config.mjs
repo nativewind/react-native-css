@@ -12,12 +12,13 @@ export default tseslint.config(
     languageOptions: {
       parserOptions: {
         projectService: true,
-        tsconfigRootDir: import.meta.dirname,
       },
     },
   },
   globalIgnores([
     "**/dist/*",
+    "**/example/*",
+    "**/node_modules/*",
     ".yarn/*",
     "**/eslint.config.[cm]js",
     "**/prettier.config.[cm]js",

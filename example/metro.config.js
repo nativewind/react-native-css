@@ -1,6 +1,5 @@
-const path = require("path");
 const { getDefaultConfig } = require("@expo/metro-config");
-// const { withReactNativeCSS } = require("react-native-css/metro");
+const { withReactNativeCSS } = require("react-native-css/metro");
 
 /**
  * Metro configuration
@@ -10,15 +9,16 @@ const { getDefaultConfig } = require("@expo/metro-config");
  */
 const config = getDefaultConfig(__dirname);
 
+/**
+ * This block of code is not required, it just makes the example work in this monorepo setup.
+ */
+const path = require("path");
+config.watchFolders = [path.resolve(__dirname, "../")];
 config.resolver.nodeModulesPaths = [
   path.resolve(__dirname, "node_modules"),
   path.resolve(__dirname, "../node_modules"),
 ];
 
-config.watchFolders = [path.resolve(__dirname, "../")];
-
-module.exports = config;
-
-// module.exports = withReactNativeCSS(config, {
-//   globalClassNamePolyfill: false,
-// });
+module.exports = withReactNativeCSS(config, {
+  globalClassNamePolyfill: true,
+});

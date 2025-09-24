@@ -44,5 +44,19 @@ export async function transform(
 
   data = Buffer.from(getNativeInjectionCode([], [productionJS]));
 
-  return worker.transform(config, projectRoot, `${filePath}.js`, data, options);
+  const transform = await worker.transform(
+    config,
+    projectRoot,
+    `${filePath}.js`,
+    data,
+    options,
+  );
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+  (transform as any).output[0].data.css = {
+    skipCache: true,
+    code: "",
+  };
+
+  return transform;
 }

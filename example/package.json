@@ -13,7 +13,7 @@
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
     "@tailwindcss/postcss": "^4.1.11",
-    "expo": "54.0.1",
+    "expo": "54.0.10",
     "expo-status-bar": "~3.0.8",
     "react": "19.1.0",
     "react-dom": "19.1.0",

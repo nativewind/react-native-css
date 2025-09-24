@@ -1,16 +1,9 @@
 /* eslint-disable */
-import { dirname, relative, sep } from "node:path";
 import { versions } from "node:process";
 
-import debug from "debug";
 import type { MetroConfig } from "metro-config";
 
-import {
-  compile,
-  type CompilerOptions,
-  type ReactNativeCssStyleSheet,
-} from "../compiler";
-import { getNativeInjectionCode, getWebInjectionCode } from "./injection-code";
+import { type CompilerOptions } from "../compiler";
 import { nativeResolver, webResolver } from "./resolver";
 import { setupTypeScript } from "./typescript";
 
@@ -24,7 +17,10 @@ export interface WithReactNativeCSSOptions extends CompilerOptions {
   hexColors?: boolean;
 }
 
-const defaultLogger = debug("react-native-css:metro");
+const metroOverrideResolution = {
+  type: "sourceFile",
+  filePath: require.resolve("./override"),
+};
 
 export function withReactNativeCSS<
   T extends MetroConfig | (() => Promise<MetroConfig>),
@@ -43,10 +39,7 @@ export function withReactNativeCSS<
     disableTypeScriptGeneration,
     typescriptEnvPath,
     globalClassNamePolyfill = false,
-    logger = defaultLogger,
   } = options || {};
-
-  const loggerEnabled = "enabled" in logger ? logger.enabled : true;
 
   if (disableTypeScriptGeneration !== true) {
     setupTypeScript(typescriptEnvPath);
@@ -54,7 +47,7 @@ export function withReactNativeCSS<
 
   return {
     ...config,
-    // transformerPath: require.resolve("./metro-transformer"),
+    transformerPath: require.resolve("./metro-transformer"),
     transformer: {
       ...config.transformer,
       reactNativeCSS: options,
@@ -63,8 +56,8 @@ export function withReactNativeCSS<
       ...config.resolver,
       sourceExts: [...(config?.resolver?.sourceExts || []), "css"],
       resolveRequest: (context, moduleName, platform) => {
-        if (moduleName.includes("poison.pill")) {
-          return { type: "empty" };
+        if (moduleName.includes("react-native-css-metro-override")) {
+          return metroOverrideResolution;
         }
 
         const parentResolver =
@@ -84,157 +77,6 @@ export function withReactNativeCSS<
         );
 
         return resolved;
-      },
-    },
-    server: {
-      ...config.server,
-      enhanceMiddleware(metroMiddleware, metroServer) {
-        const bundler: any = metroServer.getBundler().getBundler();
-
-        if (!bundler.__react_native_css__patched) {
-          bundler.__react_native_css__patched = true;
-
-          const nativeCSSFiles = new Map<
-            string,
-            [string, ReactNativeCssStyleSheet]
-          >();
-          const webCSSFiles = new Set<string>();
-
-          const nativeInjectionPath = require.resolve("../native/metro");
-          const nativeInjectionFilepaths = [
-            // CommonJS
-            nativeInjectionPath,
-            // ES Module
-            nativeInjectionPath.replace(
-              `dist${sep}commonjs`,
-              `dist${sep}module`,
-            ),
-            // TypeScript
-            nativeInjectionPath
-              .replace(`dist${sep}commonjs`, `src`)
-              .replace(".js", ".ts"),
-          ];
-
-          const webInjectionPath = require.resolve("../web/metro");
-          const webInjectionFilepaths = [
-            // CommonJS
-            webInjectionPath,
-            // ES Module
-            webInjectionPath.replace(`dist${sep}commonjs`, `dist${sep}module`),
-            // TypeScript
-            webInjectionPath
-              .replace(`dist${sep}commonjs`, `src`)
-              .replace(".js", ".ts"),
-          ];
-
-          // Keep the original
-          const transformFile = bundler.transformFile.bind(bundler);
-
-          const watcher = bundler.getWatcher();
-
-          // Patch with our functionality
-          bundler.transformFile = async function (
-            filePath: string,
-            transformOptions: any,
-            fileBuffer?: Buffer,
-          ) {
-            const isCss = /\.(s?css|sass)$/.test(filePath);
-
-            if (transformOptions.platform === "web") {
-              if (isCss) {
-                webCSSFiles.add(filePath);
-              } else if (webInjectionFilepaths.includes(filePath)) {
-                fileBuffer = getWebInjectionCode(Array.from(webCSSFiles));
-              }
-
-              return transformFile(filePath, transformOptions, fileBuffer);
-            } else {
-              // Handle CSS files on native platforms
-              if (isCss) {
-                const webTransform = await transformFile(
-                  filePath,
-                  {
-                    ...transformOptions,
-                    // Force the platform to web for CSS files
-                    platform: "web",
-                    // Let the transformer know that we will handle compilation
-                    customTransformOptions: {
-                      ...transformOptions.customTransformOptions,
-                      reactNativeCSS: options,
-                    },
-                  },
-                  fileBuffer,
-                );
-
-                const lastTransform = nativeCSSFiles.get(filePath);
-                const last = lastTransform?.[0];
-                const next = webTransform.output[0].data.css.code.toString();
-
-                // The CSS file has changed, we need to recompile the injection file
-                if (next !== last) {
-                  nativeCSSFiles.set(filePath, [
-                    next,
-                    compile(next, {
-                      hexColors: options?.hexColors,
-                    }).stylesheet(),
-                  ]);
-
-                  watcher.emit("change", {
-                    eventsQueue: nativeInjectionFilepaths.map((filePath) => ({
-                      filePath,
-                      metadata: {
-                        modifiedTime: Date.now(),
-                        size: 1, // Can be anything
-                        type: "virtual", // Can be anything
-                      },
-                      type: "change",
-                    })),
-                  });
-                }
-
-                const nativeTransform = await transformFile(
-                  filePath,
-                  transformOptions,
-                  fileBuffer,
-                );
-
-                // Tell Expo to skip caching this file
-                nativeTransform.output[0].data.css = {
-                  skipCache: true,
-                  // Expo requires a `code` property
-                  code: "",
-                };
-
-                return nativeTransform;
-              } else if (nativeInjectionFilepaths.includes(filePath)) {
-                // If this is the injection file, we to swap its content with the
-                // compiled CSS files
-                fileBuffer = getNativeInjectionCode(
-                  Array.from(nativeCSSFiles.keys()).map((key) =>
-                    relative(dirname(filePath), key),
-                  ),
-                  Array.from(nativeCSSFiles.values()).map(([, value]) => value),
-                );
-
-                if (loggerEnabled && fileBuffer) {
-                  logger(`Transformed ${filePath}`);
-                  logger(fileBuffer?.toString());
-                }
-              }
-
-              return transformFile(filePath, transformOptions, fileBuffer);
-            }
-          };
-        }
-
-        /**
-         * We don't modify the middleware, we just use this function to get the metroServer
-         * So simply return the existing middleware
-         */
-        return (
-          config.server?.enhanceMiddleware?.(metroMiddleware, metroServer) ??
-          metroMiddleware
-        );
       },
     },
   };

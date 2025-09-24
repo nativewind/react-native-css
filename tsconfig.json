@@ -12,6 +12,7 @@
         "./src/*"
       ],
     },
+    "allowJs": true,
     "allowUnreachableCode": false,
     "allowUnusedLabels": false,
     "esModuleInterop": true,
@@ -35,5 +36,9 @@
     "strict": true,
     "target": "ESNext",
     "verbatimModuleSyntax": true
-  }
+  },
+  "exclude": [
+    "dist/",
+    "src/__tests__"
+  ]
 }
