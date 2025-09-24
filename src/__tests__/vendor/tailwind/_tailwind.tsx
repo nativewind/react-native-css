@@ -32,7 +32,9 @@ export type NativewindRenderOptions = RenderOptions & {
   debug?: boolean | "verbose";
 };
 
-const debugDefault = Boolean(process.env.NODE_OPTIONS?.includes("--inspect"));
+const debugDefault =
+  typeof process.env.NODE_OPTIONS === "string" &&
+  process.env.NODE_OPTIONS.includes("--inspect");
 
 export async function render(
   component: ReactElement<PropsWithChildren>,

@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+
 import eslint from "@eslint/js";
 import prettier from "eslint-plugin-prettier/recommended";
 import { globalIgnores } from "eslint/config";
@@ -12,13 +14,12 @@ export default tseslint.config(
     languageOptions: {
       parserOptions: {
         projectService: true,
+        tsconfigRootDir: resolve("../"),
       },
     },
   },
   globalIgnores([
     "**/dist/*",
-    "**/example/*",
-    "**/node_modules/*",
     ".yarn/*",
     "**/eslint.config.[cm]js",
     "**/prettier.config.[cm]js",

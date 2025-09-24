@@ -2,12 +2,5 @@
   "extends": "../tsconfig",
   "compilerOptions": {
     "noEmit": true,
-  },
-  "include": [
-    "src/**/*",
-    "index.js",
-    "postcss.config.mjs",
-    "react-native-css-env.d.ts",
-    "example-env.d.ts"
-  ]
+  }
 }

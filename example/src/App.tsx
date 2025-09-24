@@ -7,7 +7,9 @@ import "../global.css";
 export default function App() {
   return (
     <View style={styles.container}>
-      <Text className="text-red-800">Hello world!!!</Text>
+      <Text className="text-green-800 duration-[5s] transition-colors">
+        Hello world!!!
+      </Text>
       <StatusBar style="auto" />
     </View>
   );

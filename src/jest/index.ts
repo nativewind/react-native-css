@@ -27,7 +27,8 @@ beforeEach(() => {
 
 const debugDefault = Boolean(
   process.env.REACT_NATIVE_CSS_TEST_DEBUG &&
-    process.env.NODE_OPTIONS?.includes("--inspect"),
+    typeof process.env.NODE_OPTIONS === "string" &&
+    process.env.NODE_OPTIONS.includes("--inspect"),
 );
 
 export function registerCSS(

@@ -37,8 +37,15 @@
       }
     },
     "./components": {
-      "default": "./src/components/index.js",
-      "types": "./src/components/index.d.ts"
+      "source": "./src/components/index.cts",
+      "import": {
+        "types": "./dist/typescript/module/src/components/index.d.ts",
+        "default": "./dist/module/components/index.cjs"
+      },
+      "require": {
+        "types": "./dist/typescript/commonjs/src/components/index.d.ts",
+        "default": "./dist/commonjs/components/index.cjs"
+      }
     },
     "./components/*": {
       "source": "./src/components/*.ts",
