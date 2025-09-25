@@ -4,7 +4,7 @@ import {
   useCssElement,
   type StyledConfiguration,
   type StyledProps,
-} from "../runtime";
+} from "react-native-css";
 
 const mapping: StyledConfiguration<typeof RNButton> = {
   className: {
