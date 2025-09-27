@@ -93,7 +93,7 @@ export function VariableContextProvider(
 ) {
   const style = useMemo(() => {
     return {
-      display: "content",
+      display: "contents",
       ...Object.fromEntries(
         Object.entries(props.value).map(([key, value]) => [
           key.startsWith("--") ? key : `--${key}`,
