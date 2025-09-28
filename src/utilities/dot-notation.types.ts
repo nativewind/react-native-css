@@ -34,7 +34,7 @@ type UnwrapRecursiveArray<
   Depth extends unknown[] = [],
   MaxDepth extends number = 10
 > = Depth["length"] extends MaxDepth
-  ? T // إذا وصلنا للحد الأقصى نوقف
+  ? T
   : T extends (infer I)[]
     ? UnwrapRecursiveArray<I, [...Depth, unknown], MaxDepth>
     : T;
