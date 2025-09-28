@@ -1,7 +1,7 @@
 import {
   createElement,
   useMemo,
-  type ComponentProps,
+  type ComponentPropsWithRef,
   type PropsWithChildren,
 } from "react";
 import { Appearance } from "react-native";
@@ -25,7 +25,7 @@ export const styled = <
   mapping: M,
   _options?: StyledOptions,
 ) => {
-  return (props: StyledProps<ComponentProps<C>, M>) => {
+  return (props: StyledProps<ComponentPropsWithRef<C>, M>) => {
     return useCssElement(baseComponent, mapping, props);
   };
 };
