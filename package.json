@@ -211,7 +211,7 @@
     "@types/react-test-renderer": "^19",
     "babel-plugin-tester": "^12.0.0",
     "babel-preset-expo": "~54.0.3",
-    "commitlint": "^19.8.1",
+    "commitlint": "^20.0.0",
     "eas-build-cache-provider": "^16.4.2",
     "eslint": "^9.30.1",
     "eslint-config-prettier": "^10.1.5",
