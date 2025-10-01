@@ -29,9 +29,16 @@ export type StyleProp<T> =
 // ---------- Type Helpers ----------
 
 // Unwrap nested arrays (from RecursiveArray)
-type UnwrapRecursiveArray<T> = T extends (infer I)[]
-  ? UnwrapRecursiveArray<I>
-  : T;
+type UnwrapRecursiveArray<
+  T,
+  Depth extends unknown[] = [],
+  MaxDepth extends number = 10
+> = Depth["length"] extends MaxDepth
+  ? T
+  : T extends (infer I)[]
+    ? UnwrapRecursiveArray<I, [...Depth, unknown], MaxDepth>
+    : T;
+
 
 // Remove null, false, undefined, etc.
 type RemoveFalsy<T> = Exclude<T, Falsy>;
