@@ -26,7 +26,7 @@ export function nativeResolver(
   const resolution = resolver(context, moduleName, platform);
   const isInternal = isFromThisModule(context.originModulePath);
   const isReactNativeIndex = context.originModulePath.endsWith(
-    `react-native${sep}index.js`,
+    `${sep}react-native${sep}index.js`,
   );
 
   if (isInternal || resolution.type !== "sourceFile" || isReactNativeIndex) {
@@ -73,7 +73,9 @@ export function webResolver(
     // Only operate on source files
     resolution.type !== "sourceFile" ||
     // Skip anything that isn't importing from `react-native-web`
-    !resolution.filePath.includes(`${sep}react-native-web${sep}`)
+    !resolution.filePath.includes(`${sep}react-native-web${sep}`) ||
+    // Skip internal react-native-web files
+    resolution.filePath.includes(`${sep}react-native-web${sep}dist${sep}vendor`)
   ) {
     return resolution;
   }
@@ -83,7 +85,12 @@ export function webResolver(
   const isIndex = segments.at(-1)?.startsWith("index.");
   const module = segments.at(-2);
 
-  if (!isIndex || !module || !allowedModules.has(module)) {
+  if (
+    !isIndex ||
+    !module ||
+    !allowedModules.has(module) ||
+    module === "VirtualizedList"
+  ) {
     return resolution;
   }
 
