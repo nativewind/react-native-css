@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import {
   VirtualizedList as RNVirtualizedList,
   type VirtualizedListProps,
@@ -9,6 +10,8 @@ import {
   type StyledProps,
 } from "react-native-css";
 
+import { copyComponentProperties } from "./copyComponentProperties";
+
 const mapping: StyledConfiguration<typeof RNVirtualizedList> = {
   className: "style",
   ListFooterComponentClassName: "ListFooterComponentStyle",
@@ -16,10 +19,19 @@ const mapping: StyledConfiguration<typeof RNVirtualizedList> = {
   contentContainerClassName: "contentContainerStyle",
 };
 
-export function VirtualizedList<ItemT>(
-  props: StyledProps<VirtualizedListProps<ItemT>, typeof mapping>,
-) {
-  return useCssElement(RNVirtualizedList, props, mapping);
-}
+export const VirtualizedList = copyComponentProperties(
+  RNVirtualizedList,
+  function <ItemT>(
+    props: StyledProps<VirtualizedListProps<ItemT>, typeof mapping>,
+  ) {
+    return useCssElement(RNVirtualizedList, props, mapping);
+  },
+) as unknown as typeof RNVirtualizedList &
+  (<ItemT>(
+    props: StyledProps<
+      VirtualizedListProps<ItemT>,
+      StyledConfiguration<typeof RNVirtualizedList>
+    >,
+  ) => ReactNode);
 
 export default VirtualizedList;

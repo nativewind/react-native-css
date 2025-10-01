@@ -6,12 +6,17 @@ import {
   type StyledProps,
 } from "react-native-css";
 
+import { copyComponentProperties } from "./copyComponentProperties";
+
 const mapping: StyledConfiguration<typeof RNPressable> = {
   className: "style",
 };
 
-export function Pressable(props: StyledProps<PressableProps, typeof mapping>) {
-  return useCssElement(RNPressable, props, mapping);
-}
+export const Pressable = copyComponentProperties(
+  RNPressable,
+  (props: StyledProps<PressableProps, typeof mapping>) => {
+    return useCssElement(RNPressable, props, mapping);
+  },
+);
 
 export default Pressable;

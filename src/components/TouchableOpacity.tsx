@@ -9,14 +9,17 @@ import {
   type StyledProps,
 } from "react-native-css";
 
+import { copyComponentProperties } from "./copyComponentProperties";
+
 const mapping: StyledConfiguration<typeof RNTouchableOpacity> = {
   className: "style",
 };
 
-export function TouchableOpacity(
-  props: StyledProps<TouchableOpacityProps, typeof mapping>,
-) {
-  return useCssElement(RNTouchableOpacity, props, mapping);
-}
+export const TouchableOpacity = copyComponentProperties(
+  RNTouchableOpacity,
+  (props: StyledProps<TouchableOpacityProps, typeof mapping>) => {
+    return useCssElement(RNTouchableOpacity, props, mapping);
+  },
+);
 
 export default TouchableOpacity;

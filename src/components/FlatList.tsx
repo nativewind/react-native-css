@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { FlatList as RNFlatList, type FlatListProps } from "react-native";
 
 import {
@@ -6,6 +7,8 @@ import {
   type StyledProps,
 } from "react-native-css";
 
+import { copyComponentProperties } from "./copyComponentProperties";
+
 const mapping: StyledConfiguration<typeof RNFlatList> = {
   ListFooterComponentClassName: "ListFooterComponentStyle",
   ListHeaderComponentClassName: "ListHeaderComponentStyle",
@@ -13,10 +16,16 @@ const mapping: StyledConfiguration<typeof RNFlatList> = {
   contentContainerClassName: "contentContainerStyle",
 };
 
-export function FlatList<ItemT>(
-  props: StyledProps<FlatListProps<ItemT>, typeof mapping>,
-) {
+export const FlatList = copyComponentProperties(RNFlatList, function <
+  ItemT,
+>(props: StyledProps<FlatListProps<ItemT>, typeof mapping>) {
   return useCssElement(RNFlatList, props, mapping);
-}
+}) as unknown as typeof RNFlatList &
+  (<ItemT>(
+    props: StyledProps<
+      FlatListProps<ItemT>,
+      StyledConfiguration<typeof RNFlatList>
+    >,
+  ) => ReactNode);
 
 export default FlatList;

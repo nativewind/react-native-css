@@ -9,14 +9,17 @@ import {
   type StyledProps,
 } from "react-native-css";
 
+import { copyComponentProperties } from "./copyComponentProperties";
+
 const mapping: StyledConfiguration<typeof RNTouchableWithoutFeedback> = {
   className: "style",
 };
 
-export function TouchableWithoutFeedback(
-  props: StyledProps<TouchableWithoutFeedbackProps, typeof mapping>,
-) {
-  return useCssElement(RNTouchableWithoutFeedback, props, mapping);
-}
+export const TouchableWithoutFeedback = copyComponentProperties(
+  RNTouchableWithoutFeedback,
+  (props: StyledProps<TouchableWithoutFeedbackProps, typeof mapping>) => {
+    return useCssElement(RNTouchableWithoutFeedback, props, mapping);
+  },
+);
 
 export default TouchableWithoutFeedback;

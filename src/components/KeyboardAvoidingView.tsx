@@ -9,16 +9,19 @@ import {
   type StyledProps,
 } from "react-native-css";
 
+import { copyComponentProperties } from "./copyComponentProperties";
+
 const mapping: StyledConfiguration<typeof RNKeyboardAvoidingView> = {
   className: {
     target: "style",
   },
 };
 
-export function KeyboardAvoidingView(
-  props: StyledProps<KeyboardAvoidingViewProps, typeof mapping>,
-) {
-  return useCssElement(RNKeyboardAvoidingView, props, mapping);
-}
+export const KeyboardAvoidingView = copyComponentProperties(
+  RNKeyboardAvoidingView,
+  (props: StyledProps<KeyboardAvoidingViewProps, typeof mapping>) => {
+    return useCssElement(RNKeyboardAvoidingView, props, mapping);
+  },
+);
 
 export default KeyboardAvoidingView;

@@ -6,6 +6,8 @@ import {
   type StyledProps,
 } from "react-native-css";
 
+import { copyComponentProperties } from "./copyComponentProperties";
+
 const mapping: StyledConfiguration<typeof RNButton> = {
   className: {
     target: false,
@@ -15,8 +17,11 @@ const mapping: StyledConfiguration<typeof RNButton> = {
   },
 };
 
-export function Button(props: StyledProps<ButtonProps, typeof mapping>) {
-  return useCssElement(RNButton, props, mapping);
-}
+export const Button = copyComponentProperties(
+  RNButton,
+  (props: StyledProps<ButtonProps, typeof mapping>) => {
+    return useCssElement(RNButton, props, mapping);
+  },
+);
 
 export default Button;

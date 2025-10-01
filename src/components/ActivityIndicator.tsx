@@ -9,6 +9,8 @@ import {
   type StyledProps,
 } from "react-native-css";
 
+import { copyComponentProperties } from "./copyComponentProperties";
+
 const mapping: StyledConfiguration<typeof RNActivityIndicator> = {
   className: {
     target: "style",
@@ -18,10 +20,11 @@ const mapping: StyledConfiguration<typeof RNActivityIndicator> = {
   },
 };
 
-export function ActivityIndicator(
-  props: StyledProps<ActivityIndicatorProps, typeof mapping>,
-) {
-  return useCssElement(RNActivityIndicator, props, mapping);
-}
+export const ActivityIndicator = copyComponentProperties(
+  RNActivityIndicator,
+  (props: StyledProps<ActivityIndicatorProps, typeof mapping>) => {
+    return useCssElement(RNActivityIndicator, props, mapping);
+  },
+);
 
 export default ActivityIndicator;

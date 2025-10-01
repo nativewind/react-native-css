@@ -9,6 +9,8 @@ import {
   type StyledProps,
 } from "react-native-css";
 
+import { copyComponentProperties } from "./copyComponentProperties";
+
 const mapping: StyledConfiguration<typeof RNImageBackground> = {
   className: {
     target: "style",
@@ -18,10 +20,11 @@ const mapping: StyledConfiguration<typeof RNImageBackground> = {
   },
 };
 
-export function ImageBackground(
-  props: StyledProps<ImageBackgroundProps, typeof mapping>,
-) {
-  return useCssElement(RNImageBackground, props, mapping);
-}
+export const ImageBackground = copyComponentProperties(
+  RNImageBackground,
+  (props: StyledProps<ImageBackgroundProps, typeof mapping>) => {
+    return useCssElement(RNImageBackground, props, mapping);
+  },
+);
 
 export default ImageBackground;

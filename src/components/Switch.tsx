@@ -6,12 +6,17 @@ import {
   type StyledProps,
 } from "react-native-css";
 
+import { copyComponentProperties } from "./copyComponentProperties";
+
 const mapping = {
   className: "style",
 } satisfies StyledConfiguration<typeof RNSwitch>;
 
-export function Switch(props: StyledProps<SwitchProps, typeof mapping>) {
-  return useCssElement(RNSwitch, props, mapping);
-}
+export const Switch = copyComponentProperties(
+  RNSwitch,
+  (props: StyledProps<SwitchProps, typeof mapping>) => {
+    return useCssElement(RNSwitch, props, mapping);
+  },
+);
 
 export default Switch;

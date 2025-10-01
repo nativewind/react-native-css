@@ -6,12 +6,17 @@ import {
   type StyledProps,
 } from "react-native-css";
 
+import { copyComponentProperties } from "./copyComponentProperties";
+
 const mapping = {
   className: "style",
 } satisfies StyledConfiguration<typeof RNView>;
 
-export function View(props: StyledProps<ViewProps, typeof mapping>) {
-  return useCssElement(RNView, props, mapping);
-}
+export const View = copyComponentProperties(
+  RNView,
+  (props: StyledProps<ViewProps, typeof mapping>) => {
+    return useCssElement(RNView, props, mapping);
+  },
+);
 
 export default View;

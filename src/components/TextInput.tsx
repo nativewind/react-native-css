@@ -6,6 +6,8 @@ import {
   type StyledProps,
 } from "react-native-css";
 
+import { copyComponentProperties } from "./copyComponentProperties";
+
 const mapping: StyledConfiguration<typeof RNTextInput> = {
   className: {
     target: "style",
@@ -15,8 +17,11 @@ const mapping: StyledConfiguration<typeof RNTextInput> = {
   },
 };
 
-export function TextInput(props: StyledProps<TextInputProps, typeof mapping>) {
-  return useCssElement(RNTextInput, props, mapping);
-}
+export const TextInput = copyComponentProperties(
+  RNTextInput,
+  (props: StyledProps<TextInputProps, typeof mapping>) => {
+    return useCssElement(RNTextInput, props, mapping);
+  },
+);
 
 export default TextInput;

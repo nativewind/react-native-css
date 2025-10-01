@@ -6,12 +6,17 @@ import {
   type StyledProps,
 } from "react-native-css";
 
+import { copyComponentProperties } from "./copyComponentProperties";
+
 const mapping: StyledConfiguration<typeof RNImage> = {
   className: "style",
 };
 
-export function Image(props: StyledProps<ImageProps, typeof mapping>) {
-  return useCssElement(RNImage, props, mapping);
-}
+export const Image = copyComponentProperties(
+  RNImage,
+  (props: StyledProps<ImageProps, typeof mapping>) => {
+    return useCssElement(RNImage, props, mapping);
+  },
+);
 
 export default Image;
