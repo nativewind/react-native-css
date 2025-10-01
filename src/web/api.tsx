@@ -1,7 +1,7 @@
 import {
   createElement,
   useMemo,
-  type ComponentProps,
+  type ComponentPropsWithRef,
   type PropsWithChildren,
 } from "react";
 import { Appearance } from "react-native";
@@ -25,7 +25,7 @@ export const styled = <
   mapping: M,
   _options?: StyledOptions,
 ) => {
-  return (props: StyledProps<ComponentProps<C>, M>) => {
+  return (props: StyledProps<ComponentPropsWithRef<C>, M>) => {
     return useCssElement(baseComponent, mapping, props);
   };
 };
@@ -93,7 +93,7 @@ export function VariableContextProvider(
 ) {
   const style = useMemo(() => {
     return {
-      display: "content",
+      display: "contents",
       ...Object.fromEntries(
         Object.entries(props.value).map(([key, value]) => [
           key.startsWith("--") ? key : `--${key}`,
