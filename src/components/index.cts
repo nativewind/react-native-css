@@ -25,6 +25,9 @@ module.exports = {
   get Pressable() {
     return require("./Pressable").Pressable;
   },
+  get ScrollView() {
+    return require("./ScrollView").ScrollView;
+  },
   get Switch() {
     return require("./Switch").Switch;
   },
@@ -70,9 +73,6 @@ module.exports = {
   },
   get SafeAreaView() {
     return require("react-native").SafeAreaView;
-  },
-  get ScrollView() {
-    return require("react-native").ScrollView;
   },
   get SectionList() {
     return require("react-native").SectionList;
