@@ -48,7 +48,7 @@
       }
     },
     "./components/*": {
-      "source": "./src/components/*.ts",
+      "source": "./src/components/*.tsx",
       "react-native": "./src/components/*.tsx",
       "import": {
         "types": "./dist/typescript/module/src/components/*.d.ts",
