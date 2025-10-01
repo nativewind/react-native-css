@@ -1,5 +1,5 @@
 /* eslint-disable  */
-import { useContext, useState } from "react";
+import { useContext, useState, type ComponentType } from "react";
 import { Appearance } from "react-native";
 
 import type { StyleDescriptor } from "react-native-css/compiler";
@@ -30,6 +30,10 @@ export {
 
 export { useNativeCss };
 
+const defaultMapping: StyledConfiguration<ComponentType<{ style: unknown }>> = {
+  className: "style",
+};
+
 /**
  * Generates a new Higher-Order component the wraps the base component and applies the styles.
  * This is added to the `interopComponents` map so that it can be used in the `wrapJSX` function
@@ -41,7 +45,7 @@ export const styled = <
   const M extends StyledConfiguration<C>,
 >(
   baseComponent: C,
-  mapping: M,
+  mapping: M = defaultMapping as M,
   options?: StyledOptions,
 ) => {
   let component: any;

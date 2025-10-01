@@ -2,6 +2,7 @@ import {
   createElement,
   useMemo,
   type ComponentPropsWithRef,
+  type ComponentType,
   type PropsWithChildren,
 } from "react";
 import { Appearance } from "react-native";
@@ -17,12 +18,16 @@ import type {
 import type { ReactComponent } from "../runtime.types";
 import { assignStyle } from "./assign-style";
 
+const defaultMapping: StyledConfiguration<ComponentType<{ style: unknown }>> = {
+  className: "style",
+};
+
 export const styled = <
   const C extends ReactComponent,
   const M extends StyledConfiguration<C>,
 >(
   baseComponent: C,
-  mapping: M,
+  mapping: M = defaultMapping as M,
   _options?: StyledOptions,
 ) => {
   return (props: StyledProps<ComponentPropsWithRef<C>, M>) => {
