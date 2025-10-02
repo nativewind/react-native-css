@@ -1228,6 +1228,8 @@ export function parseUnparsed(
             builder,
             property,
           );
+        case "color-mix":
+          return parseColorMix(tokenOrValue.value.arguments, builder, property);
         default: {
           builder.addWarning("value", `${tokenOrValue.value.name}()`);
           return;
@@ -2631,6 +2633,100 @@ export function parseCalcFn(
   }
 
   return;
+}
+
+export function parseColorMix(
+  tokens: TokenOrValue[],
+  builder: StylesheetBuilder,
+  property: string,
+): StyleDescriptor {
+  const [inToken, whitespace, colorSpace, comma, ...rest] = tokens;
+  if (
+    typeof inToken !== "object" ||
+    inToken.type !== "token" ||
+    inToken.value.type !== "ident" ||
+    inToken.value.value !== "in"
+  ) {
+    return;
+  }
+
+  if (
+    typeof whitespace !== "object" ||
+    whitespace.type !== "token" ||
+    whitespace.value.type !== "white-space"
+  ) {
+    return;
+  }
+
+  if (
+    typeof comma !== "object" ||
+    comma.type !== "token" ||
+    comma.value.type !== "comma"
+  ) {
+    return;
+  }
+
+  const colorSpaceArg = parseUnparsed(colorSpace, builder, property);
+  if (typeof colorSpaceArg !== "string") {
+    return;
+  }
+
+  let nextToken = rest.shift();
+
+  const leftColorArg = parseUnparsed(nextToken, builder, property);
+
+  if (!leftColorArg) {
+    return;
+  }
+
+  nextToken = rest.shift();
+
+  let leftColorPercentage: StyleDescriptor | undefined;
+  if (nextToken?.type !== "token" || nextToken.value.type !== "comma") {
+    leftColorPercentage = parseUnparsed(nextToken, builder, property);
+    nextToken = rest.shift();
+  }
+
+  if (
+    typeof nextToken !== "object" ||
+    nextToken.type !== "token" ||
+    nextToken.value.type !== "comma"
+  ) {
+    return;
+  }
+
+  nextToken = rest.shift();
+
+  const rightColorArg = parseUnparsed(nextToken, builder, property);
+
+  if (rightColorArg === "transparent") {
+    // Ignore the rest, treat as single color with alpha
+    return [{}, "colorMix", [colorSpaceArg, leftColorArg, leftColorPercentage]];
+  }
+
+  nextToken = rest.shift();
+  let rightColorPercentage: StyleDescriptor | undefined;
+  if (nextToken?.type !== "token" || nextToken.value.type !== "comma") {
+    rightColorPercentage = parseUnparsed(nextToken, builder, property);
+    nextToken = rest.shift();
+  }
+
+  // We should have expired all tokens now
+  if (nextToken) {
+    return;
+  }
+
+  return [
+    {},
+    "colorMix",
+    [
+      colorSpaceArg,
+      leftColorArg,
+      leftColorPercentage,
+      rightColorArg,
+      rightColorPercentage,
+    ],
+  ];
 }
 
 export function parseCalcArguments(
