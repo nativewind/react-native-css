@@ -46,7 +46,10 @@ export const colorMix: StyleFunctionResolver = (resolveValue, value) => {
       return `rgba(${(left.coords[0] ?? 0) * 255}, ${(left.coords[1] ?? 0) * 255}, ${(left.coords[2] ?? 0) * 255}, ${left.alpha})`;
     }
 
-    const right = parse(next as string);
+    if (typeof next !== "string") {
+      return;
+    }
+    const right = parse(next);
 
     next = args.shift();
     if (next && typeof next === "string" && next.endsWith("%")) {
