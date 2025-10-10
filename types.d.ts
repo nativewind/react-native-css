@@ -16,6 +16,9 @@ declare module "@react-native/virtualized-lists" {
 }
 
 declare module "react-native" {
+  interface ButtonProps {
+    className?: string;
+  }
   interface ScrollViewProps
     extends ViewProps,
       ScrollViewPropsIOS,
