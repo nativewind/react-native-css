@@ -45,7 +45,7 @@ export function lightningcssLoader() {
 
     if (packageJSON.version === "1.30.2") {
       throw new Error(
-        "[react-native-css] lightningcss version 1.30.2 has a critical bug that breaks compilation. Please pin the version of lightningcss to 1.30.1; or try upgrading.",
+        "[react-native-css] lightningcss version 1.30.2 has a critical bug that breaks compilation. Please pin the version of lightingcss to 1.30.1; or try upgrading.",
       );
     }
   } catch {
