@@ -249,7 +249,7 @@ function nativeStyleMapping(
     let target = props;
     const tokens = path.split(".");
     const lastToken = tokens.pop();
-    for (const token of tokens.slice(0, -1)) {
+    for (const token of tokens) {
       target[token] ??= {};
       target = target[token];
     }
