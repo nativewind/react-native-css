@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 export function lightningcssLoader() {
   let lightningcssPath: string | undefined;
 
@@ -28,10 +29,28 @@ export function lightningcssLoader() {
     );
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { transform: lightningcss, Features } = require(
     lightningcssPath,
   ) as typeof import("lightningcss");
+
+  try {
+    const lightningcssPackageJSONPath = require.resolve("../../package.json", {
+      paths: [lightningcssPath],
+    });
+
+    const packageJSON = require(lightningcssPackageJSONPath) as Record<
+      string,
+      unknown
+    >;
+
+    if (packageJSON.version === "1.30.2") {
+      throw new Error(
+        "[react-native-css] lightningcss version 1.30.2 has a critical bug that breaks compilation. Please pin the version of lightningcss to 1.30.1; or try upgrading.",
+      );
+    }
+  } catch {
+    // Intentionally left empty
+  }
 
   return {
     lightningcss,
