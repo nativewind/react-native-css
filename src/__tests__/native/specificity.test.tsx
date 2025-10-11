@@ -16,10 +16,7 @@ test("inline styles", () => {
     />,
   ).getByTestId(testID);
 
-  expect(component.props.style).toStrictEqual([
-    { backgroundColor: "#f00" },
-    { backgroundColor: "blue" },
-  ]);
+  expect(component.props.style).toStrictEqual({ backgroundColor: "blue" });
 });
 
 test("specificity order", () => {
@@ -60,10 +57,7 @@ test("important - requires sorting", () => {
     <Text testID={testID} className="blue red" />,
   ).getByTestId(testID);
 
-  expect(component.props.style).toStrictEqual([
-    { color: "#f00" },
-    { color: "#00f" },
-  ]);
+  expect(component.props.style).toStrictEqual({ color: "#00f" });
 });
 
 test("important - inline", () => {
@@ -79,10 +73,7 @@ test("important - inline", () => {
     />,
   ).getByTestId(testID);
 
-  expect(component.props.style).toStrictEqual([
-    { backgroundColor: "red" },
-    { backgroundColor: "#00f" },
-  ]);
+  expect(component.props.style).toStrictEqual({ backgroundColor: "#00f" });
 });
 
 test("important - modifiers", () => {
@@ -96,17 +87,11 @@ test("important - modifiers", () => {
     <Text testID={testID} className="blue red" />,
   ).getByTestId(testID);
 
-  expect(component.props.style).toStrictEqual([
-    { color: "#f00" },
-    { color: "#00f" },
-  ]);
+  expect(component.props.style).toStrictEqual({ color: "#00f" });
 
   fireEvent(component, "hoverIn");
 
-  expect(component.props.style).toStrictEqual([
-    { color: "#008000" },
-    { color: "#00f" },
-  ]);
+  expect(component.props.style).toStrictEqual({ color: "#00f" });
 });
 
 test("passThrough - inline", () => {

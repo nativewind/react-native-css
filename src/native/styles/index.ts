@@ -49,10 +49,19 @@ export function getStyledProps(
   const styledProps = state.stylesObs?.get(state.styleEffect);
 
   for (const config of state.configs) {
-    result = deepMergeConfig(config, styledProps?.normal, inline, true);
+    result = deepMergeConfig(
+      config,
+      nativeStyleMapping(config, styledProps?.normal),
+      inline,
+      true,
+    );
 
     if (styledProps?.important) {
-      result = deepMergeConfig(config, result, styledProps.important);
+      result = deepMergeConfig(
+        config,
+        result,
+        nativeStyleMapping(config, styledProps.important),
+      );
     }
 
     // Apply the handlers
@@ -122,11 +131,11 @@ function deepMergeConfig(
   right: Record<string, any> | undefined | null,
   rightIsInline = false,
 ) {
-  if (!config.target || !right) {
+  if (!right) {
     return { ...left };
   }
 
-  let result = Object.assign({}, left, right);
+  let result = config.target ? Object.assign({}, left, right) : { ...left };
 
   if (
     right &&
@@ -140,7 +149,7 @@ function deepMergeConfig(
   /**
    *  If target is a path, deep merge until we get to the last key
    */
-  if (Array.isArray(config.target) && config.target.length > 1) {
+  if (Array.isArray(config.target)) {
     for (let i = 0; i < config.target.length - 1; i++) {
       const key = config.target[i];
 
@@ -159,11 +168,9 @@ function deepMergeConfig(
     return result;
   }
 
-  const target = Array.isArray(config.target)
-    ? config.target[0]
-    : config.target;
+  const target = config.target;
 
-  if (target === undefined) {
+  if (target === undefined || target === false) {
     return result;
   }
 
@@ -195,4 +202,60 @@ function deepMergeConfig(
   }
 
   return result;
+}
+
+function nativeStyleMapping(
+  config: Config,
+  props: Record<string, any> | undefined,
+) {
+  if (!config.nativeStyleMapping || !props) {
+    return props;
+  }
+
+  let source: Record<string, any> | undefined;
+
+  if (typeof config.target === "string") {
+    source = props[config.target];
+  } else if (config.target === false) {
+    source = props["style"];
+  } else {
+    const tokens = [...config.target];
+    const lastToken = tokens.pop()!;
+
+    source = props;
+    for (const token of tokens) {
+      source = source[token];
+      if (!source) {
+        return props;
+      }
+    }
+
+    source = source[lastToken];
+  }
+
+  if (!source) {
+    return props;
+  }
+
+  for (const [key, path] of Object.entries(config.nativeStyleMapping)) {
+    const styleValue = source[key];
+
+    delete source[key];
+
+    if (styleValue === undefined) {
+      continue;
+    }
+
+    let target = props;
+    const tokens = path.split(".");
+    const lastToken = tokens.pop();
+    for (const token of tokens) {
+      target[token] ??= {};
+      target = target[token];
+    }
+
+    target[lastToken!] = styleValue;
+  }
+
+  return props;
 }
