@@ -23,4 +23,6 @@ export function supportsConditionValid(condition: SupportsCondition): boolean {
 const declarations: Record<string, string[]> = {
   // We don't actually support this, but its needed for Tailwind CSS
   "-moz-orient": ["inline"],
+  // Special text used by TailwindCSS. We should probably change this to all color-mix
+  "color": ["color-mix(in lab, red, red)"],
 };
