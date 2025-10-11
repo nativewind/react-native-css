@@ -192,6 +192,7 @@
   },
   "peerDependencies": {
     "@expo/metro-config": ">=54",
+    "lightningcss": ">=1.27.0",
     "react": ">=19",
     "react-native": ">=0.81"
   },
