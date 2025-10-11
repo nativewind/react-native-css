@@ -107,7 +107,7 @@ test("container query width", () => {
     },
   });
 
-  expect(parent.props.style).toStrictEqual([{ width: 200 }, { width: 500 }]);
+  expect(parent.props.style).toStrictEqual({ width: 500 });
 
   expect(child.props.style).toStrictEqual({
     color: "#00f",
