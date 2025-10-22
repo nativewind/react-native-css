@@ -1,11 +1,5 @@
 /* eslint-disable  */
-import {
-  createElement,
-  forwardRef,
-  useContext,
-  useState,
-  type ComponentType,
-} from "react";
+import { forwardRef, useContext, useState, type ComponentType } from "react";
 import { Appearance } from "react-native";
 
 import type { StyleDescriptor } from "react-native-css/compiler";
@@ -57,21 +51,15 @@ export const styled = <
   const configs = mappingToConfig(mapping);
   const name = baseComponent.displayName ?? baseComponent.name ?? "unknown";
 
-  // Create a properly ref-forwarded component
-  const RefForwardedBase = forwardRef<any, any>((props, ref) => {
-    return createElement(baseComponent, { ref, ...props });
-  });
-  RefForwardedBase.displayName = `RefForwarded${name}`;
-
   let component: any;
 
   if (options?.passThrough) {
     component = forwardRef<any, any>((props, ref) => {
-      return usePassthrough(RefForwardedBase, { ref, ...props }, configs);
+      return usePassthrough(baseComponent, { ref, ...props }, configs);
     });
   } else {
     component = forwardRef<any, any>((props, ref) => {
-      return useNativeCss(RefForwardedBase, { ref, ...props }, configs);
+      return useNativeCss(baseComponent, { ref, ...props }, configs);
     });
   }
 
