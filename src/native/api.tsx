@@ -1,5 +1,11 @@
 /* eslint-disable  */
-import { useContext, useState, type ComponentType } from "react";
+import {
+  createElement,
+  forwardRef,
+  useContext,
+  useState,
+  type ComponentType,
+} from "react";
 import { Appearance } from "react-native";
 
 import type { StyleDescriptor } from "react-native-css/compiler";
@@ -48,22 +54,27 @@ export const styled = <
   mapping: M = defaultMapping as M,
   options?: StyledOptions,
 ) => {
-  let component: any;
-  // const type = getComponentType(baseComponent);
-
   const configs = mappingToConfig(mapping);
+  const name = baseComponent.displayName ?? baseComponent.name ?? "unknown";
+
+  // Create a properly ref-forwarded component
+  const RefForwardedBase = forwardRef<any, any>((props, ref) => {
+    return createElement(baseComponent, { ref, ...props });
+  });
+  RefForwardedBase.displayName = `RefForwarded${name}`;
+
+  let component: any;
 
   if (options?.passThrough) {
-    component = (props: Record<string, any>) => {
-      return usePassthrough(baseComponent, props, configs);
-    };
+    component = forwardRef<any, any>((props, ref) => {
+      return usePassthrough(RefForwardedBase, { ref, ...props }, configs);
+    });
   } else {
-    component = (props: Record<string, any>) => {
-      return useNativeCss(baseComponent, props, configs);
-    };
+    component = forwardRef<any, any>((props, ref) => {
+      return useNativeCss(RefForwardedBase, { ref, ...props }, configs);
+    });
   }
 
-  const name = baseComponent.displayName ?? baseComponent.name ?? "unknown";
   component.displayName = `CssInterop.${name}`;
   return component;
 };
