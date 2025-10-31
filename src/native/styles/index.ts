@@ -135,7 +135,41 @@ function deepMergeConfig(
     return { ...left };
   }
 
-  let result = config.target ? Object.assign({}, left, right) : { ...left };
+  // Handle style merging to support both className and inline style props
+  let result: Record<string, any>;
+  if (config.target) {
+    if (
+      Array.isArray(config.target) &&
+      config.target.length === 1 &&
+      config.target[0] === "style"
+    ) {
+      // Special handling for style target when we have inline styles
+      result = { ...left, ...right };
+      // More performant approach - check for non-overlapping properties without Sets
+      if (left?.style && right?.style && rightIsInline) {
+        const leftStyle = left.style;
+        const rightStyle = right.style;
+
+        // Quick check: do any left properties NOT exist in right?
+        let hasNonOverlappingProperties = false;
+        for (const key in leftStyle) {
+          if (!(key in rightStyle)) {
+            hasNonOverlappingProperties = true;
+            break; // Early exit for performance
+          }
+        }
+
+        if (hasNonOverlappingProperties) {
+          result.style = [leftStyle, rightStyle];
+        }
+        // Otherwise, Object.assign above will handle the override correctly
+      }
+    } else {
+      result = Object.assign({}, left, right);
+    }
+  } else {
+    result = { ...left };
+  }
 
   if (
     right &&
