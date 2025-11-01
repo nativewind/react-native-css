@@ -18,7 +18,21 @@ import {
 import { calculateProps } from "./calculate-props";
 
 /**
- * Checks if two style objects have non-overlapping properties
+ * Checks if the left style object has any properties that are not present in the right style object.
+ * This is used to determine if styles need to be preserved in an array or if right can completely override left.
+ *
+ * Note: This intentionally only checks one direction (left → right). We don't need to check if right has
+ * properties that left doesn't have, because right will always be applied/merged. The question we're
+ * answering is: "Does left have any properties that would be lost if we just used right?" If yes, we
+ * create a style array [left, right] to preserve both. If no, right can safely replace left entirely.
+ *
+ * @param left - The left style object to check
+ * @param right - The right style object to compare against
+ * @returns true if left has at least one property key that doesn't exist in right, false otherwise
+ *
+ * @example
+ * hasNonOverlappingProperties({color: 'red', fontSize: 12}, {color: 'blue'}) // true - fontSize is not in right
+ * hasNonOverlappingProperties({color: 'red'}, {color: 'blue', fontSize: 12}) // false - all left keys exist in right
  */
 function hasNonOverlappingProperties(
   left: Record<string, any>,
@@ -41,7 +55,14 @@ function hasNonOverlappingProperties(
 }
 
 /**
- * Flattens a style array into a single object, with rightmost values taking precedence
+ * Flattens a style array into a single object when possible, with rightmost values taking precedence.
+ * Returns the original array if it contains any non-plain objects, arrays, or CSS variable objects.
+ *
+ * Note: This function assumes the input array has already been filtered (e.g., by filterCssVariables),
+ * so empty arrays should not reach this function. If they do, they will be treated as non-flattenable.
+ *
+ * @param styleArray - The style array to potentially flatten
+ * @returns A single merged object if all items are plain objects, otherwise the original array
  */
 function flattenStyleArray(styleArray: any[]): any {
   // Check if we can flatten to a single object (all items are plain objects)
@@ -62,9 +83,27 @@ function flattenStyleArray(styleArray: any[]): any {
 }
 
 /**
- * Recursively filters out CSS variable objects (with VAR_SYMBOL) from style values
+ * Recursively filters out CSS variable objects (with VAR_SYMBOL) from style values.
+ * This prevents CSS variable runtime objects from leaking into React Native component props.
+ *
+ * @param value - The value to filter (can be any type: object, array, primitive, etc.)
+ * @param depth - Internal recursion depth counter to prevent stack overflow (max 100)
+ * @returns The filtered value with CSS variables removed, or `undefined` if the entire value
+ *          should be filtered out (e.g., empty arrays, objects with only VAR_SYMBOL properties)
+ *
+ * Filtering behavior:
+ * - Objects with VAR_SYMBOL property: returns `undefined` (completely filtered)
+ * - Arrays: filters out VAR_SYMBOL objects, returns `undefined` if empty after filtering
+ * - Objects: recursively filters properties, returns `undefined` if no properties remain
+ * - Primitives (null, undefined, numbers, strings, booleans): returned as-is
+ * - Symbol properties: intentionally filtered out for React Native compatibility
+ *
+ * @example
+ * filterCssVariables({fontSize: 16, color: {[VAR_SYMBOL]: true}}) // {fontSize: 16}
+ * filterCssVariables([{margin: 10}, {[VAR_SYMBOL]: true}]) // [{margin: 10}]
+ * filterCssVariables({color: {[VAR_SYMBOL]: true}}) // undefined (all props filtered)
  */
-function filterCssVariables(value: any, depth = 0): any {
+function filterCssVariables(value: any, depth = 0): any | undefined {
   // Prevent stack overflow on deeply nested structures
   if (depth > 100) {
     return value;
