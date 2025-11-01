@@ -17,6 +17,76 @@ import {
 } from "../reactivity";
 import { calculateProps } from "./calculate-props";
 
+/**
+ * Flattens a style array into a single object, with rightmost values taking precedence
+ */
+function flattenStyleArray(styleArray: any[]): any {
+  // Check if we can flatten to a single object (all items are plain objects)
+  const allObjects = styleArray.every(
+    (item) =>
+      item &&
+      typeof item === "object" &&
+      !Array.isArray(item) &&
+      !(VAR_SYMBOL in item),
+  );
+
+  if (!allObjects) {
+    return styleArray;
+  }
+
+  // Merge all objects with right-side precedence (later values override earlier ones)
+  return Object.assign({}, ...styleArray);
+}
+
+/**
+ * Recursively filters out CSS variable objects (with VAR_SYMBOL) from style values
+ */
+function filterCssVariables(value: any): any {
+  if (value === null || value === undefined) {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    const filtered = value
+      .map((item) => filterCssVariables(item))
+      .filter((item) => {
+        // Remove undefined items (filtered out CSS variables)
+        if (item === undefined) {
+          return false;
+        }
+        // Remove items that are objects with VAR_SYMBOL
+        if (typeof item === "object" && item !== null && VAR_SYMBOL in item) {
+          return false;
+        }
+        return true;
+      });
+    return filtered.length > 0 ? filtered : undefined;
+  }
+
+  if (typeof value === "object") {
+    // If the object itself has VAR_SYMBOL, filter it out
+    if (VAR_SYMBOL in value) {
+      return undefined;
+    }
+
+    // Otherwise, filter VAR_SYMBOL properties from nested objects
+    const filtered: Record<string, any> = {};
+    let hasProperties = false;
+
+    for (const key in value) {
+      const filteredValue = filterCssVariables(value[key]);
+      if (filteredValue !== undefined) {
+        filtered[key] = filteredValue;
+        hasProperties = true;
+      }
+    }
+
+    return hasProperties ? filtered : undefined;
+  }
+
+  return value;
+}
+
 export const stylesFamily = family(
   (
     hash: string,
@@ -145,24 +215,91 @@ function deepMergeConfig(
     ) {
       // Special handling for style target when we have inline styles
       result = { ...left, ...right };
-      // More performant approach - check for non-overlapping properties without Sets
-      if (left?.style && right?.style && rightIsInline) {
-        const leftStyle = left.style;
-        const rightStyle = right.style;
 
-        // Quick check: do any left properties NOT exist in right?
-        let hasNonOverlappingProperties = false;
-        for (const key in leftStyle) {
-          if (!(key in rightStyle)) {
-            hasNonOverlappingProperties = true;
-            break; // Early exit for performance
+      // Handle null/undefined inline styles
+      if (right?.style === null || right?.style === undefined) {
+        if (left?.style) {
+          result.style = left.style;
+        }
+      } else if (rightIsInline && right?.style) {
+        // Filter inline styles if rightIsInline is true
+        const filteredRightStyle = filterCssVariables(right.style);
+
+        if (left?.style) {
+          if (!filteredRightStyle) {
+            // All inline styles were CSS variables, only use left
+            result.style = left.style;
+          } else {
+            const leftStyle = left.style;
+
+            // For arrays or objects, check if we need to create a style array
+            const leftIsObject =
+              typeof leftStyle === "object" && !Array.isArray(leftStyle);
+            const rightIsObject =
+              typeof filteredRightStyle === "object" &&
+              !Array.isArray(filteredRightStyle);
+
+            if (leftIsObject && rightIsObject) {
+              // Quick check: do any left properties NOT exist in right?
+              let hasNonOverlappingProperties = false;
+              for (const key in leftStyle) {
+                if (!(key in filteredRightStyle)) {
+                  hasNonOverlappingProperties = true;
+                  break; // Early exit for performance
+                }
+              }
+
+              if (hasNonOverlappingProperties) {
+                result.style = [leftStyle, filteredRightStyle];
+              } else {
+                // All left properties are in right, right overrides
+                result.style = filteredRightStyle;
+              }
+            } else {
+              // One or both are arrays, merge them
+              result.style = [leftStyle, filteredRightStyle];
+            }
+          }
+        } else {
+          // No left style, just use filtered right
+          if (filteredRightStyle) {
+            result.style = filteredRightStyle;
+          } else {
+            // All filtered out, remove style prop
+            delete result.style;
           }
         }
-
-        if (hasNonOverlappingProperties) {
-          result.style = [leftStyle, rightStyle];
+      } else if (!rightIsInline && right?.style) {
+        // Merging non-inline styles (e.g., important styles)
+        if (left?.style) {
+          // If left.style is an array, append right.style
+          if (Array.isArray(left.style)) {
+            const combined = [...left.style, right.style];
+            result.style = flattenStyleArray(combined);
+          } else if (
+            typeof left.style === "object" &&
+            typeof right.style === "object"
+          ) {
+            // Both are objects, check for overlaps
+            let hasNonOverlappingProperties = false;
+            for (const key in left.style) {
+              if (!(key in right.style)) {
+                hasNonOverlappingProperties = true;
+                break;
+              }
+            }
+            if (hasNonOverlappingProperties) {
+              result.style = flattenStyleArray([left.style, right.style]);
+            } else {
+              // All left properties are overridden by right
+              result.style = right.style;
+            }
+          } else {
+            // One or both are arrays/mixed types
+            const combined = [left.style, right.style];
+            result.style = flattenStyleArray(combined);
+          }
         }
-        // Otherwise, Object.assign above will handle the override correctly
       }
     } else {
       result = Object.assign({}, left, right);
@@ -211,23 +348,8 @@ function deepMergeConfig(
   let rightValue = right?.[target];
 
   // Strip any inline variables from the target
-  if (rightIsInline && rightValue) {
-    if (Array.isArray(rightValue)) {
-      rightValue = rightValue.filter((v) => {
-        return typeof v !== "object" || !(v && VAR_SYMBOL in v);
-      });
-
-      if (rightValue.length === 0) {
-        rightValue = undefined;
-      }
-    } else if (
-      typeof rightValue === "object" &&
-      rightValue &&
-      VAR_SYMBOL in rightValue
-    ) {
-      rightValue = undefined;
-      delete result[target][VAR_SYMBOL];
-    }
+  if (rightIsInline && rightValue !== undefined) {
+    rightValue = filterCssVariables(rightValue);
   }
 
   if (rightValue !== undefined) {
