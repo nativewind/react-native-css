@@ -675,3 +675,178 @@ describe("rightIsInline - Real-World Scenarios", () => {
     expect(child.props.style).toEqual([{ color: "#000" }, { fontSize: 14 }]);
   });
 });
+
+describe("rightIsInline - Red Team Edge Cases", () => {
+  test("handles circular references with depth limit", () => {
+    registerCSS(`.container { padding: 10px; }`);
+
+    const circular: any = { color: "red", padding: 5 };
+    circular.self = circular;
+
+    const component = render(
+      <View testID={testID} className="container" style={circular} />,
+    ).getByTestId(testID);
+
+    // Should not crash, depth limit prevents infinite recursion
+    expect(component.props.style).toBeDefined();
+    // Circular reference is preserved up to depth limit, just verify no crash
+  });
+
+  test("handles sparse arrays without crashes", () => {
+    registerCSS(`.base { margin: 5px; }`);
+
+    const sparseArray = [
+      { color: "red" },
+      undefined,
+      undefined,
+      { padding: 10 },
+    ];
+
+    const component = render(
+      <View testID={testID} className="base" style={sparseArray as any} />,
+    ).getByTestId(testID);
+
+    // Should handle undefined holes in array
+    expect(component.props.style).toBeDefined();
+  });
+
+  test("handles objects with only Symbol properties", () => {
+    registerCSS(`.text { font-size: 14px; }`);
+
+    const onlySymbols = {
+      [Symbol("test")]: "value",
+      [Symbol("another")]: "data",
+    };
+
+    const component = render(
+      <Text testID={testID} className="text" style={onlySymbols as any} />,
+    ).getByTestId(testID);
+
+    // Symbols should be filtered, only className remains
+    expect(component.props.style).toEqual({ fontSize: 14 });
+  });
+
+  test("handles mixed null/undefined/falsy values in arrays", () => {
+    registerCSS(`.container { width: 100px; }`);
+
+    const mixedArray = [
+      null,
+      undefined,
+      { opacity: 0 }, // 0 is valid
+      { display: false as any }, // false might be valid
+      { padding: 10 },
+    ];
+
+    const component = render(
+      <View testID={testID} className="container" style={mixedArray as any} />,
+    ).getByTestId(testID);
+
+    // Should preserve falsy values like 0 and false in objects
+    expect(component.props.style).toBeDefined();
+    const flatStyle = Array.isArray(component.props.style)
+      ? component.props.style.flat()
+      : [component.props.style];
+    const hasOpacity = flatStyle.some(
+      (s) => s && typeof s === "object" && "opacity" in s,
+    );
+    expect(hasOpacity).toBe(true);
+  });
+
+  test("handles frozen objects without modification errors", () => {
+    registerCSS(`.frozen { margin: 5px; }`);
+
+    const frozen = Object.freeze({ color: "blue", padding: 10 });
+
+    const component = render(
+      <View testID={testID} className="frozen" style={frozen as any} />,
+    ).getByTestId(testID);
+
+    // Should not crash on frozen objects
+    expect(component.props.style).toBeDefined();
+  });
+
+  test("handles very deep nesting beyond depth limit", () => {
+    registerCSS(`.deep { color: red; }`);
+
+    // Create nesting beyond the 100 level limit
+    let veryDeep: any = { value: 1 };
+    for (let i = 0; i < 105; i++) {
+      veryDeep = { nested: veryDeep };
+    }
+
+    const component = render(
+      <View testID={testID} className="deep" style={veryDeep} />,
+    ).getByTestId(testID);
+
+    // Should hit depth limit and return gracefully
+    expect(component.props.style).toBeDefined();
+  });
+
+  test("handles __proto__ without prototype pollution", () => {
+    registerCSS(`.safe { padding: 10px; }`);
+
+    // Attempt prototype pollution
+    const malicious = {
+      color: "red",
+      __proto__: { isAdmin: true },
+    };
+
+    const component = render(
+      <View testID={testID} className="safe" style={malicious as any} />,
+    ).getByTestId(testID);
+
+    // Should not pollute prototype
+    expect(component.props.style).toBeDefined();
+    expect(({} as any).isAdmin).toBeUndefined();
+  });
+
+  test("handles arrays with custom properties", () => {
+    registerCSS(`.custom { margin: 5px; }`);
+
+    const arrayWithProps: any = [{ color: "red" }, { padding: 10 }];
+    arrayWithProps.customProp = "should be ignored";
+
+    const component = render(
+      <View testID={testID} className="custom" style={arrayWithProps} />,
+    ).getByTestId(testID);
+
+    // Custom array properties should not cause issues
+    expect(component.props.style).toBeDefined();
+  });
+
+  test("handles empty arrays and objects correctly", () => {
+    registerCSS(`.empty { width: 50px; }`);
+
+    const emptyArray: any[] = [];
+    const emptyObject = {};
+
+    const component1 = render(
+      <View testID="test1" className="empty" style={emptyArray} />,
+    ).getByTestId("test1");
+
+    const component2 = render(
+      <View testID="test2" className="empty" style={emptyObject} />,
+    ).getByTestId("test2");
+
+    // Empty styles should not break rendering
+    expect(component1.props.style).toBeDefined();
+    expect(component2.props.style).toBeDefined();
+  });
+
+  test("handles numeric string keys without issues", () => {
+    registerCSS(`.numeric { padding: 5px; }`);
+
+    const numericKeys = {
+      "0": "value0",
+      "1": "value1",
+      "color": "red",
+    };
+
+    const component = render(
+      <View testID={testID} className="numeric" style={numericKeys as any} />,
+    ).getByTestId(testID);
+
+    // Numeric string keys should be handled
+    expect(component.props.style).toBeDefined();
+  });
+});
