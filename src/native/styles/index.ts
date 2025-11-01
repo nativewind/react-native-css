@@ -18,54 +18,86 @@ import {
 import { calculateProps } from "./calculate-props";
 
 /**
+ * Checks if two style objects have non-overlapping properties
+ */
+function hasNonOverlappingProperties(
+  left: Record<string, any>,
+  right: Record<string, any>,
+): boolean {
+  // Null safety check
+  if (!left || !right) {
+    return false;
+  }
+
+  // Only check own properties to avoid prototype pollution
+  for (const key in left) {
+    if (Object.prototype.hasOwnProperty.call(left, key)) {
+      if (!Object.prototype.hasOwnProperty.call(right, key)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
  * Flattens a style array into a single object, with rightmost values taking precedence
  */
 function flattenStyleArray(styleArray: any[]): any {
   // Check if we can flatten to a single object (all items are plain objects)
-  const allObjects = styleArray.every(
-    (item) =>
-      item &&
-      typeof item === "object" &&
-      !Array.isArray(item) &&
-      !(VAR_SYMBOL in item),
-  );
-
-  if (!allObjects) {
-    return styleArray;
+  for (const item of styleArray) {
+    // Use explicit null check instead of !item to allow falsy values like 0 or false
+    if (
+      item == null ||
+      typeof item !== "object" ||
+      Array.isArray(item) ||
+      Object.prototype.hasOwnProperty.call(item, VAR_SYMBOL)
+    ) {
+      return styleArray;
+    }
   }
 
-  // Merge all objects with right-side precedence (later values override earlier ones)
-  return Object.assign({}, ...styleArray);
+  // Use reduce to avoid spread operator performance issues with large arrays
+  return styleArray.reduce((acc, item) => Object.assign(acc, item), {});
 }
 
 /**
  * Recursively filters out CSS variable objects (with VAR_SYMBOL) from style values
  */
-function filterCssVariables(value: any): any {
+function filterCssVariables(value: any, depth = 0): any {
+  // Prevent stack overflow on deeply nested structures
+  if (depth > 100) {
+    return value;
+  }
+
   if (value === null || value === undefined) {
     return value;
   }
 
   if (Array.isArray(value)) {
-    const filtered = value
-      .map((item) => filterCssVariables(item))
-      .filter((item) => {
-        // Remove undefined items (filtered out CSS variables)
-        if (item === undefined) {
-          return false;
-        }
-        // Remove items that are objects with VAR_SYMBOL
-        if (typeof item === "object" && item !== null && VAR_SYMBOL in item) {
-          return false;
-        }
-        return true;
-      });
+    // Single-pass filter with map operation
+    const filtered: any[] = [];
+
+    for (const item of value) {
+      const filteredItem = filterCssVariables(item, depth + 1);
+      if (
+        filteredItem !== undefined &&
+        !(
+          typeof filteredItem === "object" &&
+          filteredItem !== null &&
+          Object.prototype.hasOwnProperty.call(filteredItem, VAR_SYMBOL)
+        )
+      ) {
+        filtered.push(filteredItem);
+      }
+    }
+
     return filtered.length > 0 ? filtered : undefined;
   }
 
   if (typeof value === "object") {
-    // If the object itself has VAR_SYMBOL, filter it out
-    if (VAR_SYMBOL in value) {
+    // If the object itself has VAR_SYMBOL, filter it out (check own property only)
+    if (Object.prototype.hasOwnProperty.call(value, VAR_SYMBOL)) {
       return undefined;
     }
 
@@ -73,8 +105,10 @@ function filterCssVariables(value: any): any {
     const filtered: Record<string, any> = {};
     let hasProperties = false;
 
-    for (const key in value) {
-      const filteredValue = filterCssVariables(value[key]);
+    // Use Object.keys to only iterate own string properties (not inherited, not Symbols)
+    // This intentionally filters out Symbol properties for React Native compatibility
+    for (const key of Object.keys(value)) {
+      const filteredValue = filterCssVariables(value[key], depth + 1);
       if (filteredValue !== undefined) {
         filtered[key] = filteredValue;
         hasProperties = true;
@@ -240,16 +274,7 @@ function deepMergeConfig(
               !Array.isArray(filteredRightStyle);
 
             if (leftIsObject && rightIsObject) {
-              // Quick check: do any left properties NOT exist in right?
-              let hasNonOverlappingProperties = false;
-              for (const key in leftStyle) {
-                if (!(key in filteredRightStyle)) {
-                  hasNonOverlappingProperties = true;
-                  break; // Early exit for performance
-                }
-              }
-
-              if (hasNonOverlappingProperties) {
+              if (hasNonOverlappingProperties(leftStyle, filteredRightStyle)) {
                 result.style = [leftStyle, filteredRightStyle];
               } else {
                 // All left properties are in right, right overrides
@@ -281,14 +306,7 @@ function deepMergeConfig(
             typeof right.style === "object"
           ) {
             // Both are objects, check for overlaps
-            let hasNonOverlappingProperties = false;
-            for (const key in left.style) {
-              if (!(key in right.style)) {
-                hasNonOverlappingProperties = true;
-                break;
-              }
-            }
-            if (hasNonOverlappingProperties) {
+            if (hasNonOverlappingProperties(left.style, right.style)) {
               result.style = flattenStyleArray([left.style, right.style]);
             } else {
               // All left properties are overridden by right
