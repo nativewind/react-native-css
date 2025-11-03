@@ -17,6 +17,149 @@ import {
 } from "../reactivity";
 import { calculateProps } from "./calculate-props";
 
+/**
+ * Checks if the left style object has any properties that are not present in the right style object.
+ * This is used to determine if styles need to be preserved in an array or if right can completely override left.
+ *
+ * Note: This intentionally only checks one direction (left → right). We don't need to check if right has
+ * properties that left doesn't have, because right will always be applied/merged. The question we're
+ * answering is: "Does left have any properties that would be lost if we just used right?" If yes, we
+ * create a style array [left, right] to preserve both. If no, right can safely replace left entirely.
+ *
+ * @param left - The left style object to check
+ * @param right - The right style object to compare against
+ * @returns true if left has at least one property key that doesn't exist in right, false otherwise
+ *
+ * @example
+ * hasNonOverlappingProperties({color: 'red', fontSize: 12}, {color: 'blue'}) // true - fontSize is not in right
+ * hasNonOverlappingProperties({color: 'red'}, {color: 'blue', fontSize: 12}) // false - all left keys exist in right
+ */
+function hasNonOverlappingProperties(
+  left: Record<string, any>,
+  right: Record<string, any>,
+): boolean {
+  // Null safety check
+  if (!left || !right) {
+    return false;
+  }
+
+  // Only check own properties to avoid prototype pollution
+  for (const key in left) {
+    if (Object.prototype.hasOwnProperty.call(left, key)) {
+      if (!Object.prototype.hasOwnProperty.call(right, key)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * Flattens a style array into a single object when possible, with rightmost values taking precedence.
+ * Returns the original array if it contains any non-plain objects, arrays, or CSS variable objects.
+ *
+ * Note: This function assumes the input array has already been filtered (e.g., by filterCssVariables),
+ * so empty arrays should not reach this function. If they do, they will be treated as non-flattenable.
+ *
+ * @param styleArray - The style array to potentially flatten
+ * @returns A single merged object if all items are plain objects, otherwise the original array
+ */
+function flattenStyleArray(styleArray: any[]): any {
+  // Check if we can flatten to a single object (all items are plain objects)
+  for (const item of styleArray) {
+    // Use explicit null check instead of !item to allow falsy values like 0 or false
+    if (
+      item == null ||
+      typeof item !== "object" ||
+      Array.isArray(item) ||
+      Object.prototype.hasOwnProperty.call(item, VAR_SYMBOL)
+    ) {
+      return styleArray;
+    }
+  }
+
+  // Use reduce to avoid spread operator performance issues with large arrays
+  return styleArray.reduce((acc, item) => Object.assign(acc, item), {});
+}
+
+/**
+ * Recursively filters out CSS variable objects (with VAR_SYMBOL) from style values.
+ * This prevents CSS variable runtime objects from leaking into React Native component props.
+ *
+ * @param value - The value to filter (can be any type: object, array, primitive, etc.)
+ * @param depth - Internal recursion depth counter to prevent stack overflow (max 100)
+ * @returns The filtered value with CSS variables removed, or `undefined` if the entire value
+ *          should be filtered out (e.g., empty arrays, objects with only VAR_SYMBOL properties)
+ *
+ * Filtering behavior:
+ * - Objects with VAR_SYMBOL property: returns `undefined` (completely filtered)
+ * - Arrays: filters out VAR_SYMBOL objects, returns `undefined` if empty after filtering
+ * - Objects: recursively filters properties, returns `undefined` if no properties remain
+ * - Primitives (null, undefined, numbers, strings, booleans): returned as-is
+ * - Symbol properties: intentionally filtered out for React Native compatibility
+ *
+ * @example
+ * filterCssVariables({fontSize: 16, color: {[VAR_SYMBOL]: true}}) // {fontSize: 16}
+ * filterCssVariables([{margin: 10}, {[VAR_SYMBOL]: true}]) // [{margin: 10}]
+ * filterCssVariables({color: {[VAR_SYMBOL]: true}}) // undefined (all props filtered)
+ */
+function filterCssVariables(value: any, depth = 0): any | undefined {
+  // Prevent stack overflow on deeply nested structures
+  if (depth > 100) {
+    return value;
+  }
+
+  if (value === null || value === undefined) {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    // Single-pass filter with map operation
+    const filtered: any[] = [];
+
+    for (const item of value) {
+      const filteredItem = filterCssVariables(item, depth + 1);
+      if (
+        filteredItem !== undefined &&
+        !(
+          typeof filteredItem === "object" &&
+          filteredItem !== null &&
+          Object.prototype.hasOwnProperty.call(filteredItem, VAR_SYMBOL)
+        )
+      ) {
+        filtered.push(filteredItem);
+      }
+    }
+
+    return filtered.length > 0 ? filtered : undefined;
+  }
+
+  if (typeof value === "object") {
+    // If the object itself has VAR_SYMBOL, filter it out (check own property only)
+    if (Object.prototype.hasOwnProperty.call(value, VAR_SYMBOL)) {
+      return undefined;
+    }
+
+    // Otherwise, filter VAR_SYMBOL properties from nested objects
+    const filtered: Record<string, any> = {};
+    let hasProperties = false;
+
+    // Use Object.keys to only iterate own string properties (not inherited, not Symbols)
+    // This intentionally filters out Symbol properties for React Native compatibility
+    for (const key of Object.keys(value)) {
+      const filteredValue = filterCssVariables(value[key], depth + 1);
+      if (filteredValue !== undefined) {
+        filtered[key] = filteredValue;
+        hasProperties = true;
+      }
+    }
+
+    return hasProperties ? filtered : undefined;
+  }
+
+  return value;
+}
+
 export const stylesFamily = family(
   (
     hash: string,
@@ -145,24 +288,75 @@ function deepMergeConfig(
     ) {
       // Special handling for style target when we have inline styles
       result = { ...left, ...right };
-      // More performant approach - check for non-overlapping properties without Sets
-      if (left?.style && right?.style && rightIsInline) {
-        const leftStyle = left.style;
-        const rightStyle = right.style;
 
-        // Quick check: do any left properties NOT exist in right?
-        let hasNonOverlappingProperties = false;
-        for (const key in leftStyle) {
-          if (!(key in rightStyle)) {
-            hasNonOverlappingProperties = true;
-            break; // Early exit for performance
+      // Handle null/undefined inline styles
+      if (right?.style === null || right?.style === undefined) {
+        if (left?.style) {
+          result.style = left.style;
+        }
+      } else if (rightIsInline && right?.style) {
+        // Filter inline styles if rightIsInline is true
+        const filteredRightStyle = filterCssVariables(right.style);
+
+        if (left?.style) {
+          if (!filteredRightStyle) {
+            // All inline styles were CSS variables, only use left
+            result.style = left.style;
+          } else {
+            const leftStyle = left.style;
+
+            // For arrays or objects, check if we need to create a style array
+            const leftIsObject =
+              typeof leftStyle === "object" && !Array.isArray(leftStyle);
+            const rightIsObject =
+              typeof filteredRightStyle === "object" &&
+              !Array.isArray(filteredRightStyle);
+
+            if (leftIsObject && rightIsObject) {
+              if (hasNonOverlappingProperties(leftStyle, filteredRightStyle)) {
+                result.style = [leftStyle, filteredRightStyle];
+              } else {
+                // All left properties are in right, right overrides
+                result.style = filteredRightStyle;
+              }
+            } else {
+              // One or both are arrays, merge them
+              result.style = [leftStyle, filteredRightStyle];
+            }
+          }
+        } else {
+          // No left style, just use filtered right
+          if (filteredRightStyle) {
+            result.style = filteredRightStyle;
+          } else {
+            // All filtered out, remove style prop
+            delete result.style;
           }
         }
-
-        if (hasNonOverlappingProperties) {
-          result.style = [leftStyle, rightStyle];
+      } else if (!rightIsInline && right?.style) {
+        // Merging non-inline styles (e.g., important styles)
+        if (left?.style) {
+          // If left.style is an array, append right.style
+          if (Array.isArray(left.style)) {
+            const combined = [...left.style, right.style];
+            result.style = flattenStyleArray(combined);
+          } else if (
+            typeof left.style === "object" &&
+            typeof right.style === "object"
+          ) {
+            // Both are objects, check for overlaps
+            if (hasNonOverlappingProperties(left.style, right.style)) {
+              result.style = flattenStyleArray([left.style, right.style]);
+            } else {
+              // All left properties are overridden by right
+              result.style = right.style;
+            }
+          } else {
+            // One or both are arrays/mixed types
+            const combined = [left.style, right.style];
+            result.style = flattenStyleArray(combined);
+          }
         }
-        // Otherwise, Object.assign above will handle the override correctly
       }
     } else {
       result = Object.assign({}, left, right);
@@ -211,23 +405,8 @@ function deepMergeConfig(
   let rightValue = right?.[target];
 
   // Strip any inline variables from the target
-  if (rightIsInline && rightValue) {
-    if (Array.isArray(rightValue)) {
-      rightValue = rightValue.filter((v) => {
-        return typeof v !== "object" || !(v && VAR_SYMBOL in v);
-      });
-
-      if (rightValue.length === 0) {
-        rightValue = undefined;
-      }
-    } else if (
-      typeof rightValue === "object" &&
-      rightValue &&
-      VAR_SYMBOL in rightValue
-    ) {
-      rightValue = undefined;
-      delete result[target][VAR_SYMBOL];
-    }
+  if (rightIsInline && rightValue !== undefined) {
+    rightValue = filterCssVariables(rightValue);
   }
 
   if (rightValue !== undefined) {
