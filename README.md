@@ -117,7 +117,7 @@ export default function App() {
   return (
     <MyView className="container">
       <MyView className="box" />
-    </View>
+    </MyView>
   );
 }
 ```
