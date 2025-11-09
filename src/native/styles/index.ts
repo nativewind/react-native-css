@@ -362,7 +362,7 @@ function deepMergeConfig(
       result = Object.assign({}, left, right);
     }
   } else {
-    result = { ...left };
+    result = Object.assign({}, left, right);
   }
 
   if (
