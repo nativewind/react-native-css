@@ -31,7 +31,7 @@ export const styled = <
   _options?: StyledOptions,
 ) => {
   return (props: StyledProps<ComponentPropsWithRef<C>, M>) => {
-    return useCssElement(baseComponent, mapping, props);
+    return useCssElement(baseComponent, props, mapping);
   };
 };
 
