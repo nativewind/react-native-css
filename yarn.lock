@@ -10993,7 +10993,7 @@ __metadata:
     react-native-css: "link:../"
     react-native-reanimated: "npm:~4.1.0"
     react-native-web: "npm:~0.21.1"
-    react-native-worklets: "npm:~0.5.0"
+    react-native-worklets: "npm:~0.6.1"
   languageName: unknown
   linkType: soft
 
@@ -11044,7 +11044,7 @@ __metadata:
     react-native-builder-bob: "npm:^0.40.13"
     react-native-reanimated: "npm:~4.1.0"
     react-native-safe-area-context: "npm:5.6.1"
-    react-native-worklets: "npm:~0.5.0"
+    react-native-worklets: "npm:~0.6.1"
     react-refresh: "npm:^0.17.0"
     react-test-renderer: "npm:19.1.0"
     release-it: "npm:^19.0.4"
@@ -11124,9 +11124,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-worklets@npm:~0.5.0":
-  version: 0.5.1
-  resolution: "react-native-worklets@npm:0.5.1"
+"react-native-worklets@npm:~0.6.1":
+  version: 0.6.1
+  resolution: "react-native-worklets@npm:0.6.1"
   dependencies:
     "@babel/plugin-transform-arrow-functions": "npm:^7.0.0-0"
     "@babel/plugin-transform-class-properties": "npm:^7.0.0-0"
@@ -11143,7 +11143,7 @@ __metadata:
     "@babel/core": ^7.0.0-0
     react: "*"
     react-native: "*"
-  checksum: 10c0/9eb9e6dea9abaf889400a6618355ef59af3075f5004a4bec9e4cba6dcfd13d8b63de0d4b29d75c00a3dcf5ad422e1bdb71636c75b1a2ad1c43d8b512f198bdab
+  checksum: 10c0/bc3dcca00e287939aeb7ee7be501f15a0ac59c9351c60efafa89447d70e549e7f126705c154d92dd6e0cab924bf25f3c6ec1234a55a4daa9d3b3f26aa7871777
   languageName: node
   linkType: hard
 
