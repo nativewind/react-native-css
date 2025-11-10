@@ -1604,20 +1604,20 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@commitlint/cli@npm:^20.0.0":
-  version: 20.0.0
-  resolution: "@commitlint/cli@npm:20.0.0"
+"@commitlint/cli@npm:^20.1.0":
+  version: 20.1.0
+  resolution: "@commitlint/cli@npm:20.1.0"
   dependencies:
     "@commitlint/format": "npm:^20.0.0"
     "@commitlint/lint": "npm:^20.0.0"
-    "@commitlint/load": "npm:^20.0.0"
+    "@commitlint/load": "npm:^20.1.0"
     "@commitlint/read": "npm:^20.0.0"
     "@commitlint/types": "npm:^20.0.0"
     tinyexec: "npm:^1.0.0"
     yargs: "npm:^17.0.0"
   bin:
     commitlint: ./cli.js
-  checksum: 10c0/d9f6b7e155be73804884a8cd218eddc78ca0fa082461968ccc6ba04b38fc548afa4101e0c00c6a285c35ae31bdf499c0d1e48a72742ab6679c7fe268bf2c3d88
+  checksum: 10c0/ce3914947e6ab9ad658c52e697e4b1e1dac7c80313253a4f9fdfa9a1fb10df9e6cc06d89f7daae4b6a2d157b967f28cc39856c8a6bf11a4a4ed653d011b3f81a
   languageName: node
   linkType: hard
 
@@ -1694,13 +1694,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@commitlint/load@npm:^20.0.0":
-  version: 20.0.0
-  resolution: "@commitlint/load@npm:20.0.0"
+"@commitlint/load@npm:^20.1.0":
+  version: 20.1.0
+  resolution: "@commitlint/load@npm:20.1.0"
   dependencies:
     "@commitlint/config-validator": "npm:^20.0.0"
     "@commitlint/execute-rule": "npm:^20.0.0"
-    "@commitlint/resolve-extends": "npm:^20.0.0"
+    "@commitlint/resolve-extends": "npm:^20.1.0"
     "@commitlint/types": "npm:^20.0.0"
     chalk: "npm:^5.3.0"
     cosmiconfig: "npm:^9.0.0"
@@ -1708,7 +1708,7 @@ __metadata:
     lodash.isplainobject: "npm:^4.0.6"
     lodash.merge: "npm:^4.6.2"
     lodash.uniq: "npm:^4.5.0"
-  checksum: 10c0/d0b02e6b943db0f7a2892e63fdd5c8f5015c02caee7c3f6c20324870a40b9ed49fd4a5aa6e9e5b7d4270ff1446c6972c4f01043f727a6f9bc1663144b8197ca1
+  checksum: 10c0/cabbd8311605afd2a9437b7bb9174c2307453ed6a8ff5bee4738470efcc316c998c7e0660b5342e191e20962af0ab76bc608ce5812e23b1a0207fe60e9dd238f
   languageName: node
   linkType: hard
 
@@ -1743,9 +1743,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@commitlint/resolve-extends@npm:^20.0.0":
-  version: 20.0.0
-  resolution: "@commitlint/resolve-extends@npm:20.0.0"
+"@commitlint/resolve-extends@npm:^20.1.0":
+  version: 20.1.0
+  resolution: "@commitlint/resolve-extends@npm:20.1.0"
   dependencies:
     "@commitlint/config-validator": "npm:^20.0.0"
     "@commitlint/types": "npm:^20.0.0"
@@ -1753,7 +1753,7 @@ __metadata:
     import-meta-resolve: "npm:^4.0.0"
     lodash.mergewith: "npm:^4.6.2"
     resolve-from: "npm:^5.0.0"
-  checksum: 10c0/22b744cfbfdf38af90c6472f9d3a348a467c1ce3ef752342e3571fc9a07ee26ddeef16fb9fe4b5ace0894feb4e749987093bfc45d1ec4b8912d02dd7f4ec677f
+  checksum: 10c0/d5b30a5266310070d729eafb2ca5aaac9426de8d978dc5f459f41cc6d5d726b00bb5892f3a65f80ebf728752465e2fdb3cb4738118a65004beace675a72f4081
   languageName: node
   linkType: hard
 
@@ -5307,14 +5307,14 @@ __metadata:
   linkType: hard
 
 "commitlint@npm:^20.0.0":
-  version: 20.0.0
-  resolution: "commitlint@npm:20.0.0"
+  version: 20.1.0
+  resolution: "commitlint@npm:20.1.0"
   dependencies:
-    "@commitlint/cli": "npm:^20.0.0"
+    "@commitlint/cli": "npm:^20.1.0"
     "@commitlint/types": "npm:^20.0.0"
   bin:
     commitlint: cli.js
-  checksum: 10c0/021754d58f5680eb23135ab1cb05d8b7e5c7e7206eeacb5131b5998560249cd46e333b639b381b2d4bc8ed2cb5786e49528625c2e3c296a36c9f0e66a1f366f7
+  checksum: 10c0/c3e85c70ce8bffff85e89aa7a07f2676f4a9825814425133d760dead7883ce2ff812b3347683c426a649237fdbbb5c777cb0773f1099f16764c26a288d123b87
   languageName: node
   linkType: hard
 
