@@ -226,7 +226,7 @@
     "postcss": "^8.5.6",
     "prettier": "^3.6.2",
     "react": "19.1.0",
-    "react-native": "0.81.4",
+    "react-native": "0.82.1",
     "react-native-builder-bob": "^0.40.13",
     "react-native-reanimated": "~4.1.0",
     "react-native-safe-area-context": "5.6.1",
