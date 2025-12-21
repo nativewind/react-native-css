@@ -12,7 +12,7 @@ const mapping: StyledConfiguration<typeof RNTextInput> = {
   className: {
     target: "style",
     nativeStyleMapping: {
-      textAlign: true,
+      textAlign: "textAlign",
     },
   },
 };
