@@ -47,6 +47,18 @@
         "types": "./dist/typescript/commonjs/src/components/index.d.ts"
       }
     },
+    "./components/react-native-safe-area-context": {
+      "source": "./src/components/react-native-safe-area-context.native.tsx",
+      "react-native": "./src/components/react-native-safe-area-context.native.tsx",
+      "import": {
+        "types": "./dist/typescript/module/src/components/react-native-safe-area-context.d.ts",
+        "default": "./dist/module/components/react-native-safe-area-context.js"
+      },
+      "require": {
+        "types": "./dist/typescript/commonjs/src/components/react-native-safe-area-context.d.ts",
+        "default": "./dist/commonjs/components/react-native-safe-area-context.js"
+      }
+    },
     "./components/*": {
       "source": "./src/components/*.tsx",
       "react-native": "./src/components/*.tsx",
