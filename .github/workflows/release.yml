@@ -1,6 +1,18 @@
 name: Release & Publish to NPM
 
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+    inputs:
+      release-type:
+        description: "Release type"
+        required: true
+        default: "preview"
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - preview
 
 permissions:
   contents: write
@@ -31,7 +43,11 @@ jobs:
 
       - name: Run release
         run: |
-          yarn release --ci --preRelease=preview
+          if [ "${{ inputs.release-type }}" = "preview" ]; then
+            yarn release --ci --preRelease=preview
+          else
+            yarn release --ci --increment=${{ inputs.release-type }}
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
