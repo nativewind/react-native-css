@@ -176,15 +176,15 @@ export default function App() {
 > This hook may not support all features of the library.
 > This hooks does not support container queries or inheritance for children elements.
 
-#### `useNativeCssVariable`
+#### `useNativeVariable`
 
-If you just require a CSS variable value, you can use the `useNativeCssVariable` hook:
+If you just require a CSS variable value, you can use the `useNativeVariable` hook:
 
 ```ts
-import { useNativeCssVariable } from 'react-native-css';
+import { useNativeVariable } from 'react-native-css';
 
 export default function App() {
-  const myColor = useNativeCssVariable("--my-color");
+  const myColor = useNativeVariable("--my-color");
 
   return (
     <View style={{ backgroundColor: myColor }}>
