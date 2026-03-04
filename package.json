@@ -197,6 +197,7 @@
     "!**/__mocks__"
   ],
   "dependencies": {
+    "@types/debug": "^4.1.12",
     "babel-plugin-react-compiler": "^19.1.0-rc.2",
     "colorjs.io": "0.6.0-alpha.1",
     "comment-json": "^4.2.5",
@@ -218,7 +219,6 @@
     "@testing-library/react-native": "^13.3.3",
     "@tsconfig/react-native": "^3.0.6",
     "@types/babel__core": "^7",
-    "@types/debug": "^4.1.12",
     "@types/jest": "^30.0.0",
     "@types/react": "^19.1.10",
     "@types/react-test-renderer": "^19",
