@@ -93,3 +93,169 @@ test("shadow values - multiple nested variables", () => {
     ],
   });
 });
+
+test("inset shadow - basic", () => {
+  registerCSS(`
+    .test { box-shadow: inset 0 2px 4px 0 #000; }
+  `);
+
+  render(<View testID={testID} className="test" />);
+  const component = screen.getByTestId(testID);
+
+  expect(component.props.style).toStrictEqual({
+    boxShadow: [
+      {
+        inset: true,
+        offsetX: 0,
+        offsetY: 2,
+        blurRadius: 4,
+        spreadDistance: 0,
+        color: "#000",
+      },
+    ],
+  });
+});
+
+test("inset shadow - with color first", () => {
+  registerCSS(`
+    .test { box-shadow: inset #fb2c36 0 0 24px 0; }
+  `);
+
+  render(<View testID={testID} className="test" />);
+  const component = screen.getByTestId(testID);
+
+  expect(component.props.style).toStrictEqual({
+    boxShadow: [
+      {
+        inset: true,
+        color: "#fb2c36",
+        offsetX: 0,
+        offsetY: 0,
+        blurRadius: 24,
+        spreadDistance: 0,
+      },
+    ],
+  });
+});
+
+test("inset shadow - without color inherits default", () => {
+  registerCSS(`
+    .test { box-shadow: inset 0 0 10px 5px; }
+  `);
+
+  render(<View testID={testID} className="test" />);
+  const component = screen.getByTestId(testID);
+
+  // Shadows without explicit color inherit the default text color (__rn-css-color)
+  expect(component.props.style.boxShadow).toHaveLength(1);
+  expect(component.props.style.boxShadow[0]).toMatchObject({
+    inset: true,
+    offsetX: 0,
+    offsetY: 0,
+    blurRadius: 10,
+    spreadDistance: 5,
+  });
+  // Color is inherited from platform default (PlatformColor)
+  expect(component.props.style.boxShadow[0].color).toBeDefined();
+});
+
+test("mixed inset and regular shadows", () => {
+  registerCSS(`
+    .test { box-shadow: 0 4px 6px -1px #000, inset 0 2px 4px 0 #fff; }
+  `);
+
+  render(<View testID={testID} className="test" />);
+  const component = screen.getByTestId(testID);
+
+  expect(component.props.style).toStrictEqual({
+    boxShadow: [
+      {
+        offsetX: 0,
+        offsetY: 4,
+        blurRadius: 6,
+        spreadDistance: -1,
+        color: "#000",
+      },
+      {
+        inset: true,
+        offsetX: 0,
+        offsetY: 2,
+        blurRadius: 4,
+        spreadDistance: 0,
+        color: "#fff",
+      },
+    ],
+  });
+});
+
+test("inset shadow via CSS variable", () => {
+  registerCSS(`
+    :root { --my-shadow: inset 0 2px 4px 0 #000; }
+    .test { box-shadow: var(--my-shadow); }
+  `);
+
+  render(<View testID={testID} className="test" />);
+  const component = screen.getByTestId(testID);
+
+  expect(component.props.style).toStrictEqual({
+    boxShadow: [
+      {
+        inset: true,
+        offsetX: 0,
+        offsetY: 2,
+        blurRadius: 4,
+        spreadDistance: 0,
+        color: "#000",
+      },
+    ],
+  });
+});
+
+test("inset shadow via CSS variable - blur and color without spread", () => {
+  // CSS parser normalizes omitted spread to 0, so this exercises the
+  // [inset, offsetX, offsetY, blurRadius, spreadDistance, color] pattern
+  registerCSS(`
+    :root { --my-shadow: inset 0 2px 4px #000; }
+    .test { box-shadow: var(--my-shadow); }
+  `);
+
+  render(<View testID={testID} className="test" />);
+  const component = screen.getByTestId(testID);
+
+  expect(component.props.style).toStrictEqual({
+    boxShadow: [
+      {
+        inset: true,
+        offsetX: 0,
+        offsetY: 2,
+        blurRadius: 4,
+        spreadDistance: 0,
+        color: "#000",
+      },
+    ],
+  });
+});
+
+test("shadow values from CSS variable are resolved", () => {
+  registerCSS(`
+    :root {
+      --my-shadow: 0 0 0 0 #0000;
+    }
+    .test { box-shadow: var(--my-shadow); }
+  `);
+
+  render(<View testID={testID} className="test" />);
+  const component = screen.getByTestId(testID);
+
+  expect(component.props.style).toStrictEqual({
+    boxShadow: [
+      {
+        offsetX: 0,
+        offsetY: 0,
+        blurRadius: 0,
+        spreadDistance: 0,
+        color: "#0000",
+      },
+    ],
+  });
+});
