@@ -259,3 +259,67 @@ test("shadow values from CSS variable are resolved", () => {
     ],
   });
 });
+
+test("@property defaults enable shadow class override", () => {
+  registerCSS(`
+    @property --my-shadow {
+      syntax: "*";
+      inherits: false;
+      initial-value: 0 0 #0000;
+    }
+    @property --my-ring {
+      syntax: "*";
+      inherits: false;
+      initial-value: 0 0 #0000;
+    }
+
+    .test {
+      --my-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      box-shadow: var(--my-ring), var(--my-shadow);
+    }
+  `);
+
+  render(<View testID={testID} className="test" />);
+  const component = screen.getByTestId(testID);
+
+  expect(component.props.style.boxShadow).toHaveLength(1);
+  expect(component.props.style.boxShadow[0]).toMatchObject({
+    offsetX: 0,
+    offsetY: 4,
+    blurRadius: 6,
+    spreadDistance: -1,
+  });
+});
+
+test("@property defaults with currentcolor (object color)", () => {
+  registerCSS(`
+    @property --my-shadow {
+      syntax: "*";
+      inherits: false;
+      initial-value: 0 0 #0000;
+    }
+    @property --my-ring {
+      syntax: "*";
+      inherits: false;
+      initial-value: 0 0 #0000;
+    }
+
+    .test {
+      --my-ring: 0 0 0 2px currentcolor;
+      box-shadow: var(--my-shadow), var(--my-ring);
+    }
+  `);
+
+  render(<View testID={testID} className="test" />);
+  const component = screen.getByTestId(testID);
+
+  expect(component.props.style.boxShadow).toHaveLength(1);
+  expect(component.props.style.boxShadow[0]).toMatchObject({
+    offsetX: 0,
+    offsetY: 0,
+    blurRadius: 0,
+    spreadDistance: 2,
+  });
+  // currentcolor resolves to a platform color object, not a string
+  expect(typeof component.props.style.boxShadow[0].color).toBe("object");
+});

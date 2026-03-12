@@ -577,6 +577,12 @@ export class StylesheetBuilder {
     this.ruleTemplate.cq.push(query);
   }
 
+  addRootVariable(name: string, value: StyleDescriptor) {
+    this.shared.rootVariables ??= {};
+    this.shared.rootVariables[name] ??= [];
+    this.shared.rootVariables[name].push([value]);
+  }
+
   newAnimationFrames(name: string) {
     this.shared.animations ??= {};
 
