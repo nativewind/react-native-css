@@ -9,16 +9,23 @@ const offsetX = ["offsetX", "number"] as const;
 const offsetY = ["offsetY", "number"] as const;
 const blurRadius = ["blurRadius", "number"] as const;
 const spreadDistance = ["spreadDistance", "number"] as const;
-// const inset = ["inset", "string"] as const;
+// Match the literal string "inset" - the array type checks if value is in array
+const inset = ["inset", ["inset"]] as const;
 
 const handler = shorthandHandler(
   [
+    // Standard patterns (without inset)
     [offsetX, offsetY, blurRadius, spreadDistance],
     [offsetX, offsetY, blurRadius, spreadDistance, color],
     [color, offsetX, offsetY],
     [color, offsetX, offsetY, blurRadius, spreadDistance],
     [offsetX, offsetY, color],
     [offsetX, offsetY, blurRadius, color],
+    // Inset patterns - "inset" keyword at the beginning
+    [inset, offsetX, offsetY, blurRadius, spreadDistance],
+    [inset, offsetX, offsetY, blurRadius, spreadDistance, color],
+    [inset, offsetX, offsetY, blurRadius, color],
+    [inset, color, offsetX, offsetY, blurRadius, spreadDistance],
   ],
   [],
   "object",
@@ -41,8 +48,10 @@ export const boxShadow: StyleFunctionResolver = (
         if (shadows === undefined) {
           return;
         } else {
-          return omitTransparentShadows(
-            handler(resolveValue, shadows, get, options),
+          return normalizeInsetValue(
+            omitTransparentShadows(
+              handler(resolveValue, shadows, get, options),
+            ),
           );
         }
       })
@@ -65,6 +74,20 @@ function omitTransparentShadows(style: unknown) {
     if (style.color === "#0000" || style.color === "transparent") {
       return;
     }
+  }
+
+  return style;
+}
+
+/**
+ * Convert inset: "inset" to inset: true for React Native boxShadow.
+ *
+ * The shorthand handler matches the literal "inset" string and assigns it as the value.
+ * React Native's boxShadow expects inset to be a boolean.
+ */
+function normalizeInsetValue(style: unknown) {
+  if (typeof style === "object" && style && "inset" in style) {
+    return { ...style, inset: true };
   }
 
   return style;
