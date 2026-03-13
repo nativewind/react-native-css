@@ -4,7 +4,9 @@ import { isStyleDescriptorArray } from "react-native-css/utilities";
 import type { StyleFunctionResolver } from "../resolve";
 import { shorthandHandler } from "./_handler";
 
-const color = ["color", "string"] as const;
+// "color" type accepts both strings ("#fff") and objects (PlatformColor from currentcolor).
+// Using "string" here would reject platform color objects and silently drop the shadow.
+const color = ["color", "color"] as const;
 const offsetX = ["offsetX", "number"] as const;
 const offsetY = ["offsetY", "number"] as const;
 const blurRadius = ["blurRadius", "number"] as const;

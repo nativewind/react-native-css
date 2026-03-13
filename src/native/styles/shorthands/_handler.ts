@@ -1,5 +1,8 @@
 /* eslint-disable */
-import { isStyleDescriptorArray } from "react-native-css/utilities";
+import {
+  isStyleDescriptorArray,
+  isStyleFunction,
+} from "react-native-css/utilities";
 
 import { setDeepPath } from "../../objects";
 import { ShortHandSymbol } from "../constants";
@@ -54,6 +57,16 @@ export function shorthandHandler(
 
           if (Array.isArray(type)) {
             return type.includes(value) || type.includes(typeof value);
+          }
+
+          // Style functions (var, calc, env, etc.) are unresolved at pattern-match
+          // time — their actual values won't be known until runtime variable
+          // resolution. Accepting them in any type slot makes pattern matching
+          // less strict when variables are involved, but rejecting them would
+          // break variable-based shadows entirely (e.g. box-shadow: var(--shadow)
+          // where --shadow resolves to "0 4px 6px -1px #000").
+          if (isStyleFunction(value)) {
+            return true;
           }
 
           switch (type) {

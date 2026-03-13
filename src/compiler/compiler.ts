@@ -7,6 +7,8 @@ import {
   type MediaQuery as CSSMediaQuery,
   type CustomAtRules,
   type MediaRule,
+  type ParsedComponent,
+  type PropertyRule,
   type Rule,
   type Visitor,
 } from "lightningcss";
@@ -15,11 +17,19 @@ import { maybeMutateReactNativeOptions, parsePropAtRule } from "./atRules";
 import type {
   CompilerOptions,
   ContainerQuery,
+  StyleDescriptor,
   StyleRuleMapping,
   UniqueVarInfo,
 } from "./compiler.types";
 import { parseContainerCondition } from "./container-query";
-import { parseDeclaration, round } from "./declarations";
+import {
+  parseAngle,
+  parseColor,
+  parseDeclaration,
+  parseLength,
+  reduceParseUnparsed,
+  round,
+} from "./declarations";
 import { inlineVariables } from "./inline-variables";
 import { extractKeyFrames } from "./keyframes";
 import { lightningcssLoader } from "./lightningcss-loader";
@@ -276,13 +286,15 @@ function extractRule(
         }
       }
       break;
+    case "property":
+      extractPropertyRule(rule.value, builder);
+      break;
     case "custom":
     case "font-face":
     case "font-palette-values":
     case "font-feature-values":
     case "namespace":
     case "layer-statement":
-    case "property":
     case "view-transition":
     case "ignored":
     case "unknown":
@@ -375,5 +387,67 @@ function extractContainer(
 
   for (const rule of containerRule.rules) {
     extractRule(rule, builder, mapping);
+  }
+}
+
+function extractPropertyRule(
+  propertyRule: PropertyRule,
+  builder: StylesheetBuilder,
+) {
+  const { initialValue, name } = propertyRule;
+
+  if (initialValue == null) {
+    return;
+  }
+
+  const varName = name.startsWith("--") ? name.slice(2) : name;
+  const value = parsePropertyInitialValue(initialValue, builder);
+
+  if (value !== undefined) {
+    builder.addRootVariable(varName, value);
+  }
+}
+
+function parsePropertyInitialValue(
+  component: ParsedComponent,
+  builder: StylesheetBuilder,
+): StyleDescriptor {
+  switch (component.type) {
+    case "length":
+      return parseLength(component.value, builder);
+    case "number":
+    case "integer":
+      return round(component.value);
+    case "percentage":
+      return `${round(component.value * 100)}%`;
+    case "color":
+      return parseColor(component.value, builder);
+    case "angle":
+      return parseAngle(component.value, builder);
+    case "length-percentage":
+      return parseLength(component.value, builder);
+    case "token-list":
+      return reduceParseUnparsed(
+        component.value,
+        builder,
+        "@property",
+        false,
+      );
+    case "custom-ident":
+    case "literal":
+      return component.value;
+    case "repeated": {
+      const results = component.value.components
+        .map((c) => parsePropertyInitialValue(c, builder))
+        .filter(
+          (v): v is NonNullable<StyleDescriptor> => v !== undefined,
+        );
+      // Unwrap single-child repeated values so downstream consumers get a
+      // scalar instead of a 1-element array. For example, `<length>+` with
+      // initial-value `10px` should produce the same shape as `<length>`.
+      return results.length === 1 ? results[0] : results;
+    }
+    default:
+      return undefined;
   }
 }
