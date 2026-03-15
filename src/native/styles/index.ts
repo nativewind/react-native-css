@@ -268,6 +268,31 @@ export function getStyledProps(
   return result;
 }
 
+/**
+ * Merges two prop objects, skipping keys from `right` whose value is `undefined`.
+ *
+ * `Object.assign({}, left, right)` copies all enumerable own properties from `right`,
+ * including those with value `undefined`. When a component passes `style={undefined}`
+ * or `contentContainerStyle={undefined}`, the computed NativeWind style from `left`
+ * gets overwritten. This function prevents that by only copying defined values.
+ *
+ * @param left - The computed NativeWind props (className-derived styles)
+ * @param right - The inline props from the component (guaranteed non-null by caller; may contain undefined values)
+ * @returns A new object with all properties from `left`, overridden only by defined values from `right`
+ */
+function mergeDefinedProps(
+  left: Record<string, any> | undefined,
+  right: Record<string, any>,
+) {
+  const result = left ? { ...left } : {};
+  for (const key in right) {
+    if (right[key] !== undefined) {
+      result[key] = right[key];
+    }
+  }
+  return result;
+}
+
 function deepMergeConfig(
   config: Config,
   left: Record<string, any> | undefined,
@@ -359,10 +384,10 @@ function deepMergeConfig(
         }
       }
     } else {
-      result = Object.assign({}, left, right);
+      result = mergeDefinedProps(left, right);
     }
   } else {
-    result = Object.assign({}, left, right);
+    result = mergeDefinedProps(left, right);
   }
 
   if (
