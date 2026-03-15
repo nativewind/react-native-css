@@ -1,7 +1,7 @@
 {
   "name": "react-native-css",
   "version": "3.0.4",
-  "description": "A CSS polyfill for React Native",
+  "description": "Use CSS stylesheets in React Native",
   "exports": {
     ".": {
       "source": "./src/index.ts",
