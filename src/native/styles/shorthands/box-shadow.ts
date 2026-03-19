@@ -43,22 +43,32 @@ export const boxShadow: StyleFunctionResolver = (
 
   if (!isStyleDescriptorArray(args)) {
     return args;
-  } else {
-    return args
-      .flatMap(flattenShadowDescriptor)
-      .map((shadows) => {
-        if (shadows === undefined) {
-          return;
-        } else {
-          return normalizeInsetValue(
-            omitTransparentShadows(
-              handler(resolveValue, shadows, get, options),
-            ),
-          );
-        }
-      })
-      .filter((v) => v !== undefined);
   }
+
+  // A flat array of primitives (e.g. [0, 4, 6, -1, "#000"]) is a single shadow
+  // resolved from a runtime variable. Pass it directly to the pattern handler.
+  // A nested array (e.g. [[0, 4, 6, -1, "#000"], [...]]) is multiple shadows.
+  if (args.length > 0 && !Array.isArray(args[0])) {
+    const result = handler(resolveValue, args, get, options);
+    if (result === undefined) {
+      return [];
+    }
+    const filtered = omitTransparentShadows(result);
+    return filtered !== undefined ? [normalizeInsetValue(filtered)] : [];
+  }
+
+  return args
+    .flatMap(flattenShadowDescriptor)
+    .map((shadows) => {
+      if (shadows === undefined) {
+        return;
+      } else {
+        return normalizeInsetValue(
+          omitTransparentShadows(handler(resolveValue, shadows, get, options)),
+        );
+      }
+    })
+    .filter((v) => v !== undefined);
 };
 
 function flattenShadowDescriptor(arg: StyleDescriptor): StyleDescriptor[] {
