@@ -1,5 +1,9 @@
 # Changelog
 
+## <small>3.0.6 (2026-03-20)</small>
+
+* fix: bump version to 3.0.5 to match npm (#307) ([2eee527](https://github.com/nativewind/react-native-css/commit/2eee527)), closes [#307](https://github.com/nativewind/react-native-css/issues/307)
+
 ## <small>3.0.5 (2026-03-15)</small>
 
 * chore: add Claude Code skills for architecture and testing ([02bac92](https://github.com/nativewind/react-native-css/commit/02bac92))
