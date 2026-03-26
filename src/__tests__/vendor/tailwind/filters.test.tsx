@@ -63,7 +63,7 @@ describe("Filters - Drop Shadow", () => {
             [
               {
                 dropShadow: {
-                  blurRadius: 2,
+                  standardDeviation: 2,
                   color: "#0000001a",
                   offsetX: 0,
                   offsetY: 1,
@@ -71,7 +71,7 @@ describe("Filters - Drop Shadow", () => {
               },
               {
                 dropShadow: {
-                  blurRadius: 1,
+                  standardDeviation: 1,
                   color: "#0000000f",
                   offsetX: 0,
                   offsetY: 1,
