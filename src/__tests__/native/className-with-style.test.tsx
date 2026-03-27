@@ -179,7 +179,7 @@ describe("style={undefined} should not destroy computed className styles", () =>
     });
   });
 
-  // Path B: FlatList with columnWrapperClassName (another non-"style" array target)
+  // Path B: FlatList with contentContainerClassName (another non-"style" array target)
   test("FlatList: contentContainerClassName with contentContainerStyle={undefined}", () => {
     registerCSS(`.p-4 { padding: 16px; }`);
 
@@ -249,6 +249,127 @@ describe("style={undefined} should not destroy computed className styles", () =>
     }
 
     // Called without contentContainerStyle — implicitly undefined
+    const component = render(<MyScrollView />).getByTestId(testID);
+
+    expect(component.props.contentContainerStyle).toStrictEqual({
+      padding: 16,
+      backgroundColor: "#fff",
+    });
+  });
+});
+
+/**
+ * Tests for style={{}} (empty object) not destroying computed className styles.
+ *
+ * An empty style object has no properties to apply, so it should not overwrite
+ * computed className styles. The ["style"] target path (Path A) handles this via
+ * filterCssVariables({}) returning undefined. These tests cover Path B (non-"style"
+ * array targets) which previously used mergeDefinedProps that copied empty objects.
+ *
+ * Related: https://github.com/nativewind/react-native-css/issues/239
+ */
+describe("style={{}} should not destroy computed className styles", () => {
+  // Path A: config.target = ["style"] — already handled by filterCssVariables
+  test("View: className with style={{}}", () => {
+    registerCSS(`.text-red { color: red; }`);
+
+    const component = render(
+      <Text testID={testID} className="text-red" style={{}} />,
+    ).getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ color: "#f00" });
+  });
+
+  // Path B: config.target = ["contentContainerStyle"] — fixed by isEmptyPlainObject check
+  test("ScrollView: contentContainerClassName with contentContainerStyle={{}}", () => {
+    registerCSS(`.bg-green { background-color: green; }`);
+
+    const component = render(
+      <ScrollView
+        testID={testID}
+        contentContainerClassName="bg-green"
+        contentContainerStyle={{}}
+      />,
+    ).getByTestId(testID);
+
+    expect(component.props.contentContainerStyle).toStrictEqual({
+      backgroundColor: "#008000",
+    });
+  });
+
+  // Path B: FlatList with contentContainerClassName (another non-"style" array target)
+  test("FlatList: contentContainerClassName with contentContainerStyle={{}}", () => {
+    registerCSS(`.p-4 { padding: 16px; }`);
+
+    const component = render(
+      <FlatList
+        testID={testID}
+        data={[]}
+        renderItem={() => null}
+        contentContainerClassName="p-4"
+        contentContainerStyle={{}}
+      />,
+    ).getByTestId(testID);
+
+    expect(component.props.contentContainerStyle).toStrictEqual({
+      padding: 16,
+    });
+  });
+
+  // Path B: custom styled() with string target
+  test("custom styled() with string target: style={{}} preserves styles", () => {
+    registerCSS(`.bg-purple { background-color: purple; }`);
+
+    const mapping: StyledConfiguration<typeof RNView> = {
+      className: {
+        target: "style",
+      },
+    };
+
+    const StyledView = copyComponentProperties(
+      RNView,
+      (
+        props: StyledProps<React.ComponentProps<typeof RNView>, typeof mapping>,
+      ) => {
+        return useCssElement(RNView, props, mapping);
+      },
+    );
+
+    const component = render(
+      <StyledView testID={testID} className="bg-purple" style={{}} />,
+    ).getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ backgroundColor: "#800080" });
+  });
+
+  // Non-empty contentContainerStyle override is covered by
+  // "ScrollView: contentContainerClassName preserves styles with valid contentContainerStyle"
+  // in the style={undefined} describe block above.
+
+  // Real-world: component with default empty object
+  test("optional prop with empty object default preserves className styles", () => {
+    registerCSS(`
+      .p-4 { padding: 16px; }
+      .bg-white { background-color: white; }
+    `);
+
+    function MyScrollView({
+      contentContainerStyle = {},
+    }: {
+      contentContainerStyle?: React.ComponentProps<
+        typeof ScrollView
+      >["contentContainerStyle"];
+    }) {
+      return (
+        <ScrollView
+          testID={testID}
+          contentContainerClassName="p-4 bg-white"
+          contentContainerStyle={contentContainerStyle}
+        />
+      );
+    }
+
+    // Called without prop — default {} used
     const component = render(<MyScrollView />).getByTestId(testID);
 
     expect(component.props.contentContainerStyle).toStrictEqual({
