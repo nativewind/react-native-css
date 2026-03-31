@@ -126,6 +126,28 @@ test("rem - inline override", () => {
   });
 });
 
+test("rem - css root font-size override", () => {
+  registerCSS(`
+    :root { font-size: 16px; }
+    .my-class { font-size: 10rem; }
+  `);
+
+  const { result } = renderHook(() => {
+    return useNativeCss(View, { className: "my-class" });
+  });
+
+  expect(result.current.type).toBe(VariableContext.Provider);
+  expect(result.current.props.value).toStrictEqual({
+    [VAR_SYMBOL]: true,
+    [emVariableName]: 160,
+  });
+
+  expect(result.current.props.children.type).toBe(View);
+  expect(result.current.props.children.props).toStrictEqual({
+    style: { fontSize: 160 },
+  });
+});
+
 test("rem - css override", () => {
   registerCSS(
     `

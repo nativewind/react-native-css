@@ -84,17 +84,28 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
 
   const vars = new Map<string, UniqueVarInfo>();
 
+  // Determine the effective rem multiplier for compile-time inlining.
+  // If inlineRem is explicitly set, use that. Otherwise, scan for
+  // :root { font-size: Npx } in the CSS to allow CSS-based configuration.
+  let effectiveRem: number | false = options.inlineRem ?? undefined!;
+  if (effectiveRem === undefined) {
+    const css = typeof code === "string" ? code : code.toString();
+    const match = css.match(/:root\s*\{[^}]*font-size:\s*([\d.]+)px/);
+    effectiveRem = match?.[1] ? parseFloat(match[1]) : 14;
+  }
+
   const firstPassVisitor: Visitor<CustomAtRules> = {};
 
-  if (options.inlineRem !== false) {
+  if (effectiveRem !== false) {
+    const remMultiplier = effectiveRem;
     firstPassVisitor.Length = (length) => {
-      if (length.unit !== "rem" || options.inlineRem === false) {
+      if (length.unit !== "rem") {
         return length;
       }
 
       return {
         unit: "px",
-        value: round(length.value * (options.inlineRem ?? 14)),
+        value: round(length.value * remMultiplier),
       };
     };
   }
