@@ -175,11 +175,11 @@ describe("style={undefined} should not destroy computed className styles", () =>
       />,
     ).getByTestId(testID);
 
-    // Non-"style" targets: inline contentContainerStyle overwrites className styles
-    // (array coexistence is only implemented for the ["style"] target path)
-    expect(component.props.contentContainerStyle).toStrictEqual({
-      padding: 10,
-    });
+    // Both className and inline contentContainerStyle should coexist as array
+    expect(component.props.contentContainerStyle).toStrictEqual([
+      { backgroundColor: "#008000" },
+      { padding: 10 },
+    ]);
   });
 
   test("ScrollView: contentContainerClassName without contentContainerStyle", () => {
@@ -391,5 +391,142 @@ describe("style={{}} should not destroy computed className styles", () => {
       padding: 16,
       backgroundColor: "#fff",
     });
+  });
+});
+
+/**
+ * Tests for multi-config components (e.g. ScrollView with both className and
+ * contentContainerClassName) where inline style on one target should not
+ * destroy computed className styles on a different target.
+ *
+ * Bug: getStyledProps loops over configs, and each iteration calls deepMergeConfig
+ * which produces a full props object via Object.assign({}, left, right). When a
+ * later config iteration runs, it overwrites the correctly-merged target props
+ * from earlier iterations.
+ *
+ * Example: ScrollView with className="bg-red" and style={{ paddingTop: 10 }}.
+ * The first config (className→style) correctly merges both. The second config
+ * (contentContainerClassName→contentContainerStyle) does Object.assign which
+ * copies the inline style={{ paddingTop: 10 }} over the merged style, destroying
+ * the backgroundColor from className.
+ */
+describe("multi-config: inline style should not destroy className styles on other targets", () => {
+  test("ScrollView: className with style should preserve className styles", () => {
+    registerCSS(`.bg-red { background-color: red; }`);
+
+    const component = render(
+      <ScrollView
+        testID={testID}
+        className="bg-red"
+        style={{ paddingTop: 10 }}
+      />,
+    ).getByTestId(testID);
+
+    // className backgroundColor should coexist with inline paddingTop
+    expect(component.props.style).toStrictEqual([
+      { backgroundColor: "#f00" },
+      { paddingTop: 10 },
+    ]);
+  });
+
+  test("ScrollView: className + contentContainerClassName + style preserves all", () => {
+    registerCSS(`
+      .bg-red { background-color: red; }
+      .p-4 { padding: 16px; }
+    `);
+
+    const component = render(
+      <ScrollView
+        testID={testID}
+        className="bg-red"
+        contentContainerClassName="p-4"
+        style={{ paddingTop: 10 }}
+      />,
+    ).getByTestId(testID);
+
+    // className-derived style merged with inline style
+    expect(component.props.style).toStrictEqual([
+      { backgroundColor: "#f00" },
+      { paddingTop: 10 },
+    ]);
+
+    // contentContainerClassName should be independently preserved
+    expect(component.props.contentContainerStyle).toStrictEqual({
+      padding: 16,
+    });
+  });
+
+  test("ScrollView: className + contentContainerClassName + both inline styles", () => {
+    registerCSS(`
+      .bg-red { background-color: red; }
+      .p-4 { padding: 16px; }
+    `);
+
+    const component = render(
+      <ScrollView
+        testID={testID}
+        className="bg-red"
+        contentContainerClassName="p-4"
+        style={{ paddingTop: 10 }}
+        contentContainerStyle={{ marginTop: 5 }}
+      />,
+    ).getByTestId(testID);
+
+    // Both targets should have merged className + inline styles
+    expect(component.props.style).toStrictEqual([
+      { backgroundColor: "#f00" },
+      { paddingTop: 10 },
+    ]);
+
+    expect(component.props.contentContainerStyle).toStrictEqual([
+      { padding: 16 },
+      { marginTop: 5 },
+    ]);
+  });
+
+  test("ScrollView: className without style still works (single-config path)", () => {
+    registerCSS(`.bg-red { background-color: red; }`);
+
+    const component = render(
+      <ScrollView testID={testID} className="bg-red" />,
+    ).getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ backgroundColor: "#f00" });
+  });
+
+  test("ScrollView: consumed className sources should be removed from props", () => {
+    registerCSS(`.bg-red { background-color: red; }`);
+
+    const component = render(
+      <ScrollView
+        testID={testID}
+        className="bg-red"
+        contentContainerClassName="bg-red"
+        style={{ paddingTop: 10 }}
+      />,
+    ).getByTestId(testID);
+
+    // className and contentContainerClassName should be consumed, not passed through
+    expect(component.props.className).toBeUndefined();
+    expect(component.props.contentContainerClassName).toBeUndefined();
+  });
+
+  test("FlatList: contentContainerClassName with contentContainerStyle preserves both", () => {
+    registerCSS(`.bg-blue { background-color: blue; }`);
+
+    const component = render(
+      <FlatList
+        testID={testID}
+        data={[]}
+        renderItem={() => null}
+        contentContainerClassName="bg-blue"
+        contentContainerStyle={{ height: 200 }}
+      />,
+    ).getByTestId(testID);
+
+    expect(component.props.contentContainerStyle).toStrictEqual([
+      { backgroundColor: "#00f" },
+      { height: 200 },
+    ]);
   });
 });
