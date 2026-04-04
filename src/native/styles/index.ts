@@ -196,6 +196,12 @@ export function getStyledProps(
   // deepMergeConfig produces a full props object via Object.assign({}, left, right).
   // Later iterations overwrite earlier ones' correctly-merged target props.
   // We save each iteration's target value and restore them after the loop.
+  //
+  // Note: This uses the leaf key of config.target for storage/restoration.
+  // For nested array targets (length > 1), the leaf key is stored at the
+  // top level, which is correct because deepMergeConfig already builds the
+  // nested structure. If two configs ever share the same leaf key, the last
+  // one wins — but no built-in component mapping produces this scenario.
   const computedTargets: Record<string, any> = {};
   const consumedSources: string[] = [];
 
@@ -475,15 +481,18 @@ function deepMergeConfig(
     // above runs 0 iterations. Merge the target prop so inline styles don't
     // silently overwrite className-computed styles (same as string target path).
     const finalKey = config.target[config.target.length - 1];
-    if (finalKey && rightIsInline) {
+    if (config.target.length === 1 && finalKey && rightIsInline) {
       let rightValue = right?.[finalKey];
       if (rightValue !== undefined) {
         rightValue = filterCssVariables(rightValue);
       }
       if (rightValue === undefined || rightValue === null) {
-        // Inline is empty — preserve className-computed value
+        // Inline is empty or fully filtered — preserve className-computed value
         if (left && finalKey in left) {
           result[finalKey] = left[finalKey];
+        } else {
+          // No left value either — remove unfiltered inline value from result
+          delete result[finalKey];
         }
       } else if (left && finalKey in left) {
         const leftValue = left[finalKey];
@@ -498,11 +507,16 @@ function deepMergeConfig(
         if (leftIsObj && rightIsObj) {
           if (hasNonOverlappingProperties(leftValue, rightValue)) {
             result[finalKey] = [leftValue, rightValue];
+          } else {
+            // All left keys are in right — use filtered right value
+            result[finalKey] = rightValue;
           }
-          // else: all left keys are in right, right overrides — already set by mergeDefinedProps
         } else {
           result[finalKey] = [leftValue, rightValue];
         }
+      } else {
+        // No left value — use filtered right value (not the unfiltered one from mergeDefinedProps)
+        result[finalKey] = rightValue;
       }
     }
 
