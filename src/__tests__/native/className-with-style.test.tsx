@@ -99,6 +99,21 @@ test("View with multiple className properties where inline style takes precedenc
   ]);
 });
 
+test("FlatList: className should map to style", () => {
+  registerCSS(`.bg-red { background-color: red; }`);
+
+  const component = render(
+    <FlatList
+      testID={testID}
+      data={[]}
+      renderItem={() => null}
+      className="bg-red"
+    />,
+  ).getByTestId(testID);
+
+  expect(component.props.style).toStrictEqual({ backgroundColor: "#f00" });
+});
+
 /**
  * Tests for style={undefined} not destroying computed className styles.
  *
