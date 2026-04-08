@@ -269,16 +269,23 @@ export function getStyledProps(
 }
 
 /**
- * Merges two prop objects, skipping keys from `right` whose value is `undefined`.
+ * Merges two prop objects, skipping keys from `right` whose value is `undefined`
+ * or an empty plain object.
  *
  * `Object.assign({}, left, right)` copies all enumerable own properties from `right`,
- * including those with value `undefined`. When a component passes `style={undefined}`
- * or `contentContainerStyle={undefined}`, the computed NativeWind style from `left`
- * gets overwritten. This function prevents that by only copying defined values.
+ * including those with value `undefined` or `{}`. When a component passes
+ * `style={undefined}` or `contentContainerStyle={{}}`, the computed NativeWind
+ * style from `left` gets overwritten. This function prevents that by only copying
+ * values that carry meaningful style information.
+ *
+ * Empty object detection uses inline `for...in` instead of a separate function or
+ * `Object.keys().length` — avoids both function call overhead and intermediate array
+ * allocation on a hot path (called per-prop per-render). Consistent with how the
+ * `["style"]` target path handles this via `filterCssVariables({})` returning `undefined`.
  *
  * @param left - The computed NativeWind props (className-derived styles)
  * @param right - The inline props from the component (guaranteed non-null by caller; may contain undefined values)
- * @returns A new object with all properties from `left`, overridden only by defined values from `right`
+ * @returns A new object with all properties from `left`, overridden only by meaningful values from `right`
  */
 function mergeDefinedProps(
   left: Record<string, any> | undefined,
@@ -286,8 +293,20 @@ function mergeDefinedProps(
 ) {
   const result = left ? { ...left } : {};
   for (const key in right) {
-    if (right[key] !== undefined) {
-      result[key] = right[key];
+    const value = right[key];
+    if (value === undefined) continue;
+    // Non-object values (strings, numbers, booleans, null, arrays): always assign
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+      result[key] = value;
+      continue;
+    }
+    // Plain object: assign only if non-empty. An empty style object (e.g.,
+    // contentContainerStyle={{}}) has no properties to apply and should not
+    // overwrite computed className styles. The for...in loop only executes
+    // if the object has enumerable keys — empty objects are skipped.
+    for (const _ in value) {
+      result[key] = value;
+      break;
     }
   }
   return result;
