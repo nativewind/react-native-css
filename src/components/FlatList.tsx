@@ -10,6 +10,7 @@ import {
 import { copyComponentProperties } from "./copyComponentProperties";
 
 const mapping: StyledConfiguration<typeof RNFlatList> = {
+  className: "style",
   ListFooterComponentClassName: "ListFooterComponentStyle",
   ListHeaderComponentClassName: "ListHeaderComponentStyle",
   columnWrapperClassName: "columnWrapperStyle",
