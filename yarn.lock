@@ -9795,13 +9795,23 @@ __metadata:
   languageName: node
   linkType: hard
 
-"metro-runtime@npm:0.83.2, metro-runtime@npm:^0.83.0, metro-runtime@npm:^0.83.1":
+"metro-runtime@npm:0.83.2, metro-runtime@npm:^0.83.1":
   version: 0.83.2
   resolution: "metro-runtime@npm:0.83.2"
   dependencies:
     "@babel/runtime": "npm:^7.25.0"
     flow-enums-runtime: "npm:^0.0.6"
   checksum: 10c0/1eb13af44f47bc490ed663d6ad3024c95cfbc4117c281e60adbb5cd56e3813e3e9e4344b2e2b2e8db517411f3f7a18dadd71c96a7f79b7d019c6326221648564
+  languageName: node
+  linkType: hard
+
+"metro-runtime@npm:^0.84.2":
+  version: 0.84.2
+  resolution: "metro-runtime@npm:0.84.2"
+  dependencies:
+    "@babel/runtime": "npm:^7.25.0"
+    flow-enums-runtime: "npm:^0.0.6"
+  checksum: 10c0/268b0f2783f7870a067ecd76bf16760328cd5dcb9afb8a9f47a46176bd20160a4b1277a890eeb61238112c8636921207c25c5b19886722434f4ab56a367aaba0
   languageName: node
   linkType: hard
 
@@ -11422,7 +11432,7 @@ __metadata:
     jest-expo: "npm:~54.0.12"
     lefthook: "npm:^2.1.5"
     lightningcss: "npm:^1.30.1"
-    metro-runtime: "npm:^0.83.0"
+    metro-runtime: "npm:^0.84.2"
     postcss: "npm:^8.5.6"
     prettier: "npm:^3.6.2"
     react: "npm:19.1.0"
