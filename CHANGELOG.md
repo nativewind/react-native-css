@@ -1,5 +1,9 @@
 # Changelog
 
+## <small>3.0.7 (2026-04-09)</small>
+
+* fix: add missing style mapping on flatlist (#321) ([5cb6a43](https://github.com/nativewind/react-native-css/commit/5cb6a43)), closes [#321](https://github.com/nativewind/react-native-css/issues/321)
+
 ## <small>3.0.6 (2026-03-20)</small>
 
 * fix: bump version to 3.0.5 to match npm (#307) ([2eee527](https://github.com/nativewind/react-native-css/commit/2eee527)), closes [#307](https://github.com/nativewind/react-native-css/issues/307)

@@ -1,6 +1,6 @@
 {
   "name": "react-native-css",
-  "version": "3.0.6",
+  "version": "3.0.7",
   "description": "Use CSS stylesheets in React Native",
   "exports": {
     ".": {
