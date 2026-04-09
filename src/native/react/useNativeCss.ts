@@ -181,9 +181,14 @@ export function mappingToConfig(mapping: StyledConfiguration<any>) {
     } else if (typeof value === "string") {
       return { source: key, target: value.split(".") };
     } else if (typeof value === "object") {
-      const nativeStyleMapping = value.nativeStyleMapping as
-        | Record<string, string>
-        | undefined;
+      const nativeStyleMapping = value.nativeStyleMapping
+        ? Object.fromEntries(
+            Object.entries(value.nativeStyleMapping).map(([k, v]) => [
+              k,
+              v === true ? k : v,
+            ]),
+          )
+        : undefined;
 
       if (Array.isArray(value)) {
         return { source: key, target: value, nativeStyleMapping };
