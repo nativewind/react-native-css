@@ -3892,9 +3892,9 @@ __metadata:
   linkType: hard
 
 "@tsconfig/react-native@npm:^3.0.6":
-  version: 3.0.7
-  resolution: "@tsconfig/react-native@npm:3.0.7"
-  checksum: 10c0/8fa35a76581e17e03b5ac5c5a434bb208fd75e5b86dc488e3c30258a4ff50d5a9ac45ae4310f4507baa0779ebe91c1c2f809c9bfdfe1498c84f5eb82733b0927
+  version: 3.0.9
+  resolution: "@tsconfig/react-native@npm:3.0.9"
+  checksum: 10c0/d07e35d03e37d413957f42f89bc22f4f4fd6d7ba11c33f4c594fb48fea9b32f1cb77f81d5a5374e910053085678be0cd278fb580adabaad069ce44a29262f8f7
   languageName: node
   linkType: hard
 
