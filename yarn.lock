@@ -11608,17 +11608,17 @@ __metadata:
   linkType: hard
 
 "react-server-dom-webpack@npm:~19.0.0":
-  version: 19.0.4
-  resolution: "react-server-dom-webpack@npm:19.0.4"
+  version: 19.0.5
+  resolution: "react-server-dom-webpack@npm:19.0.5"
   dependencies:
     acorn-loose: "npm:^8.3.0"
     neo-async: "npm:^2.6.1"
     webpack-sources: "npm:^3.2.0"
   peerDependencies:
-    react: ^19.0.4
-    react-dom: ^19.0.4
+    react: ^19.0.5
+    react-dom: ^19.0.5
     webpack: ^5.59.0
-  checksum: 10c0/17a0a142f5f322275afe87da9038ac9691375f15fbad025fccf267926a5e13ca3802a185f1399cca8043fb6ab37c5b71653eee93f16957d0a6aad539a526169c
+  checksum: 10c0/8c90b57069a922390b30985ea08f73f5fbe8f472b93e8df37e494b7497113463715547568d925f40570d62198fa17e709aa4e084b5a6b30ee8a2b1efb26d58f0
   languageName: node
   linkType: hard
 
