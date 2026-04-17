@@ -8,8 +8,10 @@ post findings as a comment.
 
 - **Tier 1** (`auto-triage.yml`): Linux runner, no simulator. Handles CSS
   compilation, type, and config issues. Runs automatically on every new issue.
-- **Tier 2** (not yet built): Self-hosted macOS runner with Argent. Handles
-  runtime/interaction/memory bugs. Opt-in via `needs-deep-triage` label.
+- **Tier 2** (`auto-triage-deep.yml`): Self-hosted macOS runner with
+  [Argent](https://argent.swmansion.com/). Handles runtime/interaction/memory
+  bugs. Triggered when Tier 1 applies the `needs-deep-triage` label (or
+  manually via workflow_dispatch).
 - **Tier 3** (not yet built): Auto-fix PRs. Opt-in via label.
 
 ## Setup
@@ -72,6 +74,49 @@ Watch the run and verify:
 
 Once you're happy with the test runs, the `issues: opened` trigger is already
 active. Nothing more to do.
+
+## Tier 2 setup
+
+Tier 2 runs on GitHub-hosted `macos-latest` runners, which are free for
+public repos. Xcode, iOS simulators, and `gh` are pre-installed on the
+image, so there's no runner setup. Just make sure the
+`CLAUDE_CODE_OAUTH_TOKEN` secret is configured (same secret Tier 1 uses).
+
+The workflow caches Argent's ~200MB binaries across runs so we don't
+re-download every time.
+
+### Test Tier 2 manually
+
+```bash
+# Pick an issue flagged as needs-deep-triage, or add the label manually
+gh issue edit 245 --repo nativewind/react-native-css --add-label needs-deep-triage
+
+# Or trigger directly
+gh workflow run "Auto Triage (Deep)" \
+  --repo nativewind/react-native-css \
+  -f issue_number=245
+```
+
+Watch it run:
+
+```bash
+gh run watch --repo nativewind/react-native-css
+```
+
+Good Tier 2 test candidates (all confirmed bugs that we verified manually):
+
+- **#245** (memory leak in VariableContextProvider) - known to reproduce with
+  rapid re-renders
+- **#258** (Reanimated polyfill not work until style inside component) - known
+  to reproduce on latest
+
+### What Tier 2 is NOT good for
+
+- Bugs that only reproduce on physical devices (e.g. #1332 theme switch lag)
+- Bugs that require platform-specific device features not in the simulator
+- Bugs that need a specific carrier/network setup
+
+Claude should mark these as INCONCLUSIVE and explain why.
 
 ## Cost
 
