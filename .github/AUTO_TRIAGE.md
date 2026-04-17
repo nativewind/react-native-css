@@ -8,8 +8,10 @@ post findings as a comment.
 
 - **Tier 1** (`auto-triage.yml`): Linux runner, no simulator. Handles CSS
   compilation, type, and config issues. Runs automatically on every new issue.
-- **Tier 2** (not yet built): Self-hosted macOS runner with Argent. Handles
-  runtime/interaction/memory bugs. Opt-in via `needs-deep-triage` label.
+- **Tier 2** (`auto-triage-deep.yml`): Self-hosted macOS runner with
+  [Argent](https://argent.swmansion.com/). Handles runtime/interaction/memory
+  bugs. Triggered when Tier 1 applies the `needs-deep-triage` label (or
+  manually via workflow_dispatch).
 - **Tier 3** (not yet built): Auto-fix PRs. Opt-in via label.
 
 ## Setup
@@ -72,6 +74,85 @@ Watch the run and verify:
 
 Once you're happy with the test runs, the `issues: opened` trigger is already
 active. Nothing more to do.
+
+## Tier 2 setup (self-hosted macOS runner)
+
+Tier 2 uses Argent to drive the iOS simulator. It needs a macOS runner with
+Xcode and Node. These instructions assume a Mac mini dedicated as a runner.
+
+### Runner machine prereqs
+
+On the Mac mini:
+
+- macOS 14+ (Sonoma or newer)
+- Xcode installed from the App Store, with iOS simulators downloaded
+- Node 22+ (`brew install node`)
+- `gh` CLI (`brew install gh`)
+- Enough disk for node_modules and simulator installs (~50GB free recommended)
+
+Verify:
+
+```bash
+xcode-select -p                # should print an Xcode path
+xcrun simctl list devices      # should list available simulators
+node --version                 # v22+
+```
+
+### Register the runner
+
+1. On GitHub, go to the repo → Settings → Actions → Runners → New self-hosted
+   runner → macOS.
+2. Follow the displayed commands to download the runner package and configure
+   it. Use labels: **`macos-argent`** (exactly that, matching the workflow's
+   `runs-on`).
+3. Install as a service so it restarts on boot:
+   ```bash
+   cd ~/actions-runner
+   ./svc.sh install
+   ./svc.sh start
+   ```
+4. Confirm the runner shows as "Idle" in the GitHub UI.
+
+### Pre-install Argent globally (optional, faster runs)
+
+Argent downloads ~200MB of binaries on first use. Pre-installing saves time:
+
+```bash
+npx @swmansion/argent install
+```
+
+### Test Tier 2 manually
+
+```bash
+# Pick an issue flagged as needs-deep-triage, or add the label manually
+gh issue edit 245 --repo nativewind/react-native-css --add-label needs-deep-triage
+
+# Or trigger directly
+gh workflow run "Auto Triage (Deep)" \
+  --repo nativewind/react-native-css \
+  -f issue_number=245
+```
+
+Watch it run:
+
+```bash
+gh run watch --repo nativewind/react-native-css
+```
+
+Good Tier 2 test candidates (all confirmed bugs that we verified manually):
+
+- **#245** (memory leak in VariableContextProvider) - known to reproduce with
+  rapid re-renders
+- **#258** (Reanimated polyfill not work until style inside component) - known
+  to reproduce on latest
+
+### What Tier 2 is NOT good for
+
+- Bugs that only reproduce on physical devices (e.g. #1332 theme switch lag)
+- Bugs that require platform-specific device features not in the simulator
+- Bugs that need a specific carrier/network setup
+
+Claude should mark these as INCONCLUSIVE and explain why.
 
 ## Cost
 
