@@ -14,10 +14,10 @@ name: Auto Triage (Deep)
 #   - Manual workflow_dispatch with an issue number
 #
 # Requires:
-#   - Self-hosted macOS runner tagged with `macos-argent`
 #   - CLAUDE_CODE_OAUTH_TOKEN secret
-#   - Xcode + iOS simulators installed on the runner
-#   - Node 22+ on the runner
+#
+# Runs on GitHub-hosted `macos-latest` runners (free for public repos).
+# Xcode, iOS simulators, and gh are pre-installed on the image.
 #
 # See .github/AUTO_TRIAGE.md for setup docs.
 
@@ -45,7 +45,7 @@ jobs:
       (github.event.action == 'labeled' &&
        github.event.label.name == 'needs-deep-triage')
 
-    runs-on: [self-hosted, macOS, macos-argent]
+    runs-on: macos-latest
     timeout-minutes: 45
 
     permissions:
@@ -63,6 +63,18 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+
+      - name: Cache Argent binaries
+        uses: actions/cache@v4
+        with:
+          # Argent downloads ~200MB of native binaries on first use. Cache
+          # them across runs so we don't re-download every time.
+          path: |
+            ~/.npm/_npx
+            ~/Library/Caches/swmansion-argent
+          key: argent-${{ runner.os }}-v1
+          restore-keys: |
+            argent-${{ runner.os }}-
 
       - name: Prepare workspace for the repro
         run: |

@@ -75,51 +75,15 @@ Watch the run and verify:
 Once you're happy with the test runs, the `issues: opened` trigger is already
 active. Nothing more to do.
 
-## Tier 2 setup (self-hosted macOS runner)
+## Tier 2 setup
 
-Tier 2 uses Argent to drive the iOS simulator. It needs a macOS runner with
-Xcode and Node. These instructions assume a Mac mini dedicated as a runner.
+Tier 2 runs on GitHub-hosted `macos-latest` runners, which are free for
+public repos. Xcode, iOS simulators, and `gh` are pre-installed on the
+image, so there's no runner setup. Just make sure the
+`CLAUDE_CODE_OAUTH_TOKEN` secret is configured (same secret Tier 1 uses).
 
-### Runner machine prereqs
-
-On the Mac mini:
-
-- macOS 14+ (Sonoma or newer)
-- Xcode installed from the App Store, with iOS simulators downloaded
-- Node 22+ (`brew install node`)
-- `gh` CLI (`brew install gh`)
-- Enough disk for node_modules and simulator installs (~50GB free recommended)
-
-Verify:
-
-```bash
-xcode-select -p                # should print an Xcode path
-xcrun simctl list devices      # should list available simulators
-node --version                 # v22+
-```
-
-### Register the runner
-
-1. On GitHub, go to the repo → Settings → Actions → Runners → New self-hosted
-   runner → macOS.
-2. Follow the displayed commands to download the runner package and configure
-   it. Use labels: **`macos-argent`** (exactly that, matching the workflow's
-   `runs-on`).
-3. Install as a service so it restarts on boot:
-   ```bash
-   cd ~/actions-runner
-   ./svc.sh install
-   ./svc.sh start
-   ```
-4. Confirm the runner shows as "Idle" in the GitHub UI.
-
-### Pre-install Argent globally (optional, faster runs)
-
-Argent downloads ~200MB of binaries on first use. Pre-installing saves time:
-
-```bash
-npx @swmansion/argent install
-```
+The workflow caches Argent's ~200MB binaries across runs so we don't
+re-download every time.
 
 ### Test Tier 2 manually
 
