@@ -1957,10 +1957,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@eslint/js@npm:^9.30.1":
-  version: 9.37.0
-  resolution: "@eslint/js@npm:9.37.0"
-  checksum: 10c0/84f98a6213522fc76ea104bd910f606136200bd918544e056a7a22442d3f9d5c3c5cd7f4cdf2499d49b1fa140155b87d597a1f16d01644920f05c228e9ca0378
+"@eslint/js@npm:^10.0.1":
+  version: 10.0.1
+  resolution: "@eslint/js@npm:10.0.1"
+  peerDependencies:
+    eslint: ^10.0.0
+  peerDependenciesMeta:
+    eslint:
+      optional: true
+  checksum: 10c0/9f3fcaf71ba7fdf65d82e8faad6ecfe97e11801cc3c362b306a88ea1ed1344ae0d35330dddb0e8ad18f010f6687a70b75491b9e01c8af57acd7987cee6b3ec6c
   languageName: node
   linkType: hard
 
@@ -11404,7 +11409,7 @@ __metadata:
   dependencies:
     "@babel/core": "npm:^7.28.0"
     "@commitlint/config-conventional": "npm:^20.5.0"
-    "@eslint/js": "npm:^9.30.1"
+    "@eslint/js": "npm:^10.0.1"
     "@expo/metro-config": "npm:~54.0.5"
     "@ianvs/prettier-plugin-sort-imports": "npm:^4.4.2"
     "@release-it/conventional-changelog": "npm:10.0.1"
