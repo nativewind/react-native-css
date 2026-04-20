@@ -92,6 +92,7 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
     const css = typeof code === "string" ? code : code.toString();
     const match = css.match(/:root\s*\{[^}]*font-size:\s*([\d.]+)px/);
     effectiveRem = match?.[1] ? parseFloat(match[1]) : 14;
+    options.inlineRem = effectiveRem;
   }
 
   const firstPassVisitor: Visitor<CustomAtRules> = {};
