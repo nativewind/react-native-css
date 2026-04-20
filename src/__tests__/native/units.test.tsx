@@ -148,6 +148,23 @@ test("rem - css root font-size override", () => {
   });
 });
 
+test("rem - via var() inlining picks up css root font-size ", () => {
+  registerCSS(`
+    :root { font-size: 16px; --text-base: 1rem; }
+    .text-base { font-size: var(--text-base); }
+  `);
+
+  const { result } = renderHook(() => {
+    return useNativeCss(View, { className: "text-base" });
+  });
+
+  expect(result.current.type).toBe(VariableContext.Provider);
+  expect(result.current.props.children.type).toBe(View);
+  expect(result.current.props.children.props).toStrictEqual({
+    style: { fontSize: 16 },
+  });
+});
+
 test("rem - css override", () => {
   registerCSS(
     `
