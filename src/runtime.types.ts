@@ -6,6 +6,7 @@ import type {
   ComponentType,
   ForwardRefExoticComponent,
   FunctionComponent,
+  PropsWithoutRef,
   ReactElement,
 } from "react";
 import type {
@@ -84,15 +85,15 @@ interface StyledConfigurationObject<
 > {
   target: T;
   nativeStyleMapping?: T extends false
-    ? NativeStyleMapping<string, ComponentProps<C>>
+    ? NativeStyleMapping<string, PropsWithoutRef<ComponentProps<C>>>
     : NativeStyleMapping<
         ResolveDotPath<T, ComponentProps<C>>,
-        ComponentProps<C>
+        PropsWithoutRef<ComponentProps<C>>
       >;
   /** @deprecated Please use nativeStyleMapping */
   nativeStyleToProp?: NativeStyleMapping<
     ResolveDotPath<T, ComponentProps<C>>,
-    ComponentProps<C>
+    PropsWithoutRef<ComponentProps<C>>
   >;
 }
 
@@ -119,7 +120,7 @@ export type ReactComponent<P = any> =
   | ForwardRefExoticComponent<P>;
 
 export type ComponentPropsDotNotation<C extends ReactComponent> = DotNotation<
-  ComponentProps<C>
+  PropsWithoutRef<ComponentProps<C>>
 >;
 
 /********************************    Styles    ********************************/
