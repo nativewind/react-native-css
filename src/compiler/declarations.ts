@@ -157,6 +157,7 @@ const parsers: {
   "container": parseContainer,
   "container-name": parseContainerName,
   "container-type": parseContainerType,
+  "cursor": parseCursor,
   "display": parseDisplay,
   "direction": parseDirection,
   "fill": parseSVGPaint,
@@ -2534,6 +2535,10 @@ export function parseDimension(
       return;
     }
   }
+}
+
+function parseCursor({ value }: DeclarationType<"cursor">) {
+  return value.keyword;
 }
 
 export function parseUserSelect(
