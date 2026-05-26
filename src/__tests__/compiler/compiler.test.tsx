@@ -79,7 +79,7 @@ test(":root CSS variables with media queries", () => {
 
 test.skip("removes unused CSS variables", () => {
   const compiled = compile(`
-    .test { 
+    .test {
       --blue: blue;
       --green: green;
       --red: red;
@@ -115,7 +115,7 @@ test.skip("preserves unused CSS variables with preserve-variables", () => {
       preserve-variables: --green, --blue;
     }
 
-    .test { 
+    .test {
       --green: green;
       --red: red;
       color: var(--red)
@@ -146,12 +146,12 @@ test.skip("preserves unused CSS variables with preserve-variables", () => {
 
 test("multiple rules with same selector", () => {
   const compiled = compile(`
-.redOrGreen:hover { 
-  color: green; 
-} 
-  
-.redOrGreen { 
-  color: red; 
+.redOrGreen:hover {
+  color: green;
+}
+
+.redOrGreen {
+  color: red;
 }
 `);
 
@@ -189,7 +189,7 @@ test("multiple rules with same selector", () => {
 
 test.skip("transitions", () => {
   const compiled = compile(`
-    .test { 
+    .test {
       color: red;
       transition: color 1s linear;
     }
@@ -222,7 +222,7 @@ test.skip("transitions", () => {
 
 test.skip("animations", () => {
   const compiled = compile(`
-    .test { 
+    .test {
       animation: spin 1s linear infinite;
     }
 
@@ -276,7 +276,7 @@ test.skip("animations", () => {
 test("breaks apart comma separated variables", () => {
   const compiled = compile(
     `
-    :root { 
+    :root {
       --test: blue, green;
     }
   `,
@@ -410,7 +410,7 @@ test("warnings", () => {
   const compiled = compile(`
 .my-class {
     invalid-property: red;
-    z-index: auto; 
+    z-index: auto;
     color: random();
 }`);
 
@@ -445,6 +445,39 @@ test("simplifies rem", () => {
           },
         ],
       ],
+    ],
+  });
+});
+
+test("apply CSS effectiveRem to calc() using variable", () => {
+  const compiled = compile(`
+    :root {
+    font-size: 16px;
+    --spacing: 0.25rem;
+    }
+    .test {
+    border-width: calc(var(--spacing) * 4);
+  }`);
+
+  expect(compiled.stylesheet()).toStrictEqual({
+    s: [
+      [
+        "test",
+        [
+          {
+            d: [
+              {
+                borderWidth: 16,
+              },
+            ],
+            s: [2, 1],
+          },
+        ],
+      ],
+    ],
+    vr: [
+      ["__rn-css-em", [[16]]],
+      ["__rn-css-rem", [[16]]],
     ],
   });
 });
