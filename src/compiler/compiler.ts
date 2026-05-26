@@ -2,15 +2,15 @@
 import { inspect } from "node:util";
 
 import { debug } from "debug";
-import {
-  type ContainerRule,
-  type MediaQuery as CSSMediaQuery,
-  type CustomAtRules,
-  type MediaRule,
-  type ParsedComponent,
-  type PropertyRule,
-  type Rule,
-  type Visitor,
+import type {
+  ContainerRule,
+  MediaQuery as CSSMediaQuery,
+  CustomAtRules,
+  MediaRule,
+  ParsedComponent,
+  PropertyRule,
+  Rule,
+  Visitor,
 } from "lightningcss";
 
 import { maybeMutateReactNativeOptions, parsePropAtRule } from "./atRules";
@@ -54,7 +54,7 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
 
   const features = Object.assign({}, options.features);
 
-  if (options.selectorPrefix && options.selectorPrefix.startsWith(".")) {
+  if (options.selectorPrefix?.startsWith(".")) {
     options.selectorPrefix = options.selectorPrefix.slice(1);
   }
 
@@ -122,7 +122,15 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
         const entry = vars.get(decl.value.name) ?? {
           count: 0,
           value: [
-            ...decl.value.value,
+            ...decl.value.value.map((value) => {
+              // In case of css variables with rem value encased in calc
+              // (e.g. --spacing, --radius of TailwindV4)
+              if (effectiveRem !== false && value.type === 'length' && value.value.unit === 'rem') {
+                value.value.unit = 'px';
+                value.value.value = round(value.value.value * effectiveRem);
+              }
+              return value;
+            }),
             { type: "token", value: { type: "white-space", value: " " } },
           ],
         };
