@@ -62,6 +62,7 @@ type Parser<T extends Declaration["property"] = Declaration["property"]> = (
 
 const propertyRename: Record<string, string> = {
   "background-image": "experimental_backgroundImage",
+  "font-variant-caps": "font-variant",
 };
 
 const unparsedRuntimeParsing = new Set([
@@ -997,6 +998,18 @@ export function parseCustomDeclaration(
     );
   } else if (property === "corner-shape") {
     parseCornerShape(declaration.value, builder);
+  } else if (property === "font-variant") {
+    const parsedFontVariant = parseFontVariantCaps(
+      parseUnparsed(
+        declaration.value.value,
+        builder,
+        property,
+      ) as FontVariantCaps,
+      builder,
+    );
+    if (parsedFontVariant !== undefined) {
+      builder.addDescriptor(property, parsedFontVariant);
+    }
   } else if (
     validProperties.has(property) ||
     property.startsWith("--") ||
