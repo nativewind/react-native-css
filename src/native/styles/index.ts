@@ -504,7 +504,7 @@ function nativeStyleMapping(
     }
 
     let target = props;
-    const tokens = path.split(".");
+    const tokens = (typeof path === "string" ? path : key).split(".");
     const lastToken = tokens.pop();
     for (const token of tokens) {
       target[token] ??= {};
