@@ -1612,6 +1612,18 @@ export function parseColorDeclaration(
   );
 }
 
+/**
+ * Lab/LCH/OKLab/OKLCH channels can be `NaN` when lightningcss resolves a
+ * degenerate `color-mix()` at compile time (e.g. mixing black with
+ * `transparent` in oklab yields `NaN` for the a/b chromaticity channels).
+ * Passing `NaN` to colorjs.io produces an invalid string such as
+ * `#NaNNaNNaN80`, which React Native silently discards. Per CSS Color 4 a
+ * missing component is treated as `0`, so coerce `NaN` to `0`.
+ */
+function nanToZero(value: number): number {
+  return Number.isNaN(value) ? 0 : value;
+}
+
 export function parseColor(cssColor: CssColor, builder: StylesheetBuilder) {
   if (typeof cssColor === "string") {
     if (namedColors.has(cssColor)) {
@@ -1666,28 +1678,44 @@ export function parseColor(cssColor: CssColor, builder: StylesheetBuilder) {
     case "lab":
       color = new Color({
         space: cssColor.type,
-        coords: [cssColor.l, cssColor.a, cssColor.b],
+        coords: [
+          nanToZero(cssColor.l),
+          nanToZero(cssColor.a),
+          nanToZero(cssColor.b),
+        ],
         alpha: cssColor.alpha,
       });
       break;
     case "lch":
       color = new Color({
         space: cssColor.type,
-        coords: [cssColor.l, cssColor.c, cssColor.h],
+        coords: [
+          nanToZero(cssColor.l),
+          nanToZero(cssColor.c),
+          nanToZero(cssColor.h),
+        ],
         alpha: cssColor.alpha,
       });
       break;
     case "oklab":
       color = new Color({
         space: cssColor.type,
-        coords: [cssColor.l, cssColor.a, cssColor.b],
+        coords: [
+          nanToZero(cssColor.l),
+          nanToZero(cssColor.a),
+          nanToZero(cssColor.b),
+        ],
         alpha: cssColor.alpha,
       });
       break;
     case "oklch":
       color = new Color({
         space: cssColor.type,
-        coords: [cssColor.l, cssColor.c, cssColor.h],
+        coords: [
+          nanToZero(cssColor.l),
+          nanToZero(cssColor.c),
+          nanToZero(cssColor.h),
+        ],
         alpha: cssColor.alpha,
       });
       break;
