@@ -45,10 +45,10 @@ describe("scale", () => {
 
   test("unparsed", () => {
     registerCSS(`
-      .my-class { 
+      .my-class {
         --scale-x: 2%;
         --scale-y: 2%;
-        scale: var(--scale-x) var(--scale-y); 
+        scale: var(--scale-x) var(--scale-y);
       }
     `);
     const component = render(
@@ -151,6 +151,26 @@ describe("transform", () => {
 
     expect(component.props.style).toStrictEqual({
       transform: [{ translateX: "10%" }, { scaleX: 2 }],
+    });
+  });
+
+  test.only("no duplicated translate objects", () => {
+    registerCSS(`
+.translate-x-1 {
+  --tw-translate-x: 4px;
+  transform: translate(var(--tw-translate-x), var(--tw-translate-y));
+}
+.translate-y-1 {
+  --tw-translate-y: 4px;
+  transform: translate(var(--tw-translate-x), var(--tw-translate-y));
+}`);
+
+    const component = render(
+      <View testID={testID} className="translate-x-1 translate-y-1" />,
+    ).getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({
+      transform: [{ translateX: 4 }, { translateY: 4 }],
     });
   });
 });
