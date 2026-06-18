@@ -69,8 +69,14 @@ export function applyValue(
 
     const transformArray: Record<string, unknown>[] = target.transform;
 
-    // Remove any existing values
+    // Remove any existing values ​​and any keys that are to be appended next
     target.transform = transformArray.filter((t) => !(prop in t));
+    const keysToRemove = Array.isArray(value)
+      ? new Set(value.flatMap((v) => Object.keys(v)))
+      : new Set([prop]);
+    target.transform = transformArray.filter(
+      (t) => !(prop in t) && !Object.keys(t).some((k) => keysToRemove.has(k)),
+    );
 
     if (Array.isArray(value)) {
       target.transform.push(...value);
