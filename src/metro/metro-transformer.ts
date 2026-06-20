@@ -13,13 +13,13 @@ const worker =
   require(unstable_transformerPath) as typeof import("metro-transform-worker");
 
 export async function transform(
-  config: JsTransformerConfig,
+  config: JsTransformerConfig & {
+    reactNativeCSS?: CompilerOptions | undefined;
+  },
   projectRoot: string,
   filePath: string,
   data: Buffer,
-  options: JsTransformOptions & {
-    reactNativeCSS?: CompilerOptions | undefined;
-  },
+  options: JsTransformOptions,
 ): Promise<TransformResponse> {
   const isCss = options.type !== "asset" && /\.(s?css|sass)$/.test(filePath);
 
@@ -37,7 +37,7 @@ export async function transform(
   const css = cssFile.output[0].data.css.code.toString();
 
   const productionJS = compile(css, {
-    ...options.reactNativeCSS,
+    ...config.reactNativeCSS,
     filename: filePath,
     projectRoot: projectRoot,
   }).stylesheet();
