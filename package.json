@@ -249,7 +249,7 @@
     "release-it": "^19.0.4",
     "tailwindcss": "^4.1.12",
     "tailwindcss-safe-area": "^1.1.0",
-    "typescript": "^5.9.2",
+    "typescript": "^6.0.3",
     "typescript-eslint": "^8.40.0"
   },
   "react-native-builder-bob": {
