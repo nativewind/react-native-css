@@ -13609,11 +13609,11 @@ __metadata:
   linkType: hard
 
 "tailwindcss-safe-area@npm:^1.1.0":
-  version: 1.1.0
-  resolution: "tailwindcss-safe-area@npm:1.1.0"
+  version: 1.3.0
+  resolution: "tailwindcss-safe-area@npm:1.3.0"
   peerDependencies:
     tailwindcss: ^4.0.0
-  checksum: 10c0/93e48186ebb06f7034f5a01160abad916fcce90f331017d7f350d7de5fd934d742fd7186819e48ff9987d4c2c8a6c4ba6da572af72a125312d8b3786c8415162
+  checksum: 10c0/4559bde30426323da2d1d345c55850f08375d77ac92b2e786f60056b3f92833f1b37e4be52a9faf64338c1be62cfbf65381e254bf547fe78b9d99b6ce585cb69
   languageName: node
   linkType: hard
 
