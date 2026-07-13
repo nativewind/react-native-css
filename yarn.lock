@@ -6246,10 +6246,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"colorjs.io@npm:0.6.0-alpha.1":
-  version: 0.6.0-alpha.1
-  resolution: "colorjs.io@npm:0.6.0-alpha.1"
-  checksum: 10c0/0bc58a65927d77fceade43fcdcaa512befadaa5fb38a4afb3ab632b38eea5d42d656c2bb32c3c604010eeb6e210f3801b0dc480d6b3ae26de6da8c3c55e09f11
+"colorjs.io@npm:0.7.0":
+  version: 0.7.0
+  resolution: "colorjs.io@npm:0.7.0"
+  checksum: 10c0/528e52e25e8147c43138b4d6bda8c264325bbe38f5db0eacc915988f34c4bbb811e36805952eb5591d451babf206be7420f288859293e4167ce9f36ba301fe33
   languageName: node
   linkType: hard
 
@@ -12290,7 +12290,7 @@ __metadata:
     babel-plugin-react-compiler: "npm:^19.1.0-rc.2"
     babel-plugin-tester: "npm:^12.0.0"
     babel-preset-expo: "npm:~54.0.3"
-    colorjs.io: "npm:0.6.0-alpha.1"
+    colorjs.io: "npm:0.7.0"
     comment-json: "npm:^4.2.5"
     commitlint: "npm:^20.0.0"
     debug: "npm:^4.4.1"
