@@ -12,6 +12,8 @@ const tests = [
   ["rotate: x 3deg;", [{ d: [[[{}, "rotateX", "3deg"], "rotateX"]], s: [1, 1] }]],
   ["stroke-width: 1px;", [{ d: [[1, ["strokeWidth"]]], s: [1, 1] }]],
   ["stroke: black;", [{ d: [["#000", ["stroke"]]], s: [1, 1] }]],
+  ["cursor: pointer;", [{ d: [{ cursor: "pointer" }], s: [1, 1] }]],
+  ["cursor: auto;", [{ d: [{ cursor: "auto" }], s: [1, 1] }]],
 ] as const;
 
 test.each(tests)("declarations for %s", (declarations, expected) => {
