@@ -191,6 +191,20 @@ export function getStyledProps(
 
   const styledProps = state.stylesObs?.get(state.styleEffect);
 
+  // When multiple configs exist (e.g. ScrollView with className→style and
+  // contentContainerClassName→contentContainerStyle), each iteration of
+  // deepMergeConfig produces a full props object via Object.assign({}, left, right).
+  // Later iterations overwrite earlier ones' correctly-merged target props.
+  // We save each iteration's target value and restore them after the loop.
+  //
+  // Note: This uses the leaf key of config.target for storage/restoration.
+  // For nested array targets (length > 1), the leaf key is stored at the
+  // top level, which is correct because deepMergeConfig already builds the
+  // nested structure. If two configs ever share the same leaf key, the last
+  // one wins — but no built-in component mapping produces this scenario.
+  const computedTargets: Record<string, any> = {};
+  const consumedSources: string[] = [];
+
   for (const config of state.configs) {
     result = deepMergeConfig(
       config,
@@ -205,6 +219,21 @@ export function getStyledProps(
         result,
         nativeStyleMapping(config, styledProps.important),
       );
+    }
+
+    // Save the correctly-merged target prop from this iteration
+    if (result && config.target) {
+      const targetKey = Array.isArray(config.target)
+        ? config.target[config.target.length - 1]
+        : config.target;
+      if (targetKey && targetKey in result) {
+        computedTargets[targetKey] = result[targetKey];
+      }
+    }
+
+    // Track consumed className sources for cleanup
+    if (config.source !== config.target) {
+      consumedSources.push(config.source);
     }
 
     // Apply the handlers
@@ -262,6 +291,17 @@ export function getStyledProps(
         "onLayout",
         inline?.onLayout,
       );
+    }
+  }
+
+  // Restore correctly-merged target props that may have been overwritten
+  // by later config iterations' Object.assign({}, left, right)
+  if (result) {
+    for (const key in computedTargets) {
+      result[key] = computedTargets[key];
+    }
+    for (const source of consumedSources) {
+      delete result[source];
     }
   }
 
@@ -435,6 +475,49 @@ function deepMergeConfig(
         right?.[key],
         rightIsInline,
       );
+    }
+
+    // For length-1 array targets (e.g. ["contentContainerStyle"]), the loop
+    // above runs 0 iterations. Merge the target prop so inline styles don't
+    // silently overwrite className-computed styles (same as string target path).
+    const finalKey = config.target[config.target.length - 1];
+    if (config.target.length === 1 && finalKey && rightIsInline) {
+      let rightValue = right?.[finalKey];
+      if (rightValue !== undefined) {
+        rightValue = filterCssVariables(rightValue);
+      }
+      if (rightValue === undefined || rightValue === null) {
+        // Inline is empty or fully filtered — preserve className-computed value
+        if (left && finalKey in left) {
+          result[finalKey] = left[finalKey];
+        } else {
+          // No left value either — remove unfiltered inline value from result
+          delete result[finalKey];
+        }
+      } else if (left && finalKey in left) {
+        const leftValue = left[finalKey];
+        const leftIsObj =
+          typeof leftValue === "object" &&
+          leftValue !== null &&
+          !Array.isArray(leftValue);
+        const rightIsObj =
+          typeof rightValue === "object" &&
+          rightValue !== null &&
+          !Array.isArray(rightValue);
+        if (leftIsObj && rightIsObj) {
+          if (hasNonOverlappingProperties(leftValue, rightValue)) {
+            result[finalKey] = [leftValue, rightValue];
+          } else {
+            // All left keys are in right — use filtered right value
+            result[finalKey] = rightValue;
+          }
+        } else {
+          result[finalKey] = [leftValue, rightValue];
+        }
+      } else {
+        // No left value — use filtered right value (not the unfiltered one from mergeDefinedProps)
+        result[finalKey] = rightValue;
+      }
     }
 
     return result;
