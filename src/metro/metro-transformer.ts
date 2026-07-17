@@ -7,6 +7,7 @@ import type {
 
 import { compile, type CompilerOptions } from "../compiler";
 import { getNativeInjectionCode } from "./injection-code";
+import { bold, dim, yellow } from "./picocolors";
 
 const worker =
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -36,11 +37,17 @@ export async function transform(
 
   const css = cssFile.output[0].data.css.code.toString();
 
-  const productionJS = compile(css, {
+  const compiled = compile(css, {
     ...config.reactNativeCSS,
     filename: filePath,
     projectRoot: projectRoot,
-  }).stylesheet();
+  });
+
+  const productionJS = compiled.stylesheet();
+
+  if (options.dev) {
+    logWarnings(filePath, compiled.warnings());
+  }
 
   data = Buffer.from(getNativeInjectionCode([], [productionJS]));
 
@@ -59,4 +66,39 @@ export async function transform(
   };
 
   return transform;
+}
+
+function logWarnings(
+  filePath: string,
+  warnings: ReturnType<ReturnType<typeof compile>["warnings"]>,
+) {
+  const lines: string[] = [];
+
+  if (warnings.properties?.length) {
+    lines.push(
+      `properties with no React Native equivalent: ${[...new Set(warnings.properties)].join(", ")}`,
+    );
+  }
+
+  if (warnings.values) {
+    for (const [property, values] of Object.entries(warnings.values)) {
+      lines.push(
+        `unsupported values for ${property}: ${[...new Set(values.map(String))].join(", ")}`,
+      );
+    }
+  }
+
+  if (warnings.functions?.length) {
+    lines.push(
+      `unsupported functions: ${[...new Set(warnings.functions)].join(", ")}`,
+    );
+  }
+
+  if (!lines.length) {
+    return;
+  }
+
+  console.warn(
+    `${yellow(bold("react-native-css"))} skipped styles in ${filePath} that cannot be represented on native:\n${lines.map((line) => dim(`  - ${line}`)).join("\n")}`,
+  );
 }
