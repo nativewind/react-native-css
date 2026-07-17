@@ -62,8 +62,23 @@ type Parser<T extends Declaration["property"] = Declaration["property"]> = (
 
 const propertyRename: Record<string, string> = {
   "background-image": "experimental_backgroundImage",
+  // React Native has no border-inline-* props, but ships the equivalent
+  // RTL-aware border-start-* / border-end-* props
+  "border-inline-end-color": "border-end-color",
+  "border-inline-end-width": "border-end-width",
+  "border-inline-start-color": "border-start-color",
+  "border-inline-start-width": "border-start-width",
   "font-variant-caps": "font-variant",
 };
+
+// React Native only supports a uniform borderStyle, so per-side border
+// styles have no native equivalent and are dropped. "solid" is dropped
+// silently as it matches React Native's default rendering.
+const unsupportedInlineStyles = new Set([
+  "border-inline-style",
+  "border-inline-start-style",
+  "border-inline-end-style",
+]);
 
 const unparsedRuntimeParsing = new Set([
   "animation",
@@ -382,14 +397,14 @@ function parseBorderColor(
     const start = parseColor(declaration.value.start, builder);
     const end = parseColor(declaration.value.end, builder);
 
-    if (start === end) {
+    if (declaration.property === "border-inline-color") {
+      builder.addDescriptor("border-start-color", start);
+      builder.addDescriptor("border-end-color", end);
+    } else if (start === end) {
       builder.addDescriptor(declaration.property, start);
-    } else if (declaration.property === "border-block-color") {
+    } else {
       builder.addDescriptor("border-top-color", start);
       builder.addDescriptor("border-bottom-color", end);
-    } else {
-      builder.addDescriptor("border-left-color", start);
-      builder.addDescriptor("border-right-color", end);
     }
   }
 }
@@ -480,17 +495,17 @@ function parseBorderInline(
   { value }: DeclarationType<"border-inline">,
   builder: StylesheetBuilder,
 ) {
-  builder.addDescriptor(
-    "border-inline-color",
-    parseColor(value.color, builder),
-  );
-  builder.addDescriptor(
-    "border-inline-width",
-    parseBorderSideWidth(value.width, builder),
-  );
-  builder.addDescriptor(
-    "border-inline-style",
+  const color = parseColor(value.color, builder);
+  const width = parseBorderSideWidth(value.width, builder);
+
+  builder.addDescriptor("border-start-color", color);
+  builder.addDescriptor("border-end-color", color);
+  builder.addDescriptor("border-start-width", width);
+  builder.addDescriptor("border-end-width", width);
+  dropUnsupportedInlineStyle(
     parseBorderStyle(value.style, builder),
+    builder,
+    "border-inline-style",
   );
 }
 
@@ -498,17 +513,15 @@ function parseBorderInlineStart(
   { value }: DeclarationType<"border-inline-start">,
   builder: StylesheetBuilder,
 ) {
+  builder.addDescriptor("border-start-color", parseColor(value.color, builder));
   builder.addDescriptor(
-    "border-inline-start-color",
-    parseColor(value.color, builder),
-  );
-  builder.addDescriptor(
-    "border-inline-start-width",
+    "border-start-width",
     parseBorderSideWidth(value.width, builder),
   );
-  builder.addDescriptor(
-    "border-inline-start-style",
+  dropUnsupportedInlineStyle(
     parseBorderStyle(value.style, builder),
+    builder,
+    "border-inline-start-style",
   );
 }
 
@@ -516,17 +529,15 @@ function parseBorderInlineEnd(
   { value }: DeclarationType<"border-inline-end">,
   builder: StylesheetBuilder,
 ) {
+  builder.addDescriptor("border-end-color", parseColor(value.color, builder));
   builder.addDescriptor(
-    "border-inline-end-color",
-    parseColor(value.color, builder),
-  );
-  builder.addDescriptor(
-    "border-inline-end-width",
+    "border-end-width",
     parseBorderSideWidth(value.width, builder),
   );
-  builder.addDescriptor(
-    "border-inline-end-style",
+  dropUnsupportedInlineStyle(
     parseBorderStyle(value.style, builder),
+    builder,
+    "border-inline-end-style",
   );
 }
 
@@ -535,8 +546,12 @@ export function parseBorderInlineWidth(
   builder: StylesheetBuilder,
 ) {
   builder.addDescriptor(
-    "border-inline-width",
+    "border-start-width",
     parseBorderSideWidth(declaration.value.start, builder),
+  );
+  builder.addDescriptor(
+    "border-end-width",
+    parseBorderSideWidth(declaration.value.end, builder),
   );
 }
 
@@ -549,24 +564,32 @@ export function parseBorderInlineStyle(
   builder: StylesheetBuilder,
 ) {
   if (typeof declaration.value === "string") {
-    builder.addDescriptor(
-      declaration.property,
+    dropUnsupportedInlineStyle(
       parseBorderStyle(declaration.value, builder),
-    );
-  } else if (declaration.value.start === declaration.value.end) {
-    builder.addDescriptor(
+      builder,
       declaration.property,
-      parseBorderStyle(declaration.value.start, builder),
     );
   } else {
-    builder.addDescriptor(
-      "border-inline-start-style",
+    dropUnsupportedInlineStyle(
       parseBorderStyle(declaration.value.start, builder),
+      builder,
+      "border-inline-start-style",
     );
-    builder.addDescriptor(
-      "border-inline-end-style",
+    dropUnsupportedInlineStyle(
       parseBorderStyle(declaration.value.end, builder),
+      builder,
+      "border-inline-end-style",
     );
+  }
+}
+
+function dropUnsupportedInlineStyle(
+  style: string | undefined,
+  builder: StylesheetBuilder,
+  property: string,
+) {
+  if (style !== undefined && style !== "solid") {
+    builder.addWarning("style", property, style);
   }
 }
 
@@ -913,6 +936,11 @@ export function parseUnparsedDeclaration(
   let property = declaration.value.propertyId.property;
 
   if (!(property in parsers)) {
+    builder.addWarning("property", property);
+    return;
+  }
+
+  if (unsupportedInlineStyles.has(property)) {
     builder.addWarning("property", property);
     return;
   }
@@ -1607,7 +1635,7 @@ export function parseColorDeclaration(
   builder: StylesheetBuilder,
 ) {
   builder.addDescriptor(
-    declaration.property,
+    propertyRename[declaration.property] ?? declaration.property,
     parseColor(declaration.value, builder),
   );
 }
@@ -2191,7 +2219,7 @@ export function parseBorderSideWidthDeclaration(
   builder: StylesheetBuilder,
 ) {
   builder.addDescriptor(
-    declaration.property,
+    propertyRename[declaration.property] ?? declaration.property,
     parseBorderSideWidth(declaration.value, builder),
   );
 }
