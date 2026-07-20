@@ -7036,9 +7036,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"eas-build-cache-provider@npm:^16.4.2":
-  version: 16.4.2
-  resolution: "eas-build-cache-provider@npm:16.4.2"
+"eas-build-cache-provider@npm:^21.0.0":
+  version: 21.0.0
+  resolution: "eas-build-cache-provider@npm:21.0.0"
   dependencies:
     "@babel/code-frame": "npm:7.23.5"
     "@expo/config": "npm:11.0.10"
@@ -7051,7 +7051,7 @@ __metadata:
     semver: "npm:7.5.2"
     terminal-link: "npm:2.1.1"
     tslib: "npm:2.4.1"
-  checksum: 10c0/f73f677c044eed0bd5f9793e5cf3612dd9afc166028d71de63162cd807081b72018efeb90a24af4143feea6107d2382ae9154c0ee4845c820b7f4dc0979778fd
+  checksum: 10c0/c5b269600f9282f4015598e0136cce416bdbcacb47d911aa04f217b874fde39926a1d66c2b00a831260f9d13871a45b7d613f129e10871fb35d6e308815e2562
   languageName: node
   linkType: hard
 
@@ -12282,7 +12282,7 @@ __metadata:
     comment-json: "npm:^4.2.5"
     commitlint: "npm:^20.0.0"
     debug: "npm:^4.4.1"
-    eas-build-cache-provider: "npm:^16.4.2"
+    eas-build-cache-provider: "npm:^21.0.0"
     eslint: "npm:^9.30.1"
     eslint-config-prettier: "npm:^10.1.5"
     eslint-plugin-prettier: "npm:^5.5.1"
