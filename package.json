@@ -239,7 +239,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.29.0",
-    "@commitlint/config-conventional": "^20.5.0",
+    "@commitlint/config-conventional": "^21.2.0",
     "@eslint/js": "^10.0.1",
     "@expo/metro-config": "57.0.12",
     "@ianvs/prettier-plugin-sort-imports": "^4.4.2",
