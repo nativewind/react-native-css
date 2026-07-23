@@ -26,7 +26,7 @@ describe("Transforms - Scale", () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: {
         style: {
-          transform: [{ scale: "0%" }],
+          transform: [{ scale: 0 }],
         },
       },
     });
@@ -35,7 +35,7 @@ describe("Transforms - Scale", () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: {
         style: {
-          transform: [{ scaleX: "50%" }, { scaleY: 1 }],
+          transform: [{ scaleX: 0.5 }, { scaleY: 1 }],
         },
       },
     });
@@ -44,7 +44,7 @@ describe("Transforms - Scale", () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: {
         style: {
-          transform: [{ scaleX: 1 }, { scaleY: "50%" }],
+          transform: [{ scaleX: 1 }, { scaleY: 0.5 }],
         },
       },
     });
@@ -53,7 +53,7 @@ describe("Transforms - Scale", () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: {
         style: {
-          transform: [{ scale: "50%" }],
+          transform: [{ scale: 0.5 }],
         },
       },
     });

@@ -842,7 +842,17 @@ export function parseScaleValue(
     return 0;
   }
 
-  return parseLength(translate[prop], builder);
+  const value = translate[prop];
+  // Scale is unitless in React Native's transform API — CSS `scale: 75%` must
+  // become `{ scale: 0.75 }`, not `{ scale: "75%" }`. lightningcss parses "75%"
+  // as { type: "percentage", value: 0.75 }, so the decimal is already in
+  // `value`; parseLength would format it back to the string "75%" (correct for
+  // layout props, wrong for transforms). Short-circuit percentages here.
+  if (typeof value === "object" && value.type === "percentage") {
+    return round(value.value);
+  }
+
+  return parseLength(value, builder);
 }
 
 function parseLetterSpacing(

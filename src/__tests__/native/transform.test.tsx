@@ -55,8 +55,10 @@ describe("scale", () => {
       <View testID={testID} className="my-class" />,
     ).getByTestId(testID);
 
+    // Scale is unitless in RN — a percentage var resolves to the fraction
+    // (2% → 0.02), never the string "2%" (which crashes the transform validator).
     expect(component.props.style).toStrictEqual({
-      transform: [{ scaleX: "2%" }, { scaleY: "2%" }],
+      transform: [{ scaleX: 0.02 }, { scaleY: 0.02 }],
     });
   });
 
@@ -73,6 +75,82 @@ describe("scale", () => {
 
     expect(component.props.style).toStrictEqual({
       transform: [{ scaleX: 2 }, { scaleY: 3 }],
+    });
+  });
+
+  // nativewind/react-native-css#216 — CSS `scale` is unitless in React Native
+  // (75% → 0.75), never the "75%" string that crashes the transform validator.
+  // Both code paths are covered: direct percentages (compile-time
+  // parseScaleValue) and var()-resolved percentages (runtime scale() resolver,
+  // the shape Tailwind v4's `scale-*` utilities actually emit).
+  const scaleStyle = (css: string): unknown => {
+    registerCSS(`.my-class { ${css} }`);
+    return render(<View testID={testID} className="my-class" />).getByTestId(
+      testID,
+    ).props.style;
+  };
+
+  test("percentage — single value applies to both axes", () => {
+    expect(scaleStyle("scale: 75%;")).toStrictEqual({
+      transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }],
+    });
+  });
+
+  test("percentage — identity (100% → 1)", () => {
+    expect(scaleStyle("scale: 100%;")).toStrictEqual({
+      transform: [{ scaleX: 1 }, { scaleY: 1 }],
+    });
+  });
+
+  test("percentage — zero (0% → 0)", () => {
+    expect(scaleStyle("scale: 0%;")).toStrictEqual({
+      transform: [{ scaleX: 0 }, { scaleY: 0 }],
+    });
+  });
+
+  test("percentage — negative flips (-50% → -0.5)", () => {
+    expect(scaleStyle("scale: -50%;")).toStrictEqual({
+      transform: [{ scaleX: -0.5 }, { scaleY: -0.5 }],
+    });
+  });
+
+  test("percentage — greater than 100% (150% → 1.5)", () => {
+    expect(scaleStyle("scale: 150%;")).toStrictEqual({
+      transform: [{ scaleX: 1.5 }, { scaleY: 1.5 }],
+    });
+  });
+
+  test("percentage — fractional (12.5% → 0.125)", () => {
+    expect(scaleStyle("scale: 12.5%;")).toStrictEqual({
+      transform: [{ scaleX: 0.125 }, { scaleY: 0.125 }],
+    });
+  });
+
+  test("percentage — different per-axis values (75% 50%)", () => {
+    expect(scaleStyle("scale: 75% 50%;")).toStrictEqual({
+      transform: [{ scaleX: 0.75 }, { scaleY: 0.5 }],
+    });
+  });
+
+  test("percentage via var() — the Tailwind v4 scale-* shape", () => {
+    expect(
+      scaleStyle(
+        "--tw-scale-x: 75%; --tw-scale-y: 75%; scale: var(--tw-scale-x) var(--tw-scale-y);",
+      ),
+    ).toStrictEqual({ transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] });
+  });
+
+  test("percentage via var() — different per-axis values", () => {
+    expect(
+      scaleStyle(
+        "--tw-scale-x: 50%; --tw-scale-y: 75%; scale: var(--tw-scale-x) var(--tw-scale-y);",
+      ),
+    ).toStrictEqual({ transform: [{ scaleX: 0.5 }, { scaleY: 0.75 }] });
+  });
+
+  test("unitless number is unchanged — no regression (2 → 2)", () => {
+    expect(scaleStyle("scale: 2;")).toStrictEqual({
+      transform: [{ scaleX: 2 }, { scaleY: 2 }],
     });
   });
 });

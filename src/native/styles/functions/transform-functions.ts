@@ -2,15 +2,30 @@ import { isStyleDescriptorArray } from "react-native-css/utilities";
 
 import type { StyleFunctionResolver } from "../resolve";
 
+// CSS `scale` accepts unitless numbers AND percentage strings per CSSWG, but
+// React Native's transform validator only accepts unitless numbers. Tailwind v4
+// emits `scale: var(--tw-scale-x) var(--tw-scale-y)`, whose vars resolve to
+// strings like "100%" / "75%" at runtime — normalize "N%" → N/100 before the
+// type guards. (rotate keeps "Ndeg", translate keeps "N%"; only scale is unitless.)
+const normalizeScaleArg = (value: unknown): unknown => {
+  if (typeof value === "string" && value.endsWith("%")) {
+    const fraction = parseFloat(value);
+    if (!Number.isNaN(fraction)) {
+      return fraction / 100;
+    }
+  }
+  return value;
+};
+
 export const scale: StyleFunctionResolver = (resolveValue, descriptor) => {
   const args = descriptor[2];
 
   if (!isStyleDescriptorArray(args)) {
-    return { scale: resolveValue(args) };
+    return { scale: normalizeScaleArg(resolveValue(args)) };
   }
 
-  const x = resolveValue(args[0]);
-  const y = resolveValue(args[1]);
+  const x = normalizeScaleArg(resolveValue(args[0]));
+  const y = normalizeScaleArg(resolveValue(args[1]));
 
   const isXValid = typeof x === "string" || typeof x === "number";
   const isYValid = typeof y === "string" || typeof y === "number";
