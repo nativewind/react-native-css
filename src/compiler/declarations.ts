@@ -950,10 +950,15 @@ export function parseUnparsedDeclaration(
     }
 
     if (property === "color") {
+      // Publish the resolved color to descendants as --__rn-css-color — the
+      // variable `currentcolor` and `color: inherit` both resolve against. Skip
+      // when the value IS that same lookup (e.g. `color: inherit`) so an
+      // inheriting rule never seeds a circular `--__rn-css-color:
+      // var(--__rn-css-color)` that would break resolution for its own subtree.
       if (
         !isStyleFunction(value) ||
         value[1] !== "var" ||
-        value[2] !== "-css-color"
+        value[2] !== "__rn-css-color"
       ) {
         builder.addDescriptor("--__rn-css-color", value);
       }
@@ -1263,11 +1268,30 @@ export function parseUnparsed(
             return;
           }
 
-          if (value === "inherit" || value === "initial") {
+          // CSS-wide keywords and `currentcolor` are case-insensitive.
+          const keyword = value.toLowerCase();
+
+          // Per CSS Color, `currentcolor` as the value of `color` is defined as
+          // `inherit`; and per CSS Cascade, `unset` on an inherited property
+          // (`color` is inherited) computes to `inherit` too. So `currentcolor`
+          // (valid on any property) and `inherit` / `unset` on `color` all
+          // resolve to the inherited-color variable every color rule publishes
+          // to its subtree (see parseUnparsedDeclaration).
+          if (
+            keyword === "currentcolor" ||
+            ((keyword === "inherit" || keyword === "unset") &&
+              property === "color")
+          ) {
+            return [{}, "var", "__rn-css-color"] as const;
+          }
+
+          // `inherit` and `initial` on any other property have no per-property
+          // resolution context here — drop with a warning. `unset` on a
+          // non-color property (= `initial` there) and `revert` /
+          // `revert-layer` keep their existing fall-through handling below.
+          if (keyword === "inherit" || keyword === "initial") {
             builder.addWarning("value", value);
             return;
-          } else if (value === "currentcolor") {
-            return [{}, "var", "__rn-css-color"] as const;
           }
 
           if (value === "true") {

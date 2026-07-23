@@ -448,3 +448,121 @@ test("simplifies rem", () => {
     ],
   });
 });
+
+describe("CSS-wide color keywords", () => {
+  const stylesheetFor = (value: string) =>
+    compile(`.child { color: ${value}; }`).stylesheet();
+
+  test("compiles to the inherited-color variable instead of being dropped", () => {
+    // lightningcss emits `color: inherit` as an UnparsedProperty (the keyword is
+    // not a CssColor), which parseUnparsed used to drop. Per CSS Color,
+    // `currentcolor` used as the value of `color` is defined as `inherit`, so it
+    // resolves to the same inherited-color variable. The ABSENCE of a `v` entry
+    // is the no-self-reference guarantee — publishing this value as its own
+    // --__rn-css-color would seed a circular var(--__rn-css-color).
+    expect(stylesheetFor("inherit")).toStrictEqual({
+      s: [
+        [
+          "child",
+          [
+            {
+              s: [1, 1],
+              d: [[[{}, "var", "__rn-css-color"], "color", 1]],
+              dv: 1,
+            },
+          ],
+        ],
+      ],
+    });
+  });
+
+  test("inherit and currentcolor compile identically (CSS Color spec identity)", () => {
+    expect(stylesheetFor("inherit")).toStrictEqual(
+      stylesheetFor("currentcolor"),
+    );
+  });
+
+  test("currentcolor still resolves to the inherited-color variable (unchanged)", () => {
+    // The token/ident branch that hunk 1 restructured also carries currentcolor;
+    // this pins that currentcolor keeps compiling to the same lookup, and — like
+    // inherit — never self-publishes a `v`.
+    expect(stylesheetFor("currentcolor")).toStrictEqual({
+      s: [
+        [
+          "child",
+          [
+            {
+              s: [1, 1],
+              d: [[[{}, "var", "__rn-css-color"], "color", 1]],
+              dv: 1,
+            },
+          ],
+        ],
+      ],
+    });
+  });
+
+  test("a normal color still publishes --__rn-css-color to descendants", () => {
+    expect(stylesheetFor("red")).toStrictEqual({
+      s: [
+        [
+          "child",
+          [
+            {
+              s: [1, 1],
+              d: [{ color: "#f00" }],
+              v: [["__rn-css-color", "#f00"]],
+            },
+          ],
+        ],
+      ],
+    });
+  });
+
+  test("inherit on a non-color property is still dropped (no inheritance context)", () => {
+    expect(
+      compile(`.child { font-size: inherit; }`).stylesheet(),
+    ).toStrictEqual({});
+  });
+
+  test("color: initial is still dropped (different semantics, out of scope)", () => {
+    expect(stylesheetFor("initial")).toStrictEqual({});
+  });
+
+  test("color: unset resolves like inherit (unset on an inherited property is inherit)", () => {
+    // Per CSS Cascade, `unset` computes to `inherit` on inherited properties,
+    // and `color` is inherited — so it maps to the same inherited-color variable.
+    expect(stylesheetFor("unset")).toStrictEqual(stylesheetFor("inherit"));
+  });
+
+  test("keyword matching is case-insensitive (INHERIT)", () => {
+    // CSS-wide keywords are case-insensitive; lightningcss does not fold case.
+    expect(stylesheetFor("INHERIT")).toStrictEqual(stylesheetFor("inherit"));
+  });
+
+  test("currentColor (camelCase) resolves like currentcolor", () => {
+    // The spelling React/JS authors reach for; it is valid, case-insensitive CSS.
+    expect(stylesheetFor("currentColor")).toStrictEqual(
+      stylesheetFor("currentcolor"),
+    );
+  });
+
+  test("currentcolor resolves on a non-color property too (border-color)", () => {
+    expect(
+      compile(`.child { border-color: currentcolor; }`).stylesheet(),
+    ).toStrictEqual({
+      s: [
+        [
+          "child",
+          [
+            {
+              s: [1, 1],
+              d: [[[{}, "var", "__rn-css-color"], "borderColor", 1]],
+              dv: 1,
+            },
+          ],
+        ],
+      ],
+    });
+  });
+});
