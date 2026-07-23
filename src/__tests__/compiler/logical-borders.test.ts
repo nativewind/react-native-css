@@ -116,3 +116,36 @@ describe("logical border styles", () => {
     });
   });
 });
+
+describe("logical border shorthands via var() (unparsed path)", () => {
+  // A var() forces a shorthand onto the unparsed path, where propertyRename
+  // (longhands only) and the parseBorderInline* parsers (parsed path only) do
+  // not reach. These must still expand to the RTL-aware start/end props.
+  test("border-inline-color with var()", () => {
+    expect(
+      getRule("border-inline-color: hsl(var(--primary));").rule,
+    ).toStrictEqual([
+      {
+        s: [1, 1],
+        d: [
+          [[{}, "hsl", [{}, "var", "primary", 1]], "borderStartColor", 1],
+          [[{}, "hsl", [{}, "var", "primary", 1]], "borderEndColor", 1],
+        ],
+        dv: 1,
+      },
+    ]);
+  });
+
+  test("border-inline-width with var()", () => {
+    expect(getRule("border-inline-width: var(--w);").rule).toStrictEqual([
+      {
+        s: [1, 1],
+        d: [
+          [[{}, "var", "w", 1], "borderStartWidth", 1],
+          [[{}, "var", "w", 1], "borderEndWidth", 1],
+        ],
+        dv: 1,
+      },
+    ]);
+  });
+});

@@ -80,6 +80,15 @@ const unsupportedInlineStyles = new Set([
   "border-inline-end-style",
 ]);
 
+// Logical-border SHORTHANDS have no RN equivalent either; when var()-valued
+// they reach the unparsed path (the parsed parseBorderInline* never run) and
+// propertyRename only maps the longhands. Expand each to its RTL-aware
+// start/end props, sharing the runtime value.
+const inlineShorthandExpansion: Record<string, string[]> = {
+  "border-inline-color": ["border-start-color", "border-end-color"],
+  "border-inline-width": ["border-start-width", "border-end-width"],
+};
+
 const unparsedRuntimeParsing = new Set([
   "animation",
   "border",
@@ -953,6 +962,21 @@ export function parseUnparsedDeclaration(
   const rename = propertyRename[property];
   if (rename) {
     property = rename;
+  }
+
+  /**
+   * Logical-border shorthands (border-inline-color / -width) reach here when
+   * var()-valued. RN has no border-inline-*; expand to start/end sharing the
+   * value, mirroring parseBorderInline* on the parsed path.
+   */
+  const shorthandExpansion = inlineShorthandExpansion[property];
+  if (shorthandExpansion) {
+    const value = parseUnparsed(declaration.value.value, builder, property);
+    for (const target of shorthandExpansion) {
+      builder.descriptorProperty = target;
+      builder.addDescriptor(target, value);
+    }
+    return;
   }
 
   /**
