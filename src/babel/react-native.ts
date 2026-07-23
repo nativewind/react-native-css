@@ -1,4 +1,4 @@
-import { dirname, resolve } from "path";
+import { dirname } from "path";
 
 import { type NodePath } from "@babel/traverse";
 import tBabelTypes, {
@@ -9,12 +9,13 @@ import tBabelTypes, {
 } from "@babel/types";
 
 import { allowedModules } from "./allowedModules";
+import { resolvePosix } from "./helpers";
 
 type BabelTypes = typeof tBabelTypes;
 
 function parseReactNativeSource(source: string, filename: string) {
   if (source.startsWith(".")) {
-    source = resolve(dirname(filename), source);
+    source = resolvePosix(dirname(filename), source);
 
     const internalPath = source.split("react-native/Libraries/Components/")[1];
     if (!internalPath) {
