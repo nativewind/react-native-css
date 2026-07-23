@@ -224,12 +224,13 @@ Appearance.addChangeListener((event) => colorScheme.set(event.colorScheme));
 
 /** Reduce Motion ************************************************************/
 
-// Mirror the Color Scheme wiring above. Appearance.getColorScheme() is
-// synchronous, but AccessibilityInfo has no synchronous getter, so the
-// observable seeds `false` (motion enabled — the safe default) and flips
-// when isReduceMotionEnabled() resolves, then stays live via the
-// reduceMotionChanged event. iOS drives this directly; on Android the OS
-// surface is the animation duration scale (react-native #31221).
+// Mirror the Color Scheme wiring above — but AccessibilityInfo has no
+// synchronous getter (Appearance.getColorScheme() does), so this can't be
+// seeded synchronously. It starts `false` (motion enabled — the safe default),
+// flips when isReduceMotionEnabled() resolves (a brief, unavoidable cold-start
+// window), and stays live via reduceMotionChanged. iOS drives this directly;
+// on Android the OS surface is the animation duration scale (react-native
+// #31221). The one-shot seed read is intentionally fire-and-forget.
 export const reduceMotion = observable(false);
 AccessibilityInfo.isReduceMotionEnabled().then((enabled) =>
   reduceMotion.set(enabled),
