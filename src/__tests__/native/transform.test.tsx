@@ -132,6 +132,14 @@ describe("scale", () => {
     });
   });
 
+  test("mixed number and percentage per-axis (2 50% → 2, 0.5)", () => {
+    // Both types coexist: the number stays a number, the percentage becomes
+    // its unitless fraction — nothing about number handling changes.
+    expect(scaleStyle("scale: 2 50%;")).toStrictEqual({
+      transform: [{ scaleX: 2 }, { scaleY: 0.5 }],
+    });
+  });
+
   test("percentage via var() — the Tailwind v4 scale-* shape", () => {
     expect(
       scaleStyle(
