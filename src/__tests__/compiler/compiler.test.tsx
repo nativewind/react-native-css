@@ -324,6 +324,69 @@ test("light-dark()", () => {
   });
 });
 
+test("prefers-reduced-motion", () => {
+  // `motion-reduce:` compiles to `reduce`, `motion-safe:` to `no-preference`,
+  // and a bare `@media (prefers-reduced-motion)` to the boolean (`!!`) form.
+  // The native runtime evaluates these against the reduceMotion observable
+  // (see native/media-query.test.tsx).
+  expect(
+    compile(
+      `@media (prefers-reduced-motion: reduce) { .my-class { opacity: 0 } }`,
+    ).stylesheet(),
+  ).toStrictEqual({
+    s: [
+      [
+        "my-class",
+        [
+          {
+            s: [2, 1],
+            m: [["=", "prefers-reduced-motion", "reduce"]],
+            d: [{ opacity: 0 }],
+          },
+        ],
+      ],
+    ],
+  });
+
+  expect(
+    compile(
+      `@media (prefers-reduced-motion: no-preference) { .my-class { opacity: 0 } }`,
+    ).stylesheet(),
+  ).toStrictEqual({
+    s: [
+      [
+        "my-class",
+        [
+          {
+            s: [2, 1],
+            m: [["=", "prefers-reduced-motion", "no-preference"]],
+            d: [{ opacity: 0 }],
+          },
+        ],
+      ],
+    ],
+  });
+
+  expect(
+    compile(
+      `@media (prefers-reduced-motion) { .my-class { opacity: 0 } }`,
+    ).stylesheet(),
+  ).toStrictEqual({
+    s: [
+      [
+        "my-class",
+        [
+          {
+            s: [2, 1],
+            m: [["!!", "prefers-reduced-motion"]],
+            d: [{ opacity: 0 }],
+          },
+        ],
+      ],
+    ],
+  });
+});
+
 test("media query nested in rules", () => {
   const compiled = compile(`
 .my-class {

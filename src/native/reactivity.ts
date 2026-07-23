@@ -1,6 +1,7 @@
 /* eslint-disable */
 import { createContext } from "react";
 import {
+  AccessibilityInfo,
   Appearance,
   Dimensions,
   type ColorSchemeName,
@@ -220,6 +221,22 @@ export const colorScheme = observable<ColorSchemeName>(
   Appearance.getColorScheme(),
 );
 Appearance.addChangeListener((event) => colorScheme.set(event.colorScheme));
+
+/** Reduce Motion ************************************************************/
+
+// Mirror the Color Scheme wiring above. Appearance.getColorScheme() is
+// synchronous, but AccessibilityInfo has no synchronous getter, so the
+// observable seeds `false` (motion enabled — the safe default) and flips
+// when isReduceMotionEnabled() resolves, then stays live via the
+// reduceMotionChanged event. iOS drives this directly; on Android the OS
+// surface is the animation duration scale (react-native #31221).
+export const reduceMotion = observable(false);
+AccessibilityInfo.isReduceMotionEnabled().then((enabled) =>
+  reduceMotion.set(enabled),
+);
+AccessibilityInfo.addEventListener("reduceMotionChanged", (enabled) =>
+  reduceMotion.set(enabled),
+);
 
 /** Containers ****************************************************************/
 
