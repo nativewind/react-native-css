@@ -2403,8 +2403,17 @@ export function parseTextAlign(
   builder: StylesheetBuilder,
 ) {
   const allowed = new Set(["auto", "left", "right", "center", "justify"]);
+
   if (allowed.has(value)) {
     return value;
+  }
+
+  if (value === "start") {
+    return "left";
+  }
+
+  if (value === "end") {
+    return "right";
   }
 
   builder.addWarning("value", value);
