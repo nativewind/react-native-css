@@ -292,6 +292,16 @@ describe("Typography - Text Align", () => {
       props: { style: { textAlign: "right" } },
     });
   });
+  test("text-start is RTL-safe and compiles identically to text-left", async () => {
+    await expect(
+      renderSimple({ className: "text-start" }),
+    ).resolves.toStrictEqual(await renderSimple({ className: "text-left" }));
+  });
+  test("text-end is RTL-safe and compiles identically to text-right", async () => {
+    await expect(
+      renderSimple({ className: "text-end" }),
+    ).resolves.toStrictEqual(await renderSimple({ className: "text-right" }));
+  });
 });
 
 describe("Typography - Text Color", () => {

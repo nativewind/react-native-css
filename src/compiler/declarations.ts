@@ -2408,6 +2408,10 @@ export function parseTextAlign(
     return value;
   }
 
+  // React Native's text alignment enum has no start/end values. Its native
+  // text layout resolves left/right logically for RTL, so these aliases are
+  // exact on both platforms. Do not branch on I18nManager here: that would
+  // invert the logical meaning under RTL.
   if (value === "start") {
     return "left";
   }
