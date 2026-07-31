@@ -302,6 +302,17 @@ describe("Typography - Text Align", () => {
       renderSimple({ className: "text-end" }),
     ).resolves.toStrictEqual(await renderSimple({ className: "text-right" }));
   });
+  test("unsupported text-align value drops with a warning (no over-match)", async () => {
+    expect(
+      await renderSimple({
+        className: "text-match-parent",
+        extraCss: ".text-match-parent { text-align: match-parent; }",
+      }),
+    ).toStrictEqual({
+      props: {},
+      warnings: { values: { "text-align": "match-parent" } },
+    });
+  });
 });
 
 describe("Typography - Text Color", () => {
