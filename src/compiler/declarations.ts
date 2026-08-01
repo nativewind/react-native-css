@@ -2398,13 +2398,38 @@ function parseGapValue(
   }
 }
 
+const textAlignKeywords = new Set([
+  "auto",
+  "left",
+  "right",
+  "center",
+  "justify",
+]);
+
 export function parseTextAlign(
   { value }: DeclarationType<"text-align">,
   builder: StylesheetBuilder,
 ) {
-  const allowed = new Set(["auto", "left", "right", "center", "justify"]);
-  if (allowed.has(value)) {
+  if (textAlignKeywords.has(value)) {
     return value;
+  }
+
+  // React Native's text alignment enum has no start/end values. Its native
+  // text layout resolves left/right logically for RTL, so these aliases are
+  // exact on both platforms. Do not branch on I18nManager here: that would
+  // invert the logical meaning under RTL.
+  //
+  // lightningcss normalises the parsed text-align enum to lowercase, so the
+  // strict === comparisons below are sufficient — no toLowerCase() needed.
+  // This differs from the unparsed-token path used by the color: inherit fix
+  // (#391), which preserves author casing and does need toLowerCase(). The
+  // asymmetry is correct; do not "fix" it.
+  if (value === "start") {
+    return "left";
+  }
+
+  if (value === "end") {
+    return "right";
   }
 
   builder.addWarning("value", value);
