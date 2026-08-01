@@ -303,9 +303,60 @@ export function getStyledProps(
     for (const source of consumedSources) {
       delete result[source];
     }
+    if (result.style !== undefined) {
+      result.style = expandLogicalPadding(result.style);
+    }
   }
 
   return result;
+}
+
+/**
+ * Android's Fabric TextInput ignores logical padding (`paddingBlock` / `paddingInline`): the
+ * value is dropped and the EditText theme default (~21dp) stays, so `py-2` measures 42.67dp
+ * instead of 35.81dp on a real device. Tailwind compiles `py-*` / `px-*` to exactly those
+ * logical properties, so effectively every text input is affected.
+ *
+ * Rewriting call sites to `pt-*` / `pb-*` is not an option — a Tailwind class sorter collapses
+ * them back to `py-*`. Convert to physical properties here, once className resolution is done.
+ * Existing physical values win, so an explicit `paddingTop` is never overwritten.
+ */
+function expandLogicalPadding(style: unknown): unknown {
+  if (!style || typeof style !== "object") {
+    return style;
+  }
+
+  if (Array.isArray(style)) {
+    let changed = false;
+    const next = style.map((entry) => {
+      const expanded = expandLogicalPadding(entry);
+      if (expanded !== entry) {
+        changed = true;
+      }
+      return expanded;
+    });
+    return changed ? next : style;
+  }
+
+  const { paddingBlock, paddingInline } = style as Record<string, unknown>;
+  if (paddingBlock === undefined && paddingInline === undefined) {
+    return style;
+  }
+
+  const next: Record<string, unknown> = { ...style };
+  delete next.paddingBlock;
+  delete next.paddingInline;
+
+  if (paddingBlock !== undefined) {
+    next.paddingTop ??= paddingBlock;
+    next.paddingBottom ??= paddingBlock;
+  }
+  if (paddingInline !== undefined) {
+    next.paddingLeft ??= paddingInline;
+    next.paddingRight ??= paddingInline;
+  }
+
+  return next;
 }
 
 /**
