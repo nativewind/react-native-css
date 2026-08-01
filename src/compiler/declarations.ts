@@ -2398,7 +2398,7 @@ function parseGapValue(
   }
 }
 
-const TEXT_ALIGN_ALLOWED = new Set([
+const textAlignKeywords = new Set([
   "auto",
   "left",
   "right",
@@ -2410,7 +2410,7 @@ export function parseTextAlign(
   { value }: DeclarationType<"text-align">,
   builder: StylesheetBuilder,
 ) {
-  if (TEXT_ALIGN_ALLOWED.has(value)) {
+  if (textAlignKeywords.has(value)) {
     return value;
   }
 
