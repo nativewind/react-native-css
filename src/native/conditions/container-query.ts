@@ -47,9 +47,21 @@ export function testContainerQuery(
     return false;
   }
 
-  // if (query.a && !testAttributes(query.a, container.props, guards)) {
-  //   return false;
-  // }
+  if (query.a) {
+    // zeta: the container value is an effect getter and carries no props (see
+    // `containers[name] = state.ruleEffectGetter` in react/rules.ts), which is why upstream
+    // commented out the attribute test above. The side effect is that a `group-<attribute>:`
+    // rule becomes **unconditionally true whenever a container exists** — every enabled
+    // Button renders its label with `group-disabled:text-white/20`. A condition we cannot
+    // evaluate must not be applied.
+    //
+    // Consequence: `group-disabled:*` never applies on native. Pseudo conditions
+    // (`group-active:`, `group-hover:`) go through the query.p path below and are unaffected.
+    // The real fix is to also carry props on `containers[name]` so testAttributes works, but
+    // the container key doubles as the identity for the hover/active reactivity signals, so
+    // that touches the reactivity design.
+    return false;
+  }
 
   if (query.m && !testContainerMediaCondition(query.m, container, get)) {
     return false;
