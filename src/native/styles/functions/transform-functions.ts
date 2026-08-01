@@ -2,15 +2,23 @@ import { isStyleDescriptorArray } from "react-native-css/utilities";
 
 import type { StyleFunctionResolver } from "../resolve";
 
+// Tailwind emits scale utilities as percentages (`--tw-scale-x: 125%`), but React Native only
+// accepts numbers for the scale family — a percentage kills the render with
+// `Transform with key of "scaleX" must be a number: {"scaleX":"-100%"}`. Convert to a ratio.
+const toScaleRatio = (value: unknown) =>
+  typeof value === "string" && value.endsWith("%")
+    ? Number.parseFloat(value) / 100
+    : value;
+
 export const scale: StyleFunctionResolver = (resolveValue, descriptor) => {
   const args = descriptor[2];
 
   if (!isStyleDescriptorArray(args)) {
-    return { scale: resolveValue(args) };
+    return { scale: toScaleRatio(resolveValue(args)) };
   }
 
-  const x = resolveValue(args[0]);
-  const y = resolveValue(args[1]);
+  const x = toScaleRatio(resolveValue(args[0]));
+  const y = toScaleRatio(resolveValue(args[1]));
 
   const isXValid = typeof x === "string" || typeof x === "number";
   const isYValid = typeof y === "string" || typeof y === "number";
