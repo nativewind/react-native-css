@@ -48,6 +48,23 @@ export function applyShorthand(value: any) {
   return target;
 }
 
+/**
+ * The first family of a resolved `font-family` stack.
+ *
+ * The loop walks nested arrays because a resolved variable can arrive singly
+ * wrapped — `var(--font-sans)` whose variable holds a stack resolves to the
+ * list inside a list.
+ */
+function firstFontFamily(stack: readonly unknown[]): unknown {
+  let candidate: unknown = stack;
+
+  while (Array.isArray(candidate)) {
+    candidate = candidate[0];
+  }
+
+  return candidate;
+}
+
 export function applyValue(
   target: Record<string, any>,
   prop: string,
@@ -81,6 +98,16 @@ export function applyValue(
   } else if (typeof value === "object" && value && ShortHandSymbol in value) {
     delete value[ShortHandSymbol];
     Object.assign(target, value);
+    return;
+  }
+
+  // React Native's `fontFamily` is ONE family, not a stack, and this is the one
+  // place the property name and the resolved value are both in hand. The parsed
+  // path already narrows a stack to its first family; a value arriving through
+  // a `var()` never reaches that parser, so without this the runtime hands
+  // Fabric an array and the declaration is refused outright.
+  if (prop === "fontFamily" && Array.isArray(value)) {
+    target[prop] = firstFontFamily(value);
     return;
   }
 
