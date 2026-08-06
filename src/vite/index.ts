@@ -13,12 +13,23 @@ const COMPONENTS = "react-native-css/components";
 
 const ESBUILD_PLUGIN_NAME = "react-native-css";
 
+const THIS_MODULE_DIR = `${sep}react-native-css${sep}`;
+
 /**
- * Equivalent of the Metro resolvers' `isFromThisModule`.
+ * Serves the same purpose as `isFromThisModule` in the Metro resolvers and the
+ * babel plugin: `react-native-css/components` re-exports `react-native`, and
+ * each wrapper uses its base component at module scope, so redirecting our own
+ * imports would create an initialization cycle.
  *
- * `react-native-css/components` re-exports `react-native`, and each wrapper
- * uses its base component at module scope, so redirecting our own imports
- * would create an initialization cycle.
+ * Those copies anchor on `resolve(__dirname, "../../../dist")`, which only
+ * lands on the package when running from the built output — from `src` (the
+ * `source` export condition) it resolves outside the package and the check
+ * silently never matches. Vite resolves through whichever condition the
+ * consumer configured, so this matches on the package directory instead, which
+ * holds for both layouts.
+ *
+ * Vite also appends query suffixes to ids (`?v=`, `?import`), so strip those
+ * before comparing.
  */
 function isFromThisModule(importer: string | undefined): boolean {
   if (!importer) {
@@ -27,7 +38,7 @@ function isFromThisModule(importer: string | undefined): boolean {
 
   const filename = importer.split("?")[0] ?? importer;
 
-  return filename.includes(`${sep}react-native-css${sep}`);
+  return filename.includes(THIS_MODULE_DIR);
 }
 
 /**
