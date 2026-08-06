@@ -44,9 +44,41 @@ Follow the Expo instructions, but replace the `expo` package with `@expo/metro-c
 + import { getDefaultConfig } from "@expo/metro-config";
 ```
 
+### Vite based projects
+
+Add the `reactNativeCSS` plugin to your Vite configuration:
+
+```ts
+import { defineConfig } from "vite";
+import { reactNativeCSS } from "react-native-css/vite";
+
+export default defineConfig({
+  plugins: [reactNativeCSS()],
+});
+```
+
+For Storybook's `react-native-web-vite` framework, add it in `viteFinal`:
+
+```ts
+import { mergeConfig } from "vite";
+import { reactNativeCSS } from "react-native-css/vite";
+
+const config = {
+  framework: "@storybook/react-native-web-vite",
+  viteFinal: (config) =>
+    mergeConfig(config, { plugins: [reactNativeCSS()] }),
+};
+
+export default config;
+```
+
+Vite does not process CSS through the Metro transformer, so import your
+Tailwind entry stylesheet directly (for example in `.storybook/preview.ts`)
+and let Vite's PostCSS pipeline handle it.
+
 ### Other bundlers
 
-`react-native-css` officially only supports Metro as the bundler, but we welcome community contributions to support other bundlers like Webpack, Vite or Turbopack.
+`react-native-css` officially supports Metro and Vite, but we welcome community contributions to support other bundlers like Webpack or Turbopack.
 
 More documentation coming soon.
 
