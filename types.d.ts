@@ -15,6 +15,21 @@ declare module "@react-native/virtualized-lists" {
   }
 }
 
+declare module "react-native-gesture-handler" {
+  // `BaseButtonProps`, `RectButtonProps` and `BorderlessButtonProps` all
+  // extend this one. `PressableProps` reaches `className` through `ViewProps`
+  // instead, but the button family extends neither that nor
+  // `TouchableWithoutFeedbackProps`.
+  //
+  // Both are declared `| undefined` because a conditional
+  // `className={x ? a : undefined}` spreads an explicit `undefined`, which a
+  // bare `?: string` forbids under `exactOptionalPropertyTypes`.
+  interface RawButtonProps {
+    className?: string | undefined;
+    cssInterop?: boolean | undefined;
+  }
+}
+
 declare module "react-native" {
   interface ButtonProps {
     className?: string;

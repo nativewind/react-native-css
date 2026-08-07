@@ -41,6 +41,12 @@ export function nativeResolver(
       `react-native-css/components/react-native-safe-area-context`,
       platform,
     );
+  } else if (moduleName === "react-native-gesture-handler") {
+    return resolver(
+      context,
+      `react-native-css/components/react-native-gesture-handler`,
+      platform,
+    );
   } else if (
     resolution.filePath.includes(`${sep}react-native${sep}Libraries${sep}`)
   ) {
