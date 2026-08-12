@@ -14,9 +14,13 @@ import {
   type Observable,
   type VariableContextValue,
 } from "../native/reactivity";
-import { rootVariables, universalVariables } from "./root";
+import {
+  nonInheritedVariables,
+  rootVariables,
+  universalVariables,
+} from "./root";
 
-export { rootVariables, universalVariables };
+export { nonInheritedVariables, rootVariables, universalVariables };
 
 interface StyleCollectionType {
   styles: ReturnType<typeof family<string, Observable<StyleRuleSet>>>;
@@ -92,6 +96,12 @@ globalThis.__react_native_css_style_collection ??= {
     if (options.vu) {
       for (const entry of options.vu) {
         rootVariables(entry[0]).set(entry[1]);
+      }
+    }
+
+    if (options.vn) {
+      for (const name of options.vn) {
+        nonInheritedVariables.add(name);
       }
     }
 

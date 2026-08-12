@@ -208,6 +208,47 @@ test("@property with repeated single-child unwraps to scalar", () => {
   expect(vrMap.get("my-offset")).toStrictEqual([[10]]);
 });
 
+test("@property inherits: false is recorded, initial value or not", () => {
+  const compiled = compile(`
+@property --tw-ring-shadow {
+  syntax: "*";
+  inherits: false;
+  initial-value: 0 0 #0000;
+}
+@property --tw-ring-color {
+  syntax: "*";
+  inherits: false;
+}
+`);
+
+  const result = compiled.stylesheet();
+  // `--tw-ring-color` declares no initial value, so it publishes no root
+  // variable — but it is still non-inheriting, and that is independent of
+  // whether it has a default.
+  expect(result.vn).toStrictEqual(["tw-ring-shadow", "tw-ring-color"]);
+});
+
+test("@property inherits: true is not recorded", () => {
+  const compiled = compile(`
+@property --my-brand {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: red;
+}
+`);
+
+  const result = compiled.stylesheet();
+  expect(result.vn).toBeUndefined();
+});
+
+test("an unregistered custom property is not recorded", () => {
+  // Custom properties inherit by default; only an @property rule can opt out.
+  const compiled = compile(`.my-class { --my-var: 10px; }`);
+
+  const result = compiled.stylesheet();
+  expect(result.vn).toBeUndefined();
+});
+
 test("@property with repeated multi-child preserves array", () => {
   const compiled = compile(`
 @property --my-offsets {

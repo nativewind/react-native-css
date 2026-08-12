@@ -4,6 +4,7 @@ import { inspect } from "node:util";
 
 import { compile, type CompilerOptions } from "react-native-css/compiler";
 import { StyleCollection } from "react-native-css/native";
+import { nonInheritedVariables } from "react-native-css/native-internal";
 
 import { colorScheme, dimensions } from "../native/reactivity";
 
@@ -20,6 +21,9 @@ export const testID = "react-native-css";
 
 beforeEach(() => {
   StyleCollection.styles.clear();
+  // `inject` accumulates, so a name registered non-inheriting by one test's
+  // stylesheet would still be filtered for the next one's.
+  nonInheritedVariables.clear();
   dimensions.set(Dimensions.get("window"));
   Appearance.setColorScheme(null);
   colorScheme.set(null);

@@ -1,6 +1,9 @@
 /* eslint-disable */
 import type { InlineVariable, StyleRule } from "react-native-css/compiler";
-import { StyleCollection } from "react-native-css/native-internal";
+import {
+  nonInheritedVariables,
+  StyleCollection,
+} from "react-native-css/native-internal";
 
 import { testRule } from "../conditions";
 import { DEFAULT_CONTAINER_NAME } from "../conditions/container-query";
@@ -134,6 +137,14 @@ export function updateRules(
         }
 
         for (const v of rule.v) {
+          // `variables` is the VariableContext this element PUBLISHES to its
+          // descendants — the element resolves its own `var()` from the rule
+          // directly (`calculateProps`), so skipping here withholds the value
+          // from descendants without affecting the declaring element.
+          if (nonInheritedVariables.has(v[0])) {
+            continue;
+          }
+
           variables![v[0]] = v[1];
         }
       }

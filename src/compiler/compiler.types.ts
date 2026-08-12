@@ -40,6 +40,14 @@ export interface ReactNativeCssStyleSheet {
   vr?: RootVariables;
   /** Universal Variables */
   vu?: RootVariables;
+  /**
+   * Non-inheriting variables — custom properties registered by an `@property`
+   * rule with `inherits: false`, which do not cascade to descendants
+   * (css-properties-values-api-1 §2.2).
+   *
+   * Names only, without the leading `--`, matching `StyleRule.v`.
+   */
+  vn?: string[];
 }
 
 /********************************    Styles    ********************************/

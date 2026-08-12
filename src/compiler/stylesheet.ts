@@ -63,6 +63,7 @@ export class StylesheetBuilder {
       ruleSets: Record<string, StyleRuleSet>;
       rootVariables?: VariableRecord;
       universalVariables?: VariableRecord;
+      nonInheritedVariables?: Set<string>;
       animations?: AnimationRecord;
       rem: number;
       ruleOrder: number;
@@ -171,6 +172,10 @@ export class StylesheetBuilder {
         // Reverse these so the most specific variables are first
         ([key, value]) => [key, value.reverse()] as const,
       );
+    }
+
+    if (this.shared.nonInheritedVariables?.size) {
+      stylesheetOptions.vn = [...this.shared.nonInheritedVariables];
     }
 
     if (this.shared.animations) {
@@ -581,6 +586,11 @@ export class StylesheetBuilder {
     this.shared.rootVariables ??= {};
     this.shared.rootVariables[name] ??= [];
     this.shared.rootVariables[name].push([value]);
+  }
+
+  addNonInheritedVariable(name: string) {
+    this.shared.nonInheritedVariables ??= new Set();
+    this.shared.nonInheritedVariables.add(name);
   }
 
   newAnimationFrames(name: string) {
