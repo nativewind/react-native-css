@@ -65,13 +65,29 @@ test("mixed", async () => {
   expect(component).toHaveStyle({ color: "#fff" });
 });
 
+// `selection:bg-*`, not `selection:text-*`. `selectionColor` is the band
+// painted BEHIND the selected text, which is `background-color` in CSS —
+// `color` there is the selected TEXT's colour, and React Native has no prop
+// for it. Mapping `color` inverted the meaning, so it is dropped now; see the
+// case below.
 test("selection", async () => {
-  await render(<TextInput testID={testID} className="selection:text-black" />);
+  await render(<TextInput testID={testID} className="selection:bg-black" />);
 
   const component = screen.getByTestId(testID);
   expect(component.props).toEqual({
     testID,
     selectionColor: "#000",
+    children: undefined,
+    style: {},
+  });
+});
+
+test("selection: an unmappable declaration does not reach the element", async () => {
+  await render(<TextInput testID={testID} className="selection:text-black" />);
+
+  const component = screen.getByTestId(testID);
+  expect(component.props).toEqual({
+    testID,
     children: undefined,
     style: {},
   });
