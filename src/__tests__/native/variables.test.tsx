@@ -171,8 +171,12 @@ test("can apply and set new variables", () => {
   expect(screen.getByTestId(testIDs.two).props.style).toStrictEqual({
     color: "#f00",
   });
+  // `--another-var` belongs to `.my-class`, so `.another-class` reaches it by
+  // inheritance at runtime rather than by a fold. A runtime value carries the
+  // token the author wrote: no property is in hand to canonicalise it, and
+  // React Native reads the name as the colour.
   expect(screen.getByTestId(testIDs.three).props.style).toStrictEqual({
-    color: "#008000",
+    color: "green",
   });
 });
 
@@ -198,8 +202,9 @@ test("variables will be inherited", () => {
     </View>,
   );
 
+  // Inherited from `.green` at runtime, which is the whole subject of the test.
   expect(screen.getByTestId(testIDs.three).props.style).toStrictEqual({
-    color: "#008000",
+    color: "green",
   });
 });
 
@@ -269,5 +274,7 @@ test("variable overriding with classes", () => {
   );
 
   const component = screen.getByTestId(testID);
-  expect(component.props.style).toStrictEqual({ color: "#f00" });
+  // `--tier-500` belongs to `.tier-red`; `.test` reads it by inheritance. The
+  // `:root` tier folds into `.tier-red`'s value, so what inherits is `red`.
+  expect(component.props.style).toStrictEqual({ color: "red" });
 });
