@@ -200,6 +200,33 @@ test("not all", () => {
   });
 });
 
+describe("a condition the compiler cannot evaluate", () => {
+  /**
+   * A `@media` block the compiler cannot compile a condition for must not
+   * reach the runtime at all. The failure mode this pins is not a missed match
+   * but the reverse: a block emitted with no condition applies to every
+   * element that carries the class, at every viewport size.
+   */
+  const cases: [label: string, prelude: string][] = [
+    ["an unresolvable feature value", "(width > env(safe-area-inset-top))"],
+    [
+      "a negated unresolvable feature value",
+      "not (width > env(safe-area-inset-top))",
+    ],
+  ];
+
+  test.each(cases)("@media %s never matches", (_label, prelude) => {
+    registerCSS(`
+@media ${prelude} {
+  .my-class { color: red; }
+}`);
+
+    render(<View testID={testID} className="my-class" />);
+
+    expect(screen.getByTestId(testID).props.style).toStrictEqual(undefined);
+  });
+});
+
 describe("resolution", () => {
   test("dppx", () => {
     registerCSS(`

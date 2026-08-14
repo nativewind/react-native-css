@@ -364,8 +364,20 @@ function extractMedia(
     return;
   }
 
-  for (const m of media) {
-    parseMediaQuery(m, builder);
+  const compiled = media.map((m) => parseMediaQuery(m, builder));
+
+  // A comma-separated media query list is a union, so a branch that cannot
+  // match contributes nothing while the others still apply. When no branch can
+  // match, neither can the block, and its rules must not be emitted at all —
+  // emitting them with no media query applies them everywhere instead.
+  if (compiled.every(({ type }) => type === "never")) {
+    return;
+  }
+
+  for (const query of compiled) {
+    if (query.type === "condition") {
+      builder.addMediaQuery(query.condition);
+    }
   }
 
   // Iterate over all rules in the mediaRule and extract their styles using the updated CompilerCollection
@@ -386,9 +398,18 @@ function extractContainer(
 ) {
   builder = builder.fork("container");
 
+  const compiled = parseContainerCondition(containerRule.condition, builder);
+
+  // A condition that did not compile cannot be shown to match, so the block's
+  // rules must not be emitted at all — emitting them with no condition applies
+  // them inside every container instead.
+  if (compiled.type === "never") {
+    return;
+  }
+
   // Iterate over all rules inside the containerRule and extract their styles using the updated CompilerCollection
   const query: ContainerQuery = {
-    m: parseContainerCondition(containerRule.condition, builder),
+    m: compiled.condition,
   };
 
   if (containerRule.name) {

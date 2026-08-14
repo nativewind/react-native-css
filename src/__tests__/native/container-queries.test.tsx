@@ -116,10 +116,15 @@ test("container query width", () => {
 
 /**
  * Renders `.child` inside a container laid out at `width` x `height`, and
- * reports whether the `@container (condition)` rule won.
+ * reports whether the `@container <condition>` rule won.
  *
  * `.child` is red outside the query and blue inside it, so the returned colour
  * is a direct reading of the condition's verdict.
+ *
+ * The condition is written out in full, parentheses included, because a
+ * parenthesised size query is only one of the forms `<container-condition>`
+ * accepts — `style(--foo: bar)` and a leading container name are not
+ * expressible by a helper that adds the parentheses itself.
  */
 function containerQueryMatches(
   condition: string,
@@ -134,7 +139,7 @@ function containerQueryMatches(
       color: red;
     }
 
-    @container (${condition}) {
+    @container ${condition} {
       .child {
         color: blue;
       }
@@ -165,24 +170,24 @@ describe("width comparisons", () => {
    * in this table rather than in one of their own.
    */
   const cases: [condition: string, matches: boolean][] = [
-    ["width > 300px", true],
-    ["width > 400px", false],
-    ["width >= 400px", true],
-    ["width >= 401px", false],
-    ["min-width: 400px", true],
-    ["min-width: 401px", false],
-    ["width < 500px", true],
-    ["width < 400px", false],
-    ["width <= 400px", true],
-    ["width <= 399px", false],
-    ["max-width: 400px", true],
-    ["max-width: 399px", false],
-    ["width = 400px", true],
-    ["width = 401px", false],
+    ["(width > 300px)", true],
+    ["(width > 400px)", false],
+    ["(width >= 400px)", true],
+    ["(width >= 401px)", false],
+    ["(min-width: 400px)", true],
+    ["(min-width: 401px)", false],
+    ["(width < 500px)", true],
+    ["(width < 400px)", false],
+    ["(width <= 400px)", true],
+    ["(width <= 399px)", false],
+    ["(max-width: 400px)", true],
+    ["(max-width: 399px)", false],
+    ["(width = 400px)", true],
+    ["(width = 401px)", false],
   ];
 
   test.each(cases)(
-    "@container (%s) against a 400x200 container matches: %s",
+    "@container %s against a 400x200 container matches: %s",
     (condition, matches) => {
       expect(
         containerQueryMatches(condition, { width: 400, height: 200 }),
@@ -198,23 +203,23 @@ describe("height comparisons", () => {
    * visible failure rather than a coincidence.
    */
   const cases: [condition: string, matches: boolean][] = [
-    ["height > 100px", true],
-    ["height > 200px", false],
-    ["height > 300px", false],
-    ["height >= 200px", true],
-    ["min-height: 200px", true],
-    ["min-height: 201px", false],
-    ["height < 300px", true],
-    ["height < 200px", false],
-    ["height <= 200px", true],
-    ["max-height: 300px", true],
-    ["max-height: 199px", false],
-    ["height = 200px", true],
-    ["height = 400px", false],
+    ["(height > 100px)", true],
+    ["(height > 200px)", false],
+    ["(height > 300px)", false],
+    ["(height >= 200px)", true],
+    ["(min-height: 200px)", true],
+    ["(min-height: 201px)", false],
+    ["(height < 300px)", true],
+    ["(height < 200px)", false],
+    ["(height <= 200px)", true],
+    ["(max-height: 300px)", true],
+    ["(max-height: 199px)", false],
+    ["(height = 200px)", true],
+    ["(height = 400px)", false],
   ];
 
   test.each(cases)(
-    "@container (%s) against a 400x200 container matches: %s",
+    "@container %s against a 400x200 container matches: %s",
     (condition, matches) => {
       expect(
         containerQueryMatches(condition, { width: 400, height: 200 }),
@@ -223,23 +228,45 @@ describe("height comparisons", () => {
   );
 });
 
+describe("a condition the compiler cannot evaluate", () => {
+  /**
+   * A `@container` block the compiler cannot compile a condition for must not
+   * reach the runtime at all. The failure mode this pins is not a missed match
+   * but the reverse: a block emitted with no condition applies to every child
+   * that carries the class, at every container size.
+   */
+  const cases: [label: string, condition: string][] = [
+    ["style()", "style(--foo: bar)"],
+    ["an unresolvable feature value", "(width > env(safe-area-inset-top))"],
+  ];
+
+  test.each(cases)("@container %s never matches", (_label, condition) => {
+    expect(containerQueryMatches(condition, { width: 400, height: 200 })).toBe(
+      false,
+    );
+    expect(containerQueryMatches(condition, { width: 200, height: 400 })).toBe(
+      false,
+    );
+  });
+});
+
 describe("orientation", () => {
   const cases: [
     condition: string,
     size: { width: number; height: number },
     matches: boolean,
   ][] = [
-    ["orientation: landscape", { width: 400, height: 200 }, true],
-    ["orientation: portrait", { width: 400, height: 200 }, false],
-    ["orientation: landscape", { width: 200, height: 400 }, false],
-    ["orientation: portrait", { width: 200, height: 400 }, true],
+    ["(orientation: landscape)", { width: 400, height: 200 }, true],
+    ["(orientation: portrait)", { width: 400, height: 200 }, false],
+    ["(orientation: landscape)", { width: 200, height: 400 }, false],
+    ["(orientation: portrait)", { width: 200, height: 400 }, true],
     // A square container is portrait: `landscape` requires width > height.
-    ["orientation: landscape", { width: 300, height: 300 }, false],
-    ["orientation: portrait", { width: 300, height: 300 }, true],
+    ["(orientation: landscape)", { width: 300, height: 300 }, false],
+    ["(orientation: portrait)", { width: 300, height: 300 }, true],
   ];
 
   test.each(cases)(
-    "@container (%s) against a %o container matches: %s",
+    "@container %s against a %o container matches: %s",
     (condition, size, matches) => {
       expect(containerQueryMatches(condition, size)).toBe(matches);
     },
