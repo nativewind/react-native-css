@@ -54,9 +54,10 @@ function testComparison(mediaQuery: MediaCondition, get: Getter): Boolean {
     }
     case "prefers-reduced-motion": {
       // `motion-reduce:` compiles to `reduce`, `motion-safe:` to
-      // `no-preference`. Mirror the prefers-color-scheme wiring, reading the
-      // live OS flag from the AccessibilityInfo-backed reduceMotion observable.
-      return value === "no-preference" ? !get(reduceMotion) : get(reduceMotion);
+      // `no-preference`. An equality test rather than a two-way branch, so an
+      // unrecognised value is false as MQ5 requires, instead of aliasing to
+      // `reduce`.
+      return value === (get(reduceMotion) ? "reduce" : "no-preference");
     }
     case "display-mode":
       return value === "native" || Platform.OS === value;

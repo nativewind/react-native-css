@@ -284,6 +284,14 @@ describe("max-resolution", () => {
   });
 });
 
+// Outside the describe below, whose beforeEach overwrites the value before any
+// assertion can see it. The documented cold-start default is motion ENABLED: the
+// getter is async with no synchronous counterpart, so the first paint answers from
+// this, and seeding true would suppress motion-safe: styling for every user.
+test("reduceMotion defaults to false before AccessibilityInfo answers", () => {
+  expect(reduceMotion.get()).toBe(false);
+});
+
 describe("prefers-reduced-motion", () => {
   // reduceMotion and colorScheme are module-global observables; reset them so
   // each test starts from a known state (motion enabled, light scheme).
@@ -404,5 +412,27 @@ describe("prefers-reduced-motion", () => {
       reduceMotion.set(true);
     });
     expect(component.props.style).toStrictEqual({ color: "#f00" });
+  });
+
+  test("an unrecognised value never matches", () => {
+    // The compiler emits ["=", name, value] for any value, with no allowlist, so
+    // this condition is reachable. MQ5 makes an unknown value false — a two-way
+    // branch on `no-preference` would alias everything else to `reduce`.
+    registerCSS(`
+.my-class { color: blue; }
+
+@media (prefers-reduced-motion: bogus-value) {
+  .my-class { color: red; }
+}`);
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ color: "#00f" });
+
+    act(() => {
+      reduceMotion.set(true);
+    });
+    expect(component.props.style).toStrictEqual({ color: "#00f" });
   });
 });
