@@ -32,12 +32,22 @@ export function observable<Value, Arg = Value>(
   equality: (value1: Value, value2: Value) => boolean = Object.is,
 ) {
   let value: Value;
+  /**
+   * The value `observers` have been handed. `value` cannot answer "is a
+   * notification still owed?" because `get()` refreshes the cache on read - a
+   * read that lands between a write and its notification would move the cache
+   * onto the new value, and the guards below would then mistake the pending
+   * change for one that has already been delivered. Only `notify()` advances
+   * this, so a read can never cancel a notification.
+   */
+  let notifiedValue: Value;
   let isStatic = typeof init !== "function";
   let didInit: boolean | undefined;
   let lastArg: Arg | undefined;
 
   if (typeof init !== "function") {
     value = init;
+    notifiedValue = init;
     didInit = true;
   }
 
@@ -47,7 +57,7 @@ export function observable<Value, Arg = Value>(
     run: () => {
       if (!isStatic) {
         const nextValue = (init as Read<Value, Arg>)(getter, lastArg);
-        if (equality(value, nextValue)) {
+        if (equality(notifiedValue, nextValue)) {
           return;
         }
         value = nextValue;
@@ -60,40 +70,53 @@ export function observable<Value, Arg = Value>(
   const getter: Getter = (observable) => observable.get(effect);
 
   function get(effect?: Effect) {
+    // Sampled before subscribing: an observer added by this call receives the
+    // value this call returns, so only observers that were already registered
+    // can be left behind by the refresh below.
+    const hadObservers = observers.size > 0;
+
     if (effect) {
       observers.add(effect);
     }
     if (!didInit) {
       value = (init as Read<Value, Arg>)(getter, undefined);
+
+      if (!hadObservers) {
+        // Nobody was subscribed, so no notification can be owed for this value.
+        // Publishing it here keeps the first dependency change from firing a
+        // notification for a value the subscriber already read.
+        notifiedValue = value;
+      }
     }
 
     return value;
   }
 
   function set(arg: Arg) {
+    let nextValue: Value;
+
     if (isStatic) {
-      if (equality(value, arg as unknown as Value)) {
-        return;
-      }
-      value = arg as unknown as Value;
+      nextValue = arg as unknown as Value;
     } else {
-      const nextValue = (init as Read<Value, Arg>)(getter, arg);
+      nextValue = (init as Read<Value, Arg>)(getter, arg);
 
       didInit = true;
       lastArg = arg;
-
-      if (equality(value, nextValue)) {
-        return;
-      }
-      value = nextValue;
     }
 
+    if (equality(notifiedValue, nextValue)) {
+      return;
+    }
+
+    value = nextValue;
     notify();
 
     return obs;
   }
 
   function notify() {
+    notifiedValue = value;
+
     Array.from(observers).forEach((observer) => {
       if (observableBatch.current) {
         observableBatch.current.add(observer);
