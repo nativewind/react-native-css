@@ -16,10 +16,17 @@ import type {
 import { parseLength } from "./declarations";
 import type { StylesheetBuilder } from "./stylesheet";
 
+/**
+ * Parses a single media query out of a comma-separated list.
+ *
+ * Returns `undefined` when the query cannot apply on native, which the caller
+ * treats the way CSS treats an unmatchable query in a list: it contributes
+ * nothing, and the remaining queries still decide the block.
+ */
 export function parseMediaQuery(
   query: CSSMediaQuery,
   builder: StylesheetBuilder,
-) {
+): MediaCondition | undefined {
   let platformCondition: MediaCondition | undefined;
   let condition: MediaCondition | undefined;
 
@@ -57,7 +64,7 @@ export function parseMediaQuery(
     mediaQuery = ["!", mediaQuery];
   }
 
-  builder.addMediaQuery(mediaQuery);
+  return mediaQuery;
 }
 
 function parseMediaQueryCondition(

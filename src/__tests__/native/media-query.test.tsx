@@ -283,3 +283,77 @@ describe("max-resolution", () => {
     expect(component.props.style).toStrictEqual(undefined);
   });
 });
+
+describe("comma-separated media query lists", () => {
+  test("apply when only the first query matches", () => {
+    registerCSS(`
+@media (min-width: 100px), (min-width: 9999px) {
+  .my-class { color: red; }
+}`);
+
+    act(() => {
+      dimensions.set({ ...dimensions.get(), width: 500 });
+    });
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ color: "#f00" });
+  });
+
+  test("apply when only the last query matches", () => {
+    registerCSS(`
+@media (min-width: 9999px), (min-width: 100px) {
+  .my-class { color: red; }
+}`);
+
+    act(() => {
+      dimensions.set({ ...dimensions.get(), width: 500 });
+    });
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ color: "#f00" });
+  });
+
+  test("do not apply when no query matches", () => {
+    registerCSS(`
+@media (min-width: 9999px), (max-width: 10px) {
+  .my-class { color: red; }
+}`);
+
+    act(() => {
+      dimensions.set({ ...dimensions.get(), width: 500 });
+    });
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual(undefined);
+  });
+
+  test("react to a query becoming true", () => {
+    registerCSS(`
+.my-class { color: blue; }
+
+@media (min-width: 9999px), (min-height: 400px) {
+  .my-class { color: red; }
+}`);
+
+    act(() => {
+      dimensions.set({ ...dimensions.get(), width: 500, height: 100 });
+    });
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ color: "#00f" });
+
+    act(() => {
+      dimensions.set({ ...dimensions.get(), width: 500, height: 500 });
+    });
+
+    expect(component.props.style).toStrictEqual({ color: "#f00" });
+  });
+});

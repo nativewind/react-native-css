@@ -17,6 +17,7 @@ import { maybeMutateReactNativeOptions, parsePropAtRule } from "./atRules";
 import type {
   CompilerOptions,
   ContainerQuery,
+  MediaCondition,
   StyleDescriptor,
   StyleRuleMapping,
   UniqueVarInfo,
@@ -364,8 +365,25 @@ function extractMedia(
     return;
   }
 
+  const conditions: MediaCondition[] = [];
+
   for (const m of media) {
-    parseMediaQuery(m, builder);
+    const condition = parseMediaQuery(m, builder);
+
+    if (condition) {
+      conditions.push(condition);
+    }
+  }
+
+  // A comma-separated list is a union - the block applies when any one query
+  // matches. A single query is added as-is so it composes with the conditions
+  // of any enclosing rule, which intersect.
+  const [firstCondition, ...remainingConditions] = conditions;
+
+  if (firstCondition) {
+    builder.addMediaQuery(
+      remainingConditions.length === 0 ? firstCondition : ["|", conditions],
+    );
   }
 
   // Iterate over all rules in the mediaRule and extract their styles using the updated CompilerCollection
