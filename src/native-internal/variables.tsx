@@ -5,9 +5,8 @@ import {
   type PropsWithChildren,
 } from "react";
 
-import type { StyleDescriptor } from "react-native-css/compiler";
-
 import { VAR_SYMBOL, type VariableContextValue } from "../native/reactivity";
+import type { CustomPropertyValue } from "../runtime.types";
 
 globalThis.__react_native_css_variable_context ??=
   createContext<VariableContextValue>({
@@ -17,7 +16,9 @@ globalThis.__react_native_css_variable_context ??=
 export const VariableContext = globalThis.__react_native_css_variable_context;
 
 export function VariableContextProvider(
-  props: PropsWithChildren<{ value: Record<`--${string}`, StyleDescriptor> }>,
+  props: PropsWithChildren<{
+    value: Record<`--${string}`, CustomPropertyValue>;
+  }>,
 ) {
   const inheritedVariables = useContext(VariableContext);
 
