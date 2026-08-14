@@ -1,9 +1,14 @@
 import { resolvePosix, toPosixPath } from "../../babel/helpers";
 
-// These assert against Windows-shaped literals rather than through path.resolve,
-// so they fail on every host when the normalization is removed. Driving them
-// through resolve() instead would make them inert on Linux — where resolve()
-// never emits a backslash — which is the only platform CI runs.
+// toPosixPath is asserted against Windows-shaped literals rather than through
+// path.resolve, so it fails on every host when the normalization is removed.
+// Driving it through resolve() instead would make it inert on Linux — where
+// resolve() never emits a backslash — which is the only platform CI runs.
+//
+// resolvePosix's platform gate is not directly observable: on POSIX its effect is
+// to leave the path alone, which is also what would happen without it. What is
+// pinned below is the contract either way — the result carries no separator the
+// import handlers cannot match, and the segments survive.
 describe("toPosixPath", () => {
   test("converts a Windows path to POSIX separators", () => {
     expect(
