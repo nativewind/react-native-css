@@ -1,4 +1,6 @@
 /* eslint-disable */
+import { narrowFontFamily } from "react-native-css/utilities";
+
 import { ShortHandSymbol } from "../native/styles/constants";
 import { transformKeys } from "../native/styles/defaults";
 
@@ -49,20 +51,12 @@ export function applyShorthand(value: any) {
 }
 
 /**
- * The first family of a resolved `font-family` stack.
- *
- * The loop walks nested arrays because a resolved variable can arrive singly
- * wrapped — `var(--font-sans)` whose variable holds a stack resolves to the
- * list inside a list.
+ * `applyDeclarations` parks `{ [prop]: true }` on the target while a delayed
+ * value resolves, and later reclaims it by identity. It is machinery, never a
+ * style value, so it has to reach the target untouched.
  */
-function firstFontFamily(stack: readonly unknown[]): unknown {
-  let candidate: unknown = stack;
-
-  while (Array.isArray(candidate)) {
-    candidate = candidate[0];
-  }
-
-  return candidate;
+function isDelayedMarker(value: unknown): boolean {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 export function applyValue(
@@ -101,13 +95,18 @@ export function applyValue(
     return;
   }
 
-  // React Native's `fontFamily` is ONE family, not a stack, and this is the one
-  // place the property name and the resolved value are both in hand. The parsed
-  // path already narrows a stack to its first family; a value arriving through
-  // a `var()` never reaches that parser, so without this the runtime hands
-  // Fabric an array and the declaration is refused outright.
-  if (prop === "fontFamily" && Array.isArray(value)) {
-    target[prop] = firstFontFamily(value);
+  // React Native's `fontFamily` is ONE family, not a stack. The compiler
+  // narrows every stack it can read; a value arriving through a `var()` is the
+  // one it cannot, and this is the first place on that path where the property
+  // name and the resolved value are both in hand.
+  if (prop === "fontFamily" && value !== undefined && !isDelayedMarker(value)) {
+    const narrowing = narrowFontFamily(value);
+
+    // Nothing usable leaves the key alone rather than clearing it, so a family
+    // an earlier rule set survives the way the cascade says it should.
+    if (narrowing.kind === "family") {
+      target[prop] = narrowing.family;
+    }
     return;
   }
 

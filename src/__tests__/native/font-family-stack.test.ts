@@ -3,17 +3,14 @@ import { applyValue } from "../../native/objects";
 /**
  * `font-family` reaches React Native as ONE family, whichever route it took.
  *
- * The parsed path already narrows a stack to its first family and warns about
- * the rest. A value arriving through a `var()` never reaches that parser — the
- * declaration compiles unparsed and the variable is read at render — so the
- * narrowing has to exist on the runtime side too, in the one place the property
- * name and the resolved value are both in hand.
+ * Every compiler path narrows the stacks it can see. What it cannot see is the
+ * value behind a `var()`, which only exists at render — so the same reduction
+ * runs again here, where the property name and the resolved value are both in
+ * hand for the first time on that path.
  *
- * Without it the runtime hands Fabric an array where `TextStyle.fontFamily` is
- * a `string`, and the declaration is refused outright: the element renders in
- * the platform default rather than in the family the stylesheet asked for. That
- * is the shape a bundled typeface disappears in, and `font-family:
- * var(--font-sans)` is how Tailwind's own default theme spells it.
+ * `src/__tests__/native/font-family.test.tsx` drives the same reduction through
+ * a real render; these cases reach `applyValue` directly so each rule of the
+ * reduction can be stated on its own.
  */
 
 /** A real Tailwind `--font-sans`, which is why the stack is the common case. */
@@ -25,50 +22,91 @@ const FONT_SANS_STACK = [
   "sans-serif",
 ] as const;
 
-test("a resolved font stack reduces to its first family, as a string", () => {
+const applyFontFamily = (value: unknown): Record<string, unknown> => {
   const target: Record<string, unknown> = {};
-  applyValue(target, "fontFamily", [...FONT_SANS_STACK]);
+  applyValue(target, "fontFamily", value);
+  return target;
+};
 
-  expect(target.fontFamily).toBe("Inter");
-  // The type matters as much as the value: React Native's `fontFamily` is a
-  // `string`, and an array is what Fabric refuses.
-  expect(typeof target.fontFamily).toBe("string");
+describe("the reduction", () => {
+  test("a resolved stack reduces to its first family, as a string", () => {
+    const target = applyFontFamily([...FONT_SANS_STACK]);
+
+    expect(target.fontFamily).toBe("Inter");
+    // The type matters as much as the value: React Native's `fontFamily` is a
+    // `string`, and an array is what Fabric refuses.
+    expect(typeof target.fontFamily).toBe("string");
+  });
+
+  test("a nested stack is flattened, not descended into", () => {
+    // Descending into the first entry and staying there loses every sibling
+    // behind an empty group. Flattening reaches them.
+    expect(applyFontFamily([[...FONT_SANS_STACK]]).fontFamily).toBe("Inter");
+    expect(applyFontFamily([[], "Arial"]).fontFamily).toBe("Arial");
+    expect(applyFontFamily([[[]], "Arial"]).fontFamily).toBe("Arial");
+    expect(applyFontFamily([["Inter"], "Arial"]).fontFamily).toBe("Inter");
+  });
+
+  test("an entry that cannot name a family is skipped", () => {
+    // A browser skips a family it cannot use and moves to the next. Assigning
+    // one is worse than skipping it: `fontFamily` is typed `string`, so a
+    // number or a null reaches Fabric as a value it has no rule for.
+    expect(applyFontFamily([12, "Inter"]).fontFamily).toBe("Inter");
+    expect(applyFontFamily([null, "Arial"]).fontFamily).toBe("Arial");
+    expect(applyFontFamily([undefined, "Arial"]).fontFamily).toBe("Arial");
+    expect(applyFontFamily([true, "Arial"]).fontFamily).toBe("Arial");
+  });
+
+  test("a single family passes through untouched", () => {
+    expect(applyFontFamily("fisona-icons").fontFamily).toBe("fisona-icons");
+  });
+
+  test("a stack with nothing usable sets nothing", () => {
+    // `applyValue` already separates "set nothing" (leave the key absent) from
+    // "clear" (set the key to `undefined`). A stack with no usable entry is a
+    // declaration that failed, so it takes the first door and leaves whatever
+    // an earlier rule put there standing.
+    expect("fontFamily" in applyFontFamily([])).toBe(false);
+    expect("fontFamily" in applyFontFamily([12])).toBe(false);
+    expect("fontFamily" in applyFontFamily([[], [null]])).toBe(false);
+
+    const inherited: Record<string, unknown> = { fontFamily: "Inter" };
+    applyValue(inherited, "fontFamily", []);
+    expect(inherited.fontFamily).toBe("Inter");
+  });
 });
 
-test("a singly wrapped stack is unwrapped too", () => {
-  // A resolved variable can arrive as the list inside a list, which is why the
-  // reduction loops rather than taking `[0]` once.
-  const target: Record<string, unknown> = {};
-  applyValue(target, "fontFamily", [[...FONT_SANS_STACK]]);
+describe("what the reduction must not disturb", () => {
+  test("the reduction is scoped to fontFamily", () => {
+    // `fontVariant` is legitimately a list on React Native, so reducing every
+    // array-valued property would trade one silent failure for another.
+    const target: Record<string, unknown> = {};
+    applyValue(target, "fontVariant", ["small-caps"]);
 
-  expect(target.fontFamily).toBe("Inter");
-});
+    expect(target.fontVariant).toStrictEqual(["small-caps"]);
+  });
 
-test("a single family passes through untouched", () => {
-  const target: Record<string, unknown> = {};
-  applyValue(target, "fontFamily", "fisona-icons");
+  test("both sentinel meanings survive the reduction", () => {
+    // `undefined` is "set nothing", and the null literal is "clear this value",
+    // which React Native spells as `undefined`.
+    const untouched: Record<string, unknown> = {};
+    applyValue(untouched, "fontFamily", undefined);
+    expect("fontFamily" in untouched).toBe(false);
 
-  expect(target.fontFamily).toBe("fisona-icons");
-});
+    const cleared: Record<string, unknown> = { fontFamily: "Inter" };
+    applyValue(cleared, "fontFamily", null);
+    expect("fontFamily" in cleared).toBe(true);
+    expect(cleared.fontFamily).toBeUndefined();
+  });
 
-test("the reduction is scoped to fontFamily", () => {
-  // `fontVariant` is legitimately a list on React Native, so reducing every
-  // array-valued property would trade one silent failure for another.
-  const target: Record<string, unknown> = {};
-  applyValue(target, "fontVariant", ["small-caps"]);
+  test("the delayed-style marker passes through by identity", () => {
+    // `applyDeclarations` parks `{ fontFamily: true }` on the target while a
+    // delayed value resolves and reclaims it by identity. Reducing it away
+    // would strand every `var()`-valued font-family, unresolved forever.
+    const marker = { fontFamily: true };
+    const target: Record<string, unknown> = {};
+    applyValue(target, "fontFamily", marker);
 
-  expect(target.fontVariant).toStrictEqual(["small-caps"]);
-});
-
-test("both sentinel meanings survive the reduction", () => {
-  // The reduction sits before the final assignment, so it must not disturb what
-  // `applyValue` already means: `undefined` is "set nothing", and the null
-  // literal is "clear this value", which React Native spells as `undefined`.
-  const untouched: Record<string, unknown> = {};
-  applyValue(untouched, "fontFamily", undefined);
-  expect("fontFamily" in untouched).toBe(false);
-
-  const cleared: Record<string, unknown> = { fontFamily: "Inter" };
-  applyValue(cleared, "fontFamily", null);
-  expect(cleared.fontFamily).toBeUndefined();
+    expect(target.fontFamily).toBe(marker);
+  });
 });
