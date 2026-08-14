@@ -34,7 +34,7 @@ const staticDeclarations = new WeakMap<
   Record<string, StyleDescriptor>
 >();
 
-const extraRules = new WeakMap<StyleRule, Partial<StyleRule>[]>();
+const extraRules = new WeakMap<StyleRule, StyleRule[]>();
 
 const keywords = new Set(["unset"]);
 
@@ -58,7 +58,12 @@ export class StylesheetBuilder {
     },
     // Any default mapping should be included in the @nativeMapping parsing
     private mapping: StyleRuleMapping = {},
-    public descriptorProperty?: string,
+    /**
+     * The properties the declaration being parsed writes to. Usually one, but a
+     * declaration that also publishes a variable writes to every one of them,
+     * and an unnamed descriptor has to reach all of them.
+     */
+    public descriptorProperties?: readonly string[],
     private shared: {
       ruleSets: Record<string, StyleRuleSet>;
       rootVariables?: VariableRecord;
@@ -102,7 +107,7 @@ export class StylesheetBuilder {
       mode,
       this.cloneRule(),
       { ...this.mapping },
-      this.descriptorProperty,
+      this.descriptorProperties,
       this.shared,
       selectors,
     );
@@ -121,23 +126,39 @@ export class StylesheetBuilder {
     return rule;
   }
 
-  private createRuleFromPartial(rule: StyleRule, partial: Partial<StyleRule>) {
-    rule = this.cloneRule(rule);
+  /**
+   * Merge an extra rule onto a rule about to be applied to a selector.
+   *
+   * The extra rule owns its content — its declarations, the variables they
+   * publish, and the flag saying they resolve late. Everything else is the
+   * applied rule's: its specificity, its pseudo classes, its container and
+   * attribute queries, and the media conditions the extra one is added to.
+   *
+   * Both rules match under the extra condition and the extra one is applied
+   * last, so replacing rather than merging is what makes it win, and whatever
+   * it leaves out still arrives from the rule it copies.
+   */
+  private mergeExtraRule(rule: StyleRule, extraRule: StyleRule): StyleRule {
+    const merged = this.cloneRule(rule);
 
-    if (partial.m) {
-      rule.m ??= [];
-      rule.m.push(...partial.m);
+    if (extraRule.m) {
+      merged.m ??= [];
+      merged.m.push(...extraRule.m);
     }
 
-    if (partial.d) {
-      rule.d = partial.d;
+    if (extraRule.d) {
+      merged.d = extraRule.d;
     }
 
-    return rule;
-  }
+    if (extraRule.v) {
+      merged.v = extraRule.v;
+    }
 
-  extendRule(rule: Partial<StyleRule>) {
-    return this.cloneRule({ ...this.rule, ...rule });
+    if (extraRule.dv !== undefined) {
+      merged.dv = extraRule.dv;
+    }
+
+    return merged;
   }
 
   getOptions(): CompilerOptions {
@@ -267,14 +288,30 @@ export class StylesheetBuilder {
     this.newRule(mapping, { important });
   }
 
-  /** Hack for light-dark, which requires adding a new rule without changing the current rule */
-  addExtraRule(rule: Partial<StyleRule>) {
+  /**
+   * Open an extra rule: the current rule again under one more media condition,
+   * for a declaration whose value differs under that condition. `light-dark()`
+   * is the caller — it resolves to two values where a declaration parser
+   * returns one, so the dark branch is delivered by an extra rule under
+   * `prefers-color-scheme: dark`.
+   *
+   * The rule is created EMPTY and returned for the caller to write descriptors
+   * into through the same `addDescriptor` seams as the current rule. It is
+   * never seeded from the current rule: a copy taken mid-parse carries every
+   * value written before it, so a second `light-dark()` on the same rule would
+   * hand its dark rule the first declaration's light value.
+   */
+  openExtraRule(condition: MediaCondition): StyleRule {
+    const extraRule: StyleRule = { s: [], m: [condition] };
+
     let extraRuleArray = extraRules.get(this.rule);
     if (!extraRuleArray) {
       extraRuleArray = [];
       extraRules.set(this.rule, extraRuleArray);
     }
-    extraRuleArray.push(rule);
+    extraRuleArray.push(extraRule);
+
+    return extraRule;
   }
 
   private addRuleToRuleSet(name: string, rule = this.rule) {
@@ -305,11 +342,13 @@ export class StylesheetBuilder {
     forceTuple?: boolean,
     rule = this.rule,
   ) {
-    if (this.descriptorProperty === undefined) {
+    if (this.descriptorProperties === undefined) {
       return;
     }
 
-    this.addDescriptor(this.descriptorProperty, value, forceTuple, rule);
+    for (const property of this.descriptorProperties) {
+      this.addDescriptor(property, value, forceTuple, rule);
+    }
   }
 
   addDescriptor(
@@ -542,7 +581,7 @@ export class StylesheetBuilder {
           for (const extraRule of extraRulesArray) {
             this.addRuleToRuleSet(
               className,
-              this.createRuleFromPartial(rule, extraRule),
+              this.mergeExtraRule(rule, extraRule),
             );
           }
         }
