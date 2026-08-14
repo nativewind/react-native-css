@@ -23,9 +23,9 @@ export type Observable<Value, Arg = Value> = {
 type Read<Value, Arg> = (get: Getter, arg?: Arg) => Value;
 export type Getter = <Value>(observable: Observable<Value, any>) => Value;
 
-export const observableBatch: {
+export type ObservableBatch = {
   current?: Set<Effect>;
-} = {};
+};
 
 export function observable<Value, Arg = Value>(
   init: Value | Read<Value, Arg>,
@@ -209,63 +209,110 @@ export type VariableContextValue = Record<string, StyleDescriptor> & {
   [VAR_SYMBOL]: true;
 };
 
-/** Pseudo Classes ************************************************************/
-
-export const hoverFamily = weakFamily(() => observable(false));
-export const activeFamily = weakFamily(() => observable<boolean>(false));
-export const focusFamily = weakFamily(() => observable<boolean>(false));
-
-/** Dimensions ****************************************************************/
-
-export const dimensions = observable(Dimensions.get("window"));
-export const vw = observable<number>(
-  (read, value) => value ?? read(dimensions)?.width,
-);
-export const vh = observable<number>(
-  (read, value) => value ?? read(dimensions)?.height,
-);
-
-Dimensions.addEventListener("change", ({ window }) => {
-  observableBatch.current = new Set();
-  vw.set(window.width);
-  vh.set(window.height);
-
-  for (const effect of observableBatch.current) {
-    effect.run();
-  }
-
-  observableBatch.current = undefined;
-});
-
-/** Color Scheme **************************************************************/
-
-export const colorScheme = observable<ColorSchemeName>(
-  Appearance.getColorScheme(),
-);
-Appearance.addChangeListener((event) => colorScheme.set(event.colorScheme));
-
-/** Containers ****************************************************************/
-
 export type ContainerContextValue = Record<string, WeakKey>;
-export const ContainerContext = createContext<ContainerContextValue>({});
 
-export const containerLayoutFamily = weakFamily(() => {
-  return observable<LayoutRectangle>({
-    x: 0,
-    y: 0,
-    width: 0,
-    height: 0,
-  });
-});
+/****************************** Process globals *******************************/
 
-export const containerWidthFamily = weakFamily((key) => {
-  return observable((read) => {
-    return read(containerLayoutFamily(key))?.width || 0;
-  });
-});
+/**
+ * Everything below this point is process-global reactive state, and every piece
+ * of it is duplicated under the dual package hazard: `package.json`'s `exports`
+ * map sends `import` to `dist/module/**` and `require` to `dist/commonjs/**`,
+ * and Metro resolves per requesting module, so one app can evaluate this module
+ * twice. Two copies means two `Dimensions` listeners writing two `vw`s, and a
+ * subscriber registered through one copy never hears a write made through the
+ * other.
+ *
+ * It is pinned as ONE object rather than a global per export because the state
+ * is mutually coupled - `vw`/`vh` derive from `dimensions`, and the listener
+ * that writes them does so through `observableBatch`. A per-export guard lets a
+ * later edit share some and not others, which yields a half-shared graph that
+ * is harder to diagnose than no guard at all. Building it in one initializer
+ * also makes the listener registrations part of what runs exactly once.
+ *
+ * The pure exports above (`observable`, `family`, `cleanupEffect`, ...) are
+ * deliberately NOT pinned: they close over no process state, so a second copy
+ * of them is harmless. `VAR_SYMBOL` is interned by `Symbol.for` and is already
+ * shared by construction.
+ */
+function createReactivityState() {
+  const dimensions = observable(Dimensions.get("window"));
+  const vw = observable<number>(
+    (read, value) => value ?? read(dimensions)?.width,
+  );
+  const vh = observable<number>(
+    (read, value) => value ?? read(dimensions)?.height,
+  );
 
-export const containerHeightFamily = weakFamily((key) => {
-  return observable((read) => {
-    return read(containerLayoutFamily(key))?.width || 0;
+  Dimensions.addEventListener("change", ({ window }) => {
+    observableBatch.current = new Set();
+    vw.set(window.width);
+    vh.set(window.height);
+
+    for (const effect of observableBatch.current) {
+      effect.run();
+    }
+
+    observableBatch.current = undefined;
   });
-});
+
+  const colorScheme = observable<ColorSchemeName>(Appearance.getColorScheme());
+  Appearance.addChangeListener((event) => colorScheme.set(event.colorScheme));
+
+  const containerLayoutFamily = weakFamily(() => {
+    return observable<LayoutRectangle>({
+      x: 0,
+      y: 0,
+      width: 0,
+      height: 0,
+    });
+  });
+
+  return {
+    observableBatch: {} as ObservableBatch,
+
+    hoverFamily: weakFamily(() => observable(false)),
+    activeFamily: weakFamily(() => observable<boolean>(false)),
+    focusFamily: weakFamily(() => observable<boolean>(false)),
+
+    dimensions,
+    vw,
+    vh,
+    colorScheme,
+
+    ContainerContext: createContext<ContainerContextValue>({}),
+    containerLayoutFamily,
+    containerWidthFamily: weakFamily((key: WeakKey) => {
+      return observable((read) => {
+        return read(containerLayoutFamily(key))?.width || 0;
+      });
+    }),
+    containerHeightFamily: weakFamily((key: WeakKey) => {
+      return observable((read) => {
+        return read(containerLayoutFamily(key))?.width || 0;
+      });
+    }),
+  };
+}
+
+declare global {
+  var __react_native_css_reactivity:
+    | ReturnType<typeof createReactivityState>
+    | undefined;
+}
+
+globalThis.__react_native_css_reactivity ??= createReactivityState();
+
+export const {
+  observableBatch,
+  hoverFamily,
+  activeFamily,
+  focusFamily,
+  dimensions,
+  vw,
+  vh,
+  colorScheme,
+  ContainerContext,
+  containerLayoutFamily,
+  containerWidthFamily,
+  containerHeightFamily,
+} = globalThis.__react_native_css_reactivity;
