@@ -32,6 +32,17 @@ const rootVariableFamily = () => {
 export const rootVariables = rootVariableFamily();
 export const universalVariables = rootVariableFamily();
 
+/**
+ * The `initial-value` of an `@property` rule: what a custom property resolves to on an
+ * element that declares it nowhere. Separate from rootVariables because a `:root`
+ * declaration is a value the root element HAS and descendants read by inheritance, which
+ * is the one thing a non-inheriting property never does.
+ *
+ * A registration carries a single value, so each entry holds one — the family shape is
+ * shared with the other two so a re-injected stylesheet notifies its readers.
+ */
+export const registeredInitialValues = rootVariableFamily();
+
 declare global {
   var __react_native_css_non_inherited_variables: Set<string> | undefined;
 }

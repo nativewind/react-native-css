@@ -10,9 +10,14 @@ import type { UniqueVarInfo } from "./compiler.types";
 export function inlineVariables(
   stylesheet: StyleSheet,
   vars: Map<string, UniqueVarInfo>,
+  nonInheritedVariables: ReadonlySet<string>,
 ) {
   for (const [name, info] of [...vars]) {
-    if (info.count !== 1) {
+    // Folding a single declaration into its consumers answers for every element the
+    // consumer matches, which is sound only while the value reaches all of them. A
+    // property registered `inherits: false` reaches the declaring element and nothing
+    // below it, so a consumer in another rule must resolve it at runtime instead
+    if (info.count !== 1 || nonInheritedVariables.has(name)) {
       vars.delete(name);
     } else {
       flattenVar(name, vars);

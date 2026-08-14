@@ -114,6 +114,19 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
   if (options.inlineVariables !== false) {
     const exclusionList: string[] = options.inlineVariables?.exclude ?? [];
 
+    // The inliner runs in this pass, so the registrations it has to respect are collected
+    // here rather than read off the builder, which the second pass fills. lightningcss
+    // keeps only the last @property rule per name, so this sees the winning declaration
+    const nonInheritedVariables = new Set<string>();
+
+    firstPassVisitor.Rule = (rule) => {
+      if (rule.type === "property" && !rule.value.inherits) {
+        nonInheritedVariables.add(rule.value.name);
+      }
+
+      return rule;
+    };
+
     firstPassVisitor.Declaration = (decl) => {
       if (
         decl.property === "custom" &&
@@ -132,7 +145,7 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
       }
     };
     firstPassVisitor.StyleSheetExit = (sheet) => {
-      return inlineVariables(sheet, vars);
+      return inlineVariables(sheet, vars, nonInheritedVariables);
     };
   }
 
@@ -421,7 +434,7 @@ function extractPropertyRule(
   const value = parsePropertyInitialValue(initialValue, builder);
 
   if (value !== undefined) {
-    builder.addRootVariable(varName, value);
+    builder.addRegisteredInitialValue(varName, value);
   }
 }
 
