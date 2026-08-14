@@ -40,8 +40,13 @@ test("a universal variable outranks a root variable of the same name", () => {
 });
 
 test("a root variable resolves when no universal variable is declared", () => {
+  // The second `:root` declaration is what keeps this dynamic. A `:root`
+  // variable with exactly one declaration is folded into the rule by the
+  // compiler, so the runtime registry is never consulted and the test would
+  // pass no matter what the registry held.
   registerCSS(`
     :root { --my-var: #123456; }
+    @media ${neverMatches} { :root { --my-var: #abcdef; } }
     .my-class { color: var(--my-var); }
   `);
 
