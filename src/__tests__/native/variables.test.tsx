@@ -271,3 +271,96 @@ test("variable overriding with classes", () => {
   const component = screen.getByTestId(testID);
   expect(component.props.style).toStrictEqual({ color: "#f00" });
 });
+
+/**
+ * A variable is handed to a descendant as an UNRESOLVED descriptor, so a value
+ * that names its own variable resolves back into itself. Without a cycle guard
+ * that survives the recursion, the descendant blows the stack instead of
+ * rendering.
+ */
+describe("circular variables", () => {
+  const circularStylesheets: [name: string, css: string][] = [
+    [
+      "a variable whose value is itself",
+      `.parent { --a: red } .mid { --a: var(--a) } .child { color: var(--a) }`,
+    ],
+    [
+      "a variable reached again through a fallback",
+      `.parent { --a: red } .mid { --a: var(--nope, var(--a)) } .child { color: var(--a) }`,
+    ],
+    [
+      "two variables that name each other",
+      `.parent { --a: red } .mid { --a: var(--b); --b: var(--a) } .child { color: var(--a) }`,
+    ],
+  ];
+
+  test("the census is not empty", () => {
+    expect(circularStylesheets.length).toBeGreaterThan(0);
+  });
+
+  test.each(circularStylesheets)("%s renders", (_name, css) => {
+    registerCSS(css);
+
+    render(
+      <View className="parent">
+        <View className="mid">
+          <View testID={testID} className="child" />
+        </View>
+      </View>,
+    );
+
+    // The cycle has no value, so the declaration reading it resolves to nothing.
+    expect(screen.getByTestId(testID).props.style).toStrictEqual({});
+  });
+
+  test("a variable read twice in ONE declaration is not mistaken for a cycle", () => {
+    // Both reads share one resolution pass, so the guard has to track names
+    // whose resolution is IN PROGRESS rather than names already seen.
+    // `inlineVariables` is off so the reads survive to runtime instead of being
+    // folded at compile time, as a provider or :root variable does.
+    registerCSS(
+      `
+      .parent { --shadow-color: red }
+      .child {
+        box-shadow:
+          var(--shadow-color) 1px 1px,
+          var(--shadow-color) 2px 2px;
+      }
+    `,
+      { inlineVariables: false },
+    );
+
+    render(
+      <View className="parent">
+        <View testID={testID} className="child" />
+      </View>,
+    );
+
+    expect(screen.getByTestId(testID).props.style).toStrictEqual({
+      boxShadow: [
+        { color: "red", offsetX: 1, offsetY: 1 },
+        { color: "red", offsetX: 2, offsetY: 2 },
+      ],
+    });
+  });
+
+  test("a long non-circular chain still resolves", () => {
+    registerCSS(
+      `
+      .parent { --a: var(--b); --b: var(--c); --c: var(--d); --d: red }
+      .child { color: var(--a) }
+    `,
+      { inlineVariables: false },
+    );
+
+    render(
+      <View className="parent">
+        <View testID={testID} className="child" />
+      </View>,
+    );
+
+    expect(screen.getByTestId(testID).props.style).toStrictEqual({
+      color: "red",
+    });
+  });
+});
