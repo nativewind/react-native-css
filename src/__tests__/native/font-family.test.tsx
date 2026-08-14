@@ -60,6 +60,14 @@ test("a var() that resolves to nothing falls through to the next family", () => 
   ).toStrictEqual({ fontFamily: "Helvetica" });
 });
 
+test("a function that resolves to something unusable falls through too", () => {
+  // Not every deferred head is a `var()`. `calc()` resolves to a number, which
+  // is skipped at render for the same reason `12` is skipped at compile time.
+  expect(styleOf("a", `.a { font-family: calc(1px), Inter; }`)).toStrictEqual({
+    fontFamily: "Inter",
+  });
+});
+
 test("a stack supplied at render arrives as one family, and stays current", () => {
   // A variable set at render rather than in the stylesheet takes the same
   // route, and it is the one a stack can be written into directly.
