@@ -1,15 +1,8 @@
 import { isStyleFunction } from "../utilities";
 import type { StyleDeclaration, StyleRule } from "./compiler.types";
 
-/**
- * `::selection` maps `background-color` onto React Native's `selectionColor`.
- *
- * `background-color` rather than `color`, because they are opposites here: in
- * CSS, `color` inside `::selection` is the colour of the selected TEXT, while
- * React Native's `selectionColor` is the band painted BEHIND it. Mapping
- * `color` renders a stylesheet asking for white selected text as a white band,
- * leaving the text it meant to lighten sitting on top of it.
- */
+// background-color, not color: in ::selection `color` is the selected TEXT, while
+// selectionColor is the band painted behind it
 export function modifyRuleForSelection(rule: StyleRule): StyleRule | undefined {
   if (!rule.d) {
     return;
@@ -40,16 +33,8 @@ export function modifyRuleForPlaceholder(
   return rule;
 }
 
-/**
- * Map the ONE declaration the target platform can express, and DROP the rest.
- *
- * Dropping is the whole point. A pseudo-element's declarations are scoped to
- * the pseudo-element, so returning an unmapped one unchanged applies it to the
- * real element — `::selection { background-color: blue }` tinted the whole
- * control rather than the selection. `[]` is the correct answer for something
- * React Native has no prop for: not applying it is strictly better than
- * applying it somewhere else.
- */
+// Map the one declaration the platform can express and drop the rest. A pseudo-element's
+// declarations are scoped to it, so returning an unmapped one applies it to the real element
 function modifyStyleDeclaration(
   declaration: StyleDeclaration,
   from: string,

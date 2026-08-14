@@ -65,11 +65,8 @@ test("mixed", async () => {
   expect(component).toHaveStyle({ color: "#fff" });
 });
 
-// `selection:bg-*`, not `selection:text-*`. `selectionColor` is the band
-// painted BEHIND the selected text, which is `background-color` in CSS —
-// `color` there is the selected TEXT's colour, and React Native has no prop
-// for it. Mapping `color` inverted the meaning, so it is dropped now; see the
-// case below.
+// selection:bg-*, not selection:text-*. selectionColor is the band behind the selected
+// text, which is background-color in CSS; color there has no React Native prop
 test("selection", async () => {
   await render(<TextInput testID={testID} className="selection:bg-black" />);
 
