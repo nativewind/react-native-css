@@ -235,6 +235,39 @@ This API only allows for setting CSS variables as primitive values. For more com
 > [!IMPORTANT]  
 > By using `VariableContext` you may need to disable the `inlineVariable` optimization
 
+## Pseudo-elements
+
+React Native has no pseudo-elements. It has two props that stand in for one declaration each, and `::selection` / `::placeholder` compile to those props:
+
+| CSS                                | React Native prop      | On a        |
+| ---------------------------------- | ---------------------- | ----------- |
+| `::selection { background-color }` | `selectionColor`       | `TextInput` |
+| `::placeholder { color }`          | `placeholderTextColor` | `TextInput` |
+
+`::selection { background-color }`, not `::selection { color }`. In CSS `color` inside `::selection` is the colour of the selected text and `background-color` is the band painted behind it; React Native's `selectionColor` is that band.
+
+Every other declaration inside a pseudo-element is dropped, and the compiler reports it:
+
+```css
+.input::selection {
+  background-color: red; /* → selectionColor */
+  color: white; /* dropped */
+  width: 10px; /* dropped */
+}
+```
+
+```js
+compile(css).warnings();
+// { values: { "::selection": ["color", "width"] } }
+```
+
+They are dropped rather than applied because a pseudo-element's declarations belong to the pseudo-element. Applying them to the host would paint the element itself — a `::selection { color }` would set the element's text colour, and through `currentColor` its whole subtree.
+
+> [!IMPORTANT]
+> This is native only. On web the CSS file is served to the browser unchanged, so `::selection` and `::placeholder` behave exactly as CSS specifies and no declaration is dropped. A rule that is meaningful on both platforms should say so in `background-color` for `::selection` and `color` for `::placeholder`; anything else styles the browser and nothing else.
+
+With Tailwind, the native prop comes from `selection:bg-*`. `selection:text-*` is `color` and is dropped on native, though it still works in a browser.
+
 ## Optimizations
 
 CSS is a dynamic styling language that use highly optimized engines that are not available in React Native. Instead, we optimize the styles to improve performance
