@@ -168,6 +168,17 @@ test("an operand the compiler cannot resolve stays in the condition", () => {
   ]);
 });
 
+test("a boolean feature compiles to a boolean condition", () => {
+  expect(
+    mediaConditions(
+      `@media (width) {
+        .my-class { background-color: red; }
+      }`,
+      "my-class",
+    ),
+  ).toStrictEqual([[["!!", "width"]]]);
+});
+
 test("@media (hover: hover)", () => {
   const compiled = compile(`
     @media (hover: hover) {

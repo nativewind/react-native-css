@@ -413,3 +413,69 @@ describe("unresolvable operands", () => {
     expect(component.props.style).toStrictEqual({ color: "#f00" });
   });
 });
+
+describe("boolean features", () => {
+  test("height matches when the viewport has one", () => {
+    registerCSS(`
+.my-class { color: blue; }
+
+@media (height) {
+  .my-class { color: red; }
+}`);
+
+    act(() => {
+      dimensions.set({ ...dimensions.get(), width: 500, height: 1000 });
+    });
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ color: "#f00" });
+  });
+
+  test("width does not match a viewport of zero width", () => {
+    registerCSS(`
+.my-class { color: blue; }
+
+@media (width) {
+  .my-class { color: red; }
+}`);
+
+    act(() => {
+      dimensions.set({ ...dimensions.get(), width: 0, height: 1000 });
+    });
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ color: "#00f" });
+  });
+
+  test("hover matches, because the runtime always reports hover", () => {
+    registerCSS(`
+.my-class { color: blue; }
+
+@media (hover) {
+  .my-class { color: red; }
+}`);
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ color: "#f00" });
+  });
+
+  test("a feature the runtime cannot answer does not match", () => {
+    registerCSS(`
+.my-class { color: blue; }
+
+@media (color) {
+  .my-class { color: red; }
+}`);
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ color: "#00f" });
+  });
+});

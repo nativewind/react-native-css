@@ -18,6 +18,7 @@ import {
 } from "../reactivity";
 // import { testAttributes } from "./attributes";
 import type { RenderGuard } from "./guards";
+import { isTruthyFeatureValue } from "./media-query";
 
 export const DEFAULT_CONTAINER_NAME = "c:___default___";
 
@@ -96,7 +97,9 @@ function testContainerMediaCondition(
         return testContainerMediaCondition(query, containerKey, get);
       });
     case "!!":
-      return false;
+      return isTruthyFeatureValue(
+        getContainerFeatureValue(condition[1], containerKey, get),
+      );
     case "[]":
       return false;
     case ">":
