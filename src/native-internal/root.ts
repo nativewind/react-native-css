@@ -40,16 +40,9 @@ declare global {
     | undefined;
 }
 
-/**
- * Create BOTH registries and seed them, as one step.
- *
- * Creating and seeding cannot be split. A bare `??=` on the registries alone
- * would leave the seeds running unconditionally, so a second copy initialising
- * AFTER the stylesheet inject re-runs `set([[14]])` and clobbers a project's
- * own `:root { font-size: 16px }` back to 14 — silently rescaling every
- * rem-derived value to 87.5%. Both registries live behind ONE global for the
- * same reason: two globals could be half-initialised.
- */
+// Creating and seeding are one step. Guarding only the creation leaves the seeds running
+// unconditionally, so a copy initialising after the stylesheet inject clobbers a project's
+// `:root { font-size: 16px }` back to 14
 function createRootVariableRegistries(): RootVariableRegistries {
   const registries: RootVariableRegistries = {
     root: rootVariableFamily(),
@@ -70,23 +63,13 @@ function createRootVariableRegistries(): RootVariableRegistries {
   return registries;
 }
 
-/**
- * The `:root` registries are GLOBAL.
- *
- * The package's `exports` map splits `import` and `require` onto different
- * builds and Metro resolves that condition per REQUESTING module, so a
- * compiled-CommonJS dependency and first-party source bind different copies of
- * this file. Every other stateful module here already guards against that
- * (`style-collection.ts`, `variables.tsx`); these two held runtime state and
- * did not, so a `:root` variable injected into one copy was invisible to the
- * other and the value silently fell back to its seed.
- */
-export function resolveRootVariableRegistries(): RootVariableRegistries {
-  return (globalThis.__react_native_css_root_variable_registries ??=
-    createRootVariableRegistries());
-}
+// Global, like style-collection.ts and variables.tsx: the exports map splits import and
+// require onto different builds and Metro resolves that per requesting module, so a
+// compiled-CommonJS dependency and first-party source bind different copies of this file
+globalThis.__react_native_css_root_variable_registries ??=
+  createRootVariableRegistries();
 
-const registries = resolveRootVariableRegistries();
-
-export const rootVariables = registries.root;
-export const universalVariables = registries.universal;
+export const rootVariables =
+  globalThis.__react_native_css_root_variable_registries.root;
+export const universalVariables =
+  globalThis.__react_native_css_root_variable_registries.universal;

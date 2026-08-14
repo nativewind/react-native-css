@@ -1,23 +1,5 @@
-import {
-  resolveRootVariableRegistries,
-  rootVariables,
-  universalVariables,
-} from "../../native-internal/root";
+import { rootVariables, universalVariables } from "../../native-internal/root";
 
-/**
- * The `:root` registries are global, and created + seeded exactly once.
- *
- * The package's `exports` map splits `import` and `require` onto different
- * builds, and Metro resolves that condition per requesting module — so a
- * compiled-CommonJS dependency and first-party source bind different copies of
- * `native-internal/root`. Module-scope registries made that two independent
- * stores: a `:root` variable injected into one copy was invisible to the
- * other, and the value silently fell back to its seed.
- *
- * `resolveRootVariableRegistries` is what a second copy of the module runs, so
- * calling it directly reproduces the second copy without needing the module
- * itself to be re-evaluated.
- */
 test("the module's exports are the registries published on globalThis", () => {
   const registries = globalThis.__react_native_css_root_variable_registries;
 
@@ -26,22 +8,21 @@ test("the module's exports are the registries published on globalThis", () => {
   expect(universalVariables).toBe(registries?.universal);
 });
 
-test("a second copy resolves the same registries", () => {
-  // Captured BEFORE the call: comparing against the global afterwards passes
-  // even when the resolver replaces it, which is no assertion at all.
-  const before = globalThis.__react_native_css_root_variable_registries;
+test("a second copy of the module shares the registries and does not re-seed", async () => {
+  // jest.resetModules() gives a fresh module registry against the same globalThis, which
+  // is exactly the dual-package case: the exports map splits import and require onto
+  // different builds, so two copies of this file evaluate in one bundle
+  const firstCopy = await import("../../native-internal/root");
 
-  expect(resolveRootVariableRegistries()).toBe(before);
-});
+  expect(firstCopy.rootVariables("__rn-css-rem").get()).toBe(14);
+  firstCopy.rootVariables("__rn-css-rem").set([[16]]);
 
-test("a second copy does not re-seed over an injected value", () => {
-  // The regression a `??=` on the registries ALONE would ship: the seeds run
-  // unconditionally, so a copy initialising AFTER the stylesheet inject
-  // clobbers a project's `:root { font-size: 16px }` back to 14 and rescales
-  // every rem-derived value to 87.5%.
-  expect(rootVariables("__rn-css-rem").get()).toBe(14);
+  jest.resetModules();
+  const secondCopy = await import("../../native-internal/root");
 
-  rootVariables("__rn-css-rem").set([[16]]);
+  // The module body really re-ran, so the assertions below are about two copies
+  expect(secondCopy).not.toBe(firstCopy);
 
-  expect(resolveRootVariableRegistries().root("__rn-css-rem").get()).toBe(16);
+  expect(secondCopy.rootVariables).toBe(firstCopy.rootVariables);
+  expect(secondCopy.rootVariables("__rn-css-rem").get()).toBe(16);
 });
