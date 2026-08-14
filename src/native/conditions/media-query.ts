@@ -3,7 +3,7 @@ import { I18nManager, PixelRatio, Platform } from "react-native";
 
 import type { MediaCondition } from "react-native-css/compiler";
 
-import { colorScheme, vh, vw, type Getter } from "../reactivity";
+import { colorScheme, reduceMotion, vh, vw, type Getter } from "../reactivity";
 
 export function testMediaQuery(mediaQueries: MediaCondition[], get: Getter) {
   return mediaQueries.every((query) => test(query, get));
@@ -12,8 +12,13 @@ export function testMediaQuery(mediaQueries: MediaCondition[], get: Getter) {
 function test(mediaQuery: MediaCondition, get: Getter): Boolean {
   switch (mediaQuery[0]) {
     case "[]":
-    case "!!":
       return false;
+    case "!!":
+      // A bare boolean media feature, e.g. `@media (prefers-reduced-motion)`.
+      // Per CSS, bare `(prefers-reduced-motion)` is equivalent to `reduce`.
+      return mediaQuery[1] === "prefers-reduced-motion"
+        ? get(reduceMotion)
+        : false;
     case "!":
       return !test(mediaQuery[1], get);
     case "&":
@@ -46,6 +51,13 @@ function testComparison(mediaQuery: MediaCondition, get: Getter): Boolean {
       return value === "native" || value === Platform.OS;
     case "prefers-color-scheme": {
       return value === get(colorScheme);
+    }
+    case "prefers-reduced-motion": {
+      // `motion-reduce:` compiles to `reduce`, `motion-safe:` to
+      // `no-preference`. An equality test rather than a two-way branch, so an
+      // unrecognised value is false as MQ5 requires, instead of aliasing to
+      // `reduce`.
+      return value === (get(reduceMotion) ? "reduce" : "no-preference");
     }
     case "display-mode":
       return value === "native" || Platform.OS === value;
