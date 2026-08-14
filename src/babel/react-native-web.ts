@@ -7,13 +7,13 @@ import tBabelTypes, {
 } from "@babel/types";
 
 import { allowedModules } from "./allowedModules";
-import { resolvePosix } from "./helpers";
+import { resolveImportSource } from "./helpers";
 
 type BabelTypes = typeof tBabelTypes;
 
 function parseReactNativeWebSource(source: string, filename: string) {
   if (source.startsWith(".")) {
-    source = resolvePosix(filename, source);
+    source = resolveImportSource(filename, source);
 
     const internalPath = source.split("react-native-web/dist")[1];
     if (!internalPath) {

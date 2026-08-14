@@ -10,9 +10,14 @@ describe("plugin smoke tests", () => {
   pluginTester({
     plugin,
     title: "plugin",
+    // An application file, not one of this package's own sources: the plugin skips
+    // everything under `<packageRoot>/src` and `<packageRoot>/dist`, and a test
+    // file IS under `src`. babel-plugin-tester feeds `filepath` to babel as
+    // `filename`, inferring this test file's own path when it is not set, so
+    // `babelOptions.filename` alone never reaches the plugin.
+    filepath: "/project/src/App.js",
     babelOptions: {
       plugins: ["@babel/plugin-syntax-jsx"],
-      filename: "/someFile.js",
     },
     tests: appendTitles([
       {

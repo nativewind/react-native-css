@@ -1,9 +1,10 @@
-import { resolve } from "path";
+import { join, sep } from "path";
 
 import { type PluginObj } from "@babel/core";
 import type { Statement } from "@babel/types";
 
 import {
+  findPackageRoot,
   getInteropRequireDefaultSource,
   type BabelTypes,
   type PluginState,
@@ -24,32 +25,57 @@ export default function ({
 }: {
   types: BabelTypes;
 }): PluginObj<PluginState> {
-  const processed = new WeakSet();
+  // Nodes this plugin generated. `replaceWithMultiple` requeues its replacements,
+  // so a rewrite that reproduces its own input — `const { Platform } =
+  // require("react-native")` — would otherwise be visited and rewritten forever.
+  // The set holds `Statement` nodes, never the `NodePath`s wrapping them, and the
+  // element type says so: `processed.has(path)` is a compile error, not a
+  // disjunct that is quietly always false.
+  const processed = new WeakSet<Statement>();
 
-  const thisModuleDist = resolve(__dirname, "../../../dist");
-  const thisModuleSrc = resolve(__dirname, "../../../src");
+  // This package's own components import the primitive they wrap, so rewriting
+  // one turns it into an import of itself. These are the two directories it
+  // ships (`package.json`'s `files`), each with a trailing separator so a
+  // sibling like `<root>/src-extra` is not swallowed by the prefix.
+  const packageRoot = findPackageRoot(__dirname);
+  const ownDirectories = [
+    join(packageRoot, "dist") + sep,
+    join(packageRoot, "src") + sep,
+  ];
 
+  /**
+   * `filename` is already absolute: babel stores `path.resolve(cwd, opts.filename)`
+   * (`@babel/core/lib/config/partial.js`), so metro handing it a project-relative
+   * name (`metro/src/DeltaBundler/Transformer.js` passes
+   * `path.relative(projectRoot, filePath)`) still arrives here resolved against
+   * `cwd`, which `metro-babel-transformer` sets to the project root. Both sides of
+   * the comparison are OS-native absolute paths, so no separator normalization
+   * belongs here.
+   */
   function isFromThisModule(filename: string): boolean {
-    return (
-      filename.startsWith(thisModuleDist) || filename.startsWith(thisModuleSrc)
-    );
+    return ownDirectories.some((directory) => filename.startsWith(directory));
   }
 
   return {
     name: "Rewrite react-native to react-native-css",
     visitor: {
       ImportDeclaration(path, state): void {
+        const { filename } = state;
+
+        // Without a filename nothing can be resolved against, and the guard below
+        // has nothing to compare. `PluginPass.filename` is `string | undefined`
+        // precisely because a direct `transformSync` caller need not supply one.
         if (
-          processed.has(path) ||
+          filename === undefined ||
           processed.has(path.node) ||
-          isFromThisModule(state.filename)
+          isFromThisModule(filename)
         ) {
           return;
         }
 
         const statements =
-          handleReactNativeImport(path.node, t, state.filename) ??
-          handleReactNativeWebImport(path.node, t, state.filename);
+          handleReactNativeImport(path.node, t, filename) ??
+          handleReactNativeWebImport(path.node, t, filename);
 
         if (!statements) {
           return;
@@ -62,10 +88,12 @@ export default function ({
         path.replaceWithMultiple(statements);
       },
       VariableDeclaration(path, state): void {
+        const { filename } = state;
+
         if (
-          processed.has(path) ||
+          filename === undefined ||
           processed.has(path.node) ||
-          isFromThisModule(state.filename)
+          isFromThisModule(filename)
         ) {
           return;
         }
@@ -114,14 +142,14 @@ export default function ({
               t,
               id.name,
               initArg.value,
-              state.filename,
+              filename,
             ) ??
             handleReactNativeWebIdentifierRequire(
               path,
               t,
               id.name,
               initArg.value,
-              state.filename,
+              filename,
             );
         } else if (
           t.isObjectPattern(id) &&
@@ -134,14 +162,14 @@ export default function ({
               t,
               id,
               initArg.value,
-              state.filename,
+              filename,
             ) ??
             handleReactNativeWebObjectPatternRequire(
               path,
               t,
               id,
               initArg.value,
-              state.filename,
+              filename,
             );
         } else if (
           t.isIdentifier(id) &&
@@ -157,7 +185,7 @@ export default function ({
             t,
             id.name,
             source,
-            state.filename,
+            filename,
           );
         }
 
