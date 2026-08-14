@@ -1,3 +1,5 @@
+import type { ComponentProps } from "react";
+
 import {
   useCssElement,
   type StyledConfiguration,
@@ -6,7 +8,9 @@ import {
 import {
   BaseButton as RNGHBaseButton,
   BorderlessButton as RNGHBorderlessButton,
+  DrawerLayoutAndroid as RNGHDrawerLayoutAndroid,
   Pressable as RNGHPressable,
+  PureNativeButton as RNGHPureNativeButton,
   RawButton as RNGHRawButton,
   RectButton as RNGHRectButton,
   type BaseButtonProps,
@@ -24,18 +28,30 @@ export * from "react-native-gesture-handler";
  * Pressable and the button family render GestureHandlerButton, a codegen'd native
  * component, so the react-native rewrite never reaches them and className falls onto a
  * view that declares no such prop. Each forwards `style`, which these mappings target.
+ * PureNativeButton is that same codegen'd component, exported directly.
+ *
+ * DrawerLayoutAndroid is gesture-handler's own `createNativeWrapper` over react-native's,
+ * and the rewrite hands it react-native's raw component — `components/index.cts` has no
+ * styled twin to inherit from — so it needs the mapping too. It forwards `style`.
  *
  * Not re-declared, and why:
  *
- * - ScrollView, Switch, TextInput, FlatList, Text — already className-aware; wrapping
- *   them would style the gesture handler's wrapper rather than the view.
- * - The four touchables — className is dropped there too, but gesture-handler deprecates
- *   them in favour of Pressable. TouchableNativeFeedback is additionally gesture-handler's
- *   own only on Android; elsewhere it re-exports React Native's, which the rewrite reaches.
- * - DrawerLayout, Swipeable — no plain `style` prop, only containerStyle /
- *   childrenContainerStyle / drawerContainerStyle, so the target is a design decision.
- * - DrawerLayoutAndroid, RefreshControl — components/index.cts re-exports these straight
- *   from react-native, so there is no styled twin for them to inherit from.
+ * - ScrollView, Switch, TextInput, FlatList, Text — `createNativeWrapper` forwards
+ *   unclaimed props to a react-native primitive and Text renders one directly, so the
+ *   rewrite already reaches these. Wrapping them would style the handler, not the view.
+ *   `react-native-gesture-handler-rewrite.test.tsx` renders them under that rewrite.
+ * - The four touchables, DrawerLayout, Swipeable — className is dropped on all six.
+ *   Gesture Handler marks every one `@deprecated`, in favour of Pressable and of the
+ *   Reanimated twins. TouchableNativeFeedback is gesture-handler's own only on Android;
+ *   elsewhere it re-exports react-native's, and that has no styled twin either.
+ * - RefreshControl — className is dropped, for the same missing-twin reason as
+ *   DrawerLayoutAndroid. Left as-is because react-native's jest mock renders
+ *   `<RCTRefreshControl />` with no props at all, so a mapping here could not be tested,
+ *   and `style` on a RefreshControl drives nothing on either platform.
+ *
+ * ReanimatedDrawerLayout and ReanimatedSwipeable are out of reach entirely: gesture-handler
+ * ships them as their own entry points rather than from its index, and the resolver branch
+ * matching this module is an exact `react-native-gesture-handler`.
  */
 const pressableMapping: StyledConfiguration<typeof RNGHPressable> = {
   className: "style",
@@ -93,5 +109,40 @@ export const BorderlessButton = copyComponentProperties(
     props: StyledProps<BorderlessButtonProps, typeof borderlessButtonMapping>,
   ) => {
     return useCssElement(RNGHBorderlessButton, props, borderlessButtonMapping);
+  },
+);
+
+const pureNativeButtonMapping: StyledConfiguration<
+  typeof RNGHPureNativeButton
+> = {
+  className: "style",
+};
+
+export const PureNativeButton = copyComponentProperties(
+  RNGHPureNativeButton,
+  (props: StyledProps<RawButtonProps, typeof pureNativeButtonMapping>) => {
+    return useCssElement(RNGHPureNativeButton, props, pureNativeButtonMapping);
+  },
+);
+
+const drawerLayoutAndroidMapping: StyledConfiguration<
+  typeof RNGHDrawerLayoutAndroid
+> = {
+  className: "style",
+};
+
+export const DrawerLayoutAndroid = copyComponentProperties(
+  RNGHDrawerLayoutAndroid,
+  (
+    props: StyledProps<
+      ComponentProps<typeof RNGHDrawerLayoutAndroid>,
+      typeof drawerLayoutAndroidMapping
+    >,
+  ) => {
+    return useCssElement(
+      RNGHDrawerLayoutAndroid,
+      props,
+      drawerLayoutAndroidMapping,
+    );
   },
 );
