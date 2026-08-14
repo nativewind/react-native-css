@@ -239,6 +239,42 @@ describe("aspect-ratio", () => {
   );
 });
 
+describe("interval (range pair) conditions", () => {
+  /**
+   * A 600x200 viewport, so both bounds of an interval on either axis can be
+   * placed on either side of the measured value.
+   */
+  const cases: [prelude: string, matches: boolean][] = [
+    ["(400px < width < 800px)", true],
+    ["(400px < width < 500px)", false],
+    ["(600px < width < 800px)", false],
+    ["(600px <= width < 800px)", true],
+    ["(800px > width > 400px)", true],
+    ["(100px < height < 300px)", true],
+    ["(100px < height < 200px)", false],
+  ];
+
+  test.each(cases)(
+    "@media %s against a 600x200 viewport matches: %s",
+    (prelude, matches) => {
+      registerCSS(`
+@media ${prelude} {
+  .my-class { color: red; }
+}`);
+
+      act(() => {
+        dimensions.set({ ...dimensions.get(), width: 600, height: 200 });
+      });
+
+      render(<View testID={testID} className="my-class" />);
+
+      expect(screen.getByTestId(testID).props.style).toStrictEqual(
+        matches ? { color: "#f00" } : undefined,
+      );
+    },
+  );
+});
+
 describe("a condition the compiler cannot evaluate", () => {
   /**
    * A `@media` block the compiler cannot compile a condition for must not

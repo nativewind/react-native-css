@@ -260,6 +260,40 @@ describe("aspect ratio", () => {
   );
 });
 
+describe("interval (range pair) conditions", () => {
+  /**
+   * A 600x200 container, so both bounds of an interval on either axis can be
+   * placed on either side of the measured value. Each bound is exercised open
+   * and closed, because an interval is two comparisons and getting one of them
+   * wrong still looks like an interval.
+   */
+  const cases: [condition: string, matches: boolean][] = [
+    ["(400px < width < 800px)", true],
+    ["(400px < width < 500px)", false],
+    ["(700px < width < 800px)", false],
+    // The measured width sits exactly on a bound: open excludes it, closed
+    // includes it, at both ends.
+    ["(600px < width < 800px)", false],
+    ["(600px <= width < 800px)", true],
+    ["(400px < width < 600px)", false],
+    ["(400px < width <= 600px)", true],
+    // The same interval written in the other direction.
+    ["(800px > width > 400px)", true],
+    ["(500px > width > 400px)", false],
+    ["(100px < height < 300px)", true],
+    ["(100px < height < 200px)", false],
+  ];
+
+  test.each(cases)(
+    "@container %s against a 600x200 container matches: %s",
+    (condition, matches) => {
+      expect(
+        containerQueryMatches(condition, { width: 600, height: 200 }),
+      ).toBe(matches);
+    },
+  );
+});
+
 describe("a condition the compiler cannot evaluate", () => {
   /**
    * A `@container` block the compiler cannot compile a condition for must not

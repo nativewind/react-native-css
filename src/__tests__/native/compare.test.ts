@@ -1,6 +1,13 @@
-import type { MediaFeatureComparison } from "react-native-css/compiler";
+import type {
+  MediaFeatureComparison,
+  StyleDescriptor,
+} from "react-native-css/compiler";
 
-import { compareMediaFeature } from "../../native/conditions/compare";
+import {
+  compareMediaFeature,
+  testMediaFeatureInterval,
+  type MediaInterval,
+} from "../../native/conditions/compare";
 
 /**
  * The full cross product of every comparison operator against every ordering
@@ -81,3 +88,69 @@ test.each(cases)(
     expect(compareMediaFeature(operator, left, right)).toBe(result);
   },
 );
+
+describe("testMediaFeatureInterval", () => {
+  /**
+   * The two halves of an interval are asymmetric — the start bound is compared
+   * against the measured value and the value against the end bound — so a
+   * table that only varies the value cannot tell a correct implementation from
+   * one that assembled the halves the other way round. These cases vary which
+   * side of each bound the value falls on, and pair a strict operator with a
+   * non-strict one so the two are never interchangeable.
+   */
+  const cases: [
+    label: string,
+    condition: MediaInterval,
+    value: number,
+    matches: boolean,
+  ][] = [
+    ["inside", ["[]", "width", 400, "<", 800, "<"], 600, true],
+    ["below the start bound", ["[]", "width", 400, "<", 800, "<"], 300, false],
+    ["above the end bound", ["[]", "width", 400, "<", 800, "<"], 900, false],
+    ["on an open start bound", ["[]", "width", 400, "<", 800, "<"], 400, false],
+    [
+      "on a closed start bound",
+      ["[]", "width", 400, "<=", 800, "<"],
+      400,
+      true,
+    ],
+    ["on an open end bound", ["[]", "width", 400, "<", 800, "<"], 800, false],
+    ["on a closed end bound", ["[]", "width", 400, "<", 800, "<="], 800, true],
+    // Written in the other direction: `800px > width > 400px`.
+    ["descending, inside", ["[]", "width", 800, ">", 400, ">"], 600, true],
+    ["descending, outside", ["[]", "width", 800, ">", 400, ">"], 300, false],
+  ];
+
+  test.each(cases)("%s", (_label, condition, value, matches) => {
+    expect(testMediaFeatureInterval(condition, value)).toBe(matches);
+  });
+
+  /**
+   * A feature the evaluator could not measure, and a bound the compiler could
+   * not resolve, are both "no answer" rather than "no bound".
+   */
+  const unanswerable: [
+    label: string,
+    condition: MediaInterval,
+    value: unknown,
+  ][] = [
+    ["an unmeasurable feature", ["[]", "width", 400, "<", 800, "<"], undefined],
+    [
+      "a non-numeric feature value",
+      ["[]", "orientation", 400, "<", 800, "<"],
+      "landscape",
+    ],
+    [
+      "an unresolved start bound",
+      ["[]", "width", undefined, "<", 800, "<"],
+      600,
+    ],
+    ["an unresolved end bound", ["[]", "width", 400, "<", undefined, "<"], 600],
+  ];
+
+  test.each(unanswerable)("%s never matches", (_label, condition, value) => {
+    expect(testMediaFeatureInterval(condition, value as StyleDescriptor)).toBe(
+      false,
+    );
+  });
+});

@@ -96,3 +96,24 @@ test("a container query is only attached to rules inside it", () => {
     [{ m: [">=", "width", 400] }],
   ]);
 });
+
+describe("interval (range pair) conditions", () => {
+  /**
+   * The emitted tuple is `["[]", name, start, startOperator, end,
+   * endOperator]`, and it reads in CSS source order: `start startOperator
+   * name endOperator end`. The runtime evaluates it in that order, so the
+   * two operators are pinned separately from the two bounds — swapping either
+   * pair reads as a valid interval and means something else.
+   */
+  const cases: [condition: string, query: ContainerQuery][] = [
+    ["(400px < width < 800px)", { m: ["[]", "width", 400, "<", 800, "<"] }],
+    ["(400px <= width <= 800px)", { m: ["[]", "width", 400, "<=", 800, "<="] }],
+    ["(800px > width > 400px)", { m: ["[]", "width", 800, ">", 400, ">"] }],
+    ["(400px < height < 800px)", { m: ["[]", "height", 400, "<", 800, "<"] }],
+    ["(400px <= width < 800px)", { m: ["[]", "width", 400, "<=", 800, "<"] }],
+  ];
+
+  test.each(cases)("@container %s", (condition, query) => {
+    expect(compileContainerQueries(condition)).toStrictEqual([query]);
+  });
+});
