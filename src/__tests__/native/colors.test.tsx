@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react-native";
+import { fireEvent, render, screen } from "@testing-library/react-native";
 import { Text } from "react-native-css/components/Text";
 import { View } from "react-native-css/components/View";
 import { registerCSS, testID } from "react-native-css/jest";
@@ -267,4 +267,239 @@ describe("inherit", () => {
       color: "#f00",
     });
   });
+
+  test.each(["UNSET", "INHERIT", "Inherit"])(
+    "color: %s is case-folded and inherits",
+    (spelling) => {
+      registerCSS(`
+        .parent { color: red; }
+        .child { color: ${spelling}; }
+      `);
+
+      render(
+        <View className="parent">
+          <View testID="child" className="child" />
+        </View>,
+      );
+
+      expect(screen.getByTestId("child").props.style).toStrictEqual({
+        color: "#f00",
+      });
+    },
+  );
+
+  test("color: INITIAL is case-folded into the drop, not into the lookup", () => {
+    registerCSS(`
+      .parent { color: red; }
+      .child { color: INITIAL; }
+    `);
+
+    render(
+      <View className="parent">
+        <View testID="child" className="child" />
+      </View>,
+    );
+
+    expect(screen.getByTestId("child").props.style).toBeUndefined();
+  });
+
+  test("a descendant override restarts the chain", () => {
+    registerCSS(`
+      .red { color: red; }
+      .blue { color: blue; }
+      .inherit { color: inherit; }
+    `);
+
+    render(
+      <View className="red">
+        <View testID="first" className="inherit">
+          <View className="blue">
+            <View testID="second" className="inherit" />
+          </View>
+        </View>
+      </View>,
+    );
+
+    expect(screen.getByTestId("first").props.style).toStrictEqual({
+      color: "#f00",
+    });
+    expect(screen.getByTestId("second").props.style).toStrictEqual({
+      color: "#00f",
+    });
+  });
+
+  test("color: inherit under a media query", () => {
+    registerCSS(`
+      .parent { color: red; }
+      @media (min-width: 1px) { .child { color: inherit; } }
+    `);
+
+    render(
+      <View className="parent">
+        <View testID="child" className="child" />
+      </View>,
+    );
+
+    expect(screen.getByTestId("child").props.style).toStrictEqual({
+      color: "#f00",
+    });
+  });
+
+  test("color: inherit under :hover", () => {
+    registerCSS(`
+      .parent { color: red; }
+      .child { color: blue; }
+      .child:hover { color: inherit; }
+    `);
+
+    render(
+      <View className="parent">
+        <View testID="child" className="child" />
+      </View>,
+    );
+
+    const child = screen.getByTestId("child");
+    expect(child.props.style).toStrictEqual({ color: "#00f" });
+
+    fireEvent(child, "hoverIn", {});
+    expect(screen.getByTestId("child").props.style).toStrictEqual({
+      color: "#f00",
+    });
+  });
+
+  test("color: inherit !important beats a normal color on the same element", () => {
+    registerCSS(`
+      .parent { color: red; }
+      .child { color: inherit !important; }
+      .override { color: blue; }
+    `);
+
+    render(
+      <View className="parent">
+        <View testID="child" className="child override" />
+      </View>,
+    );
+
+    expect(screen.getByTestId("child").props.style).toStrictEqual({
+      color: "#f00",
+    });
+  });
+
+  test("color: inherit on ::placeholder and ::selection", () => {
+    registerCSS(`
+      .parent { color: red; }
+      .child::placeholder { color: inherit; }
+      .child::selection { color: inherit; }
+    `);
+
+    render(
+      <View className="parent">
+        <View testID="child" className="child" />
+      </View>,
+    );
+
+    expect(screen.getByTestId("child").props).toStrictEqual({
+      children: undefined,
+      placeholderTextColor: "#f00",
+      selectionColor: "#f00",
+      style: {},
+      testID: "child",
+    });
+  });
+
+  test("border-color: inherit is dropped, it does not read the color variable", () => {
+    // Only `color` seeds --__rn-css-color, so only `color` can read it back.
+    registerCSS(`
+      .parent { color: red; }
+      .child { border-color: inherit; }
+    `);
+
+    render(
+      <View className="parent">
+        <View testID="child" className="child" />
+      </View>,
+    );
+
+    expect(screen.getByTestId("child").props.style).toBeUndefined();
+  });
+
+  test("color: revert publishes nothing to descendants", () => {
+    // React Native has no cascade origins, so `revert` has no computed value.
+    // Emitting the literal handed every descendant `color: "revert"`.
+    registerCSS(`
+      .parent { color: red; }
+      .mid { color: revert; }
+      .child { color: inherit; }
+    `);
+
+    render(
+      <View className="parent">
+        <View testID="mid" className="mid">
+          <View testID="child" className="child" />
+        </View>
+      </View>,
+    );
+
+    expect(screen.getByTestId("mid").props.style).toBeUndefined();
+    expect(screen.getByTestId("child").props.style).toStrictEqual({
+      color: "#f00",
+    });
+  });
+});
+
+/**
+ * Each of these makes the middle element's `color` READ the inherited-color
+ * variable from below the top level of its descriptor. Publishing such a value
+ * as --__rn-css-color hands the child a value that resolves back into the same
+ * variable, and resolution recurses until the stack is exhausted.
+ *
+ * The middle element resolves against ITS parent, so the child sees the nearest
+ * ancestor that published a colour of its own — the red parent.
+ */
+const selfReferentialMiddleColors: [css: string, midColor: string][] = [
+  ["inherit", "#f00"],
+  ["unset", "#f00"],
+  ["currentcolor", "#f00"],
+  ["var(--missing, inherit)", "#f00"],
+  ["var(--missing, unset)", "#f00"],
+  ["var(--missing, currentcolor)", "#f00"],
+  ["color-mix(in srgb, currentcolor, blue)", "rgba(127.5, 0, 127.5, 1)"],
+  ["color-mix(in srgb, inherit, blue)", "rgba(127.5, 0, 127.5, 1)"],
+  ["light-dark(currentcolor, blue)", "#f00"],
+  // Relative colour syntax is not implemented, so the mid colour is the
+  // stringified function rather than a colour. It is here for the crash, and it
+  // pins the current output so that implementing `rgb(from …)` has to update it.
+  ["rgb(from currentcolor r g b)", "rgb(from, #f00, r, g, b)"],
+];
+
+describe("a color that reads the inherited color never publishes itself", () => {
+  test("the census is not empty", () => {
+    expect(selfReferentialMiddleColors.length).toBeGreaterThan(0);
+  });
+
+  test.each(selfReferentialMiddleColors)(
+    "mid { color: %s } renders, and its child inherits the grandparent's color",
+    (midColorValue, expectedMidColor) => {
+      registerCSS(`
+        .parent { color: red; }
+        .mid { color: ${midColorValue}; }
+        .child { color: inherit; }
+      `);
+
+      render(
+        <View className="parent">
+          <View testID="mid" className="mid">
+            <View testID="child" className="child" />
+          </View>
+        </View>,
+      );
+
+      expect(screen.getByTestId("mid").props.style).toStrictEqual({
+        color: expectedMidColor,
+      });
+      expect(screen.getByTestId("child").props.style).toStrictEqual({
+        color: "#f00",
+      });
+    },
+  );
 });

@@ -1,4 +1,8 @@
-import { compile } from "react-native-css/compiler";
+import {
+  compile,
+  type StyleDeclaration,
+  type StyleDescriptor,
+} from "react-native-css/compiler";
 
 test("hello world", () => {
   const compiled = compile(`
@@ -454,12 +458,14 @@ describe("CSS-wide color keywords", () => {
     compile(`.child { color: ${value}; }`).stylesheet();
 
   test("compiles to the inherited-color variable instead of being dropped", () => {
-    // lightningcss emits `color: inherit` as an UnparsedProperty (the keyword is
-    // not a CssColor), which parseUnparsed used to drop. Per CSS Color,
-    // `currentcolor` used as the value of `color` is defined as `inherit`, so it
-    // resolves to the same inherited-color variable. The ABSENCE of a `v` entry
-    // is the no-self-reference guarantee — publishing this value as its own
-    // --__rn-css-color would seed a circular var(--__rn-css-color).
+    // lightningcss emits `color: inherit` as an UnparsedProperty — the keyword
+    // is not a CssColor — so it lands in parseUnparsed's ident branch, which
+    // drops every keyword it has no resolution context for. Per CSS Color,
+    // `currentcolor` used as the value of `color` is defined as `inherit`, so
+    // both spell the same computed value and resolve to the same variable.
+    // The ABSENCE of a `v` entry is the no-self-reference guarantee: publishing
+    // this value as its own --__rn-css-color seeds a cycle a descendant then
+    // recurses into (see "never publishes a self-referential" below).
     expect(stylesheetFor("inherit")).toStrictEqual({
       s: [
         [
@@ -477,15 +483,20 @@ describe("CSS-wide color keywords", () => {
   });
 
   test("inherit and currentcolor compile identically (CSS Color spec identity)", () => {
+    // The two keywords travel different code paths — `inherit` through
+    // parseUnparsed's ident branch, `currentcolor` through parseColor — and
+    // must converge on the same output.
     expect(stylesheetFor("inherit")).toStrictEqual(
       stylesheetFor("currentcolor"),
     );
   });
 
-  test("currentcolor still resolves to the inherited-color variable (unchanged)", () => {
-    // The token/ident branch that hunk 1 restructured also carries currentcolor;
-    // this pins that currentcolor keeps compiling to the same lookup, and — like
-    // inherit — never self-publishes a `v`.
+  test("PIN: currentcolor resolves to the inherited-color variable", () => {
+    // A pin of behaviour that predates this change, not a guard for it:
+    // `color: currentcolor` never reaches the ident branch below. lightningcss
+    // parses it as a CssColor, so it is `parseColor`'s `case "currentcolor"`
+    // that produces this lookup and `parseFontColorDeclaration`'s own
+    // `type !== "currentcolor"` check that withholds the `v`.
     expect(stylesheetFor("currentcolor")).toStrictEqual({
       s: [
         [
@@ -502,7 +513,10 @@ describe("CSS-wide color keywords", () => {
     });
   });
 
-  test("a normal color still publishes --__rn-css-color to descendants", () => {
+  test("PIN: a normal color publishes --__rn-css-color to descendants", () => {
+    // A pin of behaviour that predates this change: `color: red` is a CssColor,
+    // so it is `parseFontColorDeclaration` that publishes the `v`. It is here
+    // because the guard added for the keywords must not swallow this case.
     expect(stylesheetFor("red")).toStrictEqual({
       s: [
         [
@@ -525,6 +539,16 @@ describe("CSS-wide color keywords", () => {
     ).toStrictEqual({});
   });
 
+  test("border-color: inherit is still dropped", () => {
+    // The near miss to the `property === "color"` gate: border-color IS a colour
+    // property, but it is not `color`, so it publishes nothing and inherits
+    // nothing. Only `color` seeds --__rn-css-color, so only `color` can read it
+    // back as `inherit`.
+    expect(
+      compile(`.child { border-color: inherit; }`).stylesheet(),
+    ).toStrictEqual({});
+  });
+
   test("color: initial is still dropped (different semantics, out of scope)", () => {
     expect(stylesheetFor("initial")).toStrictEqual({});
   });
@@ -535,19 +559,33 @@ describe("CSS-wide color keywords", () => {
     expect(stylesheetFor("unset")).toStrictEqual(stylesheetFor("inherit"));
   });
 
-  test("keyword matching is case-insensitive (INHERIT)", () => {
-    // CSS-wide keywords are case-insensitive; lightningcss does not fold case.
-    expect(stylesheetFor("INHERIT")).toStrictEqual(stylesheetFor("inherit"));
-  });
+  test.each(["INHERIT", "Inherit", "UNSET", "INITIAL"])(
+    "keyword matching is case-insensitive (%s)",
+    (spelling) => {
+      // CSS-wide keywords are case-insensitive; lightningcss does not fold case,
+      // so the ident branch has to. INITIAL is in the census because the fold
+      // must reach the drop-with-a-warning arm too, not only the resolving one.
+      expect(stylesheetFor(spelling)).toStrictEqual(
+        stylesheetFor(spelling.toLowerCase()),
+      );
+    },
+  );
 
-  test("currentColor (camelCase) resolves like currentcolor", () => {
-    // The spelling React/JS authors reach for; it is valid, case-insensitive CSS.
+  test("PIN: currentColor (camelCase) resolves like currentcolor", () => {
+    // A pin of behaviour that predates this change. Case folding here is
+    // lightningcss's, not ours — it parses either spelling into the same
+    // CssColor before this package sees it.
     expect(stylesheetFor("currentColor")).toStrictEqual(
       stylesheetFor("currentcolor"),
     );
   });
 
-  test("currentcolor resolves on a non-color property too (border-color)", () => {
+  test("PIN: currentcolor resolves on a non-color property too (border-color)", () => {
+    // A pin of behaviour that predates this change: border-color is a parsed
+    // CssColor, so this is parseColor's `case "currentcolor"` again. The ident
+    // branch's own currentcolor clause is what serves the UNPARSED properties —
+    // box-shadow, filter: drop-shadow(), and custom properties — and those are
+    // covered by src/__tests__/native/{box-shadow,filters}.test.tsx.
     expect(
       compile(`.child { border-color: currentcolor; }`).stylesheet(),
     ).toStrictEqual({
@@ -564,5 +602,164 @@ describe("CSS-wide color keywords", () => {
         ],
       ],
     });
+  });
+
+  test("color: inherit !important keeps the important specificity", () => {
+    expect(stylesheetFor("inherit !important")).toStrictEqual({
+      s: [
+        [
+          "child",
+          [
+            {
+              s: [1, 1, 1],
+              d: [[[{}, "var", "__rn-css-color"], "color", 1]],
+              dv: 1,
+            },
+          ],
+        ],
+      ],
+    });
+  });
+
+  test("color: inherit inside a media query keeps the condition", () => {
+    expect(
+      compile(
+        `@media (min-width: 100px) { .child { color: inherit; } }`,
+      ).stylesheet(),
+    ).toStrictEqual({
+      s: [
+        [
+          "child",
+          [
+            {
+              s: [2, 1],
+              m: [[">=", "width", 100]],
+              d: [[[{}, "var", "__rn-css-color"], "color", 1]],
+              dv: 1,
+            },
+          ],
+        ],
+      ],
+    });
+  });
+
+  test("color: inherit inside :hover keeps the pseudo-class condition", () => {
+    expect(
+      compile(`.child:hover { color: inherit; }`).stylesheet(),
+    ).toStrictEqual({
+      s: [
+        [
+          "child",
+          [
+            {
+              s: [1, 2],
+              d: [[[{}, "var", "__rn-css-color"], "color", 1]],
+              dv: 1,
+              p: { h: 1 },
+            },
+          ],
+        ],
+      ],
+    });
+  });
+
+  test.each([
+    ["placeholder", "placeholderTextColor"],
+    ["selection", "selectionColor"],
+  ])("color: inherit on ::%s targets %s", (pseudoElement, targetProp) => {
+    // A pseudo-element rule retargets the declaration off `style`, so the
+    // inherited-color lookup has to survive the retarget.
+    expect(
+      declarationsFor(`.child::${pseudoElement} { color: inherit; }`),
+    ).toStrictEqual([[[{}, "var", "__rn-css-color"], [targetProp], 1]]);
+  });
+
+  test.each(["revert", "revert-layer"])(
+    "color: %s is dropped rather than published as a literal",
+    (keyword) => {
+      // React Native has no cascade origins to revert to, so the keyword has no
+      // computed value here. Emitting the literal string put `color: "revert"`
+      // in the style AND published it as --__rn-css-color, handing every
+      // descendant that reads the inherited color an unusable value.
+      expect(stylesheetFor(keyword)).toStrictEqual({});
+    },
+  );
+});
+
+/** Every declaration every rule in `css` produces, in compile order. */
+function declarationsFor(css: string): StyleDeclaration[] {
+  return (compile(css).stylesheet().s ?? []).flatMap(([, ruleSet]) =>
+    ruleSet.flatMap((rule) => rule.d ?? []),
+  );
+}
+
+/**
+ * Every value any rule in `css` publishes as `--__rn-css-color`.
+ *
+ * Derived from the compiled output rather than restated, so a new rule shape
+ * that publishes the variable is covered without editing the reader.
+ */
+function publishedInheritedColors(css: string): StyleDescriptor[] {
+  return (compile(css).stylesheet().s ?? []).flatMap(([, ruleSet]) =>
+    ruleSet.flatMap((rule) =>
+      (rule.v ?? [])
+        .filter(([name]) => name === "__rn-css-color")
+        .map(([, value]) => value),
+    ),
+  );
+}
+
+describe("the inherited-color variable is never self-referential", () => {
+  /**
+   * Each of these makes `color` READ --__rn-css-color from somewhere below the
+   * top level of the descriptor, which is what a guard comparing only the top
+   * level misses. Publishing any of them as --__rn-css-color hands a descendant
+   * a value that resolves back into the same variable, and resolution recurses
+   * until the stack is exhausted.
+   */
+  const selfReferentialColors = [
+    "inherit",
+    "unset",
+    "currentcolor",
+    "var(--missing, inherit)",
+    "var(--missing, unset)",
+    "var(--missing, currentcolor)",
+    "color-mix(in srgb, currentcolor, blue)",
+    "color-mix(in srgb, inherit, blue)",
+    "rgb(from currentcolor r g b)",
+    "light-dark(currentcolor, blue)",
+  ];
+
+  test("the census is not empty", () => {
+    expect(selfReferentialColors.length).toBeGreaterThan(0);
+  });
+
+  test.each(selfReferentialColors)("color: %s publishes no `v`", (value) => {
+    expect(publishedInheritedColors(`.child { color: ${value}; }`)).toEqual([]);
+  });
+
+  test.each([
+    ["red", "#f00"],
+    ["#00f", "#00f"],
+    ["rgb(1 2 3)", "#010203"],
+    ["color-mix(in srgb, red, blue)", "#800080"],
+    ["oklch(0.7 0.1 200)", "#40b1b7"],
+  ])("color: %s still publishes its own resolved value", (value, expected) => {
+    expect(publishedInheritedColors(`.child { color: ${value}; }`)).toEqual([
+      expected,
+    ]);
+  });
+
+  test("light-dark() on color emits one dark rule, not one per parse", () => {
+    // `light-dark()` pushes an extra `prefers-color-scheme: dark` rule as a
+    // SIDE EFFECT of parsing, so the colour must be parsed exactly once for the
+    // declaration and the published variable both.
+    const darkRules = (
+      compile(`.child { color: light-dark(red, blue); }`).stylesheet().s ?? []
+    )
+      .flatMap(([, ruleSet]) => ruleSet)
+      .filter((rule) => rule.m !== undefined);
+
+    expect(darkRules).toHaveLength(1);
   });
 });
