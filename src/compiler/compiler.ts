@@ -410,10 +410,7 @@ function extractPropertyRule(
 
   const varName = name.startsWith("--") ? name.slice(2) : name;
 
-  // `inherits` is independent of `initial-value`, so it is recorded BEFORE the
-  // early return below. Tailwind v4 registers several of its internal
-  // properties with no default (`--tw-ring-color`, `--tw-inset-ring-color`),
-  // and those are exactly the ones a descendant must not resolve.
+  // Recorded before the early return below, as inherits is independent of initial-value
   if (!inherits) {
     builder.addNonInheritedVariable(varName);
   }

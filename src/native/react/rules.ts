@@ -137,10 +137,8 @@ export function updateRules(
         }
 
         for (const v of rule.v) {
-          // `variables` is the VariableContext this element PUBLISHES to its
-          // descendants — the element resolves its own `var()` from the rule
-          // directly (`calculateProps`), so skipping here withholds the value
-          // from descendants without affecting the declaring element.
+          // These are the variables published to descendants. The declaring element
+          // still resolves its own var() from the rule, in calculateProps
           if (nonInheritedVariables.has(v[0])) {
             continue;
           }

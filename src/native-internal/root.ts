@@ -32,15 +32,8 @@ const rootVariableFamily = () => {
 export const rootVariables = rootVariableFamily();
 export const universalVariables = rootVariableFamily();
 
-/**
- * Custom properties registered `inherits: false`, by name without the leading
- * `--` (css-properties-values-api-1 §2.2).
- *
- * A module-level set rather than a field on `StyleCollection`, matching the
- * variable families above: `StyleCollection` is assigned with `??=`, so a field
- * added there is absent whenever an earlier copy of the module already claimed
- * the global.
- */
+// Module-level like the families above, not a StyleCollection field: StyleCollection is
+// assigned with `??=`, so a new field is missing if another copy already claimed the global
 export const nonInheritedVariables = new Set<string>();
 
 rootVariables("__rn-css-rem").set([[14]]);

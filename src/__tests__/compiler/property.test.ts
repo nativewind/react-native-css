@@ -222,9 +222,7 @@ test("@property inherits: false is recorded, initial value or not", () => {
 `);
 
   const result = compiled.stylesheet();
-  // `--tw-ring-color` declares no initial value, so it publishes no root
-  // variable — but it is still non-inheriting, and that is independent of
-  // whether it has a default.
+  // --tw-ring-color has no initial value, so it publishes no root variable
   expect(result.vn).toStrictEqual(["tw-ring-shadow", "tw-ring-color"]);
 });
 

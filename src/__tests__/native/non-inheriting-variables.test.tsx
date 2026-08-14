@@ -4,22 +4,8 @@ import { registerCSS, testID } from "react-native-css/jest";
 
 const parentTestID = "parent";
 
-/**
- * A custom property registered with `inherits: false` does not cascade to
- * descendants (css-properties-values-api-1 §2.2).
- *
- * Variable inheritance is otherwise unconditional: `VariableContext` receives
- * every custom property an element declares, so a descendant resolves an
- * ancestor's private value. Tailwind v4 leans on the descriptor heavily — its
- * whole `--tw-*` shadow/ring set is registered non-inheriting precisely so a
- * ring on one element cannot reach another element's `box-shadow`.
- *
- * Every fixture below declares each custom property TWICE. A property with a
- * single definition is folded into its consumers at compile time, which never
- * reaches the runtime path under test — and real Tailwind output always has
- * many definitions (one per `ring-*` / `shadow-*` utility), so two is the
- * faithful shape rather than a trick.
- */
+// Every custom property below is declared twice. A property with a single definition is
+// inlined into its consumers at compile time and never reaches the runtime path under test
 test("a non-inheriting custom property does not reach a descendant", () => {
   registerCSS(`
     @property --my-var {
@@ -38,8 +24,7 @@ test("a non-inheriting custom property does not reach a descendant", () => {
     </View>,
   );
 
-  // The registered initial value is what the child resolves — its ancestor's
-  // 10px is private to the ancestor.
+  // The child resolves the registered initial value, not the ancestor's 10px
   expect(screen.getByTestId(testID).props.style).toStrictEqual({ width: 0 });
 });
 
@@ -97,14 +82,7 @@ test("a non-inheriting custom property still applies to the element declaring it
   expect(screen.getByTestId(testID).props.style).toStrictEqual({ width: 10 });
 });
 
-/**
- * The shape this defect actually ships as.
- *
- * Every Tailwind v4 `shadow-*` utility — `shadow-none` included — emits the
- * same five-variable composition, so an element declaring any of them reads
- * `var(--tw-ring-shadow)`. With the descriptor ignored, a descendant carrying
- * `shadow-none` renders its ANCESTOR's ring around itself.
- */
+// Every Tailwind v4 shadow-* utility composes var(--tw-ring-shadow), shadow-none included
 test("an ancestor's ring does not reach a descendant's box-shadow", () => {
   registerCSS(`
     @property --tw-shadow { syntax: "*"; inherits: false; initial-value: 0 0 #0000; }
@@ -150,7 +128,7 @@ test("an ancestor's ring does not reach a descendant's box-shadow", () => {
     ],
   });
 
-  // The descendant paints nothing — every layer it composes is transparent.
+  // The descendant paints nothing, as every layer it composes is transparent
   expect(screen.getByTestId(testID).props.style).toStrictEqual({
     boxShadow: [],
   });

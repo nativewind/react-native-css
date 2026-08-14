@@ -21,8 +21,7 @@ export const testID = "react-native-css";
 
 beforeEach(() => {
   StyleCollection.styles.clear();
-  // `inject` accumulates, so a name registered non-inheriting by one test's
-  // stylesheet would still be filtered for the next one's.
+  // inject accumulates, so names stay registered across tests
   nonInheritedVariables.clear();
   dimensions.set(Dimensions.get("window"));
   Appearance.setColorScheme(null);
