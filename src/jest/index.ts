@@ -21,7 +21,7 @@ export const testID = "react-native-css";
 
 beforeEach(() => {
   StyleCollection.styles.clear();
-  // inject accumulates, so names stay registered across tests
+  // inject replaces the registry, so this covers the tests that never call registerCSS
   nonInheritedVariables.clear();
   dimensions.set(Dimensions.get("window"));
   Appearance.setColorScheme(null);

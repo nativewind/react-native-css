@@ -111,6 +111,12 @@ globalThis.__react_native_css_style_collection ??= {
       }
     }
 
+    // A stylesheet reload REPLACES the registrations it carries — editing an @property
+    // rule to `inherits: true`, or deleting it, has to take effect. The container itself
+    // is kept, because the globalThis pin exists so a second copy of root.ts shares this
+    // exact Set; swapping it would leave that copy reading one nothing writes to
+    nonInheritedVariables.clear();
+
     if (options.vn) {
       for (const name of options.vn) {
         nonInheritedVariables.add(name);
