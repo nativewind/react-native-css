@@ -2888,13 +2888,16 @@ export function parseUnresolvedColor(
 ): StyleDescriptor {
   switch (color.type) {
     case "rgb":
+      // lightningcss resolves rgb channels to integers in the 0-255 range,
+      // including the percentage syntax, so they are already the values
+      // `rgba()` takes.
       return [
         {},
         "rgba",
         [
-          round(color.r * 255),
-          round(color.g * 255),
-          round(color.b * 255),
+          color.r,
+          color.g,
+          color.b,
           parseUnparsed(color.alpha, builder, property),
         ],
       ];

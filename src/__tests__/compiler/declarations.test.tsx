@@ -12,6 +12,9 @@ const tests = [
   ["rotate: x 3deg;", [{ d: [[[{}, "rotateX", "3deg"], "rotateX"]], s: [1, 1] }]],
   ["stroke-width: 1px;", [{ d: [[1, ["strokeWidth"]]], s: [1, 1] }]],
   ["stroke: black;", [{ d: [["#000", ["stroke"]]], s: [1, 1] }]],
+  ["background-color: rgb(255 0 0 / var(--a));", [{ d: [[[{}, "rgba", [255, 0, 0, [{}, "var", "a", 1]]], "backgroundColor", 1]], dv: 1, s: [1, 1] }]],
+  ["background-color: rgb(100% 0% 0% / var(--a));", [{ d: [[[{}, "rgba", [255, 0, 0, [{}, "var", "a", 1]]], "backgroundColor", 1]], dv: 1, s: [1, 1] }]],
+  ["background-color: rgb(50% 25% 10% / var(--a));", [{ d: [[[{}, "rgba", [128, 64, 26, [{}, "var", "a", 1]]], "backgroundColor", 1]], dv: 1, s: [1, 1] }]],
 ] as const;
 
 test.each(tests)("declarations for %s", (declarations, expected) => {

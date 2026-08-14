@@ -136,6 +136,34 @@ describe("hsla", () => {
   });
 });
 
+describe("unresolved alpha", () => {
+  test("rgb with number channels", () => {
+    registerCSS(`.my-class {
+      background-color: rgb(255 0 0 / var(--a, 0.5));
+    }`);
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({
+      backgroundColor: "rgba(255, 0, 0, 0.5)",
+    });
+  });
+
+  test("rgb with percentage channels", () => {
+    registerCSS(`.my-class {
+      background-color: rgb(50% 25% 10% / var(--a, 0.5));
+    }`);
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({
+      backgroundColor: "rgba(128, 64, 26, 0.5)",
+    });
+  });
+});
+
 describe("currentcolor", () => {
   test("currentcolor and global variables", () => {
     registerCSS(`
