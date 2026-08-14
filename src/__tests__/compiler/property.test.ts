@@ -241,10 +241,69 @@ test("@property inherits: true is not recorded", () => {
 
 test("an unregistered custom property is not recorded", () => {
   // Custom properties inherit by default; only an @property rule can opt out.
-  const compiled = compile(`.my-class { --my-var: 10px; }`);
+  // Declared twice on purpose: with one definition the inliner erases it and the
+  // compiled output is empty, so the assertion would hold for a stylesheet
+  // containing nothing at all.
+  const compiled = compile(`
+.my-class { --my-var: 10px; }
+.other { --my-var: 20px; }
+`);
+
+  const result = compiled.stylesheet();
+  expect(result.s).toBeDefined();
+  expect(result.vn).toBeUndefined();
+});
+
+test("@property records a name once, however many rules declare it", () => {
+  // Different syntaxes on purpose — lightningcss collapses identical @property
+  // blocks before the visitor sees them, so an identical pair would not reach
+  // the Set that does the deduplicating.
+  const compiled = compile(`
+@property --dup {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --dup {
+  syntax: "*";
+  inherits: false;
+}
+`);
+
+  expect(compiled.stylesheet().vn).toStrictEqual(["dup"]);
+});
+
+test("the last @property declaration of a name decides inherits", () => {
+  const inheritsLast = compile(`
+@property --flip { syntax: "*"; inherits: false; }
+@property --flip { syntax: "<length>"; inherits: true; initial-value: 0px; }
+`);
+  expect(inheritsLast.stylesheet().vn).toBeUndefined();
+
+  const nonInheritingLast = compile(`
+@property --flip { syntax: "<length>"; inherits: true; initial-value: 0px; }
+@property --flip { syntax: "*"; inherits: false; }
+`);
+  expect(nonInheritingLast.stylesheet().vn).toStrictEqual(["flip"]);
+});
+
+test("@property inside @media is not recorded — a known limitation", () => {
+  // lightningcss reports the nested rule as type "unknown" and extractRule drops it,
+  // so neither vn nor vr is emitted. Pinned in both directions: the day extractRule
+  // learns about a nested @property, vn has to follow it.
+  const compiled = compile(`
+@media (min-width: 100px) {
+  @property --scoped {
+    syntax: "*";
+    inherits: false;
+    initial-value: 0 0 #0000;
+  }
+}
+`);
 
   const result = compiled.stylesheet();
   expect(result.vn).toBeUndefined();
+  expect(result.vr).toBeUndefined();
 });
 
 test("@property with repeated multi-child preserves array", () => {

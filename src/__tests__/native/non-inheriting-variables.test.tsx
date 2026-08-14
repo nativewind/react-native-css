@@ -133,3 +133,91 @@ test("an ancestor's ring does not reach a descendant's box-shadow", () => {
     boxShadow: [],
   });
 });
+
+test("a non-inheriting custom property does not reach a grandchild", () => {
+  // Distinguishes "withheld one level" from "withheld entirely". An implementation
+  // that only blanked the immediate child would pass every test above.
+  registerCSS(`
+    @property --my-var {
+      syntax: "<length>";
+      inherits: false;
+      initial-value: 0px;
+    }
+    .parent { --my-var: 11px; }
+    .other { --my-var: 20px; }
+    .mid { opacity: 1; }
+    .child { height: var(--my-var); }
+  `);
+
+  render(
+    <View testID={parentTestID} className="parent">
+      <View className="mid">
+        <View testID={testID} className="child" />
+      </View>
+    </View>,
+  );
+
+  expect(screen.getByTestId(testID).props.style).toStrictEqual({ height: 0 });
+});
+
+test("a descendant falls through to the var() fallback when there is no initial value", () => {
+  // The --tw-ring-color shape: registered non-inheriting with no default. The compiler
+  // records it but publishes no root variable, so the descendant must reach its fallback
+  // rather than resolving undefined.
+  registerCSS(`
+    @property --no-init {
+      syntax: "*";
+      inherits: false;
+    }
+    .parent { --no-init: 10px; }
+    .other { --no-init: 20px; }
+    .child { width: var(--no-init, 99px); }
+  `);
+
+  render(
+    <View testID={parentTestID} className="parent">
+      <View testID={testID} className="child" />
+    </View>,
+  );
+
+  expect(screen.getByTestId(testID).props.style).toStrictEqual({ width: 99 });
+});
+
+test("a descendant declaring the property itself wins over the ancestor", () => {
+  registerCSS(`
+    @property --my-var {
+      syntax: "<length>";
+      inherits: false;
+      initial-value: 0px;
+    }
+    .parent { --my-var: 10px; }
+    .other { --my-var: 20px; }
+    .child { --my-var: 30px; width: var(--my-var); }
+  `);
+
+  render(
+    <View testID={parentTestID} className="parent">
+      <View testID={testID} className="child" />
+    </View>,
+  );
+
+  expect(screen.getByTestId(testID).props.style).toStrictEqual({ width: 30 });
+});
+
+test("a name registered by an earlier test does not leak into this one", () => {
+  // Names the jest reset as its own subject. Without it this guarantee rests on the
+  // tests above happening to reuse --my-var and happening to run first.
+  registerCSS(`
+    .parent { --leaky: 10px; }
+    .other { --leaky: 20px; }
+    .child { width: var(--leaky); }
+  `);
+
+  render(
+    <View testID={parentTestID} className="parent">
+      <View testID={testID} className="child" />
+    </View>,
+  );
+
+  expect(screen.getByTestId(testID).props.style).toStrictEqual({ width: 10 });
+});

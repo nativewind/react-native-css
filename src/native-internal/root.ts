@@ -32,9 +32,19 @@ const rootVariableFamily = () => {
 export const rootVariables = rootVariableFamily();
 export const universalVariables = rootVariableFamily();
 
-// Module-level like the families above, not a StyleCollection field: StyleCollection is
-// assigned with `??=`, so a new field is missing if another copy already claimed the global
-export const nonInheritedVariables = new Set<string>();
+declare global {
+  var __react_native_css_non_inherited_variables: Set<string> | undefined;
+}
+
+// Pinned to globalThis like style-collection.ts and variables.tsx. The exports map splits
+// import and require onto different builds and Metro resolves that per requesting module,
+// so two copies of this file can load. StyleCollection is globalThis-pinned, so whichever
+// copy wins it does all the injecting and fills ITS Set — a rules.ts bound to the other
+// copy would read an empty one and the filter would silently never fire.
+globalThis.__react_native_css_non_inherited_variables ??= new Set<string>();
+
+export const nonInheritedVariables =
+  globalThis.__react_native_css_non_inherited_variables;
 
 rootVariables("__rn-css-rem").set([[14]]);
 // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
