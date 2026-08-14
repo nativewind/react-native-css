@@ -958,12 +958,14 @@ export function parseUnparsedDeclaration(
 /** The variable a color rule publishes and `color: inherit` reads back. */
 const INHERITED_COLOR_VARIABLE = "__rn-css-color";
 
-/** A read of the inherited color, as `color: inherit` compiles to it. */
-const inheritedColorLookup = [
-  {},
-  "var",
-  INHERITED_COLOR_VARIABLE,
-] as const satisfies StyleFunction;
+/**
+ * A read of the inherited color, as `currentcolor` and `color: inherit` both
+ * compile to it. A fresh tuple per call, because a descriptor is owned by the
+ * rule it lands in.
+ */
+function inheritedColorLookup() {
+  return [{}, "var", INHERITED_COLOR_VARIABLE] as const satisfies StyleFunction;
+}
 
 /**
  * Publish `value` to descendants as the inherited color, unless it reads the
@@ -1190,7 +1192,7 @@ export function parseUnparsed(
     } else if (tokenOrValue === "false") {
       return false;
     } else if (tokenOrValue === "currentcolor") {
-      return [{}, "var", "__rn-css-color"] as const;
+      return inheritedColorLookup();
     } else {
       return tokenOrValue;
     }
@@ -1346,7 +1348,7 @@ export function parseUnparsed(
             ((keyword === "inherit" || keyword === "unset") &&
               property === "color")
           ) {
-            return inheritedColorLookup;
+            return inheritedColorLookup();
           }
 
           // `inherit` on any other property has no per-property inheritance
@@ -1732,7 +1734,7 @@ export function parseColor(cssColor: CssColor, builder: StylesheetBuilder) {
 
   switch (cssColor.type) {
     case "currentcolor":
-      return [{}, "var", "__rn-css-color"] as const;
+      return inheritedColorLookup();
     case "light-dark": {
       const extraRule: StyleRule = {
         s: [],
