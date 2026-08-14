@@ -220,11 +220,16 @@ export function updateRules(
     rules.add(inheritedVariables);
 
     if (inlineVariables.size) {
+      // An inline vars() declaration wins the cascade on the element it sits on, but
+      // cannot make a non-inherited property inherit — the inherit flag belongs to the
+      // @property registration, not to the declaration. So the element's own bag keeps
+      // every name (it is added to `rules` below, for calculateProps) while the copy
+      // published to descendants goes through the same filter as a stylesheet rule
       variables = Object.assign(
         {},
         variables,
         inheritedVariables,
-        ...Array.from(inlineVariables),
+        ...Array.from(inlineVariables, publishableVariables),
         { [VAR_SYMBOL]: true },
       );
     }
@@ -259,6 +264,15 @@ export function updateRules(
     animated,
     pressable,
   };
+}
+
+/**
+ * The subset of an inline `vars()` object that descendants inherit.
+ */
+function publishableVariables(inlineVariable: InlineVariable): InlineVariable {
+  const published: InlineVariable = { [VAR_SYMBOL]: "inline" };
+  assignInheritedVariables(published, Object.entries(inlineVariable));
+  return published;
 }
 
 /**

@@ -53,9 +53,9 @@ export const nonInheritedVariables =
  * goes through here — a stylesheet rule, an inline `vars()`, a VariableContextProvider —
  * because the inherit flag belongs to the registration, not to the declaration that set it
  */
-export function assignInheritedVariables(
-  target: Record<string, StyleDescriptor>,
-  entries: Iterable<readonly [string, StyleDescriptor]>,
+export function assignInheritedVariables<TValue>(
+  target: Record<string, TValue>,
+  entries: Iterable<readonly [string, TValue]>,
 ) {
   for (const [name, value] of entries) {
     if (nonInheritedVariables.has(name)) {
