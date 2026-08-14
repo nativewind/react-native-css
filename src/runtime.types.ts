@@ -30,7 +30,7 @@ export type StyledReactElement<
         : M[K] extends true | string | object
           ? K
           : never
-      : never]?: string;
+      : never]?: string | undefined;
   }
 >;
 
@@ -41,7 +41,7 @@ export type StyledProps<P, M extends StyledConfiguration<any>> = P & {
       : M[K] extends true | string | object
         ? K
         : never
-    : never]?: string;
+    : never]?: string | undefined;
 };
 
 export type Styled = <
@@ -64,7 +64,7 @@ type StyledComponent<
         : M[K] extends true | string | object
           ? K
           : never
-      : never]?: string;
+      : never]?: string | undefined;
   }
 >;
 
