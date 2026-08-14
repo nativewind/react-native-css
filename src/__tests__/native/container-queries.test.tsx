@@ -113,3 +113,71 @@ test("container query width", () => {
     color: "#00f",
   });
 });
+
+describe("size feature comparisons", () => {
+  /**
+   * Every case is measured against the same 400x200 container, so the only
+   * variable is the comparison operator. `min-`/`max-` prefixes are normalised
+   * by lightningcss into `>=`/`<=` range conditions, which is why they belong
+   * in this table rather than in one of their own.
+   */
+  const cases: [condition: string, matches: boolean][] = [
+    ["width > 300px", true],
+    ["width > 400px", false],
+    ["width >= 400px", true],
+    ["width >= 401px", false],
+    ["min-width: 400px", true],
+    ["min-width: 401px", false],
+    ["width < 500px", true],
+    ["width < 400px", false],
+    ["width <= 400px", true],
+    ["width <= 399px", false],
+    ["max-width: 400px", true],
+    ["max-width: 399px", false],
+    ["width = 400px", true],
+    ["width = 401px", false],
+  ];
+
+  test.each(cases)(
+    "@container (%s) against a 400px container matches: %s",
+    (condition, matches) => {
+      registerCSS(`
+        .container {
+          container-type: inline-size;
+        }
+
+        .child {
+          color: red;
+        }
+
+        @container (${condition}) {
+          .child {
+            color: blue;
+          }
+        }
+      `);
+
+      render(
+        <View testID={parentID} className="container">
+          <View testID={childID} className="child" />
+        </View>,
+      );
+
+      const parent = screen.getByTestId(parentID);
+      const child = screen.getByTestId(childID);
+
+      fireEvent(parent, "layout", {
+        nativeEvent: {
+          layout: {
+            width: 400,
+            height: 200,
+          },
+        },
+      });
+
+      expect(child.props.style).toStrictEqual({
+        color: matches ? "#00f" : "#f00",
+      });
+    },
+  );
+});

@@ -17,6 +17,7 @@ import {
   type Getter,
 } from "../reactivity";
 // import { testAttributes } from "./attributes";
+import { compareMediaFeature } from "./compare";
 import type { RenderGuard } from "./guards";
 
 export const DEFAULT_CONTAINER_NAME = "c:___default___";
@@ -115,19 +116,7 @@ function testContainerMediaCondition(
         return false;
       }
 
-      switch (condition[0]) {
-        case ">":
-          return left > right;
-        case ">=":
-          return left > right;
-        case "<":
-          return left > right;
-        case "<=":
-          return left > right;
-        default:
-          condition[0] satisfies never;
-          return false;
-      }
+      return compareMediaFeature(condition[0], left, right);
     }
     default:
       condition satisfies never;

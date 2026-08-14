@@ -1,9 +1,22 @@
 /* eslint-disable */
 import { I18nManager, PixelRatio, Platform } from "react-native";
 
-import type { MediaCondition } from "react-native-css/compiler";
+import type {
+  MediaCondition,
+  MediaFeatureComparison,
+} from "react-native-css/compiler";
 
 import { colorScheme, vh, vw, type Getter } from "../reactivity";
+import { compareMediaFeature } from "./compare";
+
+/**
+ * The comparison arm of {@link MediaCondition}, derived from the union rather
+ * than restated so it cannot drift from the compiler's output.
+ */
+type MediaComparison = Extract<
+  MediaCondition,
+  [MediaFeatureComparison, ...unknown[]]
+>;
 
 export function testMediaQuery(mediaQueries: MediaCondition[], get: Getter) {
   return mediaQueries.every((query) => test(query, get));
@@ -34,7 +47,7 @@ function test(mediaQuery: MediaCondition, get: Getter): Boolean {
   }
 }
 
-function testComparison(mediaQuery: MediaCondition, get: Getter): Boolean {
+function testComparison(mediaQuery: MediaComparison, get: Getter): Boolean {
   const value = mediaQuery[2];
 
   switch (mediaQuery[1]) {
@@ -82,18 +95,5 @@ function testComparison(mediaQuery: MediaCondition, get: Getter): Boolean {
       return false;
   }
 
-  switch (mediaQuery[0]) {
-    case "=":
-      return left === right;
-    case ">":
-      return left > right;
-    case ">=":
-      return left >= right;
-    case "<":
-      return left < right;
-    case "<=":
-      return left <= right;
-    default:
-      return false;
-  }
+  return compareMediaFeature(mediaQuery[0], left, right);
 }
