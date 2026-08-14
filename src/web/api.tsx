@@ -72,8 +72,17 @@ export const colorScheme: ColorScheme = {
   get() {
     return Appearance.getColorScheme();
   },
-  set(name) {
-    Appearance.setColorScheme(name);
+  set() {
+    // `Appearance` here is react-native-web's, which reads through to
+    // `matchMedia("(prefers-color-scheme: dark)")` and exposes no setter. The
+    // browser owns the color scheme on web and evaluates
+    // `@media (prefers-color-scheme)` itself, so unlike the native runtime
+    // there is no observable for an override to drive. Reporting that is the
+    // only honest option: returning silently would leave an in-app theme
+    // toggle broken with nothing to find.
+    throw new Error(
+      "colorScheme.set() is not supported on web: the browser owns the color scheme. Style the two schemes with @media (prefers-color-scheme) and let the browser pick.",
+    );
   },
 };
 
