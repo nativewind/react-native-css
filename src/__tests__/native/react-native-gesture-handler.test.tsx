@@ -5,12 +5,8 @@ import * as StyledRNGH from "react-native-css/components/react-native-gesture-ha
 import { registerCSS, testID } from "react-native-css/jest";
 import * as RNGH from "react-native-gesture-handler";
 
-/**
- * `react-native-gesture-handler` renders views this library's `react-native`
- * rewrite never reaches, so `className` was dropped on every component below.
- * Each test registers a declaration no other test uses, so "the style reached
- * the tree" is an exact claim rather than a coincidence.
- */
+// Each test registers a declaration no other test uses, so "the style reached the
+// tree" is an exact claim rather than a coincidence
 
 interface RenderedNode {
   props: Record<string, unknown>;
