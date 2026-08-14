@@ -228,6 +228,38 @@ describe("height comparisons", () => {
   );
 });
 
+describe("aspect ratio", () => {
+  /**
+   * A container's aspect ratio is its width over its height, so every case
+   * names the container it is measured against — the 400x200 landscape one is
+   * exactly 2, the 200x400 portrait one exactly 0.5, and 300x300 exactly 1.
+   */
+  const cases: [
+    condition: string,
+    size: { width: number; height: number },
+    matches: boolean,
+  ][] = [
+    ["(aspect-ratio > 1)", { width: 400, height: 200 }, true],
+    ["(aspect-ratio > 1)", { width: 200, height: 400 }, false],
+    ["(aspect-ratio > 1)", { width: 300, height: 300 }, false],
+    ["(aspect-ratio < 1)", { width: 200, height: 400 }, true],
+    ["(aspect-ratio < 1)", { width: 400, height: 200 }, false],
+    ["(aspect-ratio: 2/1)", { width: 400, height: 200 }, true],
+    ["(aspect-ratio: 2/1)", { width: 300, height: 300 }, false],
+    ["(min-aspect-ratio: 2/1)", { width: 400, height: 200 }, true],
+    ["(min-aspect-ratio: 2/1)", { width: 399, height: 200 }, false],
+    ["(max-aspect-ratio: 2/1)", { width: 400, height: 200 }, true],
+    ["(max-aspect-ratio: 2/1)", { width: 401, height: 200 }, false],
+  ];
+
+  test.each(cases)(
+    "@container %s against a %o container matches: %s",
+    (condition, size, matches) => {
+      expect(containerQueryMatches(condition, size)).toBe(matches);
+    },
+  );
+});
+
 describe("a condition the compiler cannot evaluate", () => {
   /**
    * A `@container` block the compiler cannot compile a condition for must not

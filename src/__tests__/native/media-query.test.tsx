@@ -200,6 +200,45 @@ test("not all", () => {
   });
 });
 
+describe("aspect-ratio", () => {
+  /**
+   * The viewport's aspect ratio is its width over its height, measured off the
+   * same two observables `width` and `height` already read.
+   */
+  const cases: [
+    prelude: string,
+    size: { width: number; height: number },
+    matches: boolean,
+  ][] = [
+    ["(aspect-ratio > 1)", { width: 400, height: 200 }, true],
+    ["(aspect-ratio > 1)", { width: 200, height: 400 }, false],
+    ["(aspect-ratio: 2/1)", { width: 400, height: 200 }, true],
+    ["(aspect-ratio: 2/1)", { width: 300, height: 300 }, false],
+    ["(min-aspect-ratio: 2/1)", { width: 400, height: 200 }, true],
+    ["(min-aspect-ratio: 2/1)", { width: 399, height: 200 }, false],
+  ];
+
+  test.each(cases)(
+    "@media %s against a %o viewport matches: %s",
+    (prelude, size, matches) => {
+      registerCSS(`
+@media ${prelude} {
+  .my-class { color: red; }
+}`);
+
+      act(() => {
+        dimensions.set({ ...dimensions.get(), ...size });
+      });
+
+      render(<View testID={testID} className="my-class" />);
+
+      expect(screen.getByTestId(testID).props.style).toStrictEqual(
+        matches ? { color: "#f00" } : undefined,
+      );
+    },
+  );
+});
+
 describe("a condition the compiler cannot evaluate", () => {
   /**
    * A `@media` block the compiler cannot compile a condition for must not

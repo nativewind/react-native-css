@@ -85,3 +85,36 @@ test("@media (hover: hover)", () => {
     ],
   });
 });
+
+describe("aspect-ratio", () => {
+  /**
+   * Returns the media conditions the compiler attached to `.my-class`.
+   */
+  function compileMediaConditions(prelude: string): unknown {
+    const stylesheet = compile(`
+      @media ${prelude} {
+        .my-class { color: red; }
+      }
+    `).stylesheet();
+
+    return stylesheet.s?.flatMap(([className, ruleSet]) => {
+      return className === "my-class" ? ruleSet.map((rule) => rule.m) : [];
+    });
+  }
+
+  /**
+   * `<ratio>` is a media feature value like any other, so the same parse
+   * serves `@media` and `@container`. A bare number is a ratio too — `1` is
+   * `1/1`.
+   */
+  const cases: [prelude: string, conditions: unknown][] = [
+    ["(aspect-ratio > 1)", [[[">", "aspect-ratio", 1]]]],
+    ["(aspect-ratio: 2/1)", [[["=", "aspect-ratio", 2]]]],
+    ["(min-aspect-ratio: 16/9)", [[[">=", "aspect-ratio", 16 / 9]]]],
+    ["(max-aspect-ratio: 16/9)", [[["<=", "aspect-ratio", 16 / 9]]]],
+  ];
+
+  test.each(cases)("@media %s", (prelude, conditions) => {
+    expect(compileMediaConditions(prelude)).toStrictEqual(conditions);
+  });
+});

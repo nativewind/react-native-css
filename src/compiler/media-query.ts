@@ -170,6 +170,10 @@ export function parseMediaFeatureValue(
           return undefined;
       }
     case "ratio":
+      // A `<ratio>` is a pair of numbers standing for their quotient, and the
+      // quotient is what both runtimes derive from their two axes. A bare
+      // number parses as a ratio too, so `1` arrives here as `[1, 1]`.
+      return value.value[0] / value.value[1];
     case "env":
   }
 

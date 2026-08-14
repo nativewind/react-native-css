@@ -43,6 +43,14 @@ describe("size feature comparisons", () => {
     ["(max-height: 400px)", { m: ["<=", "height", 400] }],
     ["(orientation: landscape)", { m: ["=", "orientation", "landscape"] }],
     ["(orientation: portrait)", { m: ["=", "orientation", "portrait"] }],
+    // A `<ratio>` is carried to the runtime as the number it denotes, which is
+    // what the runtime derives from the container's two axes. A bare number is
+    // a ratio too — `1` is `1/1`.
+    ["(aspect-ratio > 1)", { m: [">", "aspect-ratio", 1] }],
+    ["(aspect-ratio: 2/1)", { m: ["=", "aspect-ratio", 2] }],
+    ["(aspect-ratio >= 4/3)", { m: [">=", "aspect-ratio", 4 / 3] }],
+    ["(min-aspect-ratio: 16/9)", { m: [">=", "aspect-ratio", 16 / 9] }],
+    ["(max-aspect-ratio: 16/9)", { m: ["<=", "aspect-ratio", 16 / 9] }],
     [
       "my-container (min-width: 400px)",
       { m: [">=", "width", 400], n: "c:my-container" },
