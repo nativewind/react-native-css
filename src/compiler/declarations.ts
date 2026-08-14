@@ -36,7 +36,7 @@ import type {
   UnresolvedColor,
 } from "lightningcss";
 
-import { isStyleFunction } from "../utilities";
+import { isStyleFunction, narrowFontFamily } from "../utilities";
 import type {
   StyleDescriptor,
   StyleFunction,
@@ -676,7 +676,7 @@ function parseFont(
   { value }: DeclarationType<"font">,
   builder: StylesheetBuilder,
 ) {
-  builder.addDescriptor("font-family", value.family[0]);
+  builder.addDescriptor("font-family", firstFontFamily(value.family));
   builder.addDescriptor(
     "line-height",
     parseLineHeight(value.lineHeight, builder),
@@ -941,7 +941,29 @@ export function parseUnparsedDeclaration(
       builder.addDescriptor(property, [{}, toRNProperty(property), args, 1]);
     }
   } else {
-    const value = parseUnparsed(declaration.value.value, builder, property);
+    let value = parseUnparsed(declaration.value.value, builder, property);
+
+    if (property === "font-family") {
+      /**
+       * The other half of `parseFontFamily`. A `font-family` LightningCSS could
+       * not type reaches here instead, and it is still one family to React
+       * Native - `font-family: Inter, Helvetica,` is a stack whichever parser
+       * saw it. Only a stack whose first usable entry is a `var()` survives to
+       * render, because that is the only value the compiler cannot read.
+       */
+      const narrowing = narrowFontFamily(value);
+
+      switch (narrowing.kind) {
+        case "family":
+          value = narrowing.family;
+          break;
+        case "none":
+          value = undefined;
+          break;
+        case "deferred":
+          break;
+      }
+    }
 
     builder.addDescriptor(property, value);
 
@@ -2226,9 +2248,22 @@ export function parseVerticalAlign(
   return undefined;
 }
 
-function parseFontFamily({ value }: DeclarationType<"font-family">) {
-  // React Native only allows one font family - better hope this is the right one :)
-  return value[0];
+function parseFontFamily({
+  value,
+}: DeclarationType<"font-family">): StyleDescriptor {
+  return firstFontFamily(value);
+}
+
+/**
+ * React Native only allows one font family, so every path that produces
+ * `font-family` narrows the stack it was given. This one is reached when
+ * LightningCSS could type the declaration, which means every entry is a family
+ * name and the answer is always the first of them.
+ */
+function firstFontFamily(stack: readonly string[]): StyleDescriptor {
+  const narrowing = narrowFontFamily(stack);
+
+  return narrowing.kind === "family" ? narrowing.family : undefined;
 }
 
 export function parseLineHeightDeclaration(
