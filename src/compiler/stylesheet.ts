@@ -58,7 +58,12 @@ export class StylesheetBuilder {
     },
     // Any default mapping should be included in the @nativeMapping parsing
     private mapping: StyleRuleMapping = {},
-    public descriptorProperty?: string,
+    /**
+     * The properties the declaration being parsed writes to. Usually one, but
+     * a shorthand that expands across an axis writes to every property in the
+     * expansion, and an unnamed descriptor has to reach all of them.
+     */
+    public descriptorProperties?: readonly string[],
     private shared: {
       ruleSets: Record<string, StyleRuleSet>;
       rootVariables?: VariableRecord;
@@ -102,7 +107,7 @@ export class StylesheetBuilder {
       mode,
       this.cloneRule(),
       { ...this.mapping },
-      this.descriptorProperty,
+      this.descriptorProperties,
       this.shared,
       selectors,
     );
@@ -305,11 +310,13 @@ export class StylesheetBuilder {
     forceTuple?: boolean,
     rule = this.rule,
   ) {
-    if (this.descriptorProperty === undefined) {
+    if (this.descriptorProperties === undefined) {
       return;
     }
 
-    this.addDescriptor(this.descriptorProperty, value, forceTuple, rule);
+    for (const property of this.descriptorProperties) {
+      this.addDescriptor(property, value, forceTuple, rule);
+    }
   }
 
   addDescriptor(

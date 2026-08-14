@@ -238,6 +238,25 @@ describe("Border - Border Color", () => {
       },
     });
   });
+
+  // An arbitrary var() Tailwind cannot fold at build time (unlike --spacing)
+  // keeps `border-inline-color` on the compiler's unparsed path. Two
+  // definitions keep it off the single-definition inliner as well.
+  test("border-x-[color:var(--c)]", async () => {
+    expect(
+      await renderSimple({
+        className: "border-x-[color:var(--c)]",
+        extraCss: `:root { --c: red; } .redefine { --c: blue; }`,
+      }),
+    ).toStrictEqual({
+      props: {
+        style: {
+          borderStartColor: "red",
+          borderEndColor: "red",
+        },
+      },
+    });
+  });
   test("border-y-current", async () => {
     expect(
       await renderSimple({ className: "border-y-current text-red-500" }),

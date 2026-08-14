@@ -148,4 +148,126 @@ describe("logical border shorthands via var() (unparsed path)", () => {
       },
     ]);
   });
+
+  test("border-inline-color with a bare var()", () => {
+    expect(getRule("border-inline-color: var(--c);").rule).toStrictEqual([
+      {
+        s: [1, 1],
+        d: [
+          [[{}, "var", "c", 1], "borderStartColor", 1],
+          [[{}, "var", "c", 1], "borderEndColor", 1],
+        ],
+        dv: 1,
+      },
+    ]);
+  });
+
+  test("border-inline-color with a var() fallback", () => {
+    expect(getRule("border-inline-color: var(--c, red);").rule).toStrictEqual([
+      {
+        s: [1, 1],
+        d: [
+          [[{}, "var", ["c", "red"], 1], "borderStartColor", 1],
+          [[{}, "var", ["c", "red"], 1], "borderEndColor", 1],
+        ],
+        dv: 1,
+      },
+    ]);
+  });
+
+  test("border-inline-width with a var() fallback", () => {
+    expect(getRule("border-inline-width: var(--w, 3px);").rule).toStrictEqual([
+      {
+        s: [1, 1],
+        d: [
+          [[{}, "var", ["w", 3], 1], "borderStartWidth", 1],
+          [[{}, "var", ["w", 3], 1], "borderEndWidth", 1],
+        ],
+        dv: 1,
+      },
+    ]);
+  });
+
+  test("border-inline-width with calc() over a var()", () => {
+    const calc = [{}, "calc", [[{}, "var", "w", 1], "*", 2]];
+
+    expect(
+      getRule("border-inline-width: calc(var(--w) * 2);").rule,
+    ).toStrictEqual([
+      {
+        s: [1, 1],
+        d: [
+          [calc, "borderStartWidth", 1],
+          [calc, "borderEndWidth", 1],
+        ],
+        dv: 1,
+      },
+    ]);
+  });
+});
+
+describe("logical border shorthands with two values (unparsed path)", () => {
+  // The grammar is `<value>{1,2}` — the second component is the END edge. The
+  // parsed path splits it that way, so the unparsed path must too.
+  test("border-inline-width: var() var()", () => {
+    expect(
+      getRule("border-inline-width: var(--a) var(--b);").rule,
+    ).toStrictEqual([
+      {
+        s: [1, 1],
+        d: [
+          [[{}, "var", "a", 1], "borderStartWidth", 1],
+          [[{}, "var", "b", 1], "borderEndWidth", 1],
+        ],
+        dv: 1,
+      },
+    ]);
+  });
+
+  test("border-inline-color: var() var()", () => {
+    expect(
+      getRule("border-inline-color: var(--a) var(--b);").rule,
+    ).toStrictEqual([
+      {
+        s: [1, 1],
+        d: [
+          [[{}, "var", "a", 1], "borderStartColor", 1],
+          [[{}, "var", "b", 1], "borderEndColor", 1],
+        ],
+        dv: 1,
+      },
+    ]);
+  });
+
+  test("more than two values is not the grammar, so the declaration drops", () => {
+    const { rule, warnings } = getRule(
+      "border-inline-width: var(--a) var(--b) var(--c);",
+    );
+
+    expect(rule).toBeUndefined();
+    expect(warnings).toStrictEqual({
+      values: { "border-inline-width": ["3 values (expected 1 or 2)"] },
+    });
+  });
+});
+
+describe("logical border shorthands React Native cannot express", () => {
+  // border-inline / -start / -end pack width, style and colour into one
+  // runtime value, and no style resolver fans one slot out to a per-edge pair.
+  test.each(["border-inline", "border-inline-start", "border-inline-end"])(
+    "%s with a var() warns and drops",
+    (property) => {
+      const { rule, warnings } = getRule(`${property}: var(--b);`);
+
+      expect(rule).toBeUndefined();
+      expect(warnings).toStrictEqual({ properties: [property] });
+    },
+  );
+
+  test.each(["border-inline", "border-inline-start", "border-inline-end"])(
+    "%s without a var() still expands",
+    (property) => {
+      expect(getRule(`${property}: 2px solid red;`).warnings).toStrictEqual({});
+    },
+  );
 });

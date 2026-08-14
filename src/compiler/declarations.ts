@@ -80,14 +80,26 @@ const unsupportedInlineStyles = new Set([
   "border-inline-end-style",
 ]);
 
-// Logical-border SHORTHANDS have no RN equivalent either; when var()-valued
-// they reach the unparsed path (the parsed parseBorderInline* never run) and
-// propertyRename only maps the longhands. Expand each to its RTL-aware
-// start/end props, sharing the runtime value.
-const inlineShorthandExpansion: Record<string, string[]> = {
+// A var() keeps a logical-border shorthand on the unparsed path, where the
+// parsed parseBorderInline* never run and propertyRename only maps longhands.
+// These are the inline-axis shorthands React Native can express, as the
+// [start, end] pair each expands to. The grammar is `<value>{1,2}`: one
+// component feeds both edges, two feed one edge each.
+const inlineAxisExpansion: Record<string, readonly [string, string]> = {
   "border-inline-color": ["border-start-color", "border-end-color"],
   "border-inline-width": ["border-start-width", "border-end-width"],
 };
+
+// The inline-axis shorthands React Native cannot express from one runtime
+// value: each packs width, style and colour into a single list, and no style
+// resolver fans one slot out to a per-edge pair. Warn rather than emit a
+// borderInline* prop React Native has no style attribute for. The parsed path
+// still expands these — lightningcss has already split the value there.
+const unsupportedInlineShorthands = new Set([
+  "border-inline",
+  "border-inline-start",
+  "border-inline-end",
+]);
 
 const unparsedRuntimeParsing = new Set([
   "animation",
@@ -314,7 +326,7 @@ function parseWithParser(declaration: Declaration, builder: StylesheetBuilder) {
   if (declaration.property in parsers) {
     const parser = parsers[declaration.property] as Parser;
 
-    builder.descriptorProperty = declaration.property;
+    builder.descriptorProperties = [declaration.property];
 
     builder.setWarningProperty(declaration.property);
     const value = parser(declaration, builder, declaration.property);
@@ -949,7 +961,10 @@ export function parseUnparsedDeclaration(
     return;
   }
 
-  if (unsupportedInlineStyles.has(property)) {
+  if (
+    unsupportedInlineStyles.has(property) ||
+    unsupportedInlineShorthands.has(property)
+  ) {
     builder.addWarning("property", property);
     return;
   }
@@ -964,25 +979,21 @@ export function parseUnparsedDeclaration(
     property = rename;
   }
 
-  /**
-   * Logical-border shorthands (border-inline-color / -width) reach here when
-   * var()-valued. RN has no border-inline-*; expand to start/end sharing the
-   * value, mirroring parseBorderInline* on the parsed path.
-   */
-  const shorthandExpansion = inlineShorthandExpansion[property];
-  if (shorthandExpansion) {
-    const value = parseUnparsed(declaration.value.value, builder, property);
-    for (const target of shorthandExpansion) {
-      builder.descriptorProperty = target;
-      builder.addDescriptor(target, value);
-    }
+  const inlineAxis = inlineAxisExpansion[property];
+  if (inlineAxis) {
+    parseUnparsedInlineAxis(
+      declaration.value.value,
+      inlineAxis,
+      builder,
+      property,
+    );
     return;
   }
 
   /**
    * Unparsed shorthand properties need to be parsed at runtime
    */
-  builder.descriptorProperty = property;
+  builder.descriptorProperties = [property];
 
   if (unparsedRuntimeParsing.has(property)) {
     const args = parseUnparsed(declaration.value.value, builder, property);
@@ -1011,6 +1022,72 @@ export function parseUnparsedDeclaration(
       }
     }
   }
+}
+
+/**
+ * The top-level component values of an unparsed value. A component value is a
+ * preserved token, a function, or a block, so every entry here is already one
+ * — a var(), a calc(), a length, a colour. Whitespace is the only entry that
+ * is not, and lightningcss keeps it only sometimes: `var(--a) var(--b)` and
+ * `var(--a)var(--b)` both arrive as two bare var tokens, while `red var(--b)`
+ * keeps its separator. Dropping whitespace is what makes the two agree.
+ */
+function unparsedComponentValues(
+  tokenOrValues: TokenOrValue[],
+): TokenOrValue[] {
+  return tokenOrValues.filter(
+    (tokenOrValue) =>
+      !(
+        tokenOrValue.type === "token" &&
+        tokenOrValue.value.type === "white-space"
+      ),
+  );
+}
+
+/**
+ * Expand an inline-axis shorthand that a var() kept unparsed, the way
+ * parseBorderInline* expands the parsed form.
+ */
+function parseUnparsedInlineAxis(
+  tokenOrValues: TokenOrValue[],
+  [startProperty, endProperty]: readonly [string, string],
+  builder: StylesheetBuilder,
+  property: string,
+) {
+  const components = unparsedComponentValues(tokenOrValues);
+
+  if (components.length === 1) {
+    /**
+     * One component feeds both edges. descriptorProperties carries the pair so
+     * that light-dark(), which writes to the builder from inside parseUnparsed
+     * rather than through the returned value, reaches both edges of the single
+     * extra rule it opens.
+     */
+    builder.descriptorProperties = [startProperty, endProperty];
+
+    const value = parseUnparsed(components[0], builder, property);
+
+    builder.addDescriptor(startProperty, value);
+    builder.addDescriptor(endProperty, value);
+    return;
+  }
+
+  if (components.length === 2) {
+    builder.descriptorProperties = [startProperty];
+    builder.addDescriptor(
+      startProperty,
+      parseUnparsed(components[0], builder, property),
+    );
+
+    builder.descriptorProperties = [endProperty];
+    builder.addDescriptor(
+      endProperty,
+      parseUnparsed(components[1], builder, property),
+    );
+    return;
+  }
+
+  builder.addWarning("value", `${components.length} values (expected 1 or 2)`);
 }
 
 export function parseCustomDeclaration(
