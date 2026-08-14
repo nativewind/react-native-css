@@ -1,5 +1,66 @@
 import { renderCurrentTest, renderSimple } from "./_tailwind";
 
+describe("Typography - Font Family", () => {
+  /**
+   * Every one of these is a stack in the CSS and one family in the props,
+   * because React Native's `fontFamily` is a single family name.
+   *
+   * The default theme's own values are the CSS generics — no typeface is
+   * registered under `ui-sans-serif` on either platform, so `font-sans` renders
+   * in the platform default whether or not the stack was narrowed. Narrowing is
+   * what makes the OVERRIDE below work, which is how a bundled typeface is
+   * actually reached.
+   */
+  test("font-sans", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: { style: { fontFamily: "ui-sans-serif" } },
+    });
+  });
+  test("font-serif", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: { style: { fontFamily: "ui-serif" } },
+    });
+  });
+  test("font-mono", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: { style: { fontFamily: "ui-monospace" } },
+    });
+  });
+  test("font-[Inter]", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: { style: { fontFamily: "Inter" } },
+    });
+  });
+
+  test("font-sans with an overridden --font-sans", async () => {
+    // A second definition is what stops the compiler inlining the variable, so
+    // this is the case where the stack survives to render and the runtime has
+    // to reduce it. It is also the realistic one: a bundled typeface is set by
+    // overriding the theme variable, not by the default theme.
+    expect(
+      await renderSimple({
+        className: "font-sans",
+        sourceInline: ["font-sans"],
+        extraCss: `.dark { --font-sans: Georgia, serif; }`,
+      }),
+    ).toStrictEqual({
+      props: { style: { fontFamily: "ui-sans-serif" } },
+    });
+  });
+
+  test("font-sans overridden at :root", async () => {
+    expect(
+      await renderSimple({
+        className: "font-sans",
+        sourceInline: ["font-sans"],
+        extraCss: `:root { --font-sans: Georgia, serif; }`,
+      }),
+    ).toStrictEqual({
+      props: { style: { fontFamily: "Georgia" } },
+    });
+  });
+});
+
 describe("Typography - Font Size", () => {
   test("text-xs", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
