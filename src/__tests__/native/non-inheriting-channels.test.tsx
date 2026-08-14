@@ -213,6 +213,58 @@ test("an element declaring a non-inheriting property beats :root for itself", ()
 });
 
 /* ------------------------------------------------------------------ *
+ * The universal selector declares, it does not hand down
+ * ------------------------------------------------------------------ */
+
+test("* supplies a non-inheriting property to every element", () => {
+  // `*` matches each element in its own right, so each one DECLARES the property and
+  // the registration never comes into it. This is the rung :root is skipped for
+  registerCSS(`
+    ${registration}
+    * { --my-var: 5px; }
+    .child { width: var(--my-var); }
+  `);
+
+  render(<View testID={testID} className="child" />);
+
+  expect(screen.getByTestId(testID).props.style).toStrictEqual({ width: 5 });
+});
+
+test("* supplies a non-inheriting property at every depth", () => {
+  registerCSS(`
+    ${registration}
+    * { --my-var: 5px; }
+    .parent { opacity: 1; }
+    .child { width: var(--my-var); }
+  `);
+
+  render(
+    <View testID={parentTestID} className="parent">
+      <View className="parent">
+        <View testID={testID} className="child" />
+      </View>
+    </View>,
+  );
+
+  expect(screen.getByTestId(testID).props.style).toStrictEqual({ width: 5 });
+});
+
+test("* beats :root for the same name", () => {
+  // A declaration on the element beats a value inherited from the root
+  registerCSS(`
+    ${inheritingRegistration}
+    :root { --my-var: 50px; }
+    :root { --my-var: 50px; }
+    * { --my-var: 5px; }
+    .child { width: var(--my-var); }
+  `);
+
+  render(<View testID={testID} className="child" />);
+
+  expect(screen.getByTestId(testID).props.style).toStrictEqual({ width: 5 });
+});
+
+/* ------------------------------------------------------------------ *
  * Lifecycle — re-registration replaces, it does not accumulate
  * ------------------------------------------------------------------ */
 

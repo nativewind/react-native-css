@@ -99,9 +99,11 @@ globalThis.__react_native_css_style_collection ??= {
       }
     }
 
+    // `* { --x }` declares the property ON each element, which is the rung varResolver
+    // reads before rootVariables and the one a registration cannot switch off
     if (options.vu) {
       for (const entry of options.vu) {
-        rootVariables(entry[0]).set(entry[1]);
+        universalVariables(entry[0]).set(entry[1]);
       }
     }
 
