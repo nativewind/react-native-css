@@ -77,13 +77,33 @@ export function assignInheritedVariables<TValue>(
   }
 }
 
-rootVariables("__rn-css-rem").set([[14]]);
-// eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-rootVariables("__rn-css-color").set([
-  [
-    Platform.OS === "ios"
-      ? PlatformColor("label", "labelColor")
-      : PlatformColor("?attr/textColorPrimary", "SystemBaseHighColor"),
-  ],
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-] as any);
+function seedRootVariables() {
+  rootVariables("__rn-css-rem").set([[14]]);
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+  rootVariables("__rn-css-color").set([
+    [
+      Platform.OS === "ios"
+        ? PlatformColor("label", "labelColor")
+        : PlatformColor("?attr/textColorPrimary", "SystemBaseHighColor"),
+    ],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ] as any);
+}
+
+seedRootVariables();
+
+/**
+ * Return every variable registry to its boot state, seeds included.
+ *
+ * A stylesheet reload only overwrites the names the new sheet mentions, so a name it
+ * drops keeps the value the previous one gave it. That is what a reload should do to a
+ * running app and the opposite of what one test should do to the next.
+ */
+export function resetVariableRegistries() {
+  rootVariables.clear();
+  universalVariables.clear();
+  registeredInitialValues.clear();
+  nonInheritedVariables.clear();
+
+  seedRootVariables();
+}

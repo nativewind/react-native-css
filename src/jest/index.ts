@@ -4,7 +4,7 @@ import { inspect } from "node:util";
 
 import { compile, type CompilerOptions } from "react-native-css/compiler";
 import { StyleCollection } from "react-native-css/native";
-import { nonInheritedVariables } from "react-native-css/native-internal";
+import { resetVariableRegistries } from "react-native-css/native-internal";
 
 import { colorScheme, dimensions } from "../native/reactivity";
 
@@ -21,8 +21,7 @@ export const testID = "react-native-css";
 
 beforeEach(() => {
   StyleCollection.styles.clear();
-  // inject replaces the registry, so this covers the tests that never call registerCSS
-  nonInheritedVariables.clear();
+  resetVariableRegistries();
   dimensions.set(Dimensions.get("window"));
   Appearance.setColorScheme(null);
   colorScheme.set(null);
