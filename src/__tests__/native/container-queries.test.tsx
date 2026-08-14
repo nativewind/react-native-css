@@ -114,7 +114,50 @@ test("container query width", () => {
   });
 });
 
-describe("size feature comparisons", () => {
+/**
+ * Renders `.child` inside a container laid out at `width` x `height`, and
+ * reports whether the `@container (condition)` rule won.
+ *
+ * `.child` is red outside the query and blue inside it, so the returned colour
+ * is a direct reading of the condition's verdict.
+ */
+function containerQueryMatches(
+  condition: string,
+  { width, height }: { width: number; height: number },
+): boolean {
+  registerCSS(`
+    .container {
+      container-type: size;
+    }
+
+    .child {
+      color: red;
+    }
+
+    @container (${condition}) {
+      .child {
+        color: blue;
+      }
+    }
+  `);
+
+  render(
+    <View testID={parentID} className="container">
+      <View testID={childID} className="child" />
+    </View>,
+  );
+
+  const parent = screen.getByTestId(parentID);
+  const child = screen.getByTestId(childID);
+
+  fireEvent(parent, "layout", {
+    nativeEvent: { layout: { width, height } },
+  });
+
+  return child.props.style.color === "#00f";
+}
+
+describe("width comparisons", () => {
   /**
    * Every case is measured against the same 400x200 container, so the only
    * variable is the comparison operator. `min-`/`max-` prefixes are normalised
@@ -139,45 +182,66 @@ describe("size feature comparisons", () => {
   ];
 
   test.each(cases)(
-    "@container (%s) against a 400px container matches: %s",
+    "@container (%s) against a 400x200 container matches: %s",
     (condition, matches) => {
-      registerCSS(`
-        .container {
-          container-type: inline-size;
-        }
+      expect(
+        containerQueryMatches(condition, { width: 400, height: 200 }),
+      ).toBe(matches);
+    },
+  );
+});
 
-        .child {
-          color: red;
-        }
+describe("height comparisons", () => {
+  /**
+   * The same 400x200 container. Height is deliberately the smaller of the two
+   * axes so that a height feature reading the container's width instead is a
+   * visible failure rather than a coincidence.
+   */
+  const cases: [condition: string, matches: boolean][] = [
+    ["height > 100px", true],
+    ["height > 200px", false],
+    ["height > 300px", false],
+    ["height >= 200px", true],
+    ["min-height: 200px", true],
+    ["min-height: 201px", false],
+    ["height < 300px", true],
+    ["height < 200px", false],
+    ["height <= 200px", true],
+    ["max-height: 300px", true],
+    ["max-height: 199px", false],
+    ["height = 200px", true],
+    ["height = 400px", false],
+  ];
 
-        @container (${condition}) {
-          .child {
-            color: blue;
-          }
-        }
-      `);
+  test.each(cases)(
+    "@container (%s) against a 400x200 container matches: %s",
+    (condition, matches) => {
+      expect(
+        containerQueryMatches(condition, { width: 400, height: 200 }),
+      ).toBe(matches);
+    },
+  );
+});
 
-      render(
-        <View testID={parentID} className="container">
-          <View testID={childID} className="child" />
-        </View>,
-      );
+describe("orientation", () => {
+  const cases: [
+    condition: string,
+    size: { width: number; height: number },
+    matches: boolean,
+  ][] = [
+    ["orientation: landscape", { width: 400, height: 200 }, true],
+    ["orientation: portrait", { width: 400, height: 200 }, false],
+    ["orientation: landscape", { width: 200, height: 400 }, false],
+    ["orientation: portrait", { width: 200, height: 400 }, true],
+    // A square container is portrait: `landscape` requires width > height.
+    ["orientation: landscape", { width: 300, height: 300 }, false],
+    ["orientation: portrait", { width: 300, height: 300 }, true],
+  ];
 
-      const parent = screen.getByTestId(parentID);
-      const child = screen.getByTestId(childID);
-
-      fireEvent(parent, "layout", {
-        nativeEvent: {
-          layout: {
-            width: 400,
-            height: 200,
-          },
-        },
-      });
-
-      expect(child.props.style).toStrictEqual({
-        color: matches ? "#00f" : "#f00",
-      });
+  test.each(cases)(
+    "@container (%s) against a %o container matches: %s",
+    (condition, size, matches) => {
+      expect(containerQueryMatches(condition, size)).toBe(matches);
     },
   );
 });

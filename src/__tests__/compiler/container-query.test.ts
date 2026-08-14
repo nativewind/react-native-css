@@ -54,6 +54,18 @@ describe("size feature comparisons", () => {
   });
 });
 
+test("each size axis keeps its own identity", () => {
+  // Stated differentially: identical syntax on the two axes has to produce two
+  // different conditions, so neither axis can be answered with the other's
+  // measurement.
+  expect(compileContainerQueries("(width > 400px)")).not.toStrictEqual(
+    compileContainerQueries("(height > 400px)"),
+  );
+  expect(compileContainerQueries("(min-width: 400px)")).not.toStrictEqual(
+    compileContainerQueries("(min-height: 400px)"),
+  );
+});
+
 test("a container query is only attached to rules inside it", () => {
   const stylesheet = compile(`
     .child {
