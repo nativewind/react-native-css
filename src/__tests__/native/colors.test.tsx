@@ -423,6 +423,55 @@ describe("inherit", () => {
     expect(screen.getByTestId("child").props.style).toBeUndefined();
   });
 
+  test("color: inherit alongside a box-shadow leaves no placeholder in the style", () => {
+    // The delayed-value placeholder `{ color: true }` is internal bookkeeping.
+    // A rule whose LAST declaration walks into a nested target (a shadow object)
+    // must not strand the placeholder of an earlier delayed declaration.
+    registerCSS(`
+      .parent { color: red; }
+      .child { color: inherit; box-shadow: 1px 1px blue; }
+    `);
+
+    render(
+      <View className="parent">
+        <View testID="child" className="child" />
+      </View>,
+    );
+
+    expect(screen.getByTestId("child").props.style).toStrictEqual({
+      color: "#f00",
+      boxShadow: [
+        {
+          offsetX: 1,
+          offsetY: 1,
+          blurRadius: 0,
+          spreadDistance: 0,
+          color: "#00f",
+        },
+      ],
+    });
+  });
+
+  test("color: inherit alongside a text-shadow leaves no placeholder either", () => {
+    registerCSS(`
+      .parent { color: red; }
+      .child { color: inherit; text-shadow: 1px 1px 2px blue; }
+    `);
+
+    render(
+      <View className="parent">
+        <View testID="child" className="child" />
+      </View>,
+    );
+
+    expect(screen.getByTestId("child").props.style).toStrictEqual({
+      color: "#f00",
+      textShadowColor: "#00f",
+      textShadowOffset: { width: 1, height: 1 },
+      textShadowRadius: 2,
+    });
+  });
+
   test("color: revert publishes nothing to descendants", () => {
     // React Native has no cascade origins, so `revert` has no computed value.
     // Emitting the literal handed every descendant `color: "revert"`.
