@@ -8,7 +8,12 @@ import { colorScheme } from "react-native-css/runtime";
 // A stand-in for Appearance, matching react-native/Libraries/Utilities/Appearance.js:
 // getColorScheme reads a process-lifetime cache and setColorScheme writes it. Under the
 // jest preset the real module is the absent-native branch, where every read is null and
-// setColorScheme is a no-op, so it cannot express this
+// setColorScheme is a no-op, so it cannot express this.
+//
+// It cannot reach useColorScheme, and no fake can: react-native/jest/setup.js:122 replaces
+// that hook with jest.fn(() => "light"), and the real one imports { getColorScheme } from
+// ./Appearance directly rather than through the namespace object replaced below. So the
+// claim that RN's own readers now agree is argued from Appearance's semantics, not tested.
 type ChangeListener = (event: { colorScheme: ColorSchemeName }) => void;
 
 interface FakeAppearance {
@@ -16,17 +21,20 @@ interface FakeAppearance {
   setColorScheme: (scheme: ColorSchemeName) => void;
   addChangeListener: (listener: ChangeListener) => { remove: () => void };
   emitOperatingSystemChange: (scheme: ColorSchemeName) => void;
+  readSetCalls: () => ColorSchemeName[];
 }
 
 jest.mock("react-native", () => {
   const ReactNative = jest.requireActual("react-native");
 
   let cachedScheme: ColorSchemeName = "light";
+  const setCalls: ColorSchemeName[] = [];
   const listeners = new Set<ChangeListener>();
 
   const fakeAppearance: FakeAppearance = {
     getColorScheme: () => cachedScheme,
     setColorScheme: (scheme) => {
+      setCalls.push(scheme);
       cachedScheme = scheme;
     },
     addChangeListener: (listener) => {
@@ -43,6 +51,7 @@ jest.mock("react-native", () => {
         listener({ colorScheme: scheme });
       }
     },
+    readSetCalls: () => setCalls,
   };
 
   Object.defineProperty(ReactNative, "Appearance", {
@@ -55,13 +64,19 @@ jest.mock("react-native", () => {
 
 const appearance = Appearance as unknown as FakeAppearance;
 
-const DARK_SCHEME_CSS = `
-.my-class { color: blue; }
+// Three-way, so "matched neither branch" is distinguishable from "matched light"
+const TRI_STATE_CSS = `
+.my-class { color: green; }
+
+@media (prefers-color-scheme: light) {
+  .my-class { color: blue; }
+}
 
 @media (prefers-color-scheme: dark) {
   .my-class { color: red; }
 }`;
 
+const GREEN = { color: "#008000" } as const;
 const BLUE = { color: "#00f" } as const;
 const RED = { color: "#f00" } as const;
 
@@ -76,32 +91,52 @@ test("colorScheme.set writes through to Appearance, so both readers agree", () =
     colorScheme.set("dark");
   });
 
-  expect(colorScheme.get()).toBe("dark");
+  // The argument, not just the resulting cache: without the write-through the cache
+  // would still read "light" here, but so would a fix that passed the wrong value
+  expect(appearance.readSetCalls().at(-1)).toBe("dark");
   expect(appearance.getColorScheme()).toBe("dark");
 
   act(() => {
     colorScheme.set("light");
   });
 
-  expect(colorScheme.get()).toBe("light");
+  expect(appearance.readSetCalls().at(-1)).toBe("light");
   expect(appearance.getColorScheme()).toBe("light");
 });
 
-test("colorScheme.set repaints a mounted element", () => {
-  registerCSS(DARK_SCHEME_CSS);
-
+test("the class layer resolves the scheme the same way colorScheme.get() does", () => {
+  // The observable holds null at rest and after set(null). Reading it raw leaves every
+  // prefers-color-scheme query unmatched while get() reports a definite scheme, which is
+  // the same two-readers-disagree defect one function along
+  registerCSS(TRI_STATE_CSS);
   render(<View testID={testID} className="my-class" />);
-  expect(screen.getByTestId(testID).props.style).toStrictEqual(BLUE);
 
+  act(() => {
+    colorScheme.set(null);
+  });
+
+  expect(colorScheme.get()).toBe("light");
+  expect(screen.getByTestId(testID).props.style).toStrictEqual(BLUE);
+});
+
+test("set(null) hands the scheme back to Appearance", () => {
   act(() => {
     colorScheme.set("dark");
   });
 
-  expect(screen.getByTestId(testID).props.style).toStrictEqual(RED);
+  act(() => {
+    colorScheme.set(null);
+  });
+
+  expect(appearance.readSetCalls().at(-1)).toBeNull();
+  expect(appearance.getColorScheme()).toBeNull();
+  expect(colorScheme.get()).toBe("light");
 });
 
-test("an OS change event still repaints a mounted element", () => {
-  registerCSS(DARK_SCHEME_CSS);
+test("an OS change event repaints a mounted element", () => {
+  // Guards Appearance.addChangeListener in reactivity.ts, which nothing else covers —
+  // not this change, which does not touch it
+  registerCSS(TRI_STATE_CSS);
 
   render(<View testID={testID} className="my-class" />);
   expect(screen.getByTestId(testID).props.style).toStrictEqual(BLUE);
@@ -111,4 +146,14 @@ test("an OS change event still repaints a mounted element", () => {
   });
 
   expect(screen.getByTestId(testID).props.style).toStrictEqual(RED);
+});
+
+test("a scheme the runtime cannot resolve matches no prefers-color-scheme query", () => {
+  // The unconditional rule is the floor. If both queries ever matched at once, or the
+  // fallback above silently picked a side on a platform that reports nothing, this is
+  // what would catch it
+  registerCSS(`.my-class { color: green; }`);
+  render(<View testID={testID} className="my-class" />);
+
+  expect(screen.getByTestId(testID).props.style).toStrictEqual(GREEN);
 });

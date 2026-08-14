@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { I18nManager, PixelRatio, Platform } from "react-native";
+import { Appearance, I18nManager, PixelRatio, Platform } from "react-native";
 
 import type { MediaCondition } from "react-native-css/compiler";
 
@@ -45,7 +45,12 @@ function testComparison(mediaQuery: MediaCondition, get: Getter): Boolean {
     case "platform":
       return value === "native" || value === Platform.OS;
     case "prefers-color-scheme": {
-      return value === get(colorScheme);
+      // The same resolution the public colorScheme.get() uses. Reading the raw
+      // observable instead leaves the class layer matching neither light nor dark
+      // whenever it holds null — which is its value at rest, and after set(null)
+      return (
+        value === (get(colorScheme) ?? Appearance.getColorScheme() ?? "light")
+      );
     }
     case "display-mode":
       return value === "native" || Platform.OS === value;
