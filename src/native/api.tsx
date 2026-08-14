@@ -73,7 +73,10 @@ export const colorScheme: ColorScheme = {
     return colorSchemeObs.get() ?? Appearance.getColorScheme() ?? "light";
   },
   set(value) {
-    return colorSchemeObs.set(value);
+    // Both readers, in one call: useColorScheme() reads Appearance, the class layer
+    // reads the observable. Moving one without the other splits the app's own UI
+    Appearance.setColorScheme(value);
+    colorSchemeObs.set(value);
   },
 };
 
