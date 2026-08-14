@@ -21,7 +21,7 @@ export function getNativeInjectionCode(
   values: unknown[],
 ) {
   const importStatements = cssFilePaths
-    .map((filePath) => `import "${filePath}";`)
+    .map((filePath) => `require("${filePath}");`)
     .join("\n");
 
   const contents = values
@@ -29,6 +29,6 @@ export function getNativeInjectionCode(
     .join("\n");
 
   return Buffer.from(
-    `import { StyleCollection } from "react-native-css/native-internal";\n${importStatements}\n${contents};export {};`,
+    `const { StyleCollection } = require("react-native-css/native-internal");\n${importStatements}\n${contents}`,
   );
 }
