@@ -1,7 +1,7 @@
 /* eslint-disable */
 import type { InlineVariable, StyleRule } from "react-native-css/compiler";
 import {
-  nonInheritedVariables,
+  assignInheritedVariables,
   StyleCollection,
 } from "react-native-css/native-internal";
 
@@ -132,19 +132,14 @@ export function updateRules(
       }
 
       if (rule.v) {
-        if (variables === inheritedVariables) {
+        // We're going to set a value, so we need to create a new object
+        if (variables === undefined || variables === inheritedVariables) {
           variables = { ...inheritedVariables };
         }
 
-        for (const v of rule.v) {
-          // These are the variables published to descendants. The declaring element
-          // still resolves its own var() from the rule, in calculateProps
-          if (nonInheritedVariables.has(v[0])) {
-            continue;
-          }
-
-          variables![v[0]] = v[1];
-        }
+        // These are the variables published to descendants. The declaring element
+        // still resolves its own var() from the rule, in calculateProps
+        assignInheritedVariables(variables, rule.v);
       }
 
       if (rule.c) {

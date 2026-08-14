@@ -46,6 +46,26 @@ globalThis.__react_native_css_non_inherited_variables ??= new Set<string>();
 export const nonInheritedVariables =
   globalThis.__react_native_css_non_inherited_variables;
 
+/**
+ * Copy the custom properties an element publishes to its descendants. A property
+ * registered `inherits: false` is withheld, so the descendant resolves the registered
+ * initial value rather than the ancestor's. Every channel that builds a VariableContext
+ * goes through here — a stylesheet rule, an inline `vars()`, a VariableContextProvider —
+ * because the inherit flag belongs to the registration, not to the declaration that set it
+ */
+export function assignInheritedVariables(
+  target: Record<string, StyleDescriptor>,
+  entries: Iterable<readonly [string, StyleDescriptor]>,
+) {
+  for (const [name, value] of entries) {
+    if (nonInheritedVariables.has(name)) {
+      continue;
+    }
+
+    target[name] = value;
+  }
+}
+
 rootVariables("__rn-css-rem").set([[14]]);
 // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
 rootVariables("__rn-css-color").set([
