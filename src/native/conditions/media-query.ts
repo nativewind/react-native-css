@@ -45,7 +45,15 @@ function testComparison(mediaQuery: MediaCondition, get: Getter): Boolean {
     case "platform":
       return value === "native" || value === Platform.OS;
     case "prefers-color-scheme": {
-      return value === get(colorScheme);
+      // `Appearance.getColorScheme()` answers null when the OS reports
+      // `unspecified` or the native module is absent. MQ5 resolves the absence
+      // of a preference to `light`, and the rest of the library already assumes
+      // that: `light-dark()` compiles to a light base rule with the dark value
+      // behind `prefers-color-scheme: dark`, and react-native-web reads the
+      // dark media query and answers "light" when it does not match. Comparing
+      // against the resolved scheme rather than branching keeps an unrecognised
+      // value false.
+      return value === (get(colorScheme) ?? "light");
     }
     case "display-mode":
       return value === "native" || Platform.OS === value;
