@@ -37,6 +37,12 @@ function test(mediaQuery: MediaCondition, get: Getter): Boolean {
 function testComparison(mediaQuery: MediaCondition, get: Getter): Boolean {
   const value = mediaQuery[2];
 
+  // An operand the compiler could not resolve satisfies no comparison. Features
+  // whose verdict does not read the value would otherwise match on nothing.
+  if (value === undefined) {
+    return false;
+  }
+
   switch (mediaQuery[1]) {
     case "dir":
       return (I18nManager.isRTL && value === "rtl") || value === "ltr";

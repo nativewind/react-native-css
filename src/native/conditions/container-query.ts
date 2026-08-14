@@ -107,6 +107,13 @@ function testContainerMediaCondition(
       const left = getContainerFeatureValue(condition[1], containerKey, get);
       const right = condition[2];
 
+      // An operand the runtime cannot measure, or one the compiler could not
+      // resolve, satisfies no comparison. Two of them are not equal to each
+      // other.
+      if (left === undefined || right === undefined) {
+        return false;
+      }
+
       if (condition[0] === "=") {
         return left === right;
       }

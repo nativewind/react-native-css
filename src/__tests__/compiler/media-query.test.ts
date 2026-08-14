@@ -143,6 +143,31 @@ describe("comma-separated media query lists", () => {
   });
 });
 
+test("an operand the compiler cannot resolve stays in the condition", () => {
+  // `env()` has no compile-time value, so the operand compiles to `undefined`.
+  // It has to survive into the condition: dropping it would leave the width
+  // alone deciding a query that also asks about orientation. The runtime is
+  // what refuses an unresolved operand.
+  expect(
+    mediaConditions(
+      `@media ((orientation: env(safe-area-inset-top)) and (min-width: 0px)) {
+        .my-class { background-color: red; }
+      }`,
+      "my-class",
+    ),
+  ).toStrictEqual([
+    [
+      [
+        "&",
+        [
+          ["=", "orientation", undefined],
+          [">=", "width", 0],
+        ],
+      ],
+    ],
+  ]);
+});
+
 test("@media (hover: hover)", () => {
   const compiled = compile(`
     @media (hover: hover) {
