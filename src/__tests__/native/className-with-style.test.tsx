@@ -3,6 +3,7 @@ import { View as RNView } from "react-native";
 import { render } from "@testing-library/react-native";
 import { copyComponentProperties } from "react-native-css/components/copyComponentProperties";
 import { FlatList } from "react-native-css/components/FlatList";
+import { Pressable } from "react-native-css/components/Pressable";
 import { ScrollView } from "react-native-css/components/ScrollView";
 import { Text } from "react-native-css/components/Text";
 import { View } from "react-native-css/components/View";
@@ -66,6 +67,60 @@ test("important should overwrite the inline style", () => {
   ).getByTestId(testID);
 
   expect(component.props.style).toStrictEqual({ color: "#f00" });
+});
+
+describe("a callback style prop stays a callback", () => {
+  // `Pressable` declares `style` as either styles or `(state) => styles`, and picks
+  // between them with `typeof style === "function"`. Merging className into an array
+  // answers "object" there, so the callback never runs and the raw function reaches
+  // the view — every pressed-state style silently dropped.
+
+  test("Pressable: className with a callback style", () => {
+    registerCSS(`.text-red { color: red; }`);
+
+    const component = render(
+      <Pressable
+        testID={testID}
+        className="text-red"
+        style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}
+      />,
+    ).getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual([
+      { color: "#f00" },
+      { opacity: 1 },
+    ]);
+  });
+
+  test("Pressable: important className with a callback style", () => {
+    registerCSS(`.bg-red\\! { background-color: red !important; }`);
+
+    const component = render(
+      <Pressable
+        testID={testID}
+        className="bg-red!"
+        style={() => ({ backgroundColor: "blue" })}
+      />,
+    ).getByTestId(testID);
+
+    // The callback ran, and the important declaration is the rightmost entry,
+    // so it still wins over what the callback returned.
+    expect(component.props.style).toStrictEqual([
+      { backgroundColor: "blue" },
+      { backgroundColor: "#f00" },
+    ]);
+  });
+
+  test("Pressable: a callback style with no className is untouched", () => {
+    const component = render(
+      <Pressable
+        testID={testID}
+        style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}
+      />,
+    ).getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ opacity: 1 });
+  });
 });
 
 test("View with multiple className properties where inline style takes precedence", () => {
