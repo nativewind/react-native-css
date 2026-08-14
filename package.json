@@ -165,7 +165,7 @@
     "start:build": "yarn build && yarn example build",
     "start:debug": "yarn build && yarn example debug",
     "test": "NODE_OPTIONS=\"${NODE_OPTIONS:-} --experimental-vm-modules\" jest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p src/__tests__/types"
   },
   "keywords": [
     "react-native",
