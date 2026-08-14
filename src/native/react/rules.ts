@@ -225,10 +225,14 @@ export function updateRules(
       // @property registration, not to the declaration. So the element's own bag keeps
       // every name (it is added to `rules` below, for calculateProps) while the copy
       // published to descendants goes through the same filter as a stylesheet rule
+      // `variables` already carries the inherited bag under the element's own values, so
+      // it goes second — merging the ancestor's over it would undo every declaration the
+      // element made. It is undefined when a rule reads a variable without declaring one,
+      // which is why the inherited bag is still listed
       variables = Object.assign(
         {},
-        variables,
         inheritedVariables,
+        variables,
         ...Array.from(inlineVariables, publishableVariables),
         { [VAR_SYMBOL]: true },
       );

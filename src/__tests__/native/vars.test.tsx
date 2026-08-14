@@ -136,6 +136,29 @@ test("an inline vars() inheriting property still reaches a descendant", () => {
   expect(screen.getByTestId(testID).props.style).toStrictEqual({ width: 10 });
 });
 
+test("an inline vars() does not hand an ancestor's variable to the subtree", () => {
+  // The published object merged the inherited bag OVER the element's own, so carrying
+  // any inline vars() — even one naming an unrelated variable — replaced every value
+  // the element declared with its ancestor's
+  registerCSS(`
+    .ancestor { --shared: 1px; }
+    .ancestor-too { --shared: 2px; }
+    .middle { --shared: 50px; }
+    .middle-too { --shared: 60px; }
+    .child { width: var(--shared); }
+  `);
+
+  render(
+    <View className="ancestor">
+      <View className="middle" style={vars({ "--unrelated": 7 })}>
+        <View testID={testID} className="child" />
+      </View>
+    </View>,
+  );
+
+  expect(screen.getByTestId(testID).props.style).toStrictEqual({ width: 50 });
+});
+
 test("an inline vars() unregistered property still reaches a descendant", () => {
   registerCSS(`
     ${publishesVariables}
