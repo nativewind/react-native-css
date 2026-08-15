@@ -136,6 +136,33 @@ export type InlineStyle =
   | (Record<string, unknown> | undefined | null)[]
   | (() => unknown);
 
+/*******************************    Variables    ******************************/
+
+/**
+ * A value a CSS custom property can be given from JavaScript, via `vars()` or
+ * `<VariableContextProvider />`.
+ *
+ * Both platforms are written against this one type. A custom property holds a
+ * token stream on web and a structured value on native, so the type is the set
+ * of values both can honour:
+ *
+ * - An array is a comma-separated CSS list — a `font-family` stack, a
+ *   `transition-property` list. A value whose parts are separated by spaces (a
+ *   `box-shadow`, a `transform`) is a single string.
+ * - `undefined` leaves the property unset, so an ancestor's value inherits.
+ *
+ * A `StyleDescriptor` is wider than this: it also covers the `StyleFunction`
+ * tuples the compiler emits for `var()`, `rgba()` and friends. Those are an
+ * internal encoding of the native runtime and have no web serialisation, so
+ * they are not part of the public API.
+ */
+export type CustomPropertyValue =
+  | string
+  | number
+  | boolean
+  | undefined
+  | CustomPropertyValue[];
+
 /*********************************    Misc    *********************************/
 
 export type Props = Record<string, any> | undefined | null;

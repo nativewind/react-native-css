@@ -214,26 +214,28 @@ It is preferable that all CSS variables are set via CSS. If you need values to c
 }
 ```
 
-As a last resort, you can use `VariableContext` to dynamically set CSS variables in JavaScript
+As a last resort, you can use `VariableContextProvider` to dynamically set CSS variables in JavaScript
 
 ```ts
-import { VariableContext } from 'react-native-css';
+import { VariableContextProvider } from 'react-native-css';
 
 export default function App() {
   return (
-    <VariableContext values={{ "--my-color": "red" }}>
+    <VariableContextProvider value={{ "--my-color": "red" }}>
       <Text className="my-color-text">
         Hello, world!
       </Text>
-    </VariableContext>
+    </VariableContextProvider>
   )
 }
 ```
 
-This API only allows for setting CSS variables as primitive values. For more complex styles, you will need to use a helper CSS class.
+A custom property holds a token stream on web and a structured value on native, so this API accepts the values both platforms honour: a string, a number, a boolean, or an array of those (the `CustomPropertyValue` type).
+
+An array is a comma-separated CSS list — a `font-family` stack, a `transition-property` list. A value whose parts are separated by spaces, such as a `box-shadow`, is a single string. `undefined` leaves the property unset, so an ancestor's value inherits. Anything beyond that needs a helper CSS class.
 
 > [!IMPORTANT]  
-> By using `VariableContext` you may need to disable the `inlineVariable` optimization
+> By using `VariableContextProvider` you may need to disable the `inlineVariable` optimization
 
 ## Optimizations
 

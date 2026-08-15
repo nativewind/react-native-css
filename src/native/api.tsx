@@ -2,11 +2,11 @@
 import { useContext, useState, type ComponentType } from "react";
 import { Appearance } from "react-native";
 
-import type { StyleDescriptor } from "react-native-css/compiler";
 import { VariableContext } from "react-native-css/native-internal";
 
 import type {
   ColorScheme,
+  CustomPropertyValue,
   Props,
   ReactComponent,
   StyledConfiguration,
@@ -114,7 +114,7 @@ export function useNativeVariable(name: string) {
 /**
  * @deprecated Use `<VariableContextProvider />` instead.
  */
-export function vars(variables: Record<string, StyleDescriptor>) {
+export function vars(variables: Record<string, CustomPropertyValue>) {
   return Object.assign(
     { [VAR_SYMBOL]: "inline" },
     Object.fromEntries(
