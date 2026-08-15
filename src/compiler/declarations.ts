@@ -38,15 +38,25 @@ import type {
 
 import { isStyleFunction } from "../utilities";
 import type {
+  MediaCondition,
   StyleDescriptor,
   StyleFunction,
-  StyleRule,
 } from "./compiler.types";
 import { parseEasingFunction, parseIterationCount } from "./keyframes";
 import { toRNProperty } from "./selectors";
 import type { StylesheetBuilder } from "./stylesheet";
 
 const CommaSeparator = Symbol("CommaSeparator");
+
+/** The condition an extra rule for a `light-dark()` dark branch is gated on. */
+const DARK_COLOR_SCHEME: MediaCondition = ["=", "prefers-color-scheme", "dark"];
+
+/**
+ * The variable a `color` declaration publishes to its subtree, and that
+ * `currentcolor` reads back. Named as the custom property it is declared as —
+ * `addDescriptor` strips the `--` prefix.
+ */
+const INHERITED_COLOR_PROPERTY = "--__rn-css-color";
 
 type DeclarationType<P extends Declaration["property"]> = Extract<
   Declaration,
@@ -290,7 +300,7 @@ function parseWithParser(declaration: Declaration, builder: StylesheetBuilder) {
   if (declaration.property in parsers) {
     const parser = parsers[declaration.property] as Parser;
 
-    builder.descriptorProperty = declaration.property;
+    builder.descriptorProperties = [declaration.property];
 
     builder.setWarningProperty(declaration.property);
     const value = parser(declaration, builder, declaration.property);
@@ -930,7 +940,8 @@ export function parseUnparsedDeclaration(
   /**
    * Unparsed shorthand properties need to be parsed at runtime
    */
-  builder.descriptorProperty = property;
+  builder.descriptorProperties =
+    property === "color" ? [property, INHERITED_COLOR_PROPERTY] : [property];
 
   if (unparsedRuntimeParsing.has(property)) {
     const args = parseUnparsed(declaration.value.value, builder, property);
@@ -955,7 +966,7 @@ export function parseUnparsedDeclaration(
         value[1] !== "var" ||
         value[2] !== "-css-color"
       ) {
-        builder.addDescriptor("--__rn-css-color", value);
+        builder.addDescriptor(INHERITED_COLOR_PROPERTY, value);
       }
     }
   }
@@ -1589,16 +1600,31 @@ export function parseFontColorDeclaration(
   declaration: Extract<Declaration, { value: CssColor }>,
   builder: StylesheetBuilder,
 ) {
-  parseColorDeclaration(declaration, builder);
+  /**
+   * `color` writes twice: the style property, and the variable it publishes to
+   * its subtree. A `light-dark()` dark branch is written through
+   * `addUnnamedDescriptor`, which reaches every property named here — so both
+   * have to be named, or the extra rule publishes the light colour in dark mode.
+   */
+  builder.descriptorProperties = [
+    declaration.property,
+    INHERITED_COLOR_PROPERTY,
+  ];
+
+  /**
+   * Parsed once for both writes. `parseColor` is not pure — a `light-dark()`
+   * value opens an extra rule — so parsing the same value a second time opens a
+   * second, identical dark rule.
+   */
+  const value = parseColor(declaration.value, builder);
+
+  builder.addDescriptor(declaration.property, value);
 
   if (
     typeof declaration.value !== "object" ||
     declaration.value.type !== "currentcolor"
   ) {
-    builder.addDescriptor(
-      "--__rn-css-color",
-      parseColor(declaration.value, builder),
-    );
+    builder.addDescriptor(INHERITED_COLOR_PROPERTY, value);
   }
 }
 
@@ -1640,17 +1666,13 @@ export function parseColor(cssColor: CssColor, builder: StylesheetBuilder) {
     case "currentcolor":
       return [{}, "var", "__rn-css-color"] as const;
     case "light-dark": {
-      const extraRule: StyleRule = {
-        s: [],
-        m: [["=", "prefers-color-scheme", "dark"]],
-      };
+      const extraRule = builder.openExtraRule(DARK_COLOR_SCHEME);
 
       builder.addUnnamedDescriptor(
         parseColor(cssColor.dark, builder),
         false,
         extraRule,
       );
-      builder.addExtraRule(extraRule);
       return parseColor(cssColor.light, builder);
     }
     case "rgb": {
@@ -2910,15 +2932,13 @@ export function parseUnresolvedColor(
         ],
       ];
     case "light-dark": {
-      const extraRule = builder.extendRule({
-        m: [["=", "prefers-color-scheme", "dark"]],
-      });
+      const extraRule = builder.openExtraRule(DARK_COLOR_SCHEME);
+
       builder.addUnnamedDescriptor(
         reduceParseUnparsed(color.dark, builder, property, allowAuto),
         false,
         extraRule,
       );
-      builder.addExtraRule(extraRule);
       return reduceParseUnparsed(color.light, builder, property, allowAuto);
     }
     default:
