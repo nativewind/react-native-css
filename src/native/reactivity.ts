@@ -243,6 +243,6 @@ export const containerWidthFamily = weakFamily((key) => {
 
 export const containerHeightFamily = weakFamily((key) => {
   return observable((read) => {
-    return read(containerLayoutFamily(key))?.width || 0;
+    return read(containerLayoutFamily(key))?.height || 0;
   });
 });
