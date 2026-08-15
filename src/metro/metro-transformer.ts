@@ -7,6 +7,7 @@ import type {
 
 import { compile, type CompilerOptions } from "../compiler";
 import { getNativeInjectionCode } from "./injection-code";
+import { reportCompilerWarnings, type WarningLevel } from "./warnings";
 
 const worker =
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -14,7 +15,9 @@ const worker =
 
 export async function transform(
   config: JsTransformerConfig & {
-    reactNativeCSS?: CompilerOptions | undefined;
+    reactNativeCSS?:
+      | (CompilerOptions & { warnings?: WarningLevel | undefined })
+      | undefined;
   },
   projectRoot: string,
   filePath: string,
@@ -36,11 +39,25 @@ export async function transform(
 
   const css = cssFile.output[0].data.css.code.toString();
 
-  const productionJS = compile(css, {
-    ...config.reactNativeCSS,
+  const { warnings: warningLevel, ...compilerOptions } =
+    config.reactNativeCSS ?? {};
+
+  const compiled = compile(css, {
+    ...compilerOptions,
     filename: filePath,
     projectRoot: projectRoot,
-  }).stylesheet();
+  });
+
+  const productionJS = compiled.stylesheet();
+
+  // The compiler records every declaration it could not translate. This is the
+  // only place a real build can read them — nothing downstream of the
+  // transformer ever sees the compile result again.
+  reportCompilerWarnings(compiled.warnings(), {
+    filename: filePath,
+    projectRoot,
+    level: warningLevel,
+  });
 
   data = Buffer.from(getNativeInjectionCode([], [productionJS]));
 
