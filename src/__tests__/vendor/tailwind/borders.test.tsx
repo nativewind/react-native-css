@@ -41,12 +41,16 @@ describe("Border - Border Width", () => {
       },
     });
   });
+  // The block-axis twin of border-x-1 above. React Native reads no
+  // borderBlockWidth on Android or the old architecture and no per-edge
+  // border style anywhere, so both keys this used to assert were inert and
+  // the utility painted nothing.
   test("border-y-1", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: {
         style: {
-          borderBlockWidth: 1,
-          borderBlockStyle: "solid",
+          borderTopWidth: 1,
+          borderBottomWidth: 1,
         },
       },
     });
@@ -108,8 +112,8 @@ describe("Border - Border Width", () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: {
         style: {
-          borderBlockWidth: 2,
-          borderBlockStyle: "solid",
+          borderTopWidth: 2,
+          borderBottomWidth: 2,
         },
       },
     });

@@ -1,3 +1,5 @@
+import type { ViewStyle } from "react-native";
+
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { View } from "react-native-css/components/View";
 import { registerCSS, testID } from "react-native-css/jest";
@@ -6,6 +8,50 @@ import { colorScheme } from "react-native-css/runtime";
 import { dimensions } from "../../native/reactivity";
 
 const children = undefined;
+
+/**
+ * Every border style key React Native declares.
+ *
+ * `satisfies readonly (keyof ViewStyle)[]` is what makes this a derivation
+ * rather than a list somebody wrote down: a name React Native does not declare
+ * cannot be added here at all, so the census cannot be widened to let a dead
+ * key through, and a name React Native drops in a later release turns the
+ * type-check red. Note which logical names are absent — there is no
+ * `borderInline*` of any kind, no `borderBlockWidth`, and no per-edge
+ * `border*Style`. Those are the keys this file exists to keep out of a
+ * rendered component.
+ */
+const REACT_NATIVE_BORDER_KEYS = [
+  "borderBlockColor",
+  "borderBlockEndColor",
+  "borderBlockStartColor",
+  "borderBottomColor",
+  "borderBottomWidth",
+  "borderColor",
+  "borderEndColor",
+  "borderEndWidth",
+  "borderLeftColor",
+  "borderLeftWidth",
+  "borderRightColor",
+  "borderRightWidth",
+  "borderStartColor",
+  "borderStartWidth",
+  "borderStyle",
+  "borderTopColor",
+  "borderTopWidth",
+  "borderWidth",
+] as const satisfies readonly (keyof ViewStyle)[];
+
+/**
+ * Whether React Native understands a style key.
+ *
+ * A key it does not declare never reaches a shadow node — React Native's view
+ * config is a whitelist, so an unknown key is dropped with no error, no
+ * warning and no paint. That silence is why the assertion has to be made here,
+ * against the props a component actually received.
+ */
+const isRealStyleKey = (key: string): boolean =>
+  (REACT_NATIVE_BORDER_KEYS as readonly string[]).includes(key);
 
 /**
  * The style keys a rendered component actually received, sorted.
@@ -560,4 +606,247 @@ describe("the literal border-inline shorthand reaching the component", () => {
       expect(styleKeys(testID).filter(isInlineKey)).toStrictEqual([]);
     },
   );
+});
+
+describe("the block axis reaching the component", () => {
+  /**
+   * The block axis is the inline axis's twin and React Native supports it
+   * differently, which is why it needs its own expectations rather than a
+   * mirrored copy of the ones above. The three block COLOURS are real props —
+   * `borderBlockColor`, `borderBlockStartColor` and `borderBlockEndColor` are
+   * in `ReactNativeStyleAttributes`, in both `BaseViewConfig`s and in
+   * `ViewStyle` — so they are kept. The block WIDTHS are in
+   * `BaseViewConfig.ios.js` only, so they map to the physical edges every
+   * platform reads. `direction` never flips the block axis, so block-start is
+   * the top edge and block-end the bottom one on every platform.
+   */
+  test.each([
+    [
+      "border-block",
+      {
+        borderBlockColor: "#26e",
+        borderTopWidth: 6,
+        borderBottomWidth: 6,
+      },
+    ],
+    [
+      "border-block-start",
+      { borderBlockStartColor: "#26e", borderTopWidth: 6 },
+    ],
+    ["border-block-end", { borderBlockEndColor: "#26e", borderBottomWidth: 6 }],
+  ])("%s: 6px dashed #2266ee reaches real props", (property, expected) => {
+    registerCSS(`.my-class { ${property}: 6px dashed #2266ee; }`);
+
+    render(<View testID={testID} className="my-class" />);
+    expect(screen.getByTestId(testID).props.style).toStrictEqual(expected);
+  });
+
+  test.each([
+    ["border-block-width", { borderTopWidth: 6, borderBottomWidth: 6 }],
+    ["border-block-start-width", { borderTopWidth: 6 }],
+    ["border-block-end-width", { borderBottomWidth: 6 }],
+  ])("%s: 6px reaches a width React Native reads", (property, expected) => {
+    registerCSS(`.my-class { ${property}: 6px; }`);
+
+    render(<View testID={testID} className="my-class" />);
+    expect(screen.getByTestId(testID).props.style).toStrictEqual(expected);
+  });
+
+  test("border-block-width takes its second value as the bottom edge", () => {
+    registerCSS(`.my-class { border-block-width: 1px 2px; }`);
+
+    render(<View testID={testID} className="my-class" />);
+    expect(screen.getByTestId(testID).props.style).toStrictEqual({
+      borderTopWidth: 1,
+      borderBottomWidth: 2,
+    });
+  });
+
+  test.each([
+    "border-block-style",
+    "border-block-start-style",
+    "border-block-end-style",
+  ])("%s paints nothing", (property) => {
+    registerCSS(`.my-class { ${property}: dashed; }`);
+
+    render(<View testID={testID} className="my-class" />);
+    expect(screen.getByTestId(testID).props).toStrictEqual({
+      children,
+      testID,
+    });
+  });
+
+  test.each([
+    [
+      "border-block",
+      {
+        borderTopWidth: 1,
+        borderBottomWidth: 1,
+        borderBlockColor: "red",
+      },
+    ],
+    ["border-block-start", { borderTopWidth: 1, borderBlockStartColor: "red" }],
+    ["border-block-end", { borderBottomWidth: 1, borderBlockEndColor: "red" }],
+  ])("%s via var() expands onto the same props", (property, expected) => {
+    registerCSS(
+      `.my-class { ${property}: var(--shorthand); } ${shorthandDefinitions}`,
+    );
+
+    render(<View testID={testID} className="my-class" />);
+    expect(screen.getByTestId(testID).props.style).toStrictEqual(expected);
+  });
+
+  test("the unparsed block expansion matches the parsed one", () => {
+    registerCSS(`
+      .unparsed { border-block: var(--shorthand); }
+      .parsed { border-block: 1px solid red; }
+      ${shorthandDefinitions}
+    `);
+
+    render(
+      <View testID="unparsed" className="unparsed">
+        <View testID="parsed" className="parsed" />
+      </View>,
+    );
+
+    // The parsed path resolves `red` to #f00 at compile time; every key must
+    // agree, which is what makes the two routes one behaviour.
+    expect(styleKeys("unparsed")).toStrictEqual(styleKeys("parsed"));
+  });
+
+  test.each(["border-block", "border-block-start", "border-block-end"])(
+    "%s never widens its style component to borderStyle",
+    (property) => {
+      registerCSS(`
+        .my-class { ${property}: var(--dashed); }
+        :root { --dashed: 1px dashed red; }
+        .redefine { --dashed: 2px dotted blue; }
+      `);
+
+      render(<View testID={testID} className="my-class" />);
+      expect(screen.getByTestId(testID).props.style).not.toHaveProperty(
+        "borderStyle",
+      );
+    },
+  );
+
+  test("border-block-width via a two-value var() pair splits the edges", () => {
+    registerCSS(`
+      .my-class { border-block-width: var(--width) var(--other-width); }
+      ${twiceDefined}
+    `);
+
+    render(<View testID={testID} className="my-class" />);
+    expect(screen.getByTestId(testID).props.style).toStrictEqual({
+      borderTopWidth: 1,
+      borderBottomWidth: 2,
+    });
+  });
+});
+
+/**
+ * The whole logical-border family, against React Native's own census of style
+ * attributes.
+ *
+ * This is the guard for the CLASS rather than for the rows fixed today. The
+ * defect it catches is invisible in the compiler IR — a `borderBlockWidth`
+ * entry in the emitted declarations looks exactly like a real one — and it is
+ * invisible to a hand-written expectation too, because a test author has to
+ * already know which of React Native's near-identical logical props exist.
+ *
+ * `ReactNativeStyleAttributes` is React Native's own answer to that question,
+ * so the expectation is DERIVED from it rather than restated here: a React
+ * Native release that adds a prop relaxes this test on its own, and one that
+ * removes a prop we depend on turns it red without anyone editing a list.
+ */
+describe("no logical border property reaches a key React Native lacks", () => {
+  /** Every `border-{inline,block}[-start|-end][-width|-style|-color]`. */
+  const FAMILY: string[] = ["inline", "block"].flatMap((axis) =>
+    ["", "-start", "-end"].flatMap((edge) =>
+      ["", "-width", "-style", "-color"].map(
+        (suffix) => `border-${axis}${edge}${suffix}`,
+      ),
+    ),
+  );
+
+  const literalFor = (property: string): string => {
+    if (property.endsWith("-color")) return "#2266ee";
+    if (property.endsWith("-width")) return "6px";
+    if (property.endsWith("-style")) return "dashed";
+    return "6px dashed #2266ee";
+  };
+
+  const varFor = (property: string): string => {
+    if (property.endsWith("-color")) return "var(--color)";
+    if (property.endsWith("-width")) return "var(--width)";
+    if (property.endsWith("-style")) return "var(--style)";
+    return "var(--shorthand)";
+  };
+
+  /**
+   * Generating the census trades a drift failure for a vacuity one: a family
+   * that stopped being generated makes every case below pass over nothing.
+   *
+   * 24 is the closed set CSS defines for this family — two axes, three edges,
+   * four value slots — so a different count means the generator changed rather
+   * than that CSS did. The two members are spot-checked because a generator
+   * producing 24 wrong strings would satisfy the count alone.
+   */
+  test("the family census is the whole family", () => {
+    expect(FAMILY).toHaveLength(24);
+    expect(FAMILY).toContain("border-inline-start-width");
+    expect(FAMILY).toContain("border-block-end-color");
+  });
+
+  /**
+   * The negative control for the oracle above. Every case in this describe is
+   * an assertion that a set is EMPTY, and such an assertion passes just as
+   * happily when the predicate can never say no — so the predicate is pinned
+   * against the exact names this whole file exists to keep out.
+   */
+  test.each([
+    "borderInlineWidth",
+    "borderInlineStyle",
+    "borderInlineColor",
+    "borderInlineStartWidth",
+    "borderInlineEndColor",
+    "borderBlockWidth",
+    "borderBlockStartWidth",
+    "borderBlockEndWidth",
+    "borderBlockStyle",
+    "borderBlockStartStyle",
+    "borderBlockEndStyle",
+  ])("%s is not a key React Native understands", (key) => {
+    expect(isRealStyleKey(key)).toBe(false);
+  });
+
+  test("the three block COLOURS are keys React Native does understand", () => {
+    expect(isRealStyleKey("borderBlockColor")).toBe(true);
+    expect(isRealStyleKey("borderBlockStartColor")).toBe(true);
+    expect(isRealStyleKey("borderBlockEndColor")).toBe(true);
+  });
+
+  test.each(FAMILY)("%s (literal) emits only real style keys", (property) => {
+    registerCSS(`.my-class { ${property}: ${literalFor(property)}; }`);
+
+    render(<View testID={testID} className="my-class" />);
+    expect(
+      styleKeys(testID).filter((key) => !isRealStyleKey(key)),
+    ).toStrictEqual([]);
+  });
+
+  test.each(FAMILY)("%s (var) emits only real style keys", (property) => {
+    registerCSS(`
+      .my-class { ${property}: ${varFor(property)}; }
+      :root { --style: solid; }
+      .redefine { --style: dashed; }
+      ${twiceDefined}
+      ${shorthandDefinitions}
+    `);
+
+    render(<View testID={testID} className="my-class" />);
+    expect(
+      styleKeys(testID).filter((key) => !isRealStyleKey(key)),
+    ).toStrictEqual([]);
+  });
 });

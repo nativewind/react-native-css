@@ -8,7 +8,7 @@ const color = ["borderColor", "color", "color"] as const;
 
 /**
  * `<line-width> || <line-style> || <color>`, in the component orders a
- * resolved runtime value can arrive in. `border` and the three inline-axis
+ * resolved runtime value can arrive in. `border` and the six logical-axis
  * shorthands share the same grammar, so it is stated once here rather than
  * copied per handler.
  */
@@ -24,18 +24,29 @@ export const border = shorthandHandler(mappings, []);
 const matchBorder = shorthandHandler(mappings, [], "object");
 
 /**
- * Which React Native props each matched slot feeds, per inline-axis shorthand.
+ * Which React Native props each matched slot feeds, per logical-axis shorthand.
+ *
+ * The two axes reach different props because React Native supports them
+ * differently. The inline axis has no native prop of its own, so it maps onto
+ * the RTL-aware `borderStart*` / `borderEnd*` pair. The block axis has native
+ * COLOURS — `borderBlockColor`, `borderBlockStartColor` and
+ * `borderBlockEndColor` are in `ReactNativeStyleAttributes`, both
+ * `BaseViewConfig`s and `ViewStyle` — but its WIDTHS exist only in
+ * `BaseViewConfig.ios.js`, so a `borderBlockWidth` paints on iOS and nowhere
+ * else. Block widths therefore map to the physical edges, which every
+ * platform reads; block start is the top edge and block end the bottom one,
+ * on every platform, because `direction` never flips the block axis.
  *
  * `borderStyle` is absent from every entry deliberately. React Native has no
  * per-edge border style at any layer: `BaseViewConfig.{android,ios}.js` lists
  * `borderStyle` and nothing per-edge, `ViewStyle` declares only `borderStyle`,
  * and Android's `BorderDrawable` holds a single style for the whole border
- * path. Widening it to `borderStyle` would paint the block edges the
- * declaration never mentioned and clobber a `border-style` set elsewhere in
- * the cascade, so the component is dropped — exactly as the parsed path drops
- * it for `border-inline` and for the `border-inline-*-style` longhands.
+ * path. Widening it to `borderStyle` would paint the edges the declaration
+ * never mentioned and clobber a `border-style` set elsewhere in the cascade,
+ * so the component is dropped — exactly as the parsed path drops it for the
+ * shorthands and for the `border-{inline,block}-*-style` longhands.
  */
-const inlineTargets = {
+const axisTargets = {
   borderInline: {
     borderWidth: ["borderStartWidth", "borderEndWidth"],
     borderColor: ["borderStartColor", "borderEndColor"],
@@ -48,19 +59,31 @@ const inlineTargets = {
     borderWidth: ["borderEndWidth"],
     borderColor: ["borderEndColor"],
   },
+  borderBlock: {
+    borderWidth: ["borderTopWidth", "borderBottomWidth"],
+    borderColor: ["borderBlockColor"],
+  },
+  borderBlockStart: {
+    borderWidth: ["borderTopWidth"],
+    borderColor: ["borderBlockStartColor"],
+  },
+  borderBlockEnd: {
+    borderWidth: ["borderBottomWidth"],
+    borderColor: ["borderBlockEndColor"],
+  },
 } as const;
 
-type InlineTargets = (typeof inlineTargets)[keyof typeof inlineTargets];
+type AxisTargets = (typeof axisTargets)[keyof typeof axisTargets];
 
 /**
- * An inline-axis border shorthand whose value stayed opaque until runtime.
+ * A logical-axis border shorthand whose value stayed opaque until runtime.
  *
  * The resolved components are matched against the same grammar `border` uses,
- * then fanned onto the RTL-aware per-edge props. `ShortHandSymbol` is what
- * lets one descriptor write several props: the style object it marks is spread
- * onto the target rather than assigned under the shorthand's own name.
+ * then fanned onto that axis's per-edge props. `ShortHandSymbol` is what lets
+ * one descriptor write several props: the style object it marks is spread onto
+ * the target rather than assigned under the shorthand's own name.
  */
-function inlineBorderHandler(targets: InlineTargets): StyleResolver {
+function axisBorderHandler(targets: AxisTargets): StyleResolver {
   return (resolveValue, value, get, options) => {
     const parsed = matchBorder(resolveValue, value, get, options);
 
@@ -86,10 +109,11 @@ function inlineBorderHandler(targets: InlineTargets): StyleResolver {
   };
 }
 
-export const borderInline = inlineBorderHandler(inlineTargets.borderInline);
-export const borderInlineStart = inlineBorderHandler(
-  inlineTargets.borderInlineStart,
+export const borderInline = axisBorderHandler(axisTargets.borderInline);
+export const borderInlineStart = axisBorderHandler(
+  axisTargets.borderInlineStart,
 );
-export const borderInlineEnd = inlineBorderHandler(
-  inlineTargets.borderInlineEnd,
-);
+export const borderInlineEnd = axisBorderHandler(axisTargets.borderInlineEnd);
+export const borderBlock = axisBorderHandler(axisTargets.borderBlock);
+export const borderBlockStart = axisBorderHandler(axisTargets.borderBlockStart);
+export const borderBlockEnd = axisBorderHandler(axisTargets.borderBlockEnd);
