@@ -366,22 +366,12 @@ function extractMedia(
   }
 
   const conditions: MediaCondition[] = [];
-  let unconditional = false;
 
   for (const m of media) {
-    const parsed = parseMediaQuery(m, builder);
+    const condition = parseMediaQuery(m, builder);
 
-    switch (parsed.type) {
-      case "condition":
-        conditions.push(parsed.condition);
-        break;
-      case "unconditional":
-        unconditional = true;
-        break;
-      case "refused":
-        break;
-      default:
-        parsed satisfies never;
+    if (condition) {
+      conditions.push(condition);
     }
   }
 
@@ -390,23 +380,10 @@ function extractMedia(
   // of any enclosing rule, which intersect.
   const [firstCondition, ...remainingConditions] = conditions;
 
-  if (unconditional) {
-    // A union with a query that always matches always matches, so the block
-    // needs no condition of its own.
-  } else if (firstCondition) {
+  if (firstCondition) {
     builder.addMediaQuery(
       remainingConditions.length === 0 ? firstCondition : ["|", conditions],
     );
-  } else {
-    // Every query in the prelude was refused, so the block applies nowhere.
-    // Emitting it with no condition would apply it everywhere, which is the
-    // opposite answer - the same trade `extractContainer` guards against.
-    // Every `<media-condition>` form compiles to a term today, so this is a
-    // backstop against a future parse gap rather than a path any stylesheet
-    // reaches. It has to be spelled through `ParsedMediaQuery` rather than as
-    // an empty-`conditions` check, because an empty list is also what `all`,
-    // `screen` and `not print` legitimately produce.
-    return;
   }
 
   // Iterate over all rules in the mediaRule and extract their styles using the updated CompilerCollection
