@@ -12,11 +12,11 @@ const children = undefined;
 /**
  * Every border style key React Native declares.
  *
- * `satisfies readonly (keyof ViewStyle)[]` is what makes this a derivation
- * rather than a list somebody wrote down: a name React Native does not declare
- * cannot be added here at all, so the census cannot be widened to let a dead
- * key through, and a name React Native drops in a later release turns the
- * type-check red. Note which logical names are absent — there is no
+ * The membership is written by hand; what is not is the CONSTRAINT on it.
+ * `satisfies readonly (keyof ViewStyle)[]` makes React Native's own type
+ * decide which names may appear, so a name it does not declare cannot be added
+ * here to let a dead key through, and a name it drops in a later release turns
+ * the type-check red. Note which logical names are absent — there is no
  * `borderInline*` of any kind, no `borderBlockWidth`, and no per-edge
  * `border*Style`. Those are the keys this file exists to keep out of a
  * rendered component.
@@ -569,6 +569,57 @@ describe("border-inline / -start / -end shorthands via var()", () => {
       "#000",
     );
   });
+
+  /**
+   * A var() is ONE component value however many values it holds, so a variable
+   * carrying a pair is assigned whole rather than split across the two edges.
+   *
+   * This belongs to the unparsed path rather than to the logical axes, and the
+   * comparison routes prove it: the longhand each axis property renames to
+   * does the same thing with the same variable, and so does the physical
+   * `border-width` shorthand that predates the logical axes entirely. Both
+   * predate this change. So the shape is pinned once, on the longhand route
+   * that no commit here touches, and the axis routes are asserted as PARITY
+   * with it — whoever teaches the unparsed path to split a resolved list then
+   * sees every route move together, instead of finding a value hard-coded
+   * against three of them.
+   *
+   * Which half of the residual bites is worth knowing, and it is not the one
+   * the colour tests above would suggest. In
+   * `Libraries/Components/View/ReactNativeStyleAttributes.js` the width keys
+   * are declared `true` — no processor — so the list is handed to the shadow
+   * node as it stands, on the longhand route and the axis route alike, while
+   * the colour keys carry `colorAttributes` and its `processColor` drops a
+   * list on the way. The keys this file drives a width onto are the same ones
+   * `border-top-width` and `border-width` have always reached, so the exposure
+   * is the unparsed path's rather than the logical axes'.
+   */
+  test("a two-value var() is one component on the axis route and on every route beside it", () => {
+    registerCSS(`
+      .axis { border-inline-width: var(--pair); }
+      .longhand { border-inline-start-width: var(--pair); }
+      .physical { border-width: var(--pair); }
+      :root { --pair: 1px 2px; }
+      .redefine { --pair: 9px 9px; }
+    `);
+
+    render(
+      <View testID="axis" className="axis">
+        <View testID="longhand" className="longhand" />
+        <View testID="physical" className="physical" />
+      </View>,
+    );
+
+    const axis = screen.getByTestId("axis").props.style;
+    const longhand = screen.getByTestId("longhand").props.style;
+    const physical = screen.getByTestId("physical").props.style;
+
+    expect(longhand.borderStartWidth).toStrictEqual([1, 2]);
+
+    expect(axis.borderStartWidth).toStrictEqual(longhand.borderStartWidth);
+    expect(axis.borderEndWidth).toStrictEqual(longhand.borderStartWidth);
+    expect(physical.borderWidth).toStrictEqual(longhand.borderStartWidth);
+  });
 });
 
 describe("the literal border-inline shorthand reaching the component", () => {
@@ -742,6 +793,72 @@ describe("the block axis reaching the component", () => {
       borderBottomWidth: 2,
     });
   });
+
+  /**
+   * The longhands, at both arities the grammar accepts.
+   *
+   * The shorthand parity test above is not enough on its own: `border-block`
+   * takes no two-value form, so it cannot see a route that agrees with the
+   * parsed path at one arity and departs from it at the other. The block
+   * colours are exactly that shape — React Native gives the axis a property of
+   * its own only for colour, and the parsed path collapses onto it only when
+   * both edges agree — so each arity is asserted separately.
+   */
+  test.each([
+    ["border-block-color", "var(--color)", "red"],
+    ["border-block-color", "var(--color) var(--other-color)", "red blue"],
+    ["border-block-width", "var(--width)", "1px"],
+    ["border-block-width", "var(--width) var(--other-width)", "1px 2px"],
+  ])(
+    "%s: %s reaches the same keys as %s",
+    (property, unparsedValue, parsedValue) => {
+      registerCSS(`
+        .unparsed { ${property}: ${unparsedValue}; }
+        .parsed { ${property}: ${parsedValue}; }
+        ${twiceDefined}
+      `);
+
+      render(
+        <View testID="unparsed" className="unparsed">
+          <View testID="parsed" className="parsed" />
+        </View>,
+      );
+
+      expect(styleKeys("unparsed")).toStrictEqual(styleKeys("parsed"));
+    },
+  );
+
+  /**
+   * Why the parity above is a correctness requirement and not a tidiness one.
+   *
+   * Two declarations of the same property have to resolve as one — later wins.
+   * They only can if they land on the same keys: React Native's style object
+   * is flat, so two DISJOINT key sets both survive, and its per-edge
+   * properties outrank the axis one. A route that emitted
+   * `borderBlockStartColor` / `borderBlockEndColor` here would leave the var()
+   * painting both edges while the `green` written after it sat unused under
+   * `borderBlockColor`.
+   */
+  test.each([
+    ["var(--color)", "green", { borderBlockColor: "#008000" }],
+    [
+      "var(--color) var(--other-color)",
+      "green lime",
+      { borderTopColor: "#008000", borderBottomColor: "#0f0" },
+    ],
+  ])(
+    "border-block-color: %s is overridden by a later %s",
+    (unparsedValue, override, expected) => {
+      registerCSS(`
+        .base { border-block-color: ${unparsedValue}; }
+        .override { border-block-color: ${override}; }
+        ${twiceDefined}
+      `);
+
+      render(<View testID={testID} className="base override" />);
+      expect(screen.getByTestId(testID).props.style).toStrictEqual(expected);
+    },
+  );
 });
 
 /**
@@ -754,10 +871,15 @@ describe("the block axis reaching the component", () => {
  * invisible to a hand-written expectation too, because a test author has to
  * already know which of React Native's near-identical logical props exist.
  *
- * `ReactNativeStyleAttributes` is React Native's own answer to that question,
- * so the expectation is DERIVED from it rather than restated here: a React
- * Native release that adds a prop relaxes this test on its own, and one that
- * removes a prop we depend on turns it red without anyone editing a list.
+ * The census below is written out by hand — it has to be, because no type
+ * enumerates "the border keys". What is derived is the CONSTRAINT on it:
+ * `satisfies readonly (keyof ViewStyle)[]` makes React Native's own type the
+ * authority on which names may appear, so a dead key cannot be added here to
+ * make a failing case pass, and a name React Native drops in a later release
+ * turns `yarn typecheck` red without anyone editing a list. A name React
+ * Native ADDS does not appear on its own; widening the census stays a
+ * deliberate edit, which is why the negative control below pins the eleven
+ * names this file exists to keep out.
  */
 describe("no logical border property reaches a key React Native lacks", () => {
   /** Every `border-{inline,block}[-start|-end][-width|-style|-color]`. */

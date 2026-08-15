@@ -289,6 +289,85 @@ describe("logical border shorthands with two values (unparsed path)", () => {
       values: { "border-inline-width": ["3 values (expected 1 or 2)"] },
     });
   });
+
+  /**
+   * A literal beside a var() is the arity the component-value count is
+   * actually decided by. `var(--a) var(--b)` arrives from lightningcss as two
+   * bare var tokens whether or not the separator survives, so it counts to two
+   * either way and cannot see whether whitespace is being filtered out.
+   * `1px var(--b)` keeps its separator, and counts to THREE unless it is.
+   */
+  test.each([
+    ["border-inline-width: 1px var(--b);", "borderStartWidth", 1],
+    ["border-inline-color: red var(--b);", "borderStartColor", "red"],
+  ])("%s splits on the component values, not the tokens", (css, key, value) => {
+    const endKey =
+      key === "borderStartWidth" ? "borderEndWidth" : "borderEndColor";
+
+    expect(getRule(css).rule).toStrictEqual([
+      {
+        s: [1, 1],
+        d: [{ [key]: value }, [[{}, "var", "b", 1], endKey, 1]],
+        dv: 1,
+      },
+    ]);
+  });
+});
+
+/**
+ * `light-dark()` writes its dark branch through the builder from inside
+ * parseUnparsed rather than through the value the parser returns, so it
+ * reaches whatever `descriptorProperties` names rather than the properties the
+ * expansion went on to write. An axis shorthand names more than one, which is
+ * why that field carries a list.
+ *
+ * The native suite covers the rendered result; these assert the emitted rules,
+ * so the compiler plane can see a regression here on its own. The two axes are
+ * both here because they name different targets: the inline axis opens its
+ * dark rule over the edge pair, the block axis over the single axis property.
+ */
+describe("the axis expansion under light-dark() (unparsed path)", () => {
+  test("border-inline-color reaches both edges in each scheme", () => {
+    expect(
+      getRule("border-inline-color: light-dark(var(--a), var(--b));").rule,
+    ).toStrictEqual([
+      {
+        s: [1, 1],
+        d: [
+          [[{}, "var", "a", 1], "borderStartColor", 1],
+          [[{}, "var", "a", 1], "borderEndColor", 1],
+        ],
+        dv: 1,
+      },
+      {
+        s: [1, 1],
+        d: [
+          [[{}, "var", "b", 1], "borderStartColor", 1],
+          [[{}, "var", "b", 1], "borderEndColor", 1],
+        ],
+        dv: 1,
+        m: [["=", "prefers-color-scheme", "dark"]],
+      },
+    ]);
+  });
+
+  test("border-block-color reaches the axis property in each scheme", () => {
+    expect(
+      getRule("border-block-color: light-dark(var(--a), var(--b));").rule,
+    ).toStrictEqual([
+      {
+        s: [1, 1],
+        d: [[[{}, "var", "a", 1], "borderBlockColor", 1]],
+        dv: 1,
+      },
+      {
+        s: [1, 1],
+        d: [[[{}, "var", "b", 1], "borderBlockColor", 1]],
+        dv: 1,
+        m: [["=", "prefers-color-scheme", "dark"]],
+      },
+    ]);
+  });
 });
 
 describe("logical border three-part shorthands via var() (unparsed path)", () => {
@@ -474,17 +553,34 @@ describe("block borders via var() (unparsed path)", () => {
     ]);
   });
 
-  test.each([
-    ["border-block-width", "borderTopWidth", "borderBottomWidth"],
-    ["border-block-color", "borderBlockStartColor", "borderBlockEndColor"],
-  ])("%s expands to both edges", (property, startKey, endKey) => {
-    expect(getRule(`${property}: var(--v);`).rule).toStrictEqual([
+  test("border-block-width expands to both edges", () => {
+    expect(getRule("border-block-width: var(--v);").rule).toStrictEqual([
       {
         s: [1, 1],
         d: [
-          [[{}, "var", "v", 1], startKey, 1],
-          [[{}, "var", "v", 1], endKey, 1],
+          [[{}, "var", "v", 1], "borderTopWidth", 1],
+          [[{}, "var", "v", 1], "borderBottomWidth", 1],
         ],
+        dv: 1,
+      },
+    ]);
+  });
+
+  /**
+   * The block colours are where React Native's support stops being uniform, so
+   * the unparsed path has to make the parsed path's choice rather than a
+   * consistent-looking one of its own: one value collapses onto the axis
+   * property `borderBlockColor`, two split across the physical edges. Picking
+   * `borderBlockStartColor` / `borderBlockEndColor` for either arity would be
+   * a THIRD key set, disjoint from both — see the cascade test below for what
+   * that costs. `border-block-width` needs no such split because
+   * `borderBlockWidth` is in `BaseViewConfig.ios.js` alone.
+   */
+  test("border-block-color takes the axis property for one value", () => {
+    expect(getRule("border-block-color: var(--v);").rule).toStrictEqual([
+      {
+        s: [1, 1],
+        d: [[[{}, "var", "v", 1], "borderBlockColor", 1]],
         dv: 1,
       },
     ]);
@@ -492,7 +588,7 @@ describe("block borders via var() (unparsed path)", () => {
 
   test.each([
     ["border-block-width", "borderTopWidth", "borderBottomWidth"],
-    ["border-block-color", "borderBlockStartColor", "borderBlockEndColor"],
+    ["border-block-color", "borderTopColor", "borderBottomColor"],
   ])("%s: var() var() feeds one edge each", (property, startKey, endKey) => {
     expect(getRule(`${property}: var(--a) var(--b);`).rule).toStrictEqual([
       {

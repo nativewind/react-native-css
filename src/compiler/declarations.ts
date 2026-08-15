@@ -95,16 +95,34 @@ const unsupportedEdgeStyles = new Set([
   "border-inline-end-style",
 ]);
 
-// A var() keeps a logical-border shorthand on the unparsed path, where the
-// parsed parseBorderInline* / parseBorderBlock* never run and propertyRename
-// only maps longhands. These are the two-edge shorthands React Native can
-// express, as the [start, end] pair each expands to. The grammar is
-// `<value>{1,2}`: one component feeds both edges, two feed one edge each.
-const axisExpansion: Record<string, readonly [string, string]> = {
-  "border-block-color": ["border-block-start-color", "border-block-end-color"],
-  "border-block-width": ["border-top-width", "border-bottom-width"],
-  "border-inline-color": ["border-start-color", "border-end-color"],
-  "border-inline-width": ["border-start-width", "border-end-width"],
+/**
+ * Where a two-edge logical shorthand lands once a var() has kept it off the
+ * parsed path, at each arity the grammar `<value>{1,2}` allows.
+ *
+ * `edges` is the [start, end] pair two components feed, one each. One
+ * component normally feeds both, since both edges then carry the same value.
+ *
+ * `axis` is the exception, and it exists because React Native's support is
+ * uneven: `borderBlockColor` is the family's only axis-wide property — there
+ * is no `borderInlineColor`, and `borderBlockWidth` is in
+ * `BaseViewConfig.ios.js` alone — and the parsed path collapses onto it
+ * whenever both block edges agree. The unparsed path has to make the same
+ * choice, because the two key sets are DISJOINT and so both survive the
+ * cascade: emit the pair here and a `borderBlockColor` declared later sits
+ * beside it rather than replacing it, React Native's per-edge properties win,
+ * and the later declaration silently loses.
+ */
+const axisExpansion: Record<
+  string,
+  { readonly edges: readonly [string, string]; readonly axis?: string }
+> = {
+  "border-block-color": {
+    edges: ["border-top-color", "border-bottom-color"],
+    axis: "border-block-color",
+  },
+  "border-block-width": { edges: ["border-top-width", "border-bottom-width"] },
+  "border-inline-color": { edges: ["border-start-color", "border-end-color"] },
+  "border-inline-width": { edges: ["border-start-width", "border-end-width"] },
 };
 
 // Shorthands whose value has to be split after the variable resolves, so the
@@ -615,7 +633,7 @@ export function parseBorderInlineWidth(
  * ignores. The two-value forms name the edge they came from in the warning,
  * so a reader is told which half of the declaration was discarded.
  */
-export function parseUnsupportedEdgeStyle(
+function parseUnsupportedEdgeStyle(
   declaration: DeclarationType<
     | "border-block-style"
     | "border-block-start-style"
@@ -1027,9 +1045,9 @@ export function parseUnparsedDeclaration(
     property = rename;
   }
 
-  const axis = axisExpansion[property];
-  if (axis) {
-    parseUnparsedAxis(declaration.value.value, axis, builder, property);
+  const expansion = axisExpansion[property];
+  if (expansion) {
+    parseUnparsedAxis(declaration.value.value, expansion, builder, property);
     return;
   }
 
@@ -1093,7 +1111,7 @@ function unparsedComponentValues(
  */
 function parseUnparsedAxis(
   tokenOrValues: TokenOrValue[],
-  [startProperty, endProperty]: readonly [string, string],
+  { edges: [startProperty, endProperty], axis }: (typeof axisExpansion)[string],
   builder: StylesheetBuilder,
   property: string,
 ) {
@@ -1101,17 +1119,23 @@ function parseUnparsedAxis(
 
   if (components.length === 1) {
     /**
-     * One component feeds both edges. descriptorProperties carries the pair so
-     * that light-dark(), which writes to the builder from inside parseUnparsed
-     * rather than through the returned value, reaches both edges of the single
-     * extra rule it opens.
+     * One component reaches both edges with the same value, so it lands on the
+     * axis property where React Native has one and on the pair where it does
+     * not — the choice the parsed path makes for the same declaration.
+     * descriptorProperties carries the whole target set so that light-dark(),
+     * which writes to the builder from inside parseUnparsed rather than
+     * through the returned value, reaches all of the single extra rule it
+     * opens.
      */
-    builder.descriptorProperties = [startProperty, endProperty];
+    const targets = axis === undefined ? [startProperty, endProperty] : [axis];
+
+    builder.descriptorProperties = targets;
 
     const value = parseUnparsed(components[0], builder, property);
 
-    builder.addDescriptor(startProperty, value);
-    builder.addDescriptor(endProperty, value);
+    for (const target of targets) {
+      builder.addDescriptor(target, value);
+    }
     return;
   }
 
