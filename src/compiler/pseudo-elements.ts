@@ -48,7 +48,7 @@ export const pseudoElementFieldPolicy = {
 export interface ScopedRule {
   /** The rule to register, or undefined when no declaration survived the scoping */
   rule: StyleRule | undefined;
-  /** React Native properties the pseudo-element cannot express, in declaration order */
+  /** What the pseudo-element cannot express, in declaration order */
   dropped: string[];
 }
 
@@ -82,12 +82,17 @@ export function scopeRuleToPseudoElement(
     scopeDeclaration(declaration, from, to, declarations, dropped);
   }
 
-  // container-name is the only authored declaration that never reaches `d`. Entries in `v`
-  // are the compiler's own --__rn-css-* mirrors of a `d` declaration already reported here,
-  // and `a` is a flag over animation/transition declarations reported the same way
+  // `c` and `v` are the fields an authored declaration reaches without passing through `d`.
+  // Every `c` entry comes from container-name, container-type or the container shorthand, so
+  // the report names the family rather than picking one of the three. `a` is only ever set
+  // beside the `d` entry that set it, so it is already reported through that entry
   if (rule.c?.length) {
-    dropped.push("container-name");
+    dropped.push("container");
   }
+
+  // `v` is not reported. It holds the compiler's own --__rn-css-* mirrors of a `d`
+  // declaration already reported here, and also any authored custom property, so a `--x`
+  // written inside a pseudo-element is dropped silently
 
   if (!declarations.length) {
     return { rule: undefined, dropped };
@@ -115,8 +120,7 @@ function scopeDeclaration(
   dropped: string[],
 ): void {
   if (Array.isArray(declaration)) {
-    const path = declaration[1];
-    const property = Array.isArray(path) ? path.join(".") : path;
+    const property = toPropertyName(declaration[1]);
 
     if (property !== from) {
       dropped.push(property);
@@ -139,6 +143,29 @@ function scopeDeclaration(
       dropped.push(property);
     }
   }
+}
+
+/**
+ * The React Native property a declaration writes, spelled the way the runtime reads it. A
+ * leading `&` marks a path written at the top level rather than nested under its first
+ * segment, so it is routing rather than part of the name, and a `[n]` segment is an index
+ */
+function toPropertyName(path: string | string[]): string {
+  if (!Array.isArray(path)) {
+    return path;
+  }
+
+  return path.reduce((name, segment, index) => {
+    if (index === 0 && segment === "&") {
+      return name;
+    }
+
+    if (segment.startsWith("[")) {
+      return `${name}${segment}`;
+    }
+
+    return name ? `${name}.${segment}` : segment;
+  }, "");
 }
 
 function usesVariables(declaration: StyleDeclaration): boolean {

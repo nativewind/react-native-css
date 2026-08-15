@@ -119,15 +119,100 @@ describe("::selection", () => {
     expect(warnings.values?.["::selection"]).toContain("transitionProperty");
   });
 
-  test("container-name does not make the element a container", () => {
-    // container-name is the one authored declaration that never reaches `d`
+  test.each([
+    "container-name: foo",
+    "container-type: inline-size",
+    "container: foo / inline-size",
+  ])("`%s` does not make the element a container", (declaration) => {
+    // All three reach `c` without passing through `d`, and `c` records only the name, so the
+    // report names the family rather than claiming the user wrote one of the three
     expect(
       compileFor(
-        `.a::selection { background-color: #ff0000; container-name: foo; }`,
+        `.a::selection { background-color: #ff0000; ${declaration}; }`,
       ),
     ).toStrictEqual({
       rules: [{ d: [["#f00", ["selectionColor"]]] }],
-      warnings: { values: { "::selection": ["container-name"] } },
+      warnings: { values: { "::selection": ["container"] } },
+    });
+  });
+
+  test("container-name: none registers no container and reports no drop", () => {
+    // `none` empties `c` rather than leaving it absent, so a report guarded on the field
+    // rather than on its entries would warn about a container that was never registered
+    expect(
+      compileFor(
+        `.a::selection { background-color: #ff0000; container-name: none; }`,
+      ),
+    ).toStrictEqual({
+      rules: [{ d: [["#f00", ["selectionColor"]]] }],
+      warnings: {},
+    });
+  });
+
+  test("every declaration is scoped, not only the first", () => {
+    // A static object and a style-function tuple are separate `d` entries. Every other case
+    // here has one entry, so this is the shape where scoping the first and stopping is
+    // invisible: `background-color` survives either way and only `transform` says otherwise
+    expect(
+      compileFor(
+        `.a::selection { background-color: #ff0000; transform: translateX(1px); }`,
+      ),
+    ).toStrictEqual({
+      rules: [{ d: [["#f00", ["selectionColor"]]] }],
+      warnings: { values: { "::selection": ["transform"] } },
+    });
+  });
+
+  test("a nested property path is reported the way the runtime reads it", () => {
+    // `&` routes a path to the top level instead of nesting it under its first segment, and
+    // `[n]` is an index. Neither is part of the property, and a user cannot act on either
+    expect(
+      compileFor(`.a::selection { text-shadow: 1px 2px 3px red; }`).warnings,
+    ).toStrictEqual({
+      values: {
+        "::selection": [
+          "textShadowColor",
+          "textShadowRadius",
+          "textShadowOffset.width",
+          "textShadowOffset.height",
+        ],
+      },
+    });
+
+    expect(
+      compileFor(`.a::selection { box-shadow: 1px 2px 3px red; }`).warnings,
+    ).toStrictEqual({
+      values: {
+        "::selection": [
+          "boxShadow[0].color",
+          "boxShadow[0].offsetX",
+          "boxShadow[0].offsetY",
+          "boxShadow[0].blurRadius",
+          "boxShadow[0].spreadDistance",
+        ],
+      },
+    });
+  });
+
+  test("a delayed declaration that reads no variable does not set dv", () => {
+    // `em` makes a declaration delayed without making it variable-driven. `dv` is the
+    // variable subscription, so rebuilding it from the delay flag would have the runtime
+    // resolve variables this declaration never reads
+    expect(
+      compileFor(`.a::selection { background-color: hsl(calc(1em) 50% 50%); }`),
+    ).toStrictEqual({
+      rules: [
+        {
+          d: [
+            [
+              [{}, "hsl", [[{}, "calc", [[{}, "em", 1, 1]]], "50%", "50%"]],
+              ["selectionColor"],
+              1,
+            ],
+          ],
+        },
+      ],
+      warnings: {},
     });
   });
 
@@ -182,6 +267,18 @@ describe("::selection", () => {
     );
 
     expect(warnings).toStrictEqual({ values: { "::selection": ["width"] } });
+  });
+
+  test("each pseudo-element in one authored rule reports its own drops", () => {
+    // The counterpart of the dedupe above: it is keyed by pseudo-element, so one authored
+    // rule that expands to two DIFFERENT pseudo-elements reports under both
+    const { warnings } = compileFor(
+      `.a::selection, .b::placeholder { width: 10px; }`,
+    );
+
+    expect(warnings).toStrictEqual({
+      values: { "::selection": ["width"], "::placeholder": ["width"] },
+    });
   });
 
   test("the README example compiles to what the README says", () => {

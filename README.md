@@ -246,7 +246,7 @@ React Native has no pseudo-elements. It has two props that stand in for one decl
 
 `::selection { background-color }`, not `::selection { color }`. In CSS `color` inside `::selection` is the colour of the selected text and `background-color` is the band painted behind it; React Native's `selectionColor` is that band.
 
-Every other declaration inside a pseudo-element is dropped, and the compiler reports it:
+Every other declaration inside a pseudo-element is dropped:
 
 ```css
 .input::selection {
@@ -255,6 +255,8 @@ Every other declaration inside a pseudo-element is dropped, and the compiler rep
   width: 10px; /* dropped */
 }
 ```
+
+The compiler records each drop, but nothing in the Metro pipeline reads that record — a `expo start` build prints nothing, and the only thing you observe is that the declaration has no effect on native. Two places do read it: `compile()`, and a jest test through `registerCSS(css, { debug: true })`.
 
 ```js
 compile(css).warnings();

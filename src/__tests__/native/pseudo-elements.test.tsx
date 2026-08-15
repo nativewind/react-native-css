@@ -133,7 +133,7 @@ test("::selection { background-color: var() } still resolves an inherited variab
   });
 });
 
-test("::placeholder { color } reaches placeholderTextColor and nothing else", () => {
+test("::placeholder { color } does not publish currentcolor to the subtree", () => {
   // `color` IS the mapped declaration here, and it still mirrors into --__rn-css-color: the
   // placeholder's colour must not become the input's currentColor
   registerCSS(`
