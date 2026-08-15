@@ -59,8 +59,9 @@ type ExtractStyleObject<T> = RemoveRegisteredStyle<
 // its own props, and those props hold refs again, so the prop graph is cyclic. Walking
 // it yields paths that can never be a mapping target, and the path set grows
 // exponentially with depth: `ScrollViewProps["scrollViewRef"]` alone contributes 4,654
-// such paths, which is enough to overflow TypeScript's union limit on react-native
-// >=0.86. Treating the instance as a leaf cuts the cycle where it starts.
+// such paths on react-native 0.81, and from 0.83 the host instance surface is wide
+// enough that building the union overflows TypeScript's limit. Treating the instance as
+// a leaf cuts the cycle where it starts.
 type IsPlainObject<T> = T extends object
   ? T extends Function
     ? false

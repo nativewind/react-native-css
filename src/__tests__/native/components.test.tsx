@@ -122,7 +122,7 @@ test("a prop holding a component instance is a dot-notation leaf", () => {
   // carries `ScrollViewProps` again, so the prop graph is cyclic. Enumerating it
   // produces paths that can never be a mapping target, and enough of them that
   // `StyledConfiguration<typeof ScrollView>`, and every component built on it, stops
-  // compiling with TS2590 on react-native >=0.86.
+  // compiling with TS2590 on react-native >=0.83.
   const reachable: ComponentPropsDotNotation<typeof RNScrollView>[] = [
     "scrollViewRef",
     "scrollViewRef.current",

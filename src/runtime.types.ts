@@ -144,8 +144,8 @@ export type RNStyle = ViewStyle & TextStyle & ImageStyle;
  * `react-native` range.
  *
  * This deliberately does not reuse `react-native`'s own `ColorSchemeName`: that type
- * is not stable across the `react-native` peer range. Up to 0.85 it is
- * `"light" | "dark" | null | undefined`; from 0.86 it is
+ * is not stable across the `react-native` peer range. On 0.81 it is
+ * `"light" | "dark" | null | undefined`; from 0.82 it is
  * `"light" | "dark" | "unspecified"`. Owning the union keeps `colorScheme` one API
  * across the whole range, and accepts whichever spelling the installed version emits.
  */
