@@ -1,7 +1,7 @@
 import type { SelectorList } from "lightningcss";
 
 import {
-  isStyleDescriptorArray,
+  postProcessStyleFunction,
   Specificity,
   specificityCompareFn,
 } from "../utilities";
@@ -22,8 +22,9 @@ import type {
   VariableValue,
 } from "./compiler.types";
 import {
-  modifyRuleForPlaceholder,
-  modifyRuleForSelection,
+  getPseudoElement,
+  scopeRuleToPseudoElement,
+  type PseudoElement,
 } from "./pseudo-elements";
 import { getClassNameSelectors, toRNProperty } from "./selector-builder";
 
@@ -447,15 +448,31 @@ export class StylesheetBuilder {
       this.options,
     );
 
+    const warnedPseudoElements = new Set<PseudoElement>();
+
     for (const selector of normalizedSelectors) {
       // We are going to be apply the current rule to n selectors, so we clone the rule
       let rule: StyleRule | undefined = this.cloneRule(this.rule);
 
       if (selector.type === "className" && selector.pseudoElementQuery) {
-        if (selector.pseudoElementQuery.includes("selection")) {
-          rule = modifyRuleForSelection(rule);
-        } else if (selector.pseudoElementQuery.includes("placeholder")) {
-          rule = modifyRuleForPlaceholder(rule);
+        const pseudoElement = getPseudoElement(selector.pseudoElementQuery);
+
+        if (pseudoElement) {
+          const scoped = scopeRuleToPseudoElement(rule, pseudoElement);
+
+          // A supported property dropped for being in the wrong scope warns like an
+          // unsupported one, keyed by the pseudo-element it was scoped out of. Every
+          // selector scopes the same clone, so one authored rule reports once however
+          // many selectors it expands to
+          if (!warnedPseudoElements.has(pseudoElement)) {
+            warnedPseudoElements.add(pseudoElement);
+
+            for (const property of scoped.dropped) {
+              this.addWarning("style", `::${pseudoElement}`, property);
+            }
+          }
+
+          rule = scoped.rule;
         }
       }
 
@@ -615,40 +632,6 @@ function isStyleFunction(
       typeof value[0] === "object" &&
       Object.keys(value[0]).length === 0,
   );
-}
-
-function postProcessStyleFunction(value: StyleDescriptor): [
-  // Should it be delayed
-  boolean,
-  // Does it use variables
-  boolean,
-] {
-  if (!Array.isArray(value)) {
-    return [false, false];
-  }
-
-  if (isStyleDescriptorArray(value)) {
-    let shouldDelay = false;
-    let usesVariables = false;
-    for (const v of value) {
-      const [delayed, variables] = postProcessStyleFunction(v);
-      shouldDelay ||= delayed;
-      usesVariables ||= variables;
-    }
-
-    return [shouldDelay, usesVariables];
-  }
-
-  let [shouldDelay, usesVariables] = postProcessStyleFunction(value[2]);
-
-  usesVariables ||= value[1] === "var";
-  shouldDelay ||= value[3] === 1 || usesVariables;
-
-  if (shouldDelay) {
-    return [true, usesVariables];
-  }
-
-  return [false, false];
 }
 
 function allEqual(...params: unknown[]) {

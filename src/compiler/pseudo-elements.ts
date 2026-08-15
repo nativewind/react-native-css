@@ -1,54 +1,187 @@
-import { isStyleFunction } from "../utilities";
+import { postProcessStyleFunction } from "../utilities";
 import type { StyleDeclaration, StyleRule } from "./compiler.types";
 
-export function modifyRuleForSelection(rule: StyleRule): StyleRule | undefined {
-  if (!rule.d) {
-    return;
-  }
+/**
+ * The one declaration each pseudo-element can express on the host component, and the
+ * React Native prop it becomes.
+ *
+ * ::selection maps background-color, not color: in CSS `::selection { color }` is the
+ * selected TEXT, while selectionColor is the band painted behind it
+ */
+const pseudoElementProp = {
+  selection: ["backgroundColor", "selectionColor"],
+  placeholder: ["color", "placeholderTextColor"],
+} as const satisfies Record<string, readonly [string, string]>;
 
-  rule.d = rule.d.flatMap((declaration): StyleDeclaration[] => {
-    return modifyStyleDeclaration(declaration, "color", "selectionColor");
-  });
+export type PseudoElement = keyof typeof pseudoElementProp;
 
-  return rule;
+/**
+ * The namespace the compiler mints its own custom properties in. `color` and `font-size`
+ * mirror into `--__rn-css-color` / `--__rn-css-em` so the runtime can resolve currentColor and
+ * em, and `direction` into `--__rn-css-direction`
+ */
+export const compilerVariablePrefix = "__rn-css-";
+
+const pseudoElements: PseudoElement[] = Object.keys(pseudoElementProp).filter(
+  (key): key is PseudoElement => key in pseudoElementProp,
+);
+
+/**
+ * What scoping does with each StyleRule field. A `selector` field describes which elements
+ * the rule matches and is carried over; a `rebuilt` field is recomputed from the declarations
+ * that survive; a `dropped` field belongs to the pseudo-element and never reaches the host.
+ *
+ * `satisfies` makes this total over StyleRule, so a new field fails to compile until it is
+ * classified. That is what stops the next declaration-derived field escaping the
+ * pseudo-element the way `v`, `c`, `dv` and `a` did while only `d` was rewritten
+ */
+export const pseudoElementFieldPolicy = {
+  s: "selector",
+  m: "selector",
+  p: "selector",
+  cq: "selector",
+  aq: "selector",
+  d: "rebuilt",
+  dv: "rebuilt",
+  v: "dropped",
+  c: "dropped",
+  a: "dropped",
+  target: "dropped",
+} as const satisfies Record<
+  keyof StyleRule,
+  "selector" | "rebuilt" | "dropped"
+>;
+
+export interface ScopedRule {
+  /** The rule to register, or undefined when no declaration survived the scoping */
+  rule: StyleRule | undefined;
+  /** What the pseudo-element cannot express, in declaration order */
+  dropped: string[];
 }
 
-export function modifyRuleForPlaceholder(
+export function getPseudoElement(
+  pseudoElementQuery: string[],
+): PseudoElement | undefined {
+  for (const pseudoElement of pseudoElements) {
+    if (pseudoElementQuery.includes(pseudoElement)) {
+      return pseudoElement;
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Rebuild a rule so it carries only what the pseudo-element can express: the one mapped
+ * declaration, under the selector's own conditions. Every other declaration is the
+ * pseudo-element's own and would paint the host element if it were carried over
+ */
+export function scopeRuleToPseudoElement(
   rule: StyleRule,
-): StyleRule | undefined {
-  if (!rule.d) {
-    return;
+  pseudoElement: PseudoElement,
+): ScopedRule {
+  const [from, to] = pseudoElementProp[pseudoElement];
+
+  const declarations: StyleDeclaration[] = [];
+  const dropped: string[] = [];
+
+  for (const declaration of rule.d ?? []) {
+    scopeDeclaration(declaration, from, to, declarations, dropped);
   }
 
-  rule.d = rule.d.flatMap((declaration): StyleDeclaration[] => {
-    return modifyStyleDeclaration(declaration, "color", "placeholderTextColor");
-  });
+  // `v` and `c` are the fields an authored declaration reaches without passing through `d`.
+  // A `v` entry is reported under the name it was written with, minus the compiler's own
+  // mirrors: each of those sits beside a `d` declaration the loop above already reported, so
+  // naming them would add a variable the user never wrote to every rule that sets a colour or
+  // a font size. Every `c` entry comes from container-name, container-type or the container
+  // shorthand, so the report names the family rather than picking one of the three. `a` is
+  // only ever set beside the `d` entry that set it, so it is already reported through that
+  for (const [name] of rule.v ?? []) {
+    if (!name.startsWith(compilerVariablePrefix)) {
+      dropped.push(`--${name}`);
+    }
+  }
 
-  return rule;
+  if (rule.c?.length) {
+    dropped.push("container");
+  }
+
+  if (!declarations.length) {
+    return { rule: undefined, dropped };
+  }
+
+  const scoped: StyleRule = { s: rule.s, d: declarations };
+
+  if (rule.m) scoped.m = rule.m;
+  if (rule.p) scoped.p = rule.p;
+  if (rule.cq) scoped.cq = rule.cq;
+  if (rule.aq) scoped.aq = rule.aq;
+
+  if (declarations.some(usesVariables)) {
+    scoped.dv = 1;
+  }
+
+  return { rule: scoped, dropped };
 }
 
-function modifyStyleDeclaration(
+function scopeDeclaration(
   declaration: StyleDeclaration,
   from: string,
   to: string,
-): StyleDeclaration[] {
+  declarations: StyleDeclaration[],
+  dropped: string[],
+): void {
   if (Array.isArray(declaration)) {
-    if (isStyleFunction(declaration) && declaration[2] === from) {
-      declaration = [...declaration] as StyleDeclaration;
-      declaration[2] = [to];
-      return [declaration];
-    } else if (declaration[1] === from) {
-      declaration = [...declaration] as StyleDeclaration;
-      declaration[1] = [to];
-      return [declaration];
-    }
-  } else if (typeof declaration === "object") {
-    const { color: selectionColor, ...rest } = declaration;
+    const property = toPropertyName(declaration[1]);
 
-    if (selectionColor) {
-      return [rest, [selectionColor, [to]]] as StyleDeclaration[];
+    if (property !== from) {
+      dropped.push(property);
+      return;
     }
+
+    declarations.push(
+      declaration.length === 3
+        ? [declaration[0], [to], declaration[2]]
+        : [declaration[0], [to]],
+    );
+
+    return;
   }
 
-  return [declaration];
+  for (const [property, value] of Object.entries(declaration)) {
+    if (property === from) {
+      declarations.push([value, [to]]);
+    } else {
+      dropped.push(property);
+    }
+  }
+}
+
+/**
+ * The React Native property a declaration writes, spelled the way the runtime reads it. A
+ * leading `&` marks a path written at the top level rather than nested under its first
+ * segment, so it is routing rather than part of the name, and a `[n]` segment is an index
+ */
+function toPropertyName(path: string | string[]): string {
+  if (!Array.isArray(path)) {
+    return path;
+  }
+
+  return path.reduce((name, segment, index) => {
+    if (index === 0 && segment === "&") {
+      return name;
+    }
+
+    if (segment.startsWith("[")) {
+      return `${name}${segment}`;
+    }
+
+    return name ? `${name}.${segment}` : segment;
+  }, "");
+}
+
+function usesVariables(declaration: StyleDeclaration): boolean {
+  return (
+    Array.isArray(declaration) && postProcessStyleFunction(declaration[0])[1]
+  );
 }
