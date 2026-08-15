@@ -41,6 +41,22 @@ jobs:
       - name: Run unit tests
         run: yarn test --maxWorkers=2 --coverage
 
+  # The babel plugin, the metro resolver and the compiler all join and compare
+  # file paths. A separator or drive-letter bug in any of them is invisible to a
+  # POSIX runner and breaks every Windows contributor, so the unit suite runs
+  # here too. Coverage is left to the ubuntu job; this one only needs to fail.
+  test-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Run unit tests
+        run: yarn test --maxWorkers=2
+
   build-library:
     runs-on: ubuntu-latest
     steps:

@@ -41,6 +41,12 @@ Verify CSS → JSON compilation output structure.
 
 Test runtime style application on native platform.
 
+> A `:root` custom property with exactly one declaration is inlined by the
+> `inlineVariables` compiler pass and never reaches the runtime, so a test
+> written that way passes with the runtime registry deleted. Declare it with
+> `dynamicRootVariables` from `react-native-css/jest`. See the Testing section
+> of `DEVELOPMENT.md`.
+
 ## Steps
 
 1. **Identify the feature**: What needs testing? Use `$ARGUMENTS` as the starting point.

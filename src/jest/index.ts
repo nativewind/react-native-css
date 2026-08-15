@@ -55,6 +55,48 @@ export function registerCSS(
   return compiled;
 }
 
+// Wide enough that no test viewport matches it. Both declarations carry the
+// same value, so the resolved value does not depend on that staying true.
+const NEVER_MATCHES = "(min-width: 999999px)";
+
+/**
+ * Declares `:root` custom properties in a form that reaches the runtime
+ * variable registry.
+ *
+ * `inlineVariables` (`src/compiler/inline-variables.ts`) inlines a custom
+ * property that has exactly one **declaration**, so `:root { --my-var: red }`
+ * compiles to a literal with no root variable entry at all. Use count does not
+ * save it — one declaration read from ten rules is still inlined. A test
+ * written that way asserts the inliner and passes with the runtime registry
+ * deleted. A second declaration keeps the property dynamic, so `var()` stays a
+ * descriptor the runtime has to resolve.
+ *
+ * Use this whenever a test's subject is the runtime, not the inliner:
+ *
+ * ```ts
+ * registerCSS(`
+ *   ${dynamicRootVariables({ "--my-var": "10px" })}
+ *   .my-class { width: var(--my-var); }
+ * `);
+ * ```
+ *
+ * Real stylesheets usually reach this shape on their own — a `.dark` override
+ * or a themed media query is a second declaration. Compiling with
+ * `{ inlineVariables: false }` also works, but it turns the pass off for the
+ * whole stylesheet and tests a configuration users do not run; prefer this.
+ */
+export function dynamicRootVariables(
+  variables: Record<string, string | number>,
+): string {
+  const declarations = Object.entries(variables)
+    .map(([name, value]) => {
+      return `${name.startsWith("--") ? name : `--${name}`}: ${value};`;
+    })
+    .join(" ");
+
+  return `:root { ${declarations} } @media ${NEVER_MATCHES} { :root { ${declarations} } }`;
+}
+
 export function compileWithAutoDebug(
   css: string,
   {

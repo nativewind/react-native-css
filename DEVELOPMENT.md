@@ -124,6 +124,49 @@ yarn example start:debug # Rebuild + start with debug logging
 - **Run specific suites:** `yarn test babel`, `yarn test compiler`
 - Ignore `ExperimentalWarning: VM Modules` warnings — expected with ESM support
 
+### Custom properties in tests: use `dynamicRootVariables`
+
+The `inlineVariables` pass (`src/compiler/inline-variables.ts`) inlines a custom
+property that has exactly **one declaration**. This:
+
+```css
+:root { --my-var: #123456; }
+.my-class { color: var(--my-var); }
+```
+
+compiles to `color: #123456` with **no root variable entry at all** — the
+`var()` is gone before the runtime ever sees it. A test written that way
+asserts the inliner, not the runtime, and it keeps passing with the runtime
+variable registry deleted.
+
+Reading the property from more rules does not help: the pass counts
+declarations, not uses. A second **declaration** is what keeps it dynamic —
+which is why real stylesheets rarely hit this (a `.dark` override or a themed
+media query is a second declaration) and hand-written test CSS usually does.
+
+When the subject of your test is the runtime, declare the property through the
+helper, which emits a second guarded declaration to keep it dynamic:
+
+```ts
+import { dynamicRootVariables, registerCSS } from "react-native-css/jest";
+
+registerCSS(`
+  ${dynamicRootVariables({ "--my-var": "10px" })}
+  .my-class { width: var(--my-var); }
+`);
+```
+
+Rendering the component is not enough to tell the two apart: the inlined literal
+and the resolved variable produce the same style, so both forms render green.
+Assert on the compiled stylesheet — a dynamic property has a `vr` entry and a
+`var` descriptor in `d` — or verify by deleting the registry and watching the
+test go red. `src/__tests__/native/dynamic-root-variables.test.tsx` pins both
+the inliner and the helper.
+
+Compiling with `{ inlineVariables: false }` also keeps the property dynamic, but
+it turns the pass off for the whole stylesheet and tests a configuration users
+do not run. Reach for it only when the inliner itself is the subject.
+
 ## Code Conventions
 
 - TypeScript throughout
@@ -137,5 +180,6 @@ yarn example start:debug # Rebuild + start with debug logging
 - **No npm** — this repo uses Yarn workspaces; `npm install` will not work
 - **No rebuild watch** — use `yarn example start:build` to rebuild + start in one command
 - **Metro transformer / Babel plugin changes require full rebuild** — no fast refresh for these
+- **A single `:root` declaration never reaches the runtime** — `inlineVariables` inlines it at compile time; use `dynamicRootVariables` in tests (see [Testing](#custom-properties-in-tests-use-dynamicrootvariables))
 - **native-internal exists to break circular deps** — don't import directly from `native/` in CSS file outputs; use `native-internal/`
 - **Nested node_modules in example/** — can cause Metro issues; ensure dependency versions match root
