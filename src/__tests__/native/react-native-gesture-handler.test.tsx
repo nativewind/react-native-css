@@ -1,120 +1,33 @@
 import type { ComponentType } from "react";
+import { DrawerLayoutAndroid as RNDrawerLayoutAndroid } from "react-native";
 
 import { render } from "@testing-library/react-native";
 import * as StyledRNGH from "react-native-css/components/react-native-gesture-handler";
 import { registerCSS, testID } from "react-native-css/jest";
 import * as RNGH from "react-native-gesture-handler";
 
-interface RenderedNode {
-  props: Record<string, unknown>;
-  children: RenderedNode[] | null;
-}
-
-function collectProps(node: unknown): Record<string, unknown>[] {
-  if (node === null || typeof node !== "object") {
-    return [];
-  }
-
-  if (Array.isArray(node)) {
-    return node.flatMap((child) => collectProps(child));
-  }
-
-  const { props, children } = node as RenderedNode;
-
-  return [props, ...collectProps(children)];
-}
-
-/**
- * Every style object in the tree, at any array depth. The merge nests — a Pressable
- * carrying both `className` and `style` renders `[{}, [{…}, {…}]]` — so flattening a
- * single level would report an absence that is really a depth.
- */
-function flattenStyles(node: unknown): Record<string, unknown>[] {
-  const collect = (style: unknown): Record<string, unknown>[] => {
-    if (Array.isArray(style)) {
-      return style.flatMap((entry) => collect(entry));
-    }
-
-    return style !== null && typeof style === "object"
-      ? [style as Record<string, unknown>]
-      : [];
-  };
-
-  return collectProps(node).flatMap((props) => collect(props.style));
-}
+import {
+  collectProps,
+  deprecatedByGestureHandler,
+  deriveExcludedComponents,
+  deriveReDeclared,
+  flattenStyles,
+  gestureHandlers,
+  notAComponent,
+  reachedByTheRewrite,
+  reasonedExclusions,
+  requiredProps,
+  unobservable,
+} from "../_gesture-handler";
 
 const styledExports = StyledRNGH as unknown as Record<string, unknown>;
 const gestureHandlerExports = RNGH as unknown as Record<string, unknown>;
 
-/**
- * Derived from the module, not restated: a member this wrapper re-declares is one whose
- * export is no longer the one `export *` would have provided. Every case below is
- * generated from this, so a sixth re-declaration is covered the moment it lands.
- */
-const reDeclared: string[] = Object.keys(styledExports)
-  .filter((name) => styledExports[name] !== gestureHandlerExports[name])
-  .sort();
-
-/**
- * The exclusion register, executable. Every remaining gesture-handler export sits in one
- * of these groups with its reason, so a member can be neither re-declared nor excluded
- * only by failing the accounting test below — which is how `PureNativeButton`, a sixth
- * member of the button family, went unnoticed.
- */
-const notAComponent = [
-  "Directions",
-  "Gesture",
-  "GestureDetector",
-  "GestureHandlerRootView",
-  "HoverEffect",
-  "MouseButton",
-  "PointerType",
-  "State",
-  "createNativeWrapper",
-  "enableExperimentalWebImplementation",
-  "enableLegacyWebImplementation",
-  "gestureHandlerRootHOC",
-];
-
-/** Handlers wrap a child; they render no view of their own for a style to land on. */
-const gestureHandlers = [
-  "FlingGestureHandler",
-  "ForceTouchGestureHandler",
-  "LongPressGestureHandler",
-  "NativeViewGestureHandler",
-  "PanGestureHandler",
-  "PinchGestureHandler",
-  "RotationGestureHandler",
-  "TapGestureHandler",
-];
-
-/** Reached by the `react-native` rewrite already — see the rewrite test alongside this. */
-const reachedByTheRewrite = [
-  "FlatList",
-  "ScrollView",
-  "Switch",
-  "Text",
-  "TextInput",
-];
-
-/** className is dropped, and gesture-handler marks every one `@deprecated`. */
-const deprecatedByGestureHandler = [
-  "DrawerLayout",
-  "Swipeable",
-  "TouchableHighlight",
-  "TouchableNativeFeedback",
-  "TouchableOpacity",
-  "TouchableWithoutFeedback",
-];
-
-/** className is dropped, and no test at this tier can observe a fix — see below. */
-const unobservable = ["RefreshControl"];
-
-/** Props a component will not render at all without. */
-const requiredProps: Record<string, Record<string, unknown>> = {
-  DrawerLayout: { renderNavigationView: () => null },
-  DrawerLayoutAndroid: { renderNavigationView: () => null },
-};
+const reDeclared = deriveReDeclared(styledExports, gestureHandlerExports);
+const excludedComponents = deriveExcludedComponents(
+  gestureHandlerExports,
+  reDeclared,
+);
 
 /** Each component gets a width no other test uses, so "the style reached the tree" is exact. */
 const cases: [name: string, width: number][] = reDeclared.map((name, index) => [
@@ -135,10 +48,7 @@ test("every gesture-handler export is either re-declared or excluded with a reas
   const accounted = new Set([
     ...reDeclared,
     ...notAComponent,
-    ...gestureHandlers,
-    ...reachedByTheRewrite,
-    ...deprecatedByGestureHandler,
-    ...unobservable,
+    ...reasonedExclusions,
   ]);
 
   expect(
@@ -255,15 +165,59 @@ test("resolves a function style beside className on Pressable", () => {
 });
 
 test("re-exports the members it does not re-declare", () => {
-  for (const name of [
-    ...notAComponent,
-    ...gestureHandlers,
-    ...reachedByTheRewrite,
-    ...deprecatedByGestureHandler,
-    ...unobservable,
-  ]) {
+  for (const name of [...notAComponent, ...reasonedExclusions]) {
     expect(styledExports[name]).toBe(gestureHandlerExports[name]);
   }
+});
+
+/**
+ * The register says `className` is DROPPED on the members it does not re-declare.
+ * Dropped and leaked are different failures and only one of them is what the register
+ * claims: `PureNativeButton` — the sixth member of the button family, absent from the
+ * first five by omission — rendered `{"type":"RNGestureHandlerButton","props":
+ * {"className":"pnb"}}`, putting the raw class string on a codegen'd native view.
+ *
+ * The census is derived from the module rather than from the reason buckets, so a
+ * seventh omission is rendered and held to the invariant here on the commit that
+ * introduces it, without anybody having to notice a name is missing from a list.
+ */
+const droppedWithoutTheRewrite = excludedComponents.filter(
+  (name) => !reachedByTheRewrite.includes(name),
+);
+
+test("every census a describe.each reads is non-empty", () => {
+  // A narrowed export surface, or a bucket emptied in a refactor, would generate no
+  // cases at all and every block below would silently assert nothing.
+  expect(reDeclared.length).toBeGreaterThan(0);
+  expect(excludedComponents.length).toBeGreaterThan(0);
+  expect(droppedWithoutTheRewrite.length).toBeGreaterThan(0);
+  expect(reachedByTheRewrite.length).toBeGreaterThan(0);
+  expect(gestureHandlers.length).toBeGreaterThan(0);
+  expect(deprecatedByGestureHandler.length).toBeGreaterThan(0);
+  expect(unobservable.length).toBeGreaterThan(0);
+});
+
+describe.each(droppedWithoutTheRewrite)("%s", (name) => {
+  test("drops className rather than leaking it onto a rendered element", () => {
+    registerCSS(`.w-93 { width: 93px; }`);
+
+    const Component = styledExports[name] as ComponentType<
+      Record<string, unknown>
+    >;
+    const tree = render(
+      <Component
+        testID={testID}
+        className="w-93"
+        {...(requiredProps[name] ?? {})}
+      >
+        <RNGH.Text>child</RNGH.Text>
+      </Component>,
+    ).toJSON();
+
+    for (const props of collectProps(tree)) {
+      expect(props).not.toHaveProperty("className");
+    }
+  });
 });
 
 describe.each(deprecatedByGestureHandler)("%s", (name) => {
@@ -273,7 +227,8 @@ describe.each(deprecatedByGestureHandler)("%s", (name) => {
     // Pins the exclusion register: these are not re-declared because gesture-handler
     // marks them `@deprecated`, NOT because the rewrite reaches them. It does not —
     // `components/index.cts` has no styled twin for `TouchableNativeFeedback`, and
-    // the other five are gesture-handler's own components.
+    // the other five are gesture-handler's own components. The rewrite suite pins
+    // that missing twin by object identity.
     registerCSS(`.w-91 { width: 91px; }`);
 
     const Component = styledExports[name] as ComponentType<
@@ -289,6 +244,46 @@ describe.each(deprecatedByGestureHandler)("%s", (name) => {
       expect.objectContaining({ width: 91 }),
     );
   });
+});
+
+/**
+ * The other half of the register, and the reason the rewrite suite is not a
+ * restatement of this one: WITHOUT the rewrite these five put the raw class string
+ * on the element, exactly as `PureNativeButton` did. They are excluded because the
+ * rewrite substitutes a styled react-native primitive underneath them, so what makes
+ * the exclusion true is a thing this file cannot see — measured here as the failure
+ * it becomes when that substitution is absent.
+ */
+describe.each(reachedByTheRewrite)("%s", (name) => {
+  test("leaks className without the rewrite, which is what the rewrite is for", () => {
+    registerCSS(`.w-94 { width: 94px; }`);
+
+    const Component = styledExports[name] as ComponentType<
+      Record<string, unknown>
+    >;
+    const tree = render(
+      <Component
+        testID={testID}
+        className="w-94"
+        {...(requiredProps[name] ?? {})}
+      />,
+    ).toJSON();
+
+    expect(
+      collectProps(tree).filter((props) => Object.hasOwn(props, "className")),
+    ).not.toEqual([]);
+  });
+});
+
+test("gesture-handler's DrawerLayoutAndroid is its own component, not a re-export", () => {
+  // The exclusion this replaces read "components/index.cts re-exports these straight
+  // from react-native, so there is no styled twin for them to inherit from" — which
+  // assumed gesture-handler hands back react-native's component. It wraps it in
+  // `createNativeWrapper` instead, so the rewrite never sees a `react-native`
+  // specifier here at all and the class was dropped on a component nothing reached.
+  expect(gestureHandlerExports.DrawerLayoutAndroid).not.toBe(
+    RNDrawerLayoutAndroid,
+  );
 });
 
 test("RefreshControl carries no props a test at this tier could read", () => {

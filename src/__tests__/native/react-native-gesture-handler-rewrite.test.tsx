@@ -3,6 +3,14 @@ import type { ComponentType } from "react";
 import { render } from "@testing-library/react-native";
 import { registerCSS, testID } from "react-native-css/jest";
 
+import {
+  collectProps,
+  deprecatedByGestureHandler,
+  flattenStyles,
+  reachedByTheRewrite,
+  requiredProps,
+} from "../_gesture-handler";
+
 /**
  * `nativeResolver` rewrites every `react-native` import outside this package to
  * `react-native-css/components` — react-native's own exports with the styled
@@ -31,74 +39,42 @@ jest.mock("react-native", (): Record<string, unknown> => {
   }
 });
 
-interface RenderedNode {
-  props: Record<string, unknown>;
-  children: RenderedNode[] | null;
-}
-
-function collectProps(node: unknown): Record<string, unknown>[] {
-  if (node === null || typeof node !== "object") {
-    return [];
-  }
-
-  if (Array.isArray(node)) {
-    return node.flatMap((child) => collectProps(child));
-  }
-
-  const { props, children } = node as RenderedNode;
-
-  return [props, ...collectProps(children)];
-}
-
-function flattenStyles(node: unknown): Record<string, unknown>[] {
-  const collect = (style: unknown): Record<string, unknown>[] => {
-    if (Array.isArray(style)) {
-      return style.flatMap((entry) => collect(entry));
-    }
-
-    return style !== null && typeof style === "object"
-      ? [style as Record<string, unknown>]
-      : [];
-  };
-
-  return collectProps(node).flatMap((props) => collect(props.style));
-}
-
 function styledGestureHandler(): Record<string, unknown> {
   return jest.requireActual<Record<string, unknown>>(
     "react-native-css/components/react-native-gesture-handler",
   );
 }
 
+function rewrittenReactNative(): Record<string, unknown> {
+  return jest.requireMock<Record<string, unknown>>("react-native");
+}
+
+function realReactNative(): Record<string, unknown> {
+  return jest.requireActual<Record<string, unknown>>("react-native");
+}
+
 test("the rewrite is in effect", () => {
   // Every assertion below is vacuous if `react-native` resolves to itself here,
   // and the whole file would pass while measuring nothing.
-  const rewritten = jest.requireMock<Record<string, unknown>>("react-native");
-  const real = jest.requireActual<Record<string, unknown>>("react-native");
-
-  expect(rewritten.View).not.toBe(real.View);
-  expect(rewritten.Dimensions).toBe(real.Dimensions);
+  expect(rewrittenReactNative().View).not.toBe(realReactNative().View);
+  expect(rewrittenReactNative().Dimensions).toBe(realReactNative().Dimensions);
 });
 
-describe.each([
-  ["ScrollView", 31, {}],
-  ["Switch", 32, {}],
-  ["TextInput", 33, {}],
-  ["FlatList", 34, { data: [], renderItem: () => null }],
-  ["Text", 35, {}],
-])("%s", (name, width, extra: Record<string, unknown>) => {
+describe.each(
+  reachedByTheRewrite.map((name) => [name, requiredProps[name] ?? {}] as const),
+)("%s", (name, extra) => {
   test("resolves className through the rewrite, so it needs no re-declaration", () => {
-    registerCSS(`.w-${width} { width: ${width}px; }`);
+    registerCSS(`.w-51 { width: 51px; }`);
 
     const Component = styledGestureHandler()[name] as ComponentType<
       Record<string, unknown>
     >;
     const tree = render(
-      <Component testID={testID} className={`w-${width}`} {...extra} />,
+      <Component testID={testID} className="w-51" {...extra} />,
     ).toJSON();
 
     expect(flattenStyles(tree)).toContainEqual(
-      expect.objectContaining({ width }),
+      expect.objectContaining({ width: 51 }),
     );
 
     for (const props of collectProps(tree)) {
@@ -120,4 +96,79 @@ test("ScrollView's contentContainerClassName survives the rewrite too", () => {
   expect(
     collectProps(tree).map((props) => props.contentContainerStyle),
   ).toContainEqual({ width: 52 });
+});
+
+/**
+ * The rewrite substitutes `react-native-css/components` for `react-native`, but that
+ * module layers a styled twin over only SOME of react-native's exports and re-exports
+ * the rest untouched (`components/index.cts`). So "the rewrite reaches it" and "the
+ * class survives" are different claims, and the register once conflated them:
+ * `TouchableNativeFeedback` was excluded as gesture-handler's own only on Android,
+ * "elsewhere it re-exports React Native's, which the rewrite reaches". The rewrite
+ * does reach the specifier — and hands back the identical unstyled component, so the
+ * class is dropped on every platform.
+ */
+const WITH_A_STYLED_TWIN = [
+  "View",
+  "Text",
+  "ScrollView",
+  "TouchableOpacity",
+  "TouchableHighlight",
+];
+const PASSED_THROUGH_UNSTYLED = [
+  "TouchableNativeFeedback",
+  "DrawerLayoutAndroid",
+];
+
+describe("a rewritten name only carries className if it has a styled twin", () => {
+  function hasStyledTwin(name: string): boolean {
+    return rewrittenReactNative()[name] !== realReactNative()[name];
+  }
+
+  test("both verdicts are reachable, so neither group is asserting a constant", () => {
+    // A full walk of react-native's exports is not available to derive this from —
+    // reading `DevMenu` and friends calls `TurboModuleRegistry.getEnforcing` and
+    // throws outside a native binary. Naming both groups and requiring each to be
+    // non-empty is what keeps the two `test.each` blocks from becoming zero cases.
+    expect(WITH_A_STYLED_TWIN.length).toBeGreaterThan(0);
+    expect(PASSED_THROUGH_UNSTYLED.length).toBeGreaterThan(0);
+  });
+
+  test.each(WITH_A_STYLED_TWIN)("%s has a styled twin", (name) => {
+    expect(hasStyledTwin(name)).toBe(true);
+  });
+
+  test.each(PASSED_THROUGH_UNSTYLED)(
+    "%s is passed through unstyled — the register's missing twin",
+    (name) => {
+      expect(hasStyledTwin(name)).toBe(false);
+    },
+  );
+});
+
+test("TouchableNativeFeedback renders nothing here, so identity is the only reading", () => {
+  // React Native's own component is Android-only and returns null on this platform,
+  // so an assertion that no style reached the tree would be an absence over an empty
+  // set — it would pass with a misspelled class or a broken registerCSS. The claim
+  // that discriminates is the identity above; this pins why.
+  registerCSS(`.w-53 { width: 53px; }`);
+
+  const TouchableNativeFeedback = styledGestureHandler()
+    .TouchableNativeFeedback as ComponentType<Record<string, unknown>>;
+
+  expect(
+    render(
+      <TouchableNativeFeedback testID={testID} className="w-53">
+        <></>
+      </TouchableNativeFeedback>,
+    ).toJSON(),
+  ).toBeNull();
+});
+
+test("the deprecated bucket is still deprecated under the rewrite", () => {
+  // The register's ground for these six is `@deprecated`, which the rewrite cannot
+  // change. Asserting the bucket is non-empty keeps the sibling suite's generated
+  // cases from silently becoming zero.
+  expect(deprecatedByGestureHandler).toContain("TouchableNativeFeedback");
+  expect(deprecatedByGestureHandler.length).toBeGreaterThan(0);
 });

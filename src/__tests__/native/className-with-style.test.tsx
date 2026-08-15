@@ -1,4 +1,4 @@
-import { View as RNView } from "react-native";
+import { Pressable as RNPressable, View as RNView } from "react-native";
 
 import { render } from "@testing-library/react-native";
 import { copyComponentProperties } from "react-native-css/components/copyComponentProperties";
@@ -120,6 +120,47 @@ describe("a callback style prop stays a callback", () => {
     ).getByTestId(testID);
 
     expect(component.props.style).toStrictEqual({ opacity: 1 });
+  });
+
+  /**
+   * Both cases above reach `deepMergeConfig` through an ARRAY target, `["style"]`.
+   * A `styled()` mapping may also name its target as a bare string, and that is a
+   * separate branch of the same function — it never enters the array handling at
+   * all — so a guard on the array path holds nothing for it. The mapping below is
+   * the string form of the one `components/Pressable.tsx` carries, over the same
+   * component, so the only variable between this case and the first one is which
+   * branch of the merge the target shape selects.
+   */
+  test("styled() with a string target: a callback stays a callback", () => {
+    registerCSS(`.text-red { color: red; }`);
+
+    const mapping: StyledConfiguration<typeof RNPressable> = {
+      className: { target: "style" },
+    };
+    const StyledPressable = copyComponentProperties(
+      RNPressable,
+      (
+        props: StyledProps<
+          React.ComponentProps<typeof RNPressable>,
+          typeof mapping
+        >,
+      ) => {
+        return useCssElement(RNPressable, props, mapping);
+      },
+    );
+
+    const component = render(
+      <StyledPressable
+        testID={testID}
+        className="text-red"
+        style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}
+      />,
+    ).getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual([
+      { color: "#f00" },
+      { opacity: 1 },
+    ]);
   });
 });
 
