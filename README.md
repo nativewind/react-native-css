@@ -265,6 +265,16 @@ compile(css).warnings();
 
 They are dropped rather than applied because a pseudo-element's declarations belong to the pseudo-element. Applying them to the host would paint the element itself — a `::selection { color }` would set the element's text colour, and through `currentColor` its whole subtree.
 
+A custom property is dropped the same way, and for the same reason: it would land on the host as a variable and every descendant would read it.
+
+```css
+.input::selection {
+  --brand: blue; /* dropped, reported as "--brand" */
+}
+```
+
+With `inlineVariables` left on, a custom property declared once is substituted into its uses and its declaration removed before the pseudo-element is scoped at all — nothing reaches the pseudo-element, so nothing is dropped and nothing is reported. `inlineVariables: false`, the setting the `VariableContext` section above asks for, keeps every declaration, and that is where this drop costs the most.
+
 > [!IMPORTANT]
 > This is native only. On web the CSS file is served to the browser unchanged, so `::selection` and `::placeholder` behave exactly as CSS specifies and no declaration is dropped. A rule that is meaningful on both platforms should say so in `background-color` for `::selection` and `color` for `::placeholder`; anything else styles the browser and nothing else.
 

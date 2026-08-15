@@ -15,6 +15,13 @@ const pseudoElementProp = {
 
 export type PseudoElement = keyof typeof pseudoElementProp;
 
+/**
+ * The namespace the compiler mints its own custom properties in. `color` and `font-size`
+ * mirror into `--__rn-css-color` / `--__rn-css-em` so the runtime can resolve currentColor and
+ * em, and `direction` into `--__rn-css-direction`
+ */
+export const compilerVariablePrefix = "__rn-css-";
+
 const pseudoElements: PseudoElement[] = Object.keys(pseudoElementProp).filter(
   (key): key is PseudoElement => key in pseudoElementProp,
 );
@@ -82,13 +89,19 @@ export function scopeRuleToPseudoElement(
     scopeDeclaration(declaration, from, to, declarations, dropped);
   }
 
-  // `c` and `v` are the fields an authored declaration reaches without passing through `d`.
-  // Every `c` entry comes from container-name, container-type or the container shorthand, so
-  // the report names the family rather than picking one of the three. `v` is not reported at
-  // all: it holds the compiler's own --__rn-css-* mirrors of a `d` declaration already
-  // reported here alongside any authored custom property, so a `--x` written inside a
-  // pseudo-element is dropped silently. `a` is only ever set beside the `d` entry that set
-  // it, so it is already reported through that entry
+  // `v` and `c` are the fields an authored declaration reaches without passing through `d`.
+  // A `v` entry is reported under the name it was written with, minus the compiler's own
+  // mirrors: each of those sits beside a `d` declaration the loop above already reported, so
+  // naming them would add a variable the user never wrote to every rule that sets a colour or
+  // a font size. Every `c` entry comes from container-name, container-type or the container
+  // shorthand, so the report names the family rather than picking one of the three. `a` is
+  // only ever set beside the `d` entry that set it, so it is already reported through that
+  for (const [name] of rule.v ?? []) {
+    if (!name.startsWith(compilerVariablePrefix)) {
+      dropped.push(`--${name}`);
+    }
+  }
+
   if (rule.c?.length) {
     dropped.push("container");
   }

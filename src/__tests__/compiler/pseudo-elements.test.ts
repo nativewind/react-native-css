@@ -1,7 +1,8 @@
-import { compile } from "react-native-css/compiler";
+import { compile, type CompilerOptions } from "react-native-css/compiler";
 
 import type { StyleRule } from "../../compiler/compiler.types";
 import {
+  compilerVariablePrefix,
   pseudoElementFieldPolicy,
   scopeRuleToPseudoElement,
 } from "../../compiler/pseudo-elements";
@@ -14,12 +15,17 @@ interface CompiledClass {
 
 /**
  * Reads the whole rule, not just `d`. A pseudo-element declaration reaches the element through
- * any field a declaration can set — `v` carries the --__rn-css-color / --__rn-css-em mirrors
- * declarations.ts writes beside `color` and `font-size`, `c` registers a named container, and
- * `a` / `dv` make the host animated or variable-driven
+ * any field a declaration can set — `v` carries authored custom properties alongside the
+ * --__rn-css-color / --__rn-css-em mirrors declarations.ts writes beside `color` and
+ * `font-size`, `c` registers a named container, and `a` / `dv` make the host animated or
+ * variable-driven
  */
-const compileFor = (css: string, className = "a"): CompiledClass => {
-  const compiled = compile(css);
+const compileFor = (
+  css: string,
+  className = "a",
+  options: CompilerOptions = {},
+): CompiledClass => {
+  const compiled = compile(css, options);
   const rules = (compiled
     .stylesheet()
     .s?.find(([name]) => name === className)?.[1] ?? []) as StyleRule[];
@@ -133,6 +139,59 @@ describe("::selection", () => {
     ).toStrictEqual({
       rules: [{ d: [["#f00", ["selectionColor"]]] }],
       warnings: { values: { "::selection": ["container"] } },
+    });
+  });
+
+  test("an authored custom property is dropped and reported", () => {
+    // A custom property is the one authored declaration that lands in `v` rather than `d`, so
+    // it is scoped out by the field policy rather than by the declaration loop, and the report
+    // has to reach it there. `inlineVariables: false` is the configuration the VariableContext
+    // section of the README asks for, which is where a dropped custom property costs the most
+    expect(
+      compileFor(
+        `.a::selection { background-color: #ff0000; --brand: blue; }`,
+        "a",
+        { inlineVariables: false },
+      ),
+    ).toStrictEqual({
+      rules: [{ d: [["#f00", ["selectionColor"]]] }],
+      warnings: { values: { "::selection": ["--brand"] } },
+    });
+  });
+
+  test("an authored custom property is dropped with the optimization left on", () => {
+    // Declared twice, so the inline-variables optimization keeps it rather than folding it
+    // into its single use. The drop is the pseudo-element's, not the optimization's
+    expect(
+      compileFor(
+        `.a::selection { background-color: #ff0000; --brand: blue; } .b { --brand: green; }`,
+      ),
+    ).toStrictEqual({
+      rules: [{ d: [["#f00", ["selectionColor"]]] }],
+      warnings: { values: { "::selection": ["--brand"] } },
+    });
+  });
+
+  test("a custom property the optimization inlines away is not reported", () => {
+    // Declared once, so inlining folds it into its uses and deletes the declaration before any
+    // rule is built. Nothing reached the pseudo-element, so nothing was dropped by it — the
+    // same thing happens to a custom property on a plain rule
+    expect(
+      compileFor(`.a::selection { background-color: #ff0000; --brand: blue; }`),
+    ).toStrictEqual({
+      rules: [{ d: [["#f00", ["selectionColor"]]] }],
+      warnings: {},
+    });
+  });
+
+  test("an authored custom property alone leaves no rule and still reports", () => {
+    expect(
+      compileFor(`.a::selection { --brand: blue; }`, "a", {
+        inlineVariables: false,
+      }),
+    ).toStrictEqual({
+      rules: [],
+      warnings: { values: { "::selection": ["--brand"] } },
     });
   });
 
@@ -316,6 +375,52 @@ describe("::placeholder", () => {
     ).toStrictEqual({
       rules: [],
       warnings: { values: { "::placeholder": ["backgroundColor"] } },
+    });
+  });
+
+  test("an authored custom property is dropped and reported", () => {
+    expect(
+      compileFor(`.a::placeholder { color: #ff0000; --brand: blue; }`, "a", {
+        inlineVariables: false,
+      }),
+    ).toStrictEqual({
+      rules: [{ d: [["#f00", ["placeholderTextColor"]]] }],
+      warnings: { values: { "::placeholder": ["--brand"] } },
+    });
+  });
+});
+
+describe("the compiler's own custom properties", () => {
+  test("every custom property the compiler mints carries the prefix the report filters on", () => {
+    // The report tells a mirror from an authored name by this prefix, and the mirrors are
+    // minted over in declarations.ts. Reading the names off a compiled rule ties the two ends
+    // together: renaming the namespace at either end turns this red rather than leaving the
+    // report to name the compiler's own variables on every pseudo-element rule that sets one
+    const minted = compileFor(
+      `.a { color: #ff0000; font-size: 40px; direction: rtl; }`,
+    )
+      .rules.flatMap((rule) => rule.v ?? [])
+      .map(([name]) => name);
+
+    // Without this the loop below would assert nothing if the mirrors ever stopped being minted
+    expect(minted.length).toBeGreaterThan(0);
+
+    expect(
+      minted.filter((name) => !name.startsWith(compilerVariablePrefix)),
+    ).toStrictEqual([]);
+  });
+
+  test("a mirror stays silent and the authored property beside it is reported", () => {
+    // `color` writes both: a `d` entry, reported as `color`, and a --__rn-css-color mirror the
+    // compiler minted itself. `--brand` is the only custom property the user wrote, so it is
+    // the only one worth naming — reporting the mirror too would add noise to every rule
+    expect(
+      compileFor(`.a::selection { color: #ff0000; --brand: blue; }`, "a", {
+        inlineVariables: false,
+      }),
+    ).toStrictEqual({
+      rules: [],
+      warnings: { values: { "::selection": ["color", "--brand"] } },
     });
   });
 });

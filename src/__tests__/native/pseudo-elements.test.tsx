@@ -98,6 +98,33 @@ test("::selection { container-name } does not turn the host into a container", (
   );
 });
 
+test("::selection { --custom } does not publish the variable to the subtree", () => {
+  // A custom property is the one authored declaration that lands in `v` rather than `d`, and
+  // `v` is the host's variable scope: carried over, every descendant would read it. The
+  // compiler reports the drop, but nothing carries a compiler warning into the runtime, so
+  // this is the whole of what the native side can observe
+  registerCSS(
+    `
+      .a::selection { background-color: #ff0000; --brand: #00ff00; }
+      .child { background-color: var(--brand); }
+    `,
+    { inlineVariables: false },
+  );
+
+  render(
+    <View>
+      <View className="a">
+        <View testID={testID} className="child" />
+      </View>
+      <View testID={controlTestID} className="child" />
+    </View>,
+  );
+
+  expect(propsWithoutTestID(testID)).toStrictEqual(
+    propsWithoutTestID(controlTestID),
+  );
+});
+
 test("::selection { background-color } still reaches selectionColor", () => {
   registerCSS(`.a::selection { background-color: #ff0000; }`);
 
