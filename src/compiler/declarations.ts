@@ -2916,9 +2916,17 @@ export function parseUnresolvedColor(
       // `rgba()` stays valid and renders opaque. lightningcss resolves the hue,
       // saturation and lightness, so they convert to the sRGB channels
       // `parseColor` writes for the resolved spelling and share the shape above.
+      //
+      // The hue is the only unbounded channel: lightningcss clamps saturation,
+      // lightness and every rgb channel to their range, but serializes a
+      // non-finite `calc()` hue as a float that reparses to `Infinity`.
+      // colorjs.io reduces a hue modulo 360, so such a hue spreads `NaN` across
+      // all three sRGB coordinates and yields a colour React Native discards.
+      // Per CSS Color 4 a missing component is `0`, which is also the hue
+      // lightningcss resolves the same declaration to when the alpha is known.
       const { coords } = new Color({
         space: "hsl",
-        coords: [color.h, color.s, color.l],
+        coords: [Number.isFinite(color.h) ? color.h : 0, color.s, color.l],
       }).to("srgb");
 
       return [

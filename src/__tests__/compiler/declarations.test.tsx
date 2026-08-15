@@ -17,6 +17,7 @@ const tests = [
   ["background-color: rgb(50% 25% 10% / var(--a));", [{ d: [[[{}, "rgba", [128, 64, 26, [{}, "var", "a", 1]]], "backgroundColor", 1]], dv: 1, s: [1, 1] }]],
   ["background-color: hsl(0 84.2% 60.2% / var(--a));", [{ d: [[[{}, "rgba", [239, 68, 68, [{}, "var", "a", 1]]], "backgroundColor", 1]], dv: 1, s: [1, 1] }]],
   ["background-color: hsl(120 100% 50% / var(--a));", [{ d: [[[{}, "rgba", [0, 255, 0, [{}, "var", "a", 1]]], "backgroundColor", 1]], dv: 1, s: [1, 1] }]],
+  ["background-color: hsl(calc(NaN) 100% 50% / var(--a));", [{ d: [[[{}, "rgba", [255, 0, 0, [{}, "var", "a", 1]]], "backgroundColor", 1]], dv: 1, s: [1, 1] }]],
 ] as const;
 
 test.each(tests)("declarations for %s", (declarations, expected) => {

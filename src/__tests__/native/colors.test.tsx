@@ -1,6 +1,9 @@
-import { render, screen } from "@testing-library/react-native";
+import { processColor } from "react-native";
+
+import { act, render, screen } from "@testing-library/react-native";
 import { View } from "react-native-css/components/View";
 import { registerCSS, testID } from "react-native-css/jest";
+import { colorScheme } from "react-native-css/runtime";
 
 describe("hsl", () => {
   test("inline", () => {
@@ -176,6 +179,99 @@ describe("unresolved alpha", () => {
     expect(component.props.style).toStrictEqual({
       backgroundColor: "rgba(239, 68, 68, 0.5)",
     });
+  });
+
+  // lightningcss clamps saturation, lightness and every rgb channel, so the hue
+  // is the only channel a non-finite `calc()` reaches the compiler through.
+  test("hsl with a non-finite hue", () => {
+    registerCSS(`.my-class {
+      background-color: hsl(calc(NaN) 100% 50% / var(--a, 0.5));
+    }`);
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({
+      backgroundColor: "rgba(255, 0, 0, 0.5)",
+    });
+  });
+
+  test("light-dark carries an unresolved alpha into both schemes", () => {
+    registerCSS(`.my-class {
+      background-color: light-dark(
+        rgb(50% 25% 10% / var(--a, 0.5)),
+        hsl(120 100% 50% / var(--a, 0.5))
+      );
+    }`);
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({
+      backgroundColor: "rgba(128, 64, 26, 0.5)",
+    });
+
+    act(() => {
+      colorScheme.set("dark");
+    });
+
+    expect(component.props.style).toStrictEqual({
+      backgroundColor: "rgba(0, 255, 0, 0.5)",
+    });
+  });
+
+  afterEach(() => {
+    act(() => {
+      colorScheme.set("light");
+    });
+  });
+});
+
+// `parseColor` compiles a fully resolved colour and `parseUnresolvedColor`
+// compiles the same channels with the alpha left open. An opaque fallback makes
+// the two spellings the same colour, so React Native has to read one number
+// from both.
+describe("unresolved alpha matches the resolved spelling", () => {
+  function renderedColor(id: string) {
+    const style: unknown = screen.getByTestId(id).props.style;
+
+    return typeof style === "object" &&
+      style !== null &&
+      "backgroundColor" in style &&
+      typeof style.backgroundColor === "string"
+      ? processColor(style.backgroundColor)
+      : undefined;
+  }
+
+  const colors = [
+    "rgb(255 0 0)",
+    "rgb(100% 0% 0%)",
+    "rgb(50% 25% 10%)",
+    "hsl(0 84.2% 60.2%)",
+    "hsl(120 100% 50%)",
+    "hsl(calc(NaN) 100% 50%)",
+  ] as const;
+
+  test.each(colors)("%s", (color) => {
+    registerCSS(`
+      .resolved { background-color: ${color}; }
+      .unresolved { background-color: ${color.slice(0, -1)} / var(--a, 1)); }
+    `);
+
+    render(
+      <>
+        <View testID="resolved" className="resolved" />
+        <View testID="unresolved" className="unresolved" />
+      </>,
+    );
+
+    const expected = renderedColor("resolved");
+
+    // A colour React Native rejects reads as `undefined`, which would make the
+    // comparison below pass while neither spelling renders anything.
+    expect(typeof expected).toBe("number");
+
+    expect(renderedColor("unresolved")).toBe(expected);
   });
 });
 
