@@ -58,6 +58,27 @@ describe("Transforms - Scale", () => {
       },
     });
   });
+  test("scale-150", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: {
+        style: {
+          transform: [{ scale: 1.5 }],
+        },
+      },
+    });
+  });
+  test("scale-none", async () => {
+    // The identity transform, through Tailwind's own output rather than a
+    // hand-written declaration — `none` is a keyword and reaches the same
+    // transform array a percentage does.
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: {
+        style: {
+          transform: [{ scaleX: 1 }, { scaleY: 1 }],
+        },
+      },
+    });
+  });
 });
 
 describe("Transforms - Rotate", () => {

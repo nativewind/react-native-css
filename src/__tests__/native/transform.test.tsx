@@ -84,45 +84,160 @@ describe("scale", () => {
    *
    *   Invariant Violation: Transform with key of "scale" must be a number: {"scale":"75%"}
    *
-   * The compiler collapses every percentage it can see at build time, and
-   * `src/__tests__/compiler/transform-scale.test.ts` pins that plane. These
-   * tests pin the other one: what a percentage becomes after the RUNTIME has
-   * resolved it, which is the only plane that can observe the crash above.
+   * A percentage reaches a scale component down two independent paths, and each
+   * needs its own guard: the COMPILER collapses every one it can see at build
+   * time, and the RUNTIME collapses the ones hidden behind a `var()` it could
+   * not inline. `src/__tests__/compiler/transform-scale.test.ts` pins what the
+   * first emits into the stylesheet; the two censuses below pin what React
+   * Native is actually handed, which is the only plane the crash lives on.
    */
-  describe("runtime resolver", () => {
-    const scaleKeys = new Set(["scale", "scaleX", "scaleY"]);
+  const scaleKeys = new Set(["scale", "scaleX", "scaleY"]);
 
-    type ScaleComponent = [key: string, value: unknown];
+  type ScaleComponent = [key: string, value: unknown];
 
-    /**
-     * Every scale component in the rendered `transform` array, in order.
-     * Collecting them rather than asserting the whole style lets one census
-     * cover both shapes the runtime produces — `{ scale }` when both axes
-     * agree, `{ scaleX } { scaleY }` when they do not.
-     */
-    const renderScaleComponents = (
-      css: string,
-      className: string,
-    ): ScaleComponent[] => {
-      registerCSS(css);
-
-      const style: unknown = render(
-        <View testID={testID} className={className} />,
-      ).getByTestId(testID).props.style;
-
-      const { transform } = (style ?? {}) as { transform?: unknown };
-
-      if (!Array.isArray(transform)) {
-        throw new Error(`No transform rendered for .${className}`);
-      }
-
-      return transform.flatMap((entry: unknown) =>
-        Object.entries(entry as Record<string, unknown>).filter(([key]) =>
+  /**
+   * Every scale component in the rendered `transform` array, in order.
+   * Collecting them rather than asserting the whole style lets one census cover
+   * every shape the two planes produce — `{ scale }` when both axes agree,
+   * `{ scaleX } { scaleY }` when they do not, and the nested entry a runtime
+   * `scale(x, y)` still produces (a separate, pre-existing shape defect: it
+   * reproduces with plain numbers and is not this fix's to make flat).
+   */
+  const collectScaleComponents = (entry: unknown): ScaleComponent[] =>
+    Array.isArray(entry)
+      ? entry.flatMap((nested: unknown) => collectScaleComponents(nested))
+      : Object.entries(entry as Record<string, unknown>).filter(([key]) =>
           scaleKeys.has(key),
-        ),
-      );
+        );
+
+  const renderStyle = (css: string, className: string): unknown => {
+    registerCSS(css);
+
+    return render(<View testID={testID} className={className} />).getByTestId(
+      testID,
+    ).props.style;
+  };
+
+  const renderScaleComponents = (
+    css: string,
+    className: string,
+  ): ScaleComponent[] => {
+    const { transform } = (renderStyle(css, className) ?? {}) as {
+      transform?: unknown;
     };
 
+    if (!Array.isArray(transform)) {
+      throw new Error(`No transform rendered for .${className}`);
+    }
+
+    return transform.flatMap((entry: unknown) => collectScaleComponents(entry));
+  };
+
+  /**
+   * Every row here is a value the compiler CAN see, so the stylesheet already
+   * holds the number — but the assertion is read off the rendered component,
+   * which is the only place the crash lives. The compiler test file asserts
+   * the same census one plane earlier, against the IR.
+   *
+   * The two guards are LAYERED on this path, not alternatives: `resolve.ts`
+   * normalises a `scaleX` descriptor whether its value came from a `var()` or
+   * from a literal, so it repairs a compiler-emitted `"75%"` as well. That is
+   * why these rows pin the composite rather than the compiler half — with both
+   * guards reverted, `scale: 75%` renders `{ scaleX: "75%", scaleY: "75%" }`
+   * and every row below goes red. The one row the compiler half owns alone is
+   * `scale: none`: a wrong `0` is a number the runtime has no reason to touch.
+   */
+  describe("inlined by the compiler", () => {
+    const inlinedScaleComponents = (declarations: string): ScaleComponent[] =>
+      renderScaleComponents(`.my-class { ${declarations} }`, "my-class");
+
+    // prettier-ignore
+    const census: [declarations: string, components: ScaleComponent[]][] = [
+      // `scale` longhand.
+      ["scale: 75%;",       [["scaleX", 0.75],  ["scaleY", 0.75]]],
+      ["scale: 100%;",      [["scaleX", 1],     ["scaleY", 1]]],
+      ["scale: 0%;",        [["scaleX", 0],     ["scaleY", 0]]],
+      ["scale: -50%;",      [["scaleX", -0.5],  ["scaleY", -0.5]]],
+      ["scale: 150%;",      [["scaleX", 1.5],   ["scaleY", 1.5]]],
+      ["scale: 12.5%;",     [["scaleX", 0.125], ["scaleY", 0.125]]],
+      ["scale: 75% 50%;",   [["scaleX", 0.75],  ["scaleY", 0.5]]],
+      ["scale: 2 50%;",     [["scaleX", 2],     ["scaleY", 0.5]]],
+      ["scale: 75% 50% 2;", [["scaleX", 0.75],  ["scaleY", 0.5]]],
+      // The negative controls: a unitless scale was always correct, and has to
+      // stay that way — the fix must coerce percentages, not every value.
+      ["scale: 0.75;",      [["scaleX", 0.75],  ["scaleY", 0.75]]],
+      ["scale: 2;",         [["scaleX", 2],     ["scaleY", 2]]],
+      // `scale: none` is the identity transform. Zero would render nothing.
+      ["scale: none;",      [["scaleX", 1],     ["scaleY", 1]]],
+
+      // `transform` shorthand — a separate compile-time emitter per function.
+      ["transform: scale(75%);",      [["scaleX", 0.75], ["scaleY", 0.75]]],
+      ["transform: scale(75%, 50%);", [["scaleX", 0.75], ["scaleY", 0.5]]],
+      ["transform: scaleX(75%);",     [["scaleX", 0.75]]],
+      ["transform: scaleY(75%);",     [["scaleY", 0.75]]],
+      ["transform: scaleX(-50%);",    [["scaleX", -0.5]]],
+      ["transform: scaleY(0%);",      [["scaleY", 0]]],
+      ["transform: scaleX(100%);",    [["scaleX", 1]]],
+      ["transform: scaleX(75%) scaleY(2);", [["scaleX", 0.75], ["scaleY", 2]]],
+      ["transform: scale(0.75);",     [["scaleX", 0.75], ["scaleY", 0.75]]],
+      ["transform: scaleX(0.75);",    [["scaleX", 0.75]]],
+      ["transform: scaleY(0.75);",    [["scaleY", 0.75]]],
+
+      // A `var()` with one visible definition is inlined, so these are compiled
+      // rather than resolved. The same spellings behind a competing definition
+      // are the runtime census below.
+      ["--s: 75%; scale: var(--s);",                        [["scaleX", 0.75], ["scaleY", 0.75]]],
+      ["--sx: 75%; --sy: 50%; scale: var(--sx) var(--sy);", [["scaleX", 0.75], ["scaleY", 0.5]]],
+      ["--s: 75%; transform: scale(var(--s));",             [["scaleX", 0.75], ["scaleY", 0.75]]],
+      ["--s: 75%; transform: scaleX(var(--s));",            [["scaleX", 0.75]]],
+    ];
+
+    test("the census covers both compile-time emitters", () => {
+      // A census that empties makes every row below vanish while staying green.
+      expect(census.length).toBeGreaterThan(0);
+      expect(census.some(([css]) => css.startsWith("scale:"))).toBe(true);
+      expect(census.some(([css]) => css.startsWith("transform:"))).toBe(true);
+    });
+
+    test.each(census)("renders %s", (declarations, components) => {
+      expect(inlinedScaleComponents(declarations)).toStrictEqual(components);
+    });
+
+    test.each(census)(
+      "every scale component rendered from %s is a number",
+      (declarations, components) => {
+        const rendered = inlinedScaleComponents(declarations);
+
+        // Pin the count first: an emitter that stops emitting would make the
+        // type comparison below hold over two empty lists.
+        expect(rendered).toHaveLength(components.length);
+
+        expect(
+          rendered.map(([key, value]) => [key, typeof value]),
+        ).toStrictEqual(components.map(([key]) => [key, "number"]));
+      },
+    );
+
+    test("`scale: 75%` hands React Native the whole style, unitless", () => {
+      // The census asserts components; this asserts the entire prop, because
+      // the object below is literally what React Native's transform validator
+      // is handed — the shape that crashed a handset with
+      //   Invariant Violation: Transform with key of "scale" must be a number
+      expect(
+        renderStyle(`.my-class { scale: 75%; }`, "my-class"),
+      ).toStrictEqual({ transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] });
+    });
+
+    test("`scale: none` is the identity transform, not a collapsed element", () => {
+      // Zero here is not a crash — it is worse to find, because the element
+      // renders at zero size and nothing reports an error.
+      expect(
+        renderStyle(`.my-class { scale: none; }`, "my-class"),
+      ).toStrictEqual({ transform: [{ scaleX: 1 }, { scaleY: 1 }] });
+    });
+  });
+
+  describe("runtime resolver", () => {
     /**
      * Reaches the runtime resolver, which is harder than it looks: the compiler
      * INLINES a `var()` it can resolve to a single value, so a fixture with one
@@ -156,6 +271,11 @@ describe("scale", () => {
       ["--sx: 2; --sy: 50%; scale: var(--sx) var(--sy);",     [["scaleX", 2], ["scaleY", 0.5]]],
       // A unitless number through the same resolver is unchanged.
       ["--sx: 2; --sy: 2; scale: var(--sx) var(--sy);",       [["scale", 2]]],
+      // `none` is the other keyword that reaches a scale component, and the
+      // runtime has to agree with the compiler that it means identity — a
+      // `{ scale: "none" }` is the same crash as a `{ scale: "75%" }`.
+      ["--sx: none; scale: var(--sx);",                       [["scale", 1]]],
+      ["--sx: none; --sy: 2; scale: var(--sx) var(--sy);",    [["scaleX", 1], ["scaleY", 2]]],
 
       // `transform` shorthand — a different runtime branch to the one above,
       // because scaleX/scaleY are not resolver functions but transform keys.
@@ -165,6 +285,15 @@ describe("scale", () => {
       ["--sx: 75%; --sy: 50%; transform: scaleX(var(--sx)) scaleY(var(--sy));",
                                                               [["scaleX", 0.75], ["scaleY", 0.5]]],
       ["--sx: 2; transform: scaleX(var(--sx));",              [["scaleX", 2]]],
+      ["--sx: none; transform: scaleX(var(--sx));",           [["scaleX", 1]]],
+      ["--sx: none; transform: scale(var(--sx));",            [["scale", 1]]],
+      // The two-operand shorthand: one resolver call, two components.
+      ["--sx: 75%; --sy: 50%; transform: scale(var(--sx), var(--sy));",
+                                                              [["scaleX", 0.75], ["scaleY", 0.5]]],
+      ["--sx: 75%; --sy: 75%; transform: scale(var(--sx), var(--sy));",
+                                                              [["scale", 0.75]]],
+      ["--sx: 2; --sy: 3; transform: scale(var(--sx), var(--sy));",
+                                                              [["scaleX", 2], ["scaleY", 3]]],
     ];
 
     test("the census reaches both runtime branches", () => {
@@ -194,20 +323,30 @@ describe("scale", () => {
       },
     );
 
-    test("a percentage translate is left alone — only scale is coerced", () => {
-      // The counterpart to every row above. React Native accepts a percentage
-      // for translate, so coercing one would be a regression rather than a fix;
-      // this is what keeps the runtime coercion scoped to the scale keys.
-      registerCSS(
-        `.competing-definition { --sx: 999%; }
-         .my-class { --sx: 75%; transform: translateX(var(--sx)); }`,
-      );
-
-      const style: unknown = render(
-        <View testID={testID} className="my-class" />,
-      ).getByTestId(testID).props.style;
-
-      expect(style).toStrictEqual({ transform: [{ translateX: "75%" }] });
+    // The counterpart to every row above. React Native REQUIRES the unit on
+    // these, so coercing them would be a regression dressed as consistency;
+    // this is what keeps the runtime coercion scoped to the scale keys.
+    test.each([
+      [
+        "transform: translateX(var(--sx));",
+        { transform: [{ translateX: "75%" }] },
+      ],
+      [
+        "transform: translateY(var(--sx));",
+        { transform: [{ translateY: "75%" }] },
+      ],
+      [
+        "translate: var(--sx) var(--sy);",
+        { transform: [{ translateX: "75%" }, { translateY: "50%" }] },
+      ],
+    ])("%s keeps its percentage", (declarations, expected) => {
+      expect(
+        renderStyle(
+          `.competing-definition { --sx: 999%; --sy: 999%; }
+           .my-class { --sx: 75%; --sy: 50%; ${declarations} }`,
+          "my-class",
+        ),
+      ).toStrictEqual(expected);
     });
 
     test("Tailwind v4 `scale-75` resolves to a number, beside a numeric decoy", () => {

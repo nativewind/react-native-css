@@ -13,29 +13,37 @@ import { compileWithAutoDebug } from "react-native-css/jest";
  */
 const scaleKeys = new Set(["scale", "scaleX", "scaleY"]);
 
-type ScaleComponent = [key: string, value: unknown];
+type TransformComponent = [key: string, value: unknown];
 
 /**
- * Walks the emitted IR and collects every `[{}, <scale key>, value]` descriptor
+ * Walks the emitted IR and collects every `[{}, <wanted key>, value]` descriptor
  * triple, wherever it is nested. Asserting on the collected components rather
  * than on the exact IR shape pins the property that keeps React Native alive —
  * no scale component is ever a string — instead of the nesting of the day.
+ *
+ * A descriptor triple leads with the modifier object, which is what separates it
+ * from the `[descriptor, propName, specificity]` entries the IR wraps it in;
+ * without that check a deferred `[…, "scale", 1]` entry reads as a component
+ * whose value is its specificity.
  */
-function collectScaleComponents(
+function collectComponents(
+  wanted: ReadonlySet<string>,
   node: unknown,
-  found: ScaleComponent[] = [],
-): ScaleComponent[] {
+  found: TransformComponent[] = [],
+): TransformComponent[] {
   if (typeof node !== "object" || node === null) {
     return found;
   }
 
   if (Array.isArray(node)) {
-    const [, key, value] = node;
+    const [modifier, key, value] = node;
 
     if (
       node.length === 3 &&
+      typeof modifier === "object" &&
+      !Array.isArray(modifier) &&
       typeof key === "string" &&
-      scaleKeys.has(key) &&
+      wanted.has(key) &&
       !Array.isArray(value)
     ) {
       found.push([key, value]);
@@ -43,24 +51,30 @@ function collectScaleComponents(
   }
 
   for (const child of Object.values(node)) {
-    collectScaleComponents(child, found);
+    collectComponents(wanted, child, found);
   }
 
   return found;
 }
 
-function scaleComponentsFor(declarations: string): ScaleComponent[] {
-  const stylesheet = compileWithAutoDebug(
-    `.my-class { ${declarations} }`,
-  ).stylesheet();
-
-  const rule = stylesheet.s?.find(([name]) => name === "my-class")?.[1];
+/** The compiled declaration blocks of one class, in specificity order. */
+function ruleFor(
+  css: string,
+  className = "my-class",
+): { v?: unknown; d?: unknown }[] {
+  const rule = compileWithAutoDebug(css)
+    .stylesheet()
+    .s?.find(([name]) => name === className)?.[1];
 
   if (!rule) {
-    throw new Error(`No rule compiled for: ${declarations}`);
+    throw new Error(`No rule compiled for .${className} in: ${css}`);
   }
 
-  return collectScaleComponents(rule);
+  return rule;
+}
+
+function scaleComponentsFor(declarations: string): TransformComponent[] {
+  return collectComponents(scaleKeys, ruleFor(`.my-class { ${declarations} }`));
 }
 
 /**
@@ -72,7 +86,7 @@ function scaleComponentsFor(declarations: string): ScaleComponent[] {
  * `dropsEveryScaleComponent` below pins that instead.
  */
 // prettier-ignore
-const census: [declarations: string, components: ScaleComponent[]][] = [
+const census: [declarations: string, components: TransformComponent[]][] = [
   // `scale` longhand — a percentage is the fraction, never the "N%" string.
   ["scale: 75%;",        [["scaleX", 0.75],  ["scaleY", 0.75]]],
   ["scale: 0.75;",       [["scaleX", 0.75],  ["scaleY", 0.75]]],
@@ -85,6 +99,8 @@ const census: [declarations: string, components: ScaleComponent[]][] = [
   // Mixed: the number is untouched, the percentage becomes its fraction.
   ["scale: 2 50%;",      [["scaleX", 2],     ["scaleY", 0.5]]],
   ["scale: 2;",          [["scaleX", 2],     ["scaleY", 2]]],
+  // A third operand is the z axis, which React Native has no key for.
+  ["scale: 75% 50% 2;",  [["scaleX", 0.75],  ["scaleY", 0.5]]],
   // `scale: none` means "do not scale", which is identity — not zero.
   ["scale: none;",       [["scaleX", 1],     ["scaleY", 1]]],
 
@@ -148,8 +164,75 @@ test.each([
   "transform: scale3d(0.75, 0.5, 1);",
   "transform: scaleZ(75%);",
 ])("%s emits no scale component at all", (declarations) => {
-  // React Native has no 3d scale, so the compiler drops these. Pinned because
-  // "dropped" and "emitted as a string" are indistinguishable from a green
-  // suite that only ever asserts the rows it happens to list.
+  // React Native has no z axis, so no scale component is emitted for these.
+  // Pinned because "emitted nothing" and "emitted a string" are
+  // indistinguishable from a green suite that only asserts the rows it lists.
   expect(scaleComponentsFor(declarations)).toStrictEqual([]);
+});
+
+/**
+ * The compiler is not the last boundary, and this is the proof. A `var()` with
+ * one visible definition is INLINED, which is why every variable row in the
+ * census above lands on a compile-time emitter — but a real Tailwind v4
+ * stylesheet defines `--tw-scale-x` in every `scale-*` utility, so the compiler
+ * sees competing definitions and cannot resolve any of them.
+ *
+ * What it emits then is the percentage STRING plus a `var()` reference, and the
+ * number React Native receives is decided entirely by the runtime resolver.
+ * `src/__tests__/native/transform.test.tsx` is the plane that can observe that
+ * value; this test states why that plane has to exist.
+ */
+test("a percentage behind a competing var() is deferred to the runtime unresolved", () => {
+  const declarations = `--sx: 75%; --sy: 75%; scale: var(--sx) var(--sy);`;
+
+  const deferred = ruleFor(
+    `.decoy { --sx: 999%; --sy: 999%; }
+     .my-class { ${declarations} }`,
+  );
+
+  // The variables survive as the raw percentage strings...
+  expect(deferred.map((block) => block.v)).toStrictEqual([
+    [
+      ["sx", "75%"],
+      ["sy", "75%"],
+    ],
+  ]);
+
+  // ...and nothing in the rule is the fraction, so no compile-time emitter ran.
+  expect(collectComponents(scaleKeys, deferred)).toStrictEqual([]);
+  expect(JSON.stringify(deferred)).not.toContain("0.75");
+
+  // The same declarations WITHOUT a competing definition are inlined, which is
+  // what makes the assertions above a discrimination rather than a tautology:
+  // if this contrast ever collapses, one of these two halves fails.
+  expect(
+    collectComponents(scaleKeys, ruleFor(`.my-class { ${declarations} }`)),
+  ).toStrictEqual([
+    ["scaleX", 0.75],
+    ["scaleY", 0.75],
+  ]);
+});
+
+/**
+ * The counterpart to the whole census: the coercion is scoped to the scale
+ * components and must stay there. React Native REQUIRES a unit on these — a
+ * percentage translate and a `deg` rotation are correct, and collapsing them to
+ * a bare number would be a regression dressed as consistency.
+ */
+// prettier-ignore
+const unitsAreKept: [declarations: string, components: TransformComponent[]][] = [
+  ["transform: translateX(75%);", [["translateX", "75%"]]],
+  ["transform: translateY(75%);", [["translateY", "75%"]]],
+  ["translate: 10%;",             [["translateX", "10%"], ["translateY", 0]]],
+  ["transform: rotate(45deg);",   [["rotate", "45deg"]]],
+  ["transform: skewX(45deg);",    [["skewX", "45deg"]]],
+  ["transform: skewY(45deg);",    [["skewY", "45deg"]]],
+];
+
+test.each(unitsAreKept)("%s keeps its unit", (declarations, components) => {
+  const keys = new Set(components.map(([key]) => key));
+
+  expect(
+    collectComponents(keys, ruleFor(`.my-class { ${declarations} }`)),
+  ).toStrictEqual(components);
 });
