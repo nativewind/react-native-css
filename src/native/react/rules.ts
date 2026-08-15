@@ -1,6 +1,9 @@
 /* eslint-disable */
 import type { InlineVariable, StyleRule } from "react-native-css/compiler";
-import { StyleCollection } from "react-native-css/native-internal";
+import {
+  assignInheritedVariables,
+  StyleCollection,
+} from "react-native-css/native-internal";
 
 import { testRule } from "../conditions";
 import { DEFAULT_CONTAINER_NAME } from "../conditions/container-query";
@@ -129,13 +132,14 @@ export function updateRules(
       }
 
       if (rule.v) {
-        if (variables === inheritedVariables) {
+        // We're going to set a value, so we need to create a new object
+        if (variables === undefined || variables === inheritedVariables) {
           variables = { ...inheritedVariables };
         }
 
-        for (const v of rule.v) {
-          variables![v[0]] = v[1];
-        }
+        // These are the variables published to descendants. The declaring element
+        // still resolves its own var() from the rule, in calculateProps
+        assignInheritedVariables(variables, rule.v);
       }
 
       if (rule.c) {
@@ -216,11 +220,20 @@ export function updateRules(
     rules.add(inheritedVariables);
 
     if (inlineVariables.size) {
+      // An inline vars() declaration wins the cascade on the element it sits on, but
+      // cannot make a non-inherited property inherit — the inherit flag belongs to the
+      // @property registration, not to the declaration. So the element's own bag keeps
+      // every name (it is added to `rules` below, for calculateProps) while the copy
+      // published to descendants goes through the same filter as a stylesheet rule
+      // `variables` already carries the inherited bag under the element's own values, so
+      // it goes second — merging the ancestor's over it would undo every declaration the
+      // element made. It is undefined when a rule reads a variable without declaring one,
+      // which is why the inherited bag is still listed
       variables = Object.assign(
         {},
-        variables,
         inheritedVariables,
-        ...Array.from(inlineVariables),
+        variables,
+        ...Array.from(inlineVariables, publishableVariables),
         { [VAR_SYMBOL]: true },
       );
     }
@@ -255,6 +268,15 @@ export function updateRules(
     animated,
     pressable,
   };
+}
+
+/**
+ * The subset of an inline `vars()` object that descendants inherit.
+ */
+function publishableVariables(inlineVariable: InlineVariable): InlineVariable {
+  const published: InlineVariable = { [VAR_SYMBOL]: "inline" };
+  assignInheritedVariables(published, Object.entries(inlineVariable));
+  return published;
 }
 
 /**

@@ -140,6 +140,9 @@ export function family<Key, Result = Key, Args extends any = void>(
       delete(key: Key) {
         return map.delete(key);
       },
+      keys() {
+        return map.keys();
+      },
       clear() {
         return map.clear();
       },

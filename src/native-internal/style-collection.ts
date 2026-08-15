@@ -14,9 +14,20 @@ import {
   type Observable,
   type VariableContextValue,
 } from "../native/reactivity";
-import { rootVariables, universalVariables } from "./root";
+import {
+  nonInheritedVariables,
+  registeredInitialValues,
+  replaceRegisteredInitialValues,
+  rootVariables,
+  universalVariables,
+} from "./root";
 
-export { rootVariables, universalVariables };
+export {
+  nonInheritedVariables,
+  registeredInitialValues,
+  rootVariables,
+  universalVariables,
+};
 
 interface StyleCollectionType {
   styles: ReturnType<typeof family<string, Observable<StyleRuleSet>>>;
@@ -89,9 +100,29 @@ globalThis.__react_native_css_style_collection ??= {
       }
     }
 
+    // `* { --x }` declares the property ON each element, which is the rung varResolver
+    // reads before rootVariables and the one a registration cannot switch off
     if (options.vu) {
       for (const entry of options.vu) {
-        rootVariables(entry[0]).set(entry[1]);
+        universalVariables(entry[0]).set(entry[1]);
+      }
+    }
+
+    // A stylesheet reload REPLACES the registrations it carries — editing an @property
+    // rule to `inherits: true`, or deleting it, has to take effect. Both halves of a
+    // registration are replaced, or the two disagree: the name leaves the Set below while
+    // its initial value stays behind, and an element goes on painting a length no rule in
+    // the sheet declares. Retracting an observed value is not a clear() — see root.ts
+    replaceRegisteredInitialValues(options.vi);
+
+    // The container itself is kept, because the globalThis pin exists so a second copy of
+    // root.ts shares this exact Set; swapping it would leave that copy reading one nothing
+    // writes to
+    nonInheritedVariables.clear();
+
+    if (options.vn) {
+      for (const name of options.vn) {
+        nonInheritedVariables.add(name);
       }
     }
 

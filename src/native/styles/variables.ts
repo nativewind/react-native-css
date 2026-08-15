@@ -1,5 +1,7 @@
 import type { StyleDescriptor, StyleFunction } from "react-native-css/compiler";
 import {
+  nonInheritedVariables,
+  registeredInitialValues,
   rootVariables,
   universalVariables,
 } from "react-native-css/native-internal";
@@ -77,7 +79,20 @@ export function varResolver(
     return value;
   }
 
-  value = resolve(get(rootVariables(name)));
+  // :root declares the property on the root element and every other element reads it by
+  // inheritance, so a registration that switches inheritance off skips this rung. The
+  // universal rung above stays: `* { --x }` declares the property ON each element
+  if (!nonInheritedVariables.has(name)) {
+    value = resolve(get(rootVariables(name)));
+    if (value !== undefined) {
+      options.inlineVariables ??= { [VAR_SYMBOL]: "inline" };
+      options.inlineVariables[name] = value;
+      return value;
+    }
+  }
+
+  // Last, because a declaration anywhere above beats the property's own default
+  value = resolve(get(registeredInitialValues(name)));
   if (value !== undefined) {
     options.inlineVariables ??= { [VAR_SYMBOL]: "inline" };
     options.inlineVariables[name] = value;

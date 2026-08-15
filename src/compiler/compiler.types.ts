@@ -40,6 +40,18 @@ export interface ReactNativeCssStyleSheet {
   vr?: RootVariables;
   /** Universal Variables */
   vu?: RootVariables;
+  /** Non-Inheriting Variables */
+  vn?: string[];
+  /**
+   * Registered Initial Values — the `initial-value` of an `@property` rule.
+   *
+   * Not a declaration on any element, which is why it is not in `vr`: a `:root`
+   * declaration is a value the root element HAS and descendants inherit, while this is
+   * the value a property TAKES on an element that declares it nowhere. Sharing one slot
+   * let source order decide between them, and left a non-inheriting property no way to
+   * reach its default once `:root` was skipped
+   */
+  vi?: RootVariables;
 }
 
 /********************************    Styles    ********************************/
