@@ -92,20 +92,17 @@ const inlineAxisExpansion: Record<string, readonly [string, string]> = {
   "border-inline-width": ["border-start-width", "border-end-width"],
 };
 
-// The inline-axis shorthands React Native cannot express from one runtime
-// value: each packs width, style and colour into a single list, and no style
-// resolver fans one slot out to a per-edge pair. Warn rather than emit a
-// borderInline* prop React Native has no style attribute for. The parsed path
-// still expands these — lightningcss has already split the value there.
-const unsupportedInlineShorthands = new Set([
-  "border-inline",
-  "border-inline-start",
-  "border-inline-end",
-]);
-
+// Shorthands whose value has to be split after the variable resolves, so the
+// compiler emits a runtime call instead of descriptors. The inline-axis three
+// are here for the same reason `border` is — each packs width, style and
+// colour into one list that a var() keeps opaque — and their runtime handlers
+// fan the resolved list onto the RTL-aware per-edge props.
 const unparsedRuntimeParsing = new Set([
   "animation",
   "border",
+  "border-inline",
+  "border-inline-end",
+  "border-inline-start",
   "box-shadow",
   "line-height",
   "rotate",
@@ -959,11 +956,6 @@ export function parseUnparsedDeclaration(
   let property = declaration.value.propertyId.property;
 
   if (!(property in parsers)) {
-    builder.addWarning("property", property);
-    return;
-  }
-
-  if (unsupportedInlineShorthands.has(property)) {
     builder.addWarning("property", property);
     return;
   }
