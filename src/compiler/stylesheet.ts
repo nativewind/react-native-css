@@ -9,6 +9,7 @@ import type {
   AnimationKeyframes,
   AnimationRecord,
   CompilerOptions,
+  CompilerWarnings,
   ContainerQuery,
   MediaCondition,
   ReactNativeCssStyleSheet,
@@ -227,12 +228,8 @@ export class StylesheetBuilder {
     }
   }
 
-  getWarnings() {
-    const result: {
-      properties?: string[];
-      values?: Record<string, unknown[]>;
-      functions?: string[];
-    } = {};
+  getWarnings(): CompilerWarnings {
+    const result: CompilerWarnings = {};
 
     if (this.shared.warningProperties.length) {
       result.properties = this.shared.warningProperties;
