@@ -146,6 +146,39 @@ describe("other undecidable container terms are unknown, not false", () => {
     expect(child).toHaveStyle({ color: "#f00" });
   });
 
+  test("not (inline-size) - an unmeasurable feature in a boolean context", () => {
+    // `(inline-size)` compiles to `["!!", "inline-size"]`, which is the one
+    // arm a boolean context reaches. The feature has no runtime value, so the
+    // term is unknown; reading the absent value as false instead would make
+    // the negation true.
+    const child = renderContainer(
+      `${base}
+       @container not (inline-size) { .child { color: blue; } }`,
+      500,
+      200,
+    );
+
+    expect(child).toHaveStyle({ color: "#f00" });
+  });
+
+  test("not (width > 10em) - an operand no compile-time length can resolve", () => {
+    // `em` is relative to the element's own font size, so the compiler cannot
+    // fold it and emits the length descriptor `[{}, "em", 10, 1]` in the
+    // operand slot - from ordinary, valid CSS. `px` folds to a number and
+    // `rem` folds against `inlineRem`, so this is the shape that reaches the
+    // comparison with a right-hand side it cannot order. Comparing it anyway
+    // yields `NaN`, which is false for every operator, and the negation of
+    // that false is the match this refuses.
+    const child = renderContainer(
+      `${base}
+       @container not (width > 10em) { .child { color: blue; } }`,
+      500,
+      200,
+    );
+
+    expect(child).toHaveStyle({ color: "#f00" });
+  });
+
   test("not (400px < width < 500px) - an interval the runtime does not evaluate", () => {
     const child = renderContainer(
       `${base}

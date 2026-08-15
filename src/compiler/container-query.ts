@@ -37,7 +37,11 @@ function parseContainerQueryCondition(
       return parseFeature(condition.value, builder);
     case "not":
       // MQ5 § 3.1: the negation of unknown is unknown, so an uncompilable term
-      // has to survive negation as a term rather than vanish.
+      // has to survive negation as a term rather than vanish. The fallback is
+      // unreachable today - every `<container-condition>` form below compiles
+      // to a term, `style()` to `["?"]` - and is kept because what makes it so
+      // is the set of forms this function handles, which the next feature type
+      // added to lightningcss changes.
       const query = parseContainerCondition(condition.value, builder);
       return ["!", query ?? ["?"]];
     case "operation":
@@ -45,7 +49,8 @@ function parseContainerQueryCondition(
       // filtered out: MQ5 § 3.1 makes `true and unknown` unknown, which
       // dropping the branch would turn into true.
       const conditions = condition.conditions.map(
-        (c): MediaCondition => parseContainerQueryCondition(c, builder) ?? ["?"],
+        (c): MediaCondition =>
+          parseContainerQueryCondition(c, builder) ?? ["?"],
       );
 
       if (conditions.length === 0) {

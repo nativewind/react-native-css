@@ -52,6 +52,14 @@ export function isTruthyFeatureValue(value: StyleDescriptor): boolean {
 function test(mediaQuery: MediaCondition, get: Getter): Truth {
   switch (mediaQuery[0]) {
     case "?":
+      // Unreachable on this plane with the installed lightningcss: `["?"]` is
+      // emitted for a container `style()` query, which `@media` cannot carry,
+      // and `@media (fictional-thing)` parses as the boolean feature
+      // `["!!", "fictional-thing"]` rather than as MQ5's `<general-enclosed>`.
+      // The arm is kept rather than deleted because both halves of that are
+      // properties of the parser rather than of the grammar: a lightningcss
+      // that reports `<general-enclosed>` makes this the arm that answers it,
+      // and the answer it already gives is the right one.
       return UNKNOWN;
     case "[]":
       // An interval this runtime does not evaluate has no answer, rather than
@@ -111,6 +119,11 @@ function testComparison(mediaQuery: MediaComparison, get: Getter): Truth {
       return value === "landscape" ? get(vh) < get(vw) : get(vh) >= get(vw);
   }
 
+  // A length the compiler could not fold reaches here as a descriptor rather
+  // than a number: `(width > 10em)` compiles to `[{}, "em", 10, 1]`, because
+  // `em` is relative to the element's own font size. Ordering it gives `NaN`,
+  // which is false for every operator - and false is the one answer a negation
+  // turns into a match.
   if (typeof value !== "number") {
     return UNKNOWN;
   }

@@ -83,6 +83,26 @@ describe("a negated term the runtime cannot measure does not apply", () => {
     expect(component.props.style).toStrictEqual({ color: "#f00" });
   });
 
+  test("not all and (width > 10em) - an operand no compile-time length can resolve", () => {
+    // `em` is relative to the element's own font size, so the compiler cannot
+    // fold it and emits the length descriptor `[{}, "em", 10, 1]` in the
+    // operand slot - from ordinary, valid CSS. The comparison has a measurable
+    // left-hand side and a right-hand side it cannot order, which is unknown
+    // rather than false.
+    //
+    // The negation has to come from the query's `not` qualifier rather than
+    // from `not (width > 10em)`, because lightningcss folds that spelling into
+    // `(width <= 10em)` and the term arrives with no negation left to observe.
+    const component = renderAt(
+      `${base}
+       @media not all and (width > 10em) { .my-class { color: blue; } }`,
+      500,
+      1000,
+    );
+
+    expect(component.props.style).toStrictEqual({ color: "#f00" });
+  });
+
   test("not (400px < width < 500px) - an interval the runtime does not evaluate", () => {
     const component = renderAt(
       `${base}

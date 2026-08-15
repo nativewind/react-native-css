@@ -18,23 +18,37 @@ import { parseLength } from "./declarations";
 import type { StylesheetBuilder } from "./stylesheet";
 
 /**
- * Parses a single media query out of a comma-separated list.
+ * What one query of a comma-separated prelude contributes to the block.
  *
- * Returns `undefined` when the query cannot apply on native, which the caller
- * treats the way CSS treats an unmatchable query in a list: it contributes
- * nothing, and the remaining queries still decide the block.
+ * The three cases are distinct answers, and an absent condition cannot stand in
+ * for all of them: `unconditional` applies the block everywhere and `refused`
+ * applies it nowhere, so collapsing the pair loses whichever one it drops.
  */
+export type ParsedMediaQuery =
+  /** The query compiled to a condition the runtime evaluates. */
+  | { type: "condition"; condition: MediaCondition }
+  /** `all`, `screen`, `not print` - nothing left to test, and it applies. */
+  | { type: "unconditional" }
+  /**
+   * The query cannot apply on native, which is how CSS treats an unmatchable
+   * query in a list: it contributes nothing, and the remaining queries still
+   * decide the block.
+   */
+  | { type: "refused" };
+
+/** Parses a single media query out of a comma-separated list. */
 export function parseMediaQuery(
   query: CSSMediaQuery,
   builder: StylesheetBuilder,
-): MediaCondition | undefined {
+): ParsedMediaQuery {
   let platformCondition: MediaCondition | undefined;
   let condition: MediaCondition | undefined;
 
   if (query.mediaType) {
-    // Print is for printing documents
+    // Print is for printing documents. `@media print` is refused before it
+    // reaches here, so what arrives is `not print`, which is true on native.
     if (query.mediaType === "print") {
-      return;
+      return { type: "unconditional" };
     }
 
     // These all/screen are not conditions, they always apply
@@ -51,7 +65,7 @@ export function parseMediaQuery(
     // the condition, because a query that is absent applies unconditionally
     // while a query that is present and refused applies to nothing.
     if (!condition) {
-      return;
+      return { type: "refused" };
     }
   }
 
@@ -61,14 +75,14 @@ export function parseMediaQuery(
       : platformCondition || condition;
 
   if (!mediaQuery) {
-    return;
+    return { type: "unconditional" };
   }
 
   if (query.qualifier === "not") {
     mediaQuery = ["!", mediaQuery];
   }
 
-  return mediaQuery;
+  return { type: "condition", condition: mediaQuery };
 }
 
 function parseMediaQueryCondition(
@@ -80,7 +94,11 @@ function parseMediaQueryCondition(
       return parseFeature(query.value, builder);
     case "not":
       // MQ5 § 3.1: the negation of unknown is unknown, so an uncompilable term
-      // has to survive negation as a term rather than vanish.
+      // has to survive negation as a term rather than vanish. The fallback is
+      // unreachable today - every `<media-condition>` form below compiles to a
+      // term - and is kept because what makes it so is the set of forms this
+      // function handles, which the next feature type added to lightningcss
+      // changes.
       const mediaQuery = parseMediaQueryCondition(query.value, builder);
       return ["!", mediaQuery ?? ["?"]];
     case "operation":

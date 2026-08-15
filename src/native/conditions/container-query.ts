@@ -62,7 +62,10 @@ export function testContainerQuery(
 
   // A conditional group rule is a two-valued context, so a condition that is
   // still unknown here does not match - MQ5 § 3.1.
-  if (query.m && !matches(testContainerMediaCondition(query.m, container, get))) {
+  if (
+    query.m &&
+    !matches(testContainerMediaCondition(query.m, container, get))
+  ) {
     return false;
   }
 
@@ -142,6 +145,14 @@ function testContainerMediaCondition(
         return left === right;
       }
 
+      // An operand that is a length the compiler could not fold reaches here as
+      // a descriptor rather than a number: `(width > 10em)` compiles to
+      // `[{}, "em", 10, 1]`, because `em` is relative to the element's own font
+      // size. `px` folds to a number and `rem` folds against `inlineRem`, so
+      // this arm carries ordinary CSS rather than a malformed prelude.
+      // Ordering an operand the runtime cannot resolve gives `NaN`, which is
+      // false for every operator - and false is the one answer a negation turns
+      // into a match.
       if (typeof left !== "number" || typeof right !== "number") {
         return UNKNOWN;
       }
