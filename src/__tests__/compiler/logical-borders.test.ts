@@ -117,6 +117,46 @@ describe("logical border styles", () => {
   });
 });
 
+describe("logical border styles via var() (unparsed path)", () => {
+  /**
+   * A var() keeps the declaration unparsed, so its value is unknown at compile
+   * time. React Native has no per-side border style either way, so the
+   * declaration drops — and an unknown value is not a known non-solid one, so
+   * it drops as quietly as `solid` does. Tailwind v4 puts every
+   * `border-{x,s,e}-*` utility through here via `var(--tw-border-style)`.
+   */
+  test.each([
+    "border-inline-style",
+    "border-inline-start-style",
+    "border-inline-end-style",
+  ])("%s with a var() drops without warning", (property) => {
+    const { rule, warnings } = getRule(`${property}: var(--tw-border-style);`);
+
+    expect(rule).toBeUndefined();
+    expect(warnings).toStrictEqual({});
+  });
+
+  test("a var() style leaves the width beside it alone", () => {
+    const { rule, warnings } = getRule(
+      "border-inline-start-style: var(--tw-border-style); border-inline-start-width: 1px;",
+    );
+
+    expect(rule).toStrictEqual([{ s: [1, 1], d: [{ borderStartWidth: 1 }] }]);
+    expect(warnings).toStrictEqual({});
+  });
+
+  test("a var() style over the whole inline axis leaves both widths alone", () => {
+    const { rule, warnings } = getRule(
+      "border-inline-style: var(--tw-border-style); border-inline-width: 1px;",
+    );
+
+    expect(rule).toStrictEqual([
+      { s: [1, 1], d: [{ borderStartWidth: 1, borderEndWidth: 1 }] },
+    ]);
+    expect(warnings).toStrictEqual({});
+  });
+});
+
 describe("logical border shorthands via var() (unparsed path)", () => {
   // A var() forces a shorthand onto the unparsed path, where propertyRename
   // (longhands only) and the parseBorderInline* parsers (parsed path only) do

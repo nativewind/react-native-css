@@ -304,6 +304,49 @@ describe("border-inline-color via var() under a condition", () => {
   });
 });
 
+describe("border-inline style longhands via var()", () => {
+  /**
+   * React Native has no per-side border style attribute, so an inline border
+   * style paints nothing whatever its value resolves to. The width beside it
+   * still reaches its edge — that pair is what every Tailwind v4
+   * `border-{x,s,e}-*` utility emits.
+   */
+  test.each([
+    "border-inline-style",
+    "border-inline-start-style",
+    "border-inline-end-style",
+  ])("%s paints nothing", (property) => {
+    registerCSS(`
+      .my-class { ${property}: var(--style); }
+      :root { --style: solid; }
+      .redefine { --style: dashed; }
+    `);
+
+    render(<View testID={testID} className="my-class" />);
+    expect(screen.getByTestId(testID).props).toStrictEqual({
+      children,
+      testID,
+    });
+  });
+
+  test("the width beside a var() style still reaches its edge", () => {
+    registerCSS(`
+      .my-class {
+        border-inline-start-style: var(--style);
+        border-inline-start-width: var(--width);
+      }
+      :root { --style: solid; }
+      .redefine { --style: dashed; }
+      ${twiceDefined}
+    `);
+
+    render(<View testID={testID} className="my-class" />);
+    expect(screen.getByTestId(testID).props.style).toStrictEqual({
+      borderStartWidth: 1,
+    });
+  });
+});
+
 describe("border-inline / -start / -end shorthands via var()", () => {
   /**
    * Each packs width, style and colour into one runtime value, and no style

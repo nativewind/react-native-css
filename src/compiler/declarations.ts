@@ -73,7 +73,9 @@ const propertyRename: Record<string, string> = {
 
 // React Native only supports a uniform borderStyle, so per-side border
 // styles have no native equivalent and are dropped. "solid" is dropped
-// silently as it matches React Native's default rendering.
+// silently as it matches React Native's default rendering. A var() keeps the
+// value unknown at compile time, and an unknown value is not a known
+// non-solid one, so the unparsed path drops these as quietly.
 const unsupportedInlineStyles = new Set([
   "border-inline-style",
   "border-inline-start-style",
@@ -961,11 +963,16 @@ export function parseUnparsedDeclaration(
     return;
   }
 
-  if (
-    unsupportedInlineStyles.has(property) ||
-    unsupportedInlineShorthands.has(property)
-  ) {
+  if (unsupportedInlineShorthands.has(property)) {
     builder.addWarning("property", property);
+    return;
+  }
+
+  // Nothing is lost that React Native could have rendered: the whole property
+  // has no native attribute, at any value. Warning here would fire on every
+  // Tailwind v4 border-{x,s,e}-* utility, which emits `var(--tw-border-style)`
+  // defaulting to the `solid` the parsed path drops without a word.
+  if (unsupportedInlineStyles.has(property)) {
     return;
   }
 
