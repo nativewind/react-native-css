@@ -742,13 +742,13 @@ function parseTransform(
           return [[{}, "rotateZ", parseAngle(t.value, builder)]];
         case "scale":
           return [
-            [{}, "scaleX", parseLength(t.value[0], builder)],
-            [{}, "scaleY", parseLength(t.value[1], builder)],
+            [{}, "scaleX", parseScaleComponent(t.value[0], builder)],
+            [{}, "scaleY", parseScaleComponent(t.value[1], builder)],
           ];
         case "scaleX":
-          return [[{}, "scaleX", parseLength(t.value, builder)]];
+          return [[{}, "scaleX", parseScaleComponent(t.value, builder)]];
         case "scaleY":
-          return [[{}, "scaleY", parseLength(t.value, builder)]];
+          return [[{}, "scaleY", parseScaleComponent(t.value, builder)]];
         case "skew":
           return [
             [{}, "skewX", parseAngle(t.value[0], builder)],
@@ -833,16 +833,42 @@ function parseScale(
   ]);
 }
 
+/**
+ * The one parser for a scale component, shared by every emitter that produces
+ * one: the `scale` longhand, and `scale()` / `scaleX()` / `scaleY()` inside the
+ * `transform` shorthand.
+ *
+ * React Native's transform API is unitless, and enforces it by crashing the
+ * screen rather than ignoring the value:
+ *
+ *   Invariant Violation: Transform with key of "scale" must be a number: {"scale":"75%"}
+ *
+ * lightningcss already holds a percentage as its fraction
+ * (`75%` → `{ type: "percentage", value: 0.75 }`), so the number needed here is
+ * the one it parsed. `parseLength` would serialise it back to the string `75%`,
+ * which is correct for a layout property and fatal for a transform.
+ */
+function parseScaleComponent(
+  value: NumberOrPercentage,
+  builder: StylesheetBuilder,
+): StyleDescriptor {
+  return value.type === "percentage"
+    ? round(value.value)
+    : parseLength(value, builder);
+}
+
 export function parseScaleValue(
-  translate: Scale,
+  scale: Scale,
   prop: keyof Extract<Scale, object>,
   builder: StylesheetBuilder,
 ): StyleDescriptor {
-  if (translate === "none") {
-    return 0;
+  // `scale: none` means "do not scale", and the transform that does not scale
+  // is the identity one. Zero would collapse the element to nothing.
+  if (scale === "none") {
+    return 1;
   }
 
-  return parseLength(translate[prop], builder);
+  return parseScaleComponent(scale[prop], builder);
 }
 
 function parseLetterSpacing(

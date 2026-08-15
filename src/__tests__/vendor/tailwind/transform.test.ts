@@ -26,7 +26,7 @@ describe("Transforms - Scale", () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: {
         style: {
-          transform: [{ scale: "0%" }],
+          transform: [{ scale: 0 }],
         },
       },
     });
@@ -35,7 +35,7 @@ describe("Transforms - Scale", () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: {
         style: {
-          transform: [{ scaleX: "50%" }, { scaleY: 1 }],
+          transform: [{ scaleX: 0.5 }, { scaleY: 1 }],
         },
       },
     });
@@ -44,7 +44,7 @@ describe("Transforms - Scale", () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: {
         style: {
-          transform: [{ scaleX: 1 }, { scaleY: "50%" }],
+          transform: [{ scaleX: 1 }, { scaleY: 0.5 }],
         },
       },
     });
@@ -53,7 +53,40 @@ describe("Transforms - Scale", () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: {
         style: {
-          transform: [{ scale: "50%" }],
+          transform: [{ scale: 0.5 }],
+        },
+      },
+    });
+  });
+  test("scale-110", async () => {
+    // The utility issue #216 was reported with, and the only one in this file
+    // whose fraction is not exactly representable in the f32 lightningcss
+    // stores a percentage as.
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: {
+        style: {
+          transform: [{ scale: 1.1 }],
+        },
+      },
+    });
+  });
+  test("scale-150", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: {
+        style: {
+          transform: [{ scale: 1.5 }],
+        },
+      },
+    });
+  });
+  test("scale-none", async () => {
+    // The identity transform, through Tailwind's own output rather than a
+    // hand-written declaration — `none` is a keyword and reaches the same
+    // transform array a percentage does.
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: {
+        style: {
+          transform: [{ scaleX: 1 }, { scaleY: 1 }],
         },
       },
     });
