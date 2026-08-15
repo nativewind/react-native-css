@@ -553,6 +553,38 @@ describe("CSS-wide color keywords", () => {
     expect(stylesheetFor("initial")).toStrictEqual({});
   });
 
+  test.each([
+    ["background-color", "inherit"],
+    ["background-color", "initial"],
+    ["background-color", "revert"],
+    ["background-color", "revert-layer"],
+    ["border-color", "revert"],
+    ["font-size", "revert"],
+  ])("%s: %s is dropped on a non-color property too", (property, keyword) => {
+    // The drop arm is keyword-first, not property-first: only the RESOLVING
+    // arm is gated on `property === "color"`. `revert` and `revert-layer`
+    // previously fell through to the style as their literal string on every
+    // property, so this pins the widened drop across the property axis rather
+    // than on `color` alone.
+    expect(
+      compile(`.child { ${property}: ${keyword}; }`).stylesheet(),
+    ).toStrictEqual({});
+  });
+
+  test("unset on a non-color property is NOT dropped", () => {
+    // The exception to the arm above, and the reason `unset` is absent from it.
+    // On a non-inherited property `unset` means `initial`, and the literal left
+    // here is what the runtime clears the declared colour with — see
+    // `background-color: unset still clears the color` in
+    // src/__tests__/native/colors.test.tsx. Dropping it would take that away,
+    // and nothing else in the compiler would notice.
+    expect(
+      compile(`.child { background-color: unset; }`).stylesheet(),
+    ).toStrictEqual({
+      s: [["child", [{ s: [1, 1], d: [["unset", "backgroundColor"]] }]]],
+    });
+  });
+
   test("color: unset resolves like inherit (unset on an inherited property is inherit)", () => {
     // Per CSS Cascade, `unset` computes to `inherit` on inherited properties,
     // and `color` is inherited — so it maps to the same inherited-color variable.
@@ -749,6 +781,42 @@ describe("the inherited-color variable is never self-referential", () => {
       expected,
     ]);
   });
+
+  /**
+   * The discriminating half of the walk. Every one of these CONTAINS a `var()`
+   * — bare, with a fallback, and nested inside a function's argument list — but
+   * none of them names the inherited color, so every one must still publish.
+   *
+   * The census above cannot see this: each of its values resolves to a plain
+   * string, so a walk that answered "reads the inherited color" for ANY `var()`
+   * would leave it green. That mistake does not crash — it silently withholds
+   * the publish, and every descendant of a `color: var(--brand)` rule stops
+   * inheriting. These are the values that tell the two apart.
+   */
+  test.each<[value: string, published: StyleDescriptor[]]>([
+    ["var(--brand)", [[{}, "var", "brand", 1]]],
+    ["var(--brand, red)", [[{}, "var", ["brand", "red"], 1]]],
+    [
+      "color-mix(in srgb, var(--brand), blue)",
+      [
+        [
+          {},
+          "colorMix",
+          ["srgb", [{}, "var", "brand", 1], undefined, "blue", undefined],
+        ],
+      ],
+    ],
+    // light-dark() publishes from its own rule AND from the extra
+    // `prefers-color-scheme: dark` rule it pushes, so the census sees two.
+    ["light-dark(red, blue)", ["#f00", "#f00"]],
+  ])(
+    "color: %s names a variable that is not the inherited one, so it publishes",
+    (value, published) => {
+      expect(publishedInheritedColors(`.child { color: ${value}; }`)).toEqual(
+        published,
+      );
+    },
+  );
 
   test("light-dark() on color emits one dark rule, not one per parse", () => {
     // `light-dark()` pushes an extra `prefers-color-scheme: dark` rule as a

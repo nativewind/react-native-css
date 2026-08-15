@@ -1,7 +1,8 @@
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { Text } from "react-native-css/components/Text";
 import { View } from "react-native-css/components/View";
 import { registerCSS, testID } from "react-native-css/jest";
+import { colorScheme } from "react-native-css/runtime";
 
 describe("hsl", () => {
   test("inline", () => {
@@ -407,20 +408,116 @@ describe("inherit", () => {
     });
   });
 
-  test("border-color: inherit is dropped, it does not read the color variable", () => {
-    // Only `color` seeds --__rn-css-color, so only `color` can read it back.
+  test.each(["border-color", "background-color"])(
+    "%s: inherit is dropped, it does not read the color variable",
+    (property) => {
+      // Only `color` seeds --__rn-css-color, so only `color` can read it back.
+      // Neither of these inherits in CSS either, so there is nothing for them
+      // to have inherited even if a per-property context existed.
+      registerCSS(`
+        .parent { color: red; }
+        .child { ${property}: inherit; }
+      `);
+
+      render(
+        <View className="parent">
+          <View testID="child" className="child" />
+        </View>,
+      );
+
+      expect(screen.getByTestId("child").props.style).toBeUndefined();
+    },
+  );
+
+  test("background-color: unset still clears the color", () => {
+    // The counterpart to the drop above. `unset` on a non-inherited property
+    // means `initial`, and the literal the compiler leaves in place is what the
+    // runtime clears the declared colour with — so adding `unset` to the
+    // keyword drop would silently take away the only way to clear one. The
+    // cleared element keeps the KEY and loses the value, which is how a later
+    // rule overrides an earlier one here rather than merging with it.
     registerCSS(`
-      .parent { color: red; }
-      .child { border-color: inherit; }
+      .filled { background-color: red; }
+      .cleared { background-color: unset; }
     `);
 
     render(
-      <View className="parent">
+      <>
+        <View testID="filled" className="filled" />
+        <View testID="cleared" className="filled cleared" />
+      </>,
+    );
+
+    expect(screen.getByTestId("filled").props.style).toStrictEqual({
+      backgroundColor: "#f00",
+    });
+    expect(screen.getByTestId("cleared").props.style).toStrictEqual({
+      backgroundColor: undefined,
+    });
+  });
+
+  test("color: inherit with no colored ancestor falls back to the root seed", () => {
+    // Nothing publishes --__rn-css-color above this element, so the read lands
+    // on the value the root seeds it with: the platform's label colour. The
+    // failure this guards is not a wrong colour but an UNRESOLVED one — the
+    // pre-fix drop left `style` undefined and React Native painted its own
+    // default, and a read that resolved to nothing would do the same.
+    registerCSS(`.child { color: inherit; }`);
+
+    render(<View testID="child" className="child" />);
+
+    expect(screen.getByTestId("child").props.style).toStrictEqual({
+      color: { semantic: ["label", "labelColor"] },
+    });
+  });
+
+  test("inherit resolves an ancestor color that is itself a variable", () => {
+    // `--brand` has a single definition, so the compiler inlines it and the
+    // published inherited colour is already a resolved string.
+    registerCSS(`
+      .parent { --brand: #ff0000; color: var(--brand); }
+      .child { color: inherit; }
+    `);
+
+    render(
+      <View testID="parent" className="parent">
         <View testID="child" className="child" />
       </View>,
     );
 
-    expect(screen.getByTestId("child").props.style).toBeUndefined();
+    expect(screen.getByTestId("parent").props.style).toStrictEqual({
+      color: "#f00",
+    });
+    expect(screen.getByTestId("child").props.style).toStrictEqual({
+      color: "#f00",
+    });
+  });
+
+  test("inherit resolves an ancestor color from an UNINLINED variable", () => {
+    // A second definition of `--brand` stops the compiler inlining it, so the
+    // ancestor publishes the var() lookup itself rather than a resolved colour.
+    // The descendant must still end up with the ancestor's COMPUTED colour —
+    // which is what `readsInheritedColor` letting a non-inherited `var()`
+    // through is for. Asserted as an equality against the ancestor rather than
+    // a literal: the class is that the two agree, and the raw-token colour a
+    // named-colour custom property currently produces is not this fix's to pin.
+    registerCSS(`
+      .parent { --brand: #ff0000; color: var(--brand); }
+      .child { --brand: #0000ff; color: inherit; }
+    `);
+
+    render(
+      <View testID="parent" className="parent">
+        <View testID="child" className="child" />
+      </View>,
+    );
+
+    const parentColor = screen.getByTestId("parent").props.style.color;
+
+    expect(parentColor).toBeDefined();
+    expect(screen.getByTestId("child").props.style).toStrictEqual({
+      color: parentColor,
+    });
   });
 
   test("color: inherit alongside a box-shadow leaves no placeholder in the style", () => {
@@ -430,6 +527,36 @@ describe("inherit", () => {
     registerCSS(`
       .parent { color: red; }
       .child { color: inherit; box-shadow: 1px 1px blue; }
+    `);
+
+    render(
+      <View className="parent">
+        <View testID="child" className="child" />
+      </View>,
+    );
+
+    expect(screen.getByTestId("child").props.style).toStrictEqual({
+      color: "#f00",
+      boxShadow: [
+        {
+          offsetX: 1,
+          offsetY: 1,
+          blurRadius: 0,
+          spreadDistance: 0,
+          color: "#00f",
+        },
+      ],
+    });
+  });
+
+  test("color: currentcolor alongside a box-shadow leaves no placeholder either", () => {
+    // The same runtime defect with no `inherit` anywhere in the input. The
+    // stranded target is a property of how a rule's declarations are walked,
+    // not of the keyword that made the colour delayed — so this is the pin that
+    // survives if the calculate-props fix is split into its own change.
+    registerCSS(`
+      .parent { color: red; }
+      .child { color: currentcolor; box-shadow: 1px 1px blue; }
     `);
 
     render(
@@ -472,24 +599,67 @@ describe("inherit", () => {
     });
   });
 
-  test("color: revert publishes nothing to descendants", () => {
-    // React Native has no cascade origins, so `revert` has no computed value.
-    // Emitting the literal handed every descendant `color: "revert"`.
+  test.each(["revert", "revert-layer"])(
+    "color: %s publishes nothing to descendants",
+    (keyword) => {
+      // React Native has no cascade origins, so neither keyword has a computed
+      // value. Emitting the literal handed every descendant `color: "revert"`.
+      registerCSS(`
+        .parent { color: red; }
+        .mid { color: ${keyword}; }
+        .child { color: inherit; }
+      `);
+
+      render(
+        <View className="parent">
+          <View testID="mid" className="mid">
+            <View testID="child" className="child" />
+          </View>
+        </View>,
+      );
+
+      expect(screen.getByTestId("mid").props.style).toBeUndefined();
+      expect(screen.getByTestId("child").props.style).toStrictEqual({
+        color: "#f00",
+      });
+    },
+  );
+
+  test("a light-dark() ancestor is inherited by a descendant", () => {
     registerCSS(`
-      .parent { color: red; }
-      .mid { color: revert; }
+      .parent { color: light-dark(red, blue); }
       .child { color: inherit; }
     `);
 
     render(
-      <View className="parent">
-        <View testID="mid" className="mid">
-          <View testID="child" className="child" />
-        </View>
+      <View testID="parent" className="parent">
+        <View testID="child" className="child" />
       </View>,
     );
 
-    expect(screen.getByTestId("mid").props.style).toBeUndefined();
+    expect(screen.getByTestId("parent").props.style).toStrictEqual({
+      color: "#f00",
+    });
+    expect(screen.getByTestId("child").props.style).toStrictEqual({
+      color: "#f00",
+    });
+
+    act(() => {
+      colorScheme.set("dark");
+    });
+
+    // KNOWN DIVERGENCE, pinned at the current output rather than at the
+    // CSS-correct one — the same treatment the `rgb(from …)` census entry below
+    // gets. Per CSS the descendant computes to the ancestor's used colour, so
+    // both should be `#00f` here. `light-dark()` instead publishes
+    // --__rn-css-color from its LIGHT branch only: the extra
+    // `prefers-color-scheme: dark` rule carries the dark `color` declaration
+    // beside the light published value. It predates this change — it reproduces
+    // with the double-parse restored — so it is recorded, not fixed here, and a
+    // fix has to come back and update this expectation.
+    expect(screen.getByTestId("parent").props.style).toStrictEqual({
+      color: "#00f",
+    });
     expect(screen.getByTestId("child").props.style).toStrictEqual({
       color: "#f00",
     });
