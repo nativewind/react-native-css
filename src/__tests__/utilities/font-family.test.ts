@@ -72,6 +72,22 @@ describe("narrowFontFamily", () => {
     });
   });
 
+  test("an array is a comma-separated stack, never one multi-word name", () => {
+    // The rule that decides the known limit. The compiler stores
+    // `--f: Helvetica Neue` and `--f: Inter, Helvetica` as the same array
+    // (`compiler/font-family.test.ts` pins that), so the reduction has to pick
+    // one reading and a stack is the one every other case needs. Quoting the
+    // name keeps it a string, which is the shape that survives.
+    expect(narrowFontFamily(["Helvetica", "Neue"])).toStrictEqual({
+      kind: "family",
+      family: "Helvetica",
+    });
+    expect(narrowFontFamily("Helvetica Neue")).toStrictEqual({
+      kind: "family",
+      family: "Helvetica Neue",
+    });
+  });
+
   test("the reduction is idempotent", () => {
     const once = narrowFontFamily(["Inter", "Helvetica"]);
     expect(once.kind).toBe("family");

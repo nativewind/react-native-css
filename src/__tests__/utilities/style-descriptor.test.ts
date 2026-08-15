@@ -8,11 +8,14 @@ import { isStyleFunction } from "react-native-css/utilities";
  */
 describe("isStyleFunction", () => {
   test("a style function is one", () => {
+    // CONTROL — passes on `main`. Widening the guard is the easy way to fix the
+    // two cases below, and this is what says the answer did not move.
     expect(isStyleFunction([{}, "var"])).toBe(true);
     expect(isStyleFunction([{}, "var", "font-sans", 1])).toBe(true);
   });
 
   test("a plain descriptor array is not", () => {
+    // CONTROL — passes on `main`, for the same reason.
     expect(isStyleFunction(["Inter", "Helvetica"])).toBe(false);
     expect(isStyleFunction([])).toBe(false);
     expect(isStyleFunction("Inter")).toBe(false);

@@ -52,12 +52,18 @@ describe("the reduction", () => {
     // one is worse than skipping it: `fontFamily` is typed `string`, so a
     // number or a null reaches Fabric as a value it has no rule for.
     expect(applyFontFamily([12, "Inter"]).fontFamily).toBe("Inter");
+    // The null head is pinned here and nowhere else: `resolveValue`'s own
+    // `isDescriptorArray` reads it as a style-function call and resolves the
+    // stack away before `applyValue` sees it, so no render can deliver this
+    // value. `native/font-family.test.tsx` carries that measurement.
     expect(applyFontFamily([null, "Arial"]).fontFamily).toBe("Arial");
     expect(applyFontFamily([undefined, "Arial"]).fontFamily).toBe("Arial");
     expect(applyFontFamily([true, "Arial"]).fontFamily).toBe("Arial");
   });
 
   test("a single family passes through untouched", () => {
+    // CONTROL — passes on `main`, where nothing intercepts `fontFamily` at all.
+    // It is the case the reduction must leave exactly as it found it.
     expect(applyFontFamily("fisona-icons").fontFamily).toBe("fisona-icons");
   });
 
@@ -77,6 +83,11 @@ describe("the reduction", () => {
 });
 
 describe("what the reduction must not disturb", () => {
+  // Every case in this block is a CONTROL: it passes on `main`, where
+  // `applyValue` has no `fontFamily` branch to get wrong. They are the boundary
+  // the new branch has to stay inside, and each one goes red for a different
+  // way of widening it.
+
   test("the reduction is scoped to fontFamily", () => {
     // `fontVariant` is legitimately a list on React Native, so reducing every
     // array-valued property would trade one silent failure for another.

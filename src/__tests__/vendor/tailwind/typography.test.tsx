@@ -10,6 +10,12 @@ describe("Typography - Font Family", () => {
    * in the platform default whether or not the stack was narrowed. Narrowing is
    * what makes the OVERRIDE below work, which is how a bundled typeface is
    * actually reached.
+   *
+   * The four default-theme cases are therefore CONTROLS: they pass on `main`
+   * too, because a single-definition theme variable is inlined and narrowed at
+   * compile time. They are here because this file is a census of the Typography
+   * utilities and Font Family was the one block missing from it. The two
+   * overrides below are the cases that bind.
    */
   test("font-sans", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
