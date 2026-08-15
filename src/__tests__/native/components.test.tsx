@@ -1,5 +1,6 @@
 import {
   Button as RNButton,
+  ScrollView as RNScrollView,
   TextInput as RNTextInput,
   type ButtonProps,
   type TextInputProps,
@@ -11,6 +12,7 @@ import { TextInput } from "react-native-css/components/TextInput";
 import { registerCSS, testID } from "react-native-css/jest";
 import { useCssElement } from "react-native-css/native";
 import type {
+  ComponentPropsDotNotation,
   StyledConfiguration,
   StyledProps,
 } from "react-native-css/runtime.types";
@@ -113,4 +115,23 @@ test("nativeStyleMapping with boolean true on custom component", () => {
 
   expect(component.props.textAlign).toBe("right");
   expect(component.props.style).not.toHaveProperty("textAlign");
+});
+
+test("a prop holding a component instance is a dot-notation leaf", () => {
+  // `ScrollViewProps.scrollViewRef` is a `RefObject<ScrollView>`, and `ScrollView`
+  // carries `ScrollViewProps` again, so the prop graph is cyclic. Enumerating it
+  // produces paths that can never be a mapping target, and enough of them that
+  // `StyledConfiguration<typeof ScrollView>`, and every component built on it, stops
+  // compiling with TS2590 on react-native >=0.83.
+  const reachable: ComponentPropsDotNotation<typeof RNScrollView>[] = [
+    "scrollViewRef",
+    "scrollViewRef.current",
+  ];
+
+  // @ts-expect-error - the instance behind the ref is a leaf, so its props are not paths
+  const throughInstance: ComponentPropsDotNotation<typeof RNScrollView> =
+    "scrollViewRef.current.props.style";
+
+  expect(reachable).toHaveLength(2);
+  expect(throughInstance).toBe("scrollViewRef.current.props.style");
 });

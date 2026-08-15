@@ -1,10 +1,11 @@
-import { Appearance, Dimensions } from "react-native";
+import { Dimensions } from "react-native";
 
 import { inspect } from "node:util";
 
 import { compile, type CompilerOptions } from "react-native-css/compiler";
 import { StyleCollection } from "react-native-css/native";
 
+import { setAppearanceColorScheme } from "../color-scheme";
 import { colorScheme, dimensions } from "../native/reactivity";
 
 declare global {
@@ -21,7 +22,7 @@ export const testID = "react-native-css";
 beforeEach(() => {
   StyleCollection.styles.clear();
   dimensions.set(Dimensions.get("window"));
-  Appearance.setColorScheme(null);
+  setAppearanceColorScheme(null);
   colorScheme.set(null);
 });
 

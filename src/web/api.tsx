@@ -15,6 +15,7 @@ import type {
   StyledProps,
 } from "react-native-css";
 
+import { setAppearanceColorScheme } from "../color-scheme";
 import type { ReactComponent } from "../runtime.types";
 import { assignStyle } from "./assign-style";
 
@@ -73,7 +74,7 @@ export const colorScheme: ColorScheme = {
     return Appearance.getColorScheme();
   },
   set(name) {
-    Appearance.setColorScheme(name);
+    setAppearanceColorScheme(name);
   },
 };
 
