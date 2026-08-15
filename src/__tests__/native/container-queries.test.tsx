@@ -2,6 +2,14 @@ import { fireEvent, render, screen } from "@testing-library/react-native";
 import { View } from "react-native-css/components/View";
 import { registerCSS } from "react-native-css/jest";
 
+import {
+  COMPARISON_MATCHES,
+  ORDERINGS,
+  sizeComparisons,
+  type Ordering,
+  type SizeFeature,
+} from "../_media-features";
+
 const parentID = "parent";
 const childID = "child";
 
@@ -162,70 +170,76 @@ function containerQueryMatches(
   return child.props.style.color === "#00f";
 }
 
-describe("width comparisons", () => {
+/**
+ * One container for every size comparison, laid out so the two axes hold
+ * different numbers — a feature answered off the wrong axis then produces a
+ * wrong verdict rather than the right one by coincidence.
+ */
+const CONTAINER = { width: 400, height: 200 };
+
+/**
+ * A threshold on each side of the measured value, and one exactly on it, per
+ * axis. The two axes draw from disjoint sets of numbers for the same reason
+ * the container is not square.
+ */
+const THRESHOLDS: Record<SizeFeature, Record<Ordering, number>> = {
+  width: {
+    "measured < threshold": 500,
+    "measured === threshold": 400,
+    "measured > threshold": 300,
+  },
+  height: {
+    "measured < threshold": 250,
+    "measured === threshold": 200,
+    "measured > threshold": 150,
+  },
+};
+
+describe("size comparisons", () => {
   /**
-   * Every case is measured against the same 400x200 container, so the only
-   * variable is the comparison operator. `min-`/`max-` prefixes are normalised
-   * by lightningcss into `>=`/`<=` range conditions, which is why they belong
-   * in this table rather than in one of their own.
+   * Every comparison operator, on both axes, in both spellings, with the
+   * measured value on each side of the threshold and exactly on it.
+   *
+   * Two thirds of this table is where a copy-pasted operator arm hides — two
+   * of the five operators always agree somewhere, and `>=` and `>` differ only
+   * on the row an author writes `min-width` for. The verdicts come from the
+   * shared census, so this table and the primitive's own cannot disagree about
+   * what an operator means.
    */
-  const cases: [condition: string, matches: boolean][] = [
-    ["(width > 300px)", true],
-    ["(width > 400px)", false],
-    ["(width >= 400px)", true],
-    ["(width >= 401px)", false],
-    ["(min-width: 400px)", true],
-    ["(min-width: 401px)", false],
-    ["(width < 500px)", true],
-    ["(width < 400px)", false],
-    ["(width <= 400px)", true],
-    ["(width <= 399px)", false],
-    ["(max-width: 400px)", true],
-    ["(max-width: 399px)", false],
-    ["(width = 400px)", true],
-    ["(width = 401px)", false],
-  ];
+  const cases: [condition: string, ordering: Ordering, matches: boolean][] =
+    sizeComparisons().flatMap((row) => {
+      return ORDERINGS.map(
+        (
+          ordering,
+        ): [condition: string, ordering: Ordering, matches: boolean] => {
+          return [
+            row.condition(THRESHOLDS[row.feature][ordering]),
+            ordering,
+            COMPARISON_MATCHES[row.operator][ordering],
+          ];
+        },
+      );
+    });
+
+  test("the table covers the whole census", () => {
+    expect(cases).toHaveLength(sizeComparisons().length * ORDERINGS.length);
+    expect(cases.length).toBeGreaterThan(0);
+  });
 
   test.each(cases)(
-    "@container %s against a 400x200 container matches: %s",
-    (condition, matches) => {
-      expect(
-        containerQueryMatches(condition, { width: 400, height: 200 }),
-      ).toBe(matches);
+    "@container %s (%s) against a 400x200 container matches: %s",
+    (condition, _ordering, matches) => {
+      expect(containerQueryMatches(condition, CONTAINER)).toBe(matches);
     },
   );
 });
 
-describe("height comparisons", () => {
-  /**
-   * The same 400x200 container. Height is deliberately the smaller of the two
-   * axes so that a height feature reading the container's width instead is a
-   * visible failure rather than a coincidence.
-   */
-  const cases: [condition: string, matches: boolean][] = [
-    ["(height > 100px)", true],
-    ["(height > 200px)", false],
-    ["(height > 300px)", false],
-    ["(height >= 200px)", true],
-    ["(min-height: 200px)", true],
-    ["(min-height: 201px)", false],
-    ["(height < 300px)", true],
-    ["(height < 200px)", false],
-    ["(height <= 200px)", true],
-    ["(max-height: 300px)", true],
-    ["(max-height: 199px)", false],
-    ["(height = 200px)", true],
-    ["(height = 400px)", false],
-  ];
-
-  test.each(cases)(
-    "@container %s against a 400x200 container matches: %s",
-    (condition, matches) => {
-      expect(
-        containerQueryMatches(condition, { width: 400, height: 200 }),
-      ).toBe(matches);
-    },
-  );
+test("each size axis is measured on its own axis", () => {
+  // Stated differentially, so it holds whatever the numbers are: on a
+  // landscape container the same threshold cannot satisfy both axes, and a
+  // height feature answered with the container's width would make it.
+  expect(containerQueryMatches("(width > 300px)", CONTAINER)).toBe(true);
+  expect(containerQueryMatches("(height > 300px)", CONTAINER)).toBe(false);
 });
 
 describe("aspect ratio", () => {

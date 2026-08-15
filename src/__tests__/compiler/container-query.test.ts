@@ -1,5 +1,7 @@
 import { compile, type ContainerQuery } from "react-native-css/compiler";
 
+import { sizeComparisons } from "../_media-features";
+
 /**
  * Returns the container queries the compiler attached to `.child`.
  *
@@ -25,22 +27,36 @@ function compileContainerQueries(condition: string): ContainerQuery[] {
 
 describe("size feature comparisons", () => {
   /**
+   * Every comparison operator on every size axis, in both spellings.
+   *
    * lightningcss normalises the `min-`/`max-` prefixes into range conditions,
-   * so the runtime only ever sees the five comparison operators. Every one of
-   * them has to survive compilation with its own identity — a container query
-   * evaluator can only be as correct as the operator it is handed.
+   * so the runtime only ever sees the five operators. Every one of them has to
+   * survive compilation with its own identity on each axis — an evaluator can
+   * only be as correct as the operator and the feature name it is handed, and
+   * a table listing a subset of the cross product cannot say which of the two
+   * a defect landed on.
+   *
+   * Generated from the shared census rather than listed, so an operator added
+   * to `MediaFeatureComparison` is covered on both axes without an edit here.
    */
+  const cases: [condition: string, query: ContainerQuery][] =
+    sizeComparisons().map((row) => {
+      const query: ContainerQuery = { m: [row.operator, row.feature, 400] };
+      return [row.condition(400), query];
+    });
+
+  test("the table covers the whole census", () => {
+    expect(cases).toHaveLength(sizeComparisons().length);
+    expect(cases.length).toBeGreaterThan(0);
+  });
+
+  test.each(cases)("@container %s", (condition, query) => {
+    expect(compileContainerQueries(condition)).toStrictEqual([query]);
+  });
+});
+
+describe("other size features", () => {
   const cases: [condition: string, query: ContainerQuery][] = [
-    ["(width > 400px)", { m: [">", "width", 400] }],
-    ["(width >= 400px)", { m: [">=", "width", 400] }],
-    ["(min-width: 400px)", { m: [">=", "width", 400] }],
-    ["(width < 400px)", { m: ["<", "width", 400] }],
-    ["(width <= 400px)", { m: ["<=", "width", 400] }],
-    ["(max-width: 400px)", { m: ["<=", "width", 400] }],
-    ["(width = 400px)", { m: ["=", "width", 400] }],
-    ["(height > 400px)", { m: [">", "height", 400] }],
-    ["(min-height: 400px)", { m: [">=", "height", 400] }],
-    ["(max-height: 400px)", { m: ["<=", "height", 400] }],
     ["(orientation: landscape)", { m: ["=", "orientation", "landscape"] }],
     ["(orientation: portrait)", { m: ["=", "orientation", "portrait"] }],
     // A `<ratio>` is carried to the runtime as the number it denotes, which is
