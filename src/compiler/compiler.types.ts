@@ -174,6 +174,17 @@ export type AnimationKeyframes = [string | number, StyleDeclaration[]];
 /******************************    Conditions    ******************************/
 
 export type MediaCondition =
+  /**
+   * A term the compiler could not compile at all - a container `style()`
+   * query, or a sub-condition of a form this compiler does not implement. MQ5
+   * § 3.1 gives `<general-enclosed>` the value unknown, and CSS Conditional 5
+   * § 3 says the same of an unsupported container feature, so the term is
+   * emitted and the runtime answers unknown rather than the term being dropped.
+   *
+   * Dropping it is a different answer: `true and unknown` is unknown, but with
+   * the operand gone the conjunction reads `true`.
+   */
+  | ["?"]
   // Boolean
   | ["!!", MediaFeatureNameFor_MediaFeatureId]
   // Not

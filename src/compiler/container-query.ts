@@ -36,12 +36,17 @@ function parseContainerQueryCondition(
     case "feature":
       return parseFeature(condition.value, builder);
     case "not":
+      // MQ5 § 3.1: the negation of unknown is unknown, so an uncompilable term
+      // has to survive negation as a term rather than vanish.
       const query = parseContainerCondition(condition.value, builder);
-      return query ? ["!", query] : undefined;
+      return ["!", query ?? ["?"]];
     case "operation":
-      const conditions = condition.conditions
-        .map((c) => parseContainerQueryCondition(c, builder))
-        .filter((v): v is MediaCondition => !!v);
+      // An uncompilable branch becomes an unknown term rather than being
+      // filtered out: MQ5 § 3.1 makes `true and unknown` unknown, which
+      // dropping the branch would turn into true.
+      const conditions = condition.conditions.map(
+        (c): MediaCondition => parseContainerQueryCondition(c, builder) ?? ["?"],
+      );
 
       if (conditions.length === 0) {
         return;
@@ -57,8 +62,9 @@ function parseContainerQueryCondition(
           return;
       }
     case "style":
-      // We don't support these yet
-      return;
+      // CSS Conditional 5 § 3: an unsupported container feature makes the
+      // condition unknown for that element, which is not the same as absent.
+      return ["?"];
     default:
       condition satisfies never;
       return;

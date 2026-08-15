@@ -79,12 +79,17 @@ function parseMediaQueryCondition(
     case "feature":
       return parseFeature(query.value, builder);
     case "not":
+      // MQ5 § 3.1: the negation of unknown is unknown, so an uncompilable term
+      // has to survive negation as a term rather than vanish.
       const mediaQuery = parseMediaQueryCondition(query.value, builder);
-      return mediaQuery ? ["!", mediaQuery] : undefined;
+      return ["!", mediaQuery ?? ["?"]];
     case "operation":
-      const mediaQueries = query.conditions
-        .map((c) => parseMediaQueryCondition(c, builder))
-        .filter((v): v is MediaCondition => !!v);
+      // An uncompilable branch becomes an unknown term rather than being
+      // filtered out: MQ5 § 3.1 makes `true and unknown` unknown, which
+      // dropping the branch would turn into true.
+      const mediaQueries = query.conditions.map(
+        (c): MediaCondition => parseMediaQueryCondition(c, builder) ?? ["?"],
+      );
 
       if (mediaQueries.length === 0) {
         return;

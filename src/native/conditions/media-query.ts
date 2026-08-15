@@ -10,6 +10,14 @@ import type {
 } from "react-native-css/compiler";
 
 import { colorScheme, vh, vw, type Getter } from "../reactivity";
+import {
+  conjoin,
+  disjoin,
+  matches,
+  negate,
+  UNKNOWN,
+  type Truth,
+} from "./kleene";
 
 type MediaFeatureName = MediaFeatureNameFor_MediaFeatureId | "dir";
 
@@ -23,7 +31,9 @@ type MediaComparison = [
 const COLOR_DEPTH = 8;
 
 export function testMediaQuery(mediaQueries: MediaCondition[], get: Getter) {
-  return mediaQueries.every((query) => test(query, get));
+  // An @media rule is a two-valued context, so MQ5 § 3.1 converts unknown to
+  // false here and nowhere earlier.
+  return mediaQueries.every((query) => matches(test(query, get)));
 }
 
 /**
@@ -39,22 +49,26 @@ export function isTruthyFeatureValue(value: StyleDescriptor): boolean {
   return value !== undefined && value !== false && value !== "none";
 }
 
-function test(mediaQuery: MediaCondition, get: Getter): Boolean {
+function test(mediaQuery: MediaCondition, get: Getter): Truth {
   switch (mediaQuery[0]) {
+    case "?":
+      return UNKNOWN;
     case "[]":
-      return false;
-    case "!!":
-      return isTruthyFeatureValue(getMediaFeatureValue(mediaQuery[1], get));
+      // An interval this runtime does not evaluate has no answer, rather than
+      // the answer `false`.
+      return UNKNOWN;
+    case "!!": {
+      const featureValue = getMediaFeatureValue(mediaQuery[1], get);
+      return featureValue === undefined
+        ? UNKNOWN
+        : isTruthyFeatureValue(featureValue);
+    }
     case "!":
-      return !test(mediaQuery[1], get);
+      return negate(test(mediaQuery[1], get));
     case "&":
-      return mediaQuery[1].every((query) => {
-        return test(query, get);
-      });
+      return conjoin(mediaQuery[1], (query) => test(query, get));
     case "|":
-      return mediaQuery[1].some((query) => {
-        return test(query, get);
-      });
+      return disjoin(mediaQuery[1], (query) => test(query, get));
     case ">":
     case ">=":
     case "<":
@@ -65,13 +79,14 @@ function test(mediaQuery: MediaCondition, get: Getter): Boolean {
   }
 }
 
-function testComparison(mediaQuery: MediaComparison, get: Getter): Boolean {
+function testComparison(mediaQuery: MediaComparison, get: Getter): Truth {
   const value = mediaQuery[2];
 
-  // An operand the compiler could not resolve satisfies no comparison. Features
-  // whose verdict does not read the value would otherwise match on nothing.
+  // An operand with no compile-time answer leaves the comparison unknown, not
+  // false - MQ5 § 3.1. Collapsing it to false here is what would make
+  // `not (min-width: env(safe-area-inset-left))` match.
   if (value === null) {
-    return false;
+    return UNKNOWN;
   }
 
   switch (mediaQuery[1]) {
@@ -97,14 +112,16 @@ function testComparison(mediaQuery: MediaComparison, get: Getter): Boolean {
   }
 
   if (typeof value !== "number") {
-    return false;
+    return UNKNOWN;
   }
 
   const left = getMediaFeatureValue(mediaQuery[1], get);
   const right = value;
 
+  // A feature this runtime cannot measure is unknown, which is what MQ5 § 3.2
+  // assigns an unknown <mf-name>.
   if (typeof left !== "number") {
-    return false;
+    return UNKNOWN;
   }
 
   switch (mediaQuery[0]) {

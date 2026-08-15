@@ -404,10 +404,19 @@ function extractContainer(
 ) {
   builder = builder.fork("container");
 
+  const condition = parseContainerCondition(containerRule.condition, builder);
+
+  // A prelude with no condition left at all would apply inside every container,
+  // which is the opposite of what a refused prelude means, so the block is not
+  // emitted. Every `<container-condition>` form now compiles to a term - an
+  // unsupported one to `["?"]` - so this is a backstop against a future parse
+  // gap rather than a path any stylesheet reaches today.
+  if (!condition) {
+    return;
+  }
+
   // Iterate over all rules inside the containerRule and extract their styles using the updated CompilerCollection
-  const query: ContainerQuery = {
-    m: parseContainerCondition(containerRule.condition, builder),
-  };
+  const query: ContainerQuery = { m: condition };
 
   if (containerRule.name) {
     query.n = `c:${containerRule.name}`;
