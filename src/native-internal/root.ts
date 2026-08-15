@@ -32,13 +32,34 @@ const rootVariableFamily = () => {
 export const rootVariables = rootVariableFamily();
 export const universalVariables = rootVariableFamily();
 
-rootVariables("__rn-css-rem").set([[14]]);
-// eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-rootVariables("__rn-css-color").set([
-  [
-    Platform.OS === "ios"
-      ? PlatformColor("label", "labelColor")
-      : PlatformColor("?attr/textColorPrimary", "SystemBaseHighColor"),
-  ],
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-] as any);
+/**
+ * The variables the runtime declares for itself rather than reading out of a
+ * stylesheet. Applied again after every reset, because `rem` backs every
+ * relative length and clearing it would resolve them all to nothing.
+ */
+function applyBuiltInVariables() {
+  rootVariables("__rn-css-rem").set([[14]]);
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+  rootVariables("__rn-css-color").set([
+    [
+      Platform.OS === "ios"
+        ? PlatformColor("label", "labelColor")
+        : PlatformColor("?attr/textColorPrimary", "SystemBaseHighColor"),
+    ],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ] as any);
+}
+
+/**
+ * Drops every stylesheet-declared variable, from both the `:root` family and
+ * the `*` family. Both are process-global and nothing else clears them, so a
+ * harness that resets between cases needs this alongside
+ * `StyleCollection.styles.clear()`.
+ */
+export function resetGlobalVariables() {
+  rootVariables.clear();
+  universalVariables.clear();
+  applyBuiltInVariables();
+}
+
+applyBuiltInVariables();

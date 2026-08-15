@@ -4,6 +4,7 @@ import { inspect } from "node:util";
 
 import { compile, type CompilerOptions } from "react-native-css/compiler";
 import { StyleCollection } from "react-native-css/native";
+import { resetGlobalVariables } from "react-native-css/native-internal";
 
 import { colorScheme, dimensions } from "../native/reactivity";
 
@@ -20,6 +21,9 @@ export const testID = "react-native-css";
 
 beforeEach(() => {
   StyleCollection.styles.clear();
+  // `:root` and `*` variables are process-global too, so a `vr`/`vu` entry
+  // injected by one test resolves in the next one unless it is dropped here.
+  resetGlobalVariables();
   dimensions.set(Dimensions.get("window"));
   Appearance.setColorScheme(null);
   colorScheme.set(null);
