@@ -83,7 +83,25 @@ function scaleComponentsFor(declarations: string): TransformComponent[] {
  *
  * `transform: scale3d(...)` is deliberately absent from this table — the
  * compiler drops 3d transforms entirely, so it emits no scale component at all.
- * `dropsEveryScaleComponent` below pins that instead.
+ * The `emits no scale component` rows below pin that instead.
+ *
+ * TWO THINGS A ROW HERE CAN FAIL TO OBSERVE, both measured rather than assumed:
+ *
+ * 1. `round()`. lightningcss stores a percentage as an f32, so a value that is
+ *    not representable in 32 bits arrives already wrong — `2%` reaches the
+ *    compiler as `0.019999999552965164` — and `round()` is what repairs it.
+ *    Most percentages here ARE f32-exact (`75%`, `50%`, `12.5%`, every power of
+ *    two over a hundred), so dropping `round()` leaves them untouched and only
+ *    the inexact rows go red. `2%` and `110%` are the two that can see it, and
+ *    `110%` is the value issue #216 was reported with.
+ *
+ * 2. `case "scale"` in `parseTransform`. lightningcss pre-normalises a LITERAL
+ *    `scale(75%)` / `scale(75%, 50%)` between the compiler's two passes, so
+ *    those two rows emit byte-identical IR with the fix reverted and cannot
+ *    discriminate on their own. `--s: 75%; transform: scale(var(--s));` is the
+ *    row that reaches the case, because the variable defeats the pre-pass. The
+ *    literal rows stay because they are the spellings a human writes, and
+ *    because a change to the pre-pass should surface here rather than silently.
  */
 // prettier-ignore
 const census: [declarations: string, components: TransformComponent[]][] = [
@@ -95,6 +113,12 @@ const census: [declarations: string, components: TransformComponent[]][] = [
   ["scale: -50%;",       [["scaleX", -0.5],  ["scaleY", -0.5]]],
   ["scale: 150%;",       [["scaleX", 1.5],   ["scaleY", 1.5]]],
   ["scale: 12.5%;",      [["scaleX", 0.125], ["scaleY", 0.125]]],
+  // The two f32-inexact rows — see note 1 above. Without `round()` these are
+  // `1.100000023841858` and `0.019999999552965164`; every other row is
+  // untouched by it.
+  ["scale: 110%;",       [["scaleX", 1.1],   ["scaleY", 1.1]]],
+  ["scale: 2%;",         [["scaleX", 0.02],  ["scaleY", 0.02]]],
+  ["transform: scaleX(110%);", [["scaleX", 1.1]]],
   ["scale: 75% 50%;",    [["scaleX", 0.75],  ["scaleY", 0.5]]],
   // Mixed: the number is untouched, the percentage becomes its fraction.
   ["scale: 2 50%;",      [["scaleX", 2],     ["scaleY", 0.5]]],
@@ -105,6 +129,7 @@ const census: [declarations: string, components: TransformComponent[]][] = [
   ["scale: none;",       [["scaleX", 1],     ["scaleY", 1]]],
 
   // `transform` shorthand — a separate emitter per function, same requirement.
+  // These two do NOT discriminate on their own — see note 2 above.
   ["transform: scale(75%);",       [["scaleX", 0.75], ["scaleY", 0.75]]],
   ["transform: scale(75%, 50%);",  [["scaleX", 0.75], ["scaleY", 0.5]]],
   ["transform: scale(0.75);",      [["scaleX", 0.75], ["scaleY", 0.75]]],
@@ -125,6 +150,7 @@ const census: [declarations: string, components: TransformComponent[]][] = [
   // inlined.
   ["--s: 75%; scale: var(--s);",                      [["scaleX", 0.75], ["scaleY", 0.75]]],
   ["--sx: 75%; --sy: 50%; scale: var(--sx) var(--sy);", [["scaleX", 0.75], ["scaleY", 0.5]]],
+  // The row that actually exercises `case "scale"` — see note 2 above.
   ["--s: 75%; transform: scale(var(--s));",           [["scaleX", 0.75], ["scaleY", 0.75]]],
   ["--s: 75%; transform: scaleX(var(--s));",          [["scaleX", 0.75]]],
 ];

@@ -58,6 +58,18 @@ describe("Transforms - Scale", () => {
       },
     });
   });
+  test("scale-110", async () => {
+    // The utility issue #216 was reported with, and the only one in this file
+    // whose fraction is not exactly representable in the f32 lightningcss
+    // stores a percentage as.
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: {
+        style: {
+          transform: [{ scale: 1.1 }],
+        },
+      },
+    });
+  });
   test("scale-150", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: {

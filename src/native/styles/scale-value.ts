@@ -16,9 +16,24 @@
 /**
  * The transform components React Native requires to be unitless numbers.
  *
- * Deliberately narrower than `transformKeys`: React Native accepts a percentage
- * string for `translateX` / `translateY` and a `deg` string for rotate and
- * skew, so coercing those would be a regression rather than a fix.
+ * Deliberately narrower than `transformKeys`, and widening it is not a
+ * cosmetic call — React Native validates each key against its own expectation,
+ * so a coercion applied to the wrong one swaps this crash for another:
+ *
+ *   scaleX / scaleY  must be a number  ← the keys this set exists for
+ *   translateX / Y   number or a percentage string
+ *   rotate / skewX / skewY  must be a STRING, in deg or rad
+ *
+ * `{ skewX: "50%" }` is already invalid, but `{ skewX: 0.5 }` is invalid too
+ * and on a different invariant (`must be a string`), so adding the skew keys
+ * here would move the crash rather than fix it. Their percentage handling is a
+ * separate defect with a separate answer.
+ *
+ * `scale` never reaches the caller in `resolve.ts` — the `scale` function
+ * resolver shadows the `transformKeys` branch for that name — and is listed
+ * anyway, because this set mirrors React Native's own `scale`/`scaleX`/`scaleY`
+ * case group and the other caller (`transform-functions.ts`) does produce it.
+ * Defence in depth, not a live key on that path.
  */
 export const scaleTransformKeys = new Set(["scale", "scaleX", "scaleY"]);
 

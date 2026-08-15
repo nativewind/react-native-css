@@ -160,6 +160,10 @@ describe("scale", () => {
       ["scale: -50%;",      [["scaleX", -0.5],  ["scaleY", -0.5]]],
       ["scale: 150%;",      [["scaleX", 1.5],   ["scaleY", 1.5]]],
       ["scale: 12.5%;",     [["scaleX", 0.125], ["scaleY", 0.125]]],
+      // Issue #216's own value, and one of the two rows here that can observe
+      // a lost `round()` — see the compiler census for why most cannot.
+      ["scale: 110%;",      [["scaleX", 1.1],   ["scaleY", 1.1]]],
+      ["scale: 2%;",        [["scaleX", 0.02],  ["scaleY", 0.02]]],
       ["scale: 75% 50%;",   [["scaleX", 0.75],  ["scaleY", 0.5]]],
       ["scale: 2 50%;",     [["scaleX", 2],     ["scaleY", 0.5]]],
       ["scale: 75% 50% 2;", [["scaleX", 0.75],  ["scaleY", 0.5]]],
@@ -264,6 +268,7 @@ describe("scale", () => {
       ["--sx: 0%; --sy: 0%; scale: var(--sx) var(--sy);",     [["scale", 0]]],
       ["--sx: -50%; --sy: -50%; scale: var(--sx) var(--sy);", [["scale", -0.5]]],
       ["--sx: 12.5%; --sy: 12.5%; scale: var(--sx) var(--sy);", [["scale", 0.125]]],
+      ["--sx: 110%; --sy: 110%; scale: var(--sx) var(--sy);", [["scale", 1.1]]],
       ["--sx: 75%; scale: var(--sx);",                        [["scale", 0.75]]],
       // Differing axes stay split across both keys.
       ["--sx: 75%; --sy: 50%; scale: var(--sx) var(--sy);",   [["scaleX", 0.75], ["scaleY", 0.5]]],
@@ -323,9 +328,22 @@ describe("scale", () => {
       },
     );
 
-    // The counterpart to every row above. React Native REQUIRES the unit on
-    // these, so coercing them would be a regression dressed as consistency;
-    // this is what keeps the runtime coercion scoped to the scale keys.
+    /**
+     * The counterpart to every row above, and the guard that decides how wide
+     * `scaleTransformKeys` may be. React Native validates each key against its
+     * OWN expectation, so a coercion applied to the wrong one does not tidy
+     * anything up — it swaps this crash for another:
+     *
+     *   translateX / translateY  number or a percentage string
+     *   skewX / skewY            must be a STRING, in deg or rad
+     *
+     * The skew rows are the sharp ones. `{ skewX: "75%" }` is already invalid,
+     * so a reader can talk themselves into "coercing it cannot make things
+     * worse" — but `{ skewX: 0.75 }` fails `must be a string`, a different
+     * invariant on the same fatal pass, and the percentage handling skew
+     * actually needs is a separate fix. Widening the set to reach them turns
+     * these two rows red, which is the point of listing them.
+     */
     test.each([
       [
         "transform: translateX(var(--sx));",
@@ -339,6 +357,8 @@ describe("scale", () => {
         "translate: var(--sx) var(--sy);",
         { transform: [{ translateX: "75%" }, { translateY: "50%" }] },
       ],
+      ["transform: skewX(var(--sx));", { transform: [{ skewX: "75%" }] }],
+      ["transform: skewY(var(--sx));", { transform: [{ skewY: "75%" }] }],
     ])("%s keeps its percentage", (declarations, expected) => {
       expect(
         renderStyle(
@@ -378,6 +398,44 @@ describe("scale", () => {
         "number",
         "number",
       ]);
+    });
+
+    /**
+     * The two planes do not agree to the last digit, and the disagreement is
+     * inherent rather than incidental — so it is pinned here rather than left
+     * for someone to meet as a diff between two builds of one stylesheet.
+     *
+     * lightningcss holds a percentage as an f32, which makes `2%` arrive at the
+     * compiler as `0.019999999552965164`; `round()` is what repairs that, and
+     * it repairs it to four decimal places. The runtime never sees an f32 — it
+     * has the source string — so it divides exactly and keeps every digit.
+     *
+     * The same declaration therefore lands on `0.3333` when the compiler can
+     * inline the variable and `0.333333` when it cannot. Four decimal places of
+     * scale is well under a device pixel, so neither is wrong; making them
+     * agree means either rounding the exact value or unrounding the repaired
+     * one, and `round()` is shared with every other compiled number.
+     */
+    test("compile and runtime resolve one declaration to different precision", () => {
+      const declarations = `scale: var(--s);`;
+
+      expect(
+        renderScaleComponents(
+          `.my-class { --s: 33.3333%; ${declarations} }`,
+          "my-class",
+        ),
+      ).toStrictEqual([
+        ["scaleX", 0.3333],
+        ["scaleY", 0.3333],
+      ]);
+
+      expect(
+        renderScaleComponents(
+          `.decoy { --s: 999%; }
+           .my-class { --s: 33.3333%; ${declarations} }`,
+          "my-class",
+        ),
+      ).toStrictEqual([["scale", 0.333333]]);
     });
   });
 });

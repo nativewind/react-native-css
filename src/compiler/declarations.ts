@@ -848,7 +848,7 @@ function parseScale(
  * the one it parsed. `parseLength` would serialise it back to the string `75%`,
  * which is correct for a layout property and fatal for a transform.
  */
-export function parseScaleComponent(
+function parseScaleComponent(
   value: NumberOrPercentage,
   builder: StylesheetBuilder,
 ): StyleDescriptor {
