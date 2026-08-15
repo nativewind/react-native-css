@@ -2888,6 +2888,35 @@ function toRgbChannel(coordinate: number | null): number {
   return Math.round((coordinate ?? 0) * 255);
 }
 
+/**
+ * A hue reaches this function as a 32-bit float, because the compiler runs
+ * lightningcss twice and the second pass reparses the first pass's serialized
+ * output. `2 ** 32` is where one step of that grid first covers a whole turn: a
+ * float32 holds a 24-bit significand, so its ULP at `2 ** exponent` is
+ * `2 ** (exponent - 23)`, which reaches 512 at an exponent of 32.
+ */
+const SMALLEST_UNNAMEABLE_HUE = 2 ** 32;
+
+/**
+ * Reducing a hue modulo a turn only says something about the author's angle
+ * while the arriving float still resolves finer than the turn. Past
+ * {@link SMALLEST_UNNAMEABLE_HUE} every representable neighbour lands on a
+ * different angle, so the reduction reports the float grid rather than the
+ * declaration, and the value is in practice a range limit rather than a hue —
+ * `hsl(1e20 …)` and `hsl(1e38 …)` both arrive as `9223369837831520000`, and
+ * `calc(infinity)` as `9223372036854776000`. `Infinity`, which is how a
+ * `calc(NaN)` hue arrives, is the same condition at the top of the range.
+ *
+ * CSS Color 4 makes a missing component `0`, so an unnameable hue takes `0`.
+ * That is also what lightningcss's own resolved path produces for such a hue,
+ * with the exception recorded in `src/__tests__/native/colors.test.tsx`.
+ */
+function toHueDegrees(hue: number): number {
+  return Number.isFinite(hue) && Math.abs(hue) < SMALLEST_UNNAMEABLE_HUE
+    ? hue
+    : 0;
+}
+
 export function parseUnresolvedColor(
   color: UnresolvedColor,
   builder: StylesheetBuilder,
@@ -2918,15 +2947,12 @@ export function parseUnresolvedColor(
       // `parseColor` writes for the resolved spelling and share the shape above.
       //
       // The hue is the only unbounded channel: lightningcss clamps saturation,
-      // lightness and every rgb channel to their range, but serializes a
-      // non-finite `calc()` hue as a float that reparses to `Infinity`.
-      // colorjs.io reduces a hue modulo 360, so such a hue spreads `NaN` across
-      // all three sRGB coordinates and yields a colour React Native discards.
-      // Per CSS Color 4 a missing component is `0`, which is also the hue
-      // lightningcss resolves the same declaration to when the alpha is known.
+      // lightness and every rgb channel to their range, so the hue is the one
+      // place an out-of-range `calc()` reaches this function. `toHueDegrees`
+      // decides which arriving floats still name an angle.
       const { coords } = new Color({
         space: "hsl",
-        coords: [Number.isFinite(color.h) ? color.h : 0, color.s, color.l],
+        coords: [toHueDegrees(color.h), color.s, color.l],
       }).to("srgb");
 
       return [
