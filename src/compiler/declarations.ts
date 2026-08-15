@@ -1611,16 +1611,20 @@ export function parseFontColorDeclaration(
     INHERITED_COLOR_PROPERTY,
   ];
 
-  parseColorDeclaration(declaration, builder);
+  /**
+   * Parsed once for both writes. `parseColor` is not pure — a `light-dark()`
+   * value opens an extra rule — so parsing the same value a second time opens a
+   * second, identical dark rule.
+   */
+  const value = parseColor(declaration.value, builder);
+
+  builder.addDescriptor(declaration.property, value);
 
   if (
     typeof declaration.value !== "object" ||
     declaration.value.type !== "currentcolor"
   ) {
-    builder.addDescriptor(
-      INHERITED_COLOR_PROPERTY,
-      parseColor(declaration.value, builder),
-    );
+    builder.addDescriptor(INHERITED_COLOR_PROPERTY, value);
   }
 }
 

@@ -1,4 +1,5 @@
 import { act, render, screen } from "@testing-library/react-native";
+import { TextInput } from "react-native-css/components/TextInput";
 import { View } from "react-native-css/components/View";
 import { registerCSS, testID } from "react-native-css/jest";
 import { colorScheme } from "react-native-css/runtime";
@@ -177,4 +178,96 @@ describe("a light-dark() colour leaves the rule's other variables alone", () => 
       backgroundColor: "#00f",
     });
   });
+});
+
+describe("two light-dark() colours are inherited per colour scheme", () => {
+  /**
+   * Only `color` publishes to the subtree, and its extra rule is not the last
+   * one opened on this rule — `background-color` opens one after it. Anything
+   * that last rule restates from the rule it copies lands on top of what the
+   * colour published.
+   */
+  const css = `
+.parent { color: light-dark(#f00, #00f); background-color: light-dark(#0f0, #ff0); }
+.child { background-color: currentcolor; }`;
+
+  const renderTree = () => {
+    registerCSS(css);
+    render(
+      <View testID="parent" className="parent">
+        <View testID="child" className="child" />
+      </View>,
+    );
+  };
+
+  test("light mode hands descendants the light colour", () => {
+    renderTree();
+
+    expect(screen.getByTestId("parent").props.style).toStrictEqual({
+      color: "#f00",
+      backgroundColor: "#0f0",
+    });
+    expect(screen.getByTestId("child").props.style).toStrictEqual({
+      backgroundColor: "#f00",
+    });
+  });
+
+  test("dark mode hands descendants the dark colour", () => {
+    renderTree();
+
+    act(() => {
+      colorScheme.set("dark");
+    });
+
+    expect(screen.getByTestId("parent").props.style).toStrictEqual({
+      color: "#00f",
+      backgroundColor: "#ff0",
+    });
+    expect(screen.getByTestId("child").props.style).toStrictEqual({
+      backgroundColor: "#00f",
+    });
+  });
+});
+
+describe("a light-dark() inside a pseudo-element", () => {
+  /**
+   * `::selection` and `::placeholder` map their `color` onto a prop of the host
+   * component. The dark branch arrives as its own rule, and it has to be mapped
+   * the same way — an unmapped one is a `color` on the element, which is the
+   * text the pseudo-element was never asking about.
+   */
+  const cases = [
+    ["::selection", "selectionColor"],
+    ["::placeholder", "placeholderTextColor"],
+  ] as const;
+
+  test.each(cases)(
+    "%s: light mode tints with the light colour",
+    (pseudoElement, prop) => {
+      registerCSS(
+        `.my-class${pseudoElement} { color: light-dark(#f00, #00f); }`,
+      );
+      render(<TextInput testID={testID} className="my-class" />);
+
+      expect(screen.getByTestId(testID).props[prop]).toBe("#f00");
+      expect(screen.getByTestId(testID).props.style).toStrictEqual({});
+    },
+  );
+
+  test.each(cases)(
+    "%s: dark mode tints with the dark colour",
+    (pseudoElement, prop) => {
+      registerCSS(
+        `.my-class${pseudoElement} { color: light-dark(#f00, #00f); }`,
+      );
+      render(<TextInput testID={testID} className="my-class" />);
+
+      act(() => {
+        colorScheme.set("dark");
+      });
+
+      expect(screen.getByTestId(testID).props.style).toStrictEqual({});
+      expect(screen.getByTestId(testID).props[prop]).toBe("#00f");
+    },
+  );
 });

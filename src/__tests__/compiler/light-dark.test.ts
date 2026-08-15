@@ -71,6 +71,30 @@ const declaredProperties = (rule: StyleRule): string[] => {
   });
 };
 
+/** The value a rule sets for a property, in whichever declaration form it took. */
+const declaredValue = (
+  rule: StyleRule,
+  property: string,
+): StyleDescriptor | undefined => {
+  for (const declaration of rule.d ?? []) {
+    if (Array.isArray(declaration)) {
+      const propertyPath = declaration[1];
+      const name =
+        typeof propertyPath === "string"
+          ? propertyPath
+          : propertyPath.join(".");
+
+      if (name === property) {
+        return declaration[0];
+      }
+    } else if (property in declaration) {
+      return declaration[property];
+    }
+  }
+
+  return undefined;
+};
+
 const variable = (
   rule: StyleRule,
   name: string,
@@ -198,5 +222,124 @@ describe("an extra rule leaves the rest of the rule alone", () => {
     for (const rule of rules) {
       expect(rule.v).toStrictEqual([["__rn-css-color", "#00f"]]);
     }
+  });
+});
+
+describe("an extra rule publishes nothing it does not change", () => {
+  /**
+   * Two `light-dark()` declarations open two extra rules on one rule, and only
+   * one of them publishes a colour — `background-color` is not inherited. The
+   * other is applied last, so anything it restates from the rule it copies
+   * overwrites what the first one published.
+   */
+  const resolved = `
+.p6 {
+  color: light-dark(red, blue);
+  background-color: light-dark(#0f0, #ff0);
+}`;
+
+  /**
+   * A `var()` in either branch keeps the colour unresolved, which publishes the
+   * variable from a different place than the parsed colour path — so the same
+   * invariant is stated over both.
+   */
+  const unresolved = `
+.p7 {
+  color: light-dark(hsl(0 100% 50% / var(--a)), hsl(240 100% 50% / var(--a)));
+  background-color: light-dark(hsl(120 100% 25% / var(--a)), hsl(60 100% 50% / var(--a)));
+}`;
+
+  test.each([
+    ["a parsed colour", resolved, "p6"],
+    ["an unresolved colour", unresolved, "p7"],
+  ])("%s: no dark rule republishes the light colour", (_, css, className) => {
+    const published = darkRules(css, className).map((rule) =>
+      variable(rule, "__rn-css-color"),
+    );
+
+    expect(published.length).toBeGreaterThan(0);
+    // Structural, not identity: an unresolved colour publishes an object.
+    expect(published).not.toContainEqual(
+      variable(lightRule(css, className), "__rn-css-color"),
+    );
+  });
+
+  test.each([
+    ["a parsed colour", resolved, "p6"],
+    ["an unresolved colour", unresolved, "p7"],
+  ])(
+    "%s: the background's dark rule publishes nothing at all",
+    (_, css, className) => {
+      const backgroundDarkRule = darkRules(css, className).find((rule) =>
+        declaredProperties(rule).includes("backgroundColor"),
+      );
+
+      expect(backgroundDarkRule).toBeDefined();
+      expect(backgroundDarkRule?.v).toBeUndefined();
+    },
+  );
+
+  test("a parsed colour: a dark rule publishes the dark colour", () => {
+    const published = darkRules(resolved, "p6").map((rule) =>
+      variable(rule, "__rn-css-color"),
+    );
+
+    expect(published).toContain("#00f");
+  });
+});
+
+describe("an extra rule is scoped to the pseudo-element its rule was", () => {
+  /**
+   * `::selection` maps `color` onto `selectionColor`, `::placeholder` onto
+   * `placeholderTextColor`. The mapping is applied to the rule on its way to
+   * the selector, so an extra rule composed after that step is a declaration
+   * the pseudo-element asked for landing on the element itself.
+   */
+  const pseudoElements = [
+    ["::selection", "selectionColor"],
+    ["::placeholder", "placeholderTextColor"],
+  ] as const;
+
+  test.each(pseudoElements)(
+    "%s: every rule sets %s, and no rule sets color",
+    (pseudoElement, property) => {
+      const css = `.p8${pseudoElement} { color: light-dark(red, blue); }`;
+      const rules = rulesFor(css, "p8");
+
+      expect(rules.length).toBeGreaterThan(0);
+      for (const rule of rules) {
+        expect(declaredProperties(rule)).toStrictEqual([property]);
+      }
+    },
+  );
+
+  test.each(pseudoElements)(
+    "%s: the dark rule sets %s to the dark colour",
+    (pseudoElement, property) => {
+      const css = `.p8${pseudoElement} { color: light-dark(red, blue); }`;
+
+      expect(declaredValue(lightRule(css, "p8"), property)).toBe("#f00");
+
+      const dark = darkRules(css, "p8");
+      expect(dark.length).toBeGreaterThan(0);
+      for (const rule of dark) {
+        expect(declaredValue(rule, property)).toBe("#00f");
+      }
+    },
+  );
+});
+
+describe("a light-dark() declaration opens one extra rule", () => {
+  /**
+   * `color` writes twice — the style property, and the variable it publishes to
+   * its subtree — and `parseColor` is not pure: a `light-dark()` value opens an
+   * extra rule. Parsing the value once for both writes is what keeps a colour
+   * declaration to the one dark rule every other colour property gets.
+   */
+  test.each([
+    ["color", `.p9 { color: light-dark(red, blue); }`],
+    ["background-color", `.p9 { background-color: light-dark(red, blue); }`],
+  ])("%s", (_, css) => {
+    expect(darkRules(css, "p9")).toHaveLength(1);
   });
 });
