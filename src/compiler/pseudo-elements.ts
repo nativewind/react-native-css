@@ -84,15 +84,14 @@ export function scopeRuleToPseudoElement(
 
   // `c` and `v` are the fields an authored declaration reaches without passing through `d`.
   // Every `c` entry comes from container-name, container-type or the container shorthand, so
-  // the report names the family rather than picking one of the three. `a` is only ever set
-  // beside the `d` entry that set it, so it is already reported through that entry
+  // the report names the family rather than picking one of the three. `v` is not reported at
+  // all: it holds the compiler's own --__rn-css-* mirrors of a `d` declaration already
+  // reported here alongside any authored custom property, so a `--x` written inside a
+  // pseudo-element is dropped silently. `a` is only ever set beside the `d` entry that set
+  // it, so it is already reported through that entry
   if (rule.c?.length) {
     dropped.push("container");
   }
-
-  // `v` is not reported. It holds the compiler's own --__rn-css-* mirrors of a `d`
-  // declaration already reported here, and also any authored custom property, so a `--x`
-  // written inside a pseudo-element is dropped silently
 
   if (!declarations.length) {
     return { rule: undefined, dropped };
