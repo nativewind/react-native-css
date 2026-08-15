@@ -1,13 +1,10 @@
 /* eslint-disable */
 import { createContext } from "react";
-import {
-  Appearance,
-  Dimensions,
-  type ColorSchemeName,
-  type LayoutRectangle,
-} from "react-native";
+import { Appearance, Dimensions, type LayoutRectangle } from "react-native";
 
 import type { StyleDescriptor } from "react-native-css/compiler";
+
+import type { ColorSchemeName } from "../runtime.types";
 
 export type Effect = {
   observers: Set<Effect>;

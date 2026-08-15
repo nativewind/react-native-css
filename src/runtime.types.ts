@@ -8,12 +8,7 @@ import type {
   FunctionComponent,
   ReactElement,
 } from "react";
-import type {
-  ColorSchemeName,
-  ImageStyle,
-  TextStyle,
-  ViewStyle,
-} from "react-native";
+import type { ImageStyle, TextStyle, ViewStyle } from "react-native";
 
 import type { DotNotation, ResolveDotPath } from "react-native-css/utilities";
 
@@ -143,6 +138,23 @@ export type Callback = () => void;
 export type RNStyle = ViewStyle & TextStyle & ImageStyle;
 
 /********************************    Globals    ********************************/
+
+/**
+ * A color scheme, plus every spelling of "follow the system" in the supported
+ * `react-native` range.
+ *
+ * This deliberately does not reuse `react-native`'s own `ColorSchemeName`: that type
+ * is not stable across the `react-native` peer range. Up to 0.85 it is
+ * `"light" | "dark" | null | undefined`; from 0.86 it is
+ * `"light" | "dark" | "unspecified"`. Owning the union keeps `colorScheme` one API
+ * across the whole range, and accepts whichever spelling the installed version emits.
+ */
+export type ColorSchemeName =
+  | "light"
+  | "dark"
+  | "unspecified"
+  | null
+  | undefined;
 
 export interface ColorScheme {
   get: () => ColorSchemeName;
