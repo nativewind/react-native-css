@@ -19,6 +19,9 @@ type MediaComparison = [
   MediaFeatureOperand,
 ];
 
+/** Bits per color component. React Native renders to a color display. */
+const COLOR_DEPTH = 8;
+
 export function testMediaQuery(mediaQueries: MediaCondition[], get: Getter) {
   return mediaQueries.every((query) => test(query, get));
 }
@@ -75,12 +78,10 @@ function testComparison(mediaQuery: MediaComparison, get: Getter): Boolean {
     case "dir":
       return (I18nManager.isRTL && value === "rtl") || value === "ltr";
     case "hover":
-      return true;
+    case "prefers-color-scheme":
+      return value === getMediaFeatureValue(mediaQuery[1], get);
     case "platform":
       return value === "native" || value === Platform.OS;
-    case "prefers-color-scheme": {
-      return value === get(colorScheme);
-    }
     case "display-mode":
       return value === "native" || Platform.OS === value;
     case "min-width":
@@ -131,13 +132,20 @@ function getMediaFeatureValue(
     case "dir":
       return I18nManager.isRTL ? "rtl" : "ltr";
     case "hover":
-      // The runtime reports hover on every platform
+      // A deviation from MQ5 5.1, where `none` covers a touchscreen. React
+      // Native raises `onHoverIn` / `onHoverOut` wherever a pointer exists, and
+      // the `hover:` variant of a utility framework compiles to this feature, so
+      // the runtime answers `hover` on every platform rather than switching on
+      // the primary input mechanism it cannot see.
       return "hover";
     case "platform":
     case "display-mode":
       return Platform.OS;
     case "prefers-color-scheme":
-      return get(colorScheme) ?? undefined;
+      // MQ5 12.5: `light` covers a user who has expressed no preference.
+      return get(colorScheme) ?? "light";
+    case "color":
+      return COLOR_DEPTH;
     case "width":
       return get(vw);
     case "height":

@@ -505,7 +505,7 @@ describe("boolean features", () => {
     expect(component.props.style).toStrictEqual({ color: "#00f" });
   });
 
-  test("hover matches, because the runtime always reports hover", () => {
+  test("hover matches, because the runtime reports hover", () => {
     registerCSS(`
 .my-class { color: blue; }
 
@@ -519,7 +519,7 @@ describe("boolean features", () => {
     expect(component.props.style).toStrictEqual({ color: "#f00" });
   });
 
-  test("a feature the runtime cannot answer does not match", () => {
+  test("color matches, because the display has color components", () => {
     registerCSS(`
 .my-class { color: blue; }
 
@@ -530,6 +530,85 @@ describe("boolean features", () => {
     render(<View testID={testID} className="my-class" />);
     const component = screen.getByTestId(testID);
 
+    expect(component.props.style).toStrictEqual({ color: "#f00" });
+  });
+
+  test("a feature the runtime has no source for does not match", () => {
+    registerCSS(`
+.my-class { color: blue; }
+
+@media (environment-blending) {
+  .my-class { color: red; }
+}`);
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
     expect(component.props.style).toStrictEqual({ color: "#00f" });
+  });
+});
+
+describe("features the runtime answers from one place", () => {
+  test("only the hover value the runtime reports matches", () => {
+    registerCSS(`
+.my-class { color: blue; }
+
+@media (hover: hover) { .my-class { color: red; } }
+@media (hover: none) { .my-class { color: green; } }`);
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ color: "#f00" });
+  });
+
+  test("no color scheme preference is light, in both contexts", () => {
+    registerCSS(`
+.my-class { color: blue; }
+
+@media (prefers-color-scheme: light) { .my-class { color: red; } }
+@media (prefers-color-scheme: dark) { .my-class { color: green; } }`);
+
+    act(() => {
+      colorScheme.set(null);
+    });
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ color: "#f00" });
+  });
+
+  test("a color scheme preference is answered the same way boolean context is", () => {
+    registerCSS(`
+.my-class { color: blue; }
+
+@media (prefers-color-scheme) { .my-class { color: red; } }`);
+
+    act(() => {
+      colorScheme.set(null);
+    });
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ color: "#f00" });
+  });
+
+  test("dark still matches when the user prefers it", () => {
+    registerCSS(`
+.my-class { color: blue; }
+
+@media (prefers-color-scheme: light) { .my-class { color: red; } }
+@media (prefers-color-scheme: dark) { .my-class { color: green; } }`);
+
+    act(() => {
+      colorScheme.set("dark");
+    });
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ color: "#008000" });
   });
 });
