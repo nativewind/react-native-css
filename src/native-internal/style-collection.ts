@@ -17,6 +17,7 @@ import {
 import {
   nonInheritedVariables,
   registeredInitialValues,
+  replaceRegisteredInitialValues,
   rootVariables,
   universalVariables,
 } from "./root";
@@ -107,16 +108,16 @@ globalThis.__react_native_css_style_collection ??= {
       }
     }
 
-    if (options.vi) {
-      for (const entry of options.vi) {
-        registeredInitialValues(entry[0]).set(entry[1]);
-      }
-    }
-
     // A stylesheet reload REPLACES the registrations it carries — editing an @property
-    // rule to `inherits: true`, or deleting it, has to take effect. The container itself
-    // is kept, because the globalThis pin exists so a second copy of root.ts shares this
-    // exact Set; swapping it would leave that copy reading one nothing writes to
+    // rule to `inherits: true`, or deleting it, has to take effect. Both halves of a
+    // registration are replaced, or the two disagree: the name leaves the Set below while
+    // its initial value stays behind, and an element goes on painting a length no rule in
+    // the sheet declares. Retracting an observed value is not a clear() — see root.ts
+    replaceRegisteredInitialValues(options.vi);
+
+    // The container itself is kept, because the globalThis pin exists so a second copy of
+    // root.ts shares this exact Set; swapping it would leave that copy reading one nothing
+    // writes to
     nonInheritedVariables.clear();
 
     if (options.vn) {

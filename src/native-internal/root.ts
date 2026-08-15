@@ -1,13 +1,21 @@
 import { Platform, PlatformColor } from "react-native";
 
-import type { StyleDescriptor, VariableValue } from "react-native-css/compiler";
+import type {
+  RootVariables,
+  StyleDescriptor,
+  VariableValue,
+} from "react-native-css/compiler";
 
 import { testMediaQuery } from "../native/conditions/media-query";
 import { family, observable, type Observable } from "../native/reactivity";
 
+// The argument is nullable because a reload has to be able to RETRACT a name, and the read
+// below already answers `undefined` for one — see replaceRegisteredInitialValues
+type VariableArg = VariableValue[] | undefined;
+
 const rootVariableFamily = () => {
-  return family<string, Observable<StyleDescriptor, VariableValue[]>>(() => {
-    const obs = observable<StyleDescriptor, VariableValue[]>(
+  return family<string, Observable<StyleDescriptor, VariableArg>>(() => {
+    const obs = observable<StyleDescriptor, VariableArg>(
       (read, variableValue) => {
         if (!variableValue) return undefined;
 
@@ -89,6 +97,37 @@ export function assignInheritedVariables<TValue>(
   }
 }
 
+/**
+ * Replace every registered initial value with the ones a stylesheet carries.
+ *
+ * A reload has to be able to DELETE an `@property` rule, and this registry is observable,
+ * so dropping the entry is not enough. `family.clear()` is a `Map.clear()`, which notifies
+ * nobody: a mounted element keeps painting the deleted registration's value, and the next
+ * registration of that name lands on a fresh observable that element never subscribed to.
+ * Retracting through `set(undefined)` takes the same notification path a changed value
+ * takes, and leaves the observable its readers already hold in place.
+ *
+ * `resetVariableRegistries` below still clears, because nothing is mounted across the test
+ * boundary it serves — the mechanism differs where the readers do.
+ */
+export function replaceRegisteredInitialValues(entries: RootVariables = []) {
+  const registered = new Set(entries.map(([name]) => name));
+
+  // Snapshotted because the family creates an entry for every name the resolver LOOKS UP,
+  // so a retraction outside a batch can notify a reader that resolves a new one mid-walk.
+  // Retracting a name that carries no registration is already a no-op: the observable
+  // recomputes to the `undefined` it holds, compares equal, and notifies nobody
+  for (const name of Array.from(registeredInitialValues.keys())) {
+    if (!registered.has(name)) {
+      registeredInitialValues(name).set(undefined);
+    }
+  }
+
+  for (const [name, value] of entries) {
+    registeredInitialValues(name).set(value);
+  }
+}
+
 function seedRootVariables() {
   rootVariables("__rn-css-rem").set([[14]]);
   // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
@@ -107,9 +146,14 @@ seedRootVariables();
 /**
  * Return every variable registry to its boot state, seeds included.
  *
- * A stylesheet reload only overwrites the names the new sheet mentions, so a name it
- * drops keeps the value the previous one gave it. That is what a reload should do to a
- * running app and the opposite of what one test should do to the next.
+ * A reload replaces the two registries an `@property` rule writes, but `:root` and `*`
+ * declarations are overwrite-only — a name the new sheet drops keeps the value the previous
+ * one gave it. That is what a reload should do to a running app and the opposite of what one
+ * test should do to the next, and a test that injects no stylesheet at all needs the reset
+ * either way.
+ *
+ * Clearing is enough here, where `inject` has to retract through `set(undefined)`: nothing
+ * is mounted across the boundary this serves, so there is no reader to strand.
  */
 export function resetVariableRegistries() {
   rootVariables.clear();

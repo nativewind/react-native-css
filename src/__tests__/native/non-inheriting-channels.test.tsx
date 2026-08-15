@@ -1,8 +1,12 @@
-import { render, screen } from "@testing-library/react-native";
+import { act, render, screen } from "@testing-library/react-native";
 import { VariableContextProvider } from "react-native-css";
 import { View } from "react-native-css/components/View";
 import { registerCSS, testID } from "react-native-css/jest";
-import { nonInheritedVariables } from "react-native-css/native-internal";
+import {
+  nonInheritedVariables,
+  registeredInitialValues,
+  resetVariableRegistries,
+} from "react-native-css/native-internal";
 
 const parentTestID = "parent";
 
@@ -340,6 +344,102 @@ test("re-registering keeps the registry object identity", () => {
 
   expect(nonInheritedVariables).toBe(before);
   expect(globalThis.__react_native_css_non_inherited_variables).toBe(before);
+});
+
+/* ------------------------------------------------------------------ *
+ * Lifecycle — a reload retracts a registered initial value
+ * ------------------------------------------------------------------ */
+
+// Composed into arithmetic ON THE DECLARING ELEMENT, which is how Tailwind reads
+// `--tw-ring-offset-width`: `calc(2px + var(--tw-ring-offset-width))`. A registration that
+// outlives the rule declaring it does not hand a descendant something it should not have
+// inherited, it corrupts a length an element computes for itself
+const initialValueRegistration = `
+  @property --my-var {
+    syntax: "<length>";
+    inherits: false;
+    initial-value: 3px;
+  }
+`;
+
+const initialValueConsumer = `
+  .probe { width: calc(2px + var(--my-var)); }
+  .a { --my-var: 10px; }
+  .b { --my-var: 20px; }
+`;
+
+test("a sheet registering nothing leaves the consumer no width", () => {
+  // The control for the two tests below. `.probe` reads a property no rule it matches
+  // declares and no @property registers, so the whole declaration drops
+  registerCSS(initialValueConsumer);
+
+  render(<View testID={testID} className="probe" />);
+
+  expect(screen.getByTestId(testID).props.style).toStrictEqual({});
+});
+
+test("deleting an @property rule retracts its initial value", () => {
+  registerCSS(`
+    ${initialValueRegistration}
+    ${initialValueConsumer}
+  `);
+  expect(registeredInitialValues("my-var").get()).toBe(3);
+
+  registerCSS(initialValueConsumer);
+
+  expect(registeredInitialValues("my-var").get()).toBeUndefined();
+});
+
+test("a mounted element drops a retracted initial value", () => {
+  // Deleting an @property rule un-registered only half of it: the name left
+  // `nonInheritedVariables` and the initial value stayed, so the two halves of one
+  // registration disagreed and the element kept painting a width the sheet no longer
+  // declares anywhere
+  registerCSS(`
+    ${initialValueRegistration}
+    ${initialValueConsumer}
+  `);
+
+  render(<View testID={testID} className="probe" />);
+  expect(screen.getByTestId(testID).props.style).toStrictEqual({ width: 5 });
+
+  act(() => {
+    registerCSS(initialValueConsumer);
+  });
+
+  // Exactly what the same sheet paints when it is the first one loaded, two tests above
+  expect(screen.getByTestId(testID).props.style).toStrictEqual({});
+});
+
+test("retracting an initial value keeps the observable its readers hold", () => {
+  // This is why the retraction is `.set(undefined)` and not `.clear()`. Clearing the family
+  // drops the map entry without notifying anyone, so a mounted reader keeps the deleted
+  // value AND the next registration of the same name lands on an observable it never
+  // subscribed to — the reader is then stranded for the rest of the session
+  registerCSS(`
+    ${initialValueRegistration}
+    ${initialValueConsumer}
+  `);
+  const before = registeredInitialValues("my-var");
+
+  registerCSS(initialValueConsumer);
+
+  expect(registeredInitialValues("my-var")).toBe(before);
+});
+
+test("resetVariableRegistries retracts a registered initial value", () => {
+  // The jest preset's beforeEach is all that stands between one test's @property
+  // registration and the next test's. A plain clear() is right HERE and wrong in inject():
+  // testing-library unmounts between tests, so this retraction has no reader to strand
+  registerCSS(`
+    ${initialValueRegistration}
+    ${initialValueConsumer}
+  `);
+  expect(registeredInitialValues("my-var").get()).toBe(3);
+
+  resetVariableRegistries();
+
+  expect(registeredInitialValues("my-var").get()).toBeUndefined();
 });
 
 /* ------------------------------------------------------------------ *

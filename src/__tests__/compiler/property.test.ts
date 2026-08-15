@@ -359,6 +359,9 @@ test("an unregistered custom property is not recorded", () => {
   const result = compiled.stylesheet();
   expect(result.s).toBeDefined();
   expect(result.vn).toBeUndefined();
+  // Neither half of a registration is emitted. This is the sheet a Fast Refresh produces
+  // when an @property rule is deleted, so it is what the runtime has to retract AGAINST
+  expect(result.vi).toBeUndefined();
 });
 
 test("@property records a name once, however many rules declare it", () => {
