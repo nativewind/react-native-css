@@ -2894,27 +2894,46 @@ function toRgbChannel(coordinate: number | null): number {
  * output. `2 ** 32` is where one step of that grid first covers a whole turn: a
  * float32 holds a 24-bit significand, so its ULP at `2 ** exponent` is
  * `2 ** (exponent - 23)`, which reaches 512 at an exponent of 32.
+ *
+ * `src/__tests__/native/colors.test.tsx` brackets this constant rather than
+ * pinning it. A hue between `2 ** 31` and `2 ** 32` must still reduce and
+ * `2 ** 32` itself must not, so any constant between those two passes. The
+ * window is about a factor of two wide because the derivation above only
+ * resolves to a power of two — the ULP steps from 256 straight to 512, and no
+ * authored hue can land between them.
  */
 const SMALLEST_UNNAMEABLE_HUE = 2 ** 32;
 
 /**
- * Reducing a hue modulo a turn only says something about the author's angle
- * while the arriving float still resolves finer than the turn. Past
- * {@link SMALLEST_UNNAMEABLE_HUE} every representable neighbour lands on a
- * different angle, so the reduction reports the float grid rather than the
- * declaration, and the value is in practice a range limit rather than a hue —
- * `hsl(1e20 …)` and `hsl(1e38 …)` both arrive as `9223369837831520000`, and
- * `calc(infinity)` as `9223372036854776000`. `Infinity`, which is how a
+ * Past {@link SMALLEST_UNNAMEABLE_HUE} every representable neighbour lands on a
+ * different angle, so reducing the arriving float modulo a turn reports the
+ * float grid rather than the declaration, and the value is a range limit rather
+ * than a hue.
+ *
+ * Both lightningcss passes contribute, and they saturate different inputs. A
+ * visitor is what materialises the AST into JavaScript and back, and the hue
+ * saturates to i64 on that round trip: pass one's declaration visitor saturates
+ * `1e19` through `1e38`, serializing all of them as `9223370000000000000`,
+ * while pass two's rule visitor saturates `calc(infinity)`, which pass one
+ * leaves at the float32 maximum `3.40282e38`. They arrive here as
+ * `9223369837831520000` and `9223372036854776000`. `Infinity`, which is how a
  * `calc(NaN)` hue arrives, is the same condition at the top of the range.
  *
+ * This threshold is about where a hue stops naming an angle, not about where it
+ * stops being exact. lightningcss's serializer keeps six significant digits, so
+ * from about `1e6` the arriving float already names a different angle than the
+ * author wrote — `12345678` arrives as `12345700`, `123456789` as `123457000` —
+ * and those hues are still reduced, from a number the serializer chose. That
+ * loss is upstream of this function and no threshold here recovers it.
+ *
  * CSS Color 4 makes a missing component `0`, so an unnameable hue takes `0`.
- * That is also what lightningcss's own resolved path produces for such a hue,
- * with the exception recorded in `src/__tests__/native/colors.test.tsx`.
+ * That is also what lightningcss's own resolved path produces for most such
+ * hues, with the divergence recorded in `src/__tests__/native/colors.test.tsx`.
+ * `Math.abs` covers `NaN` and both infinities on its own — every comparison
+ * against them is `false` — so a separate finiteness test would be dead code.
  */
 function toHueDegrees(hue: number): number {
-  return Number.isFinite(hue) && Math.abs(hue) < SMALLEST_UNNAMEABLE_HUE
-    ? hue
-    : 0;
+  return Math.abs(hue) < SMALLEST_UNNAMEABLE_HUE ? hue : 0;
 }
 
 export function parseUnresolvedColor(

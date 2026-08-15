@@ -208,9 +208,17 @@ describe("unresolved alpha", () => {
 
   // The other side of that boundary: a hue far outside [0, 360) but still on a
   // part of the grid that resolves finer than a turn is reduced, never clamped.
+  //
+  // Every row has to land on a colour the clamp does NOT also produce, or it
+  // cannot tell reduction from clamping — a hue that reduces to 0 agrees with
+  // the clamp and passes either way. `3e9` is also what bounds the threshold
+  // from below: it sits between 2**31 and 2**32, where the float32 ULP is 256
+  // and so still finer than a turn, and it arrives exactly because one
+  // significant digit survives any serializer. Together with the 2**32 row
+  // above it brackets `SMALLEST_UNNAMEABLE_HUE` to within a factor of two.
   test.each([
     ["-600", "rgba(0, 255, 0, 0.5)"],
-    ["720", "rgba(255, 0, 0, 0.5)"],
+    ["3e9", "rgba(0, 255, 0, 0.5)"],
     ["1e7", "rgba(170, 0, 255, 0.5)"],
   ])("hsl reduces a large nameable hue: %s", (hue, expected) => {
     registerCSS(`.my-class {
@@ -308,14 +316,20 @@ describe("unresolved alpha matches the resolved spelling", () => {
     expect(renderedColor("unresolved")).toBe(expected);
   });
 
-  // The one input the parity list above cannot hold. lightningcss resolves a hue
-  // this large in 32-bit floats and its answer is not a function anyone can
-  // match: across neighbouring inputs it alternates between red and `#000`
-  // (`1.40e38` red, `1.42e38` black, `1.46e38` red), and `calc(infinity)` lands
-  // on a black. The compiler emits the answer that IS a function of the hue —
-  // the same one every other unnameable hue gets — so the divergence is pinned
-  // here rather than reproduced. This goes red if lightningcss stabilises, which
-  // is when the row belongs in the list above instead.
+  // `calc(infinity)` stands for a family, not a special case: sampling f32 hues
+  // above 2**32, about one in seven resolves to something other than the red the
+  // compiler emits, `5e10`, `1e12`, `1.44e38` and `calc(-infinity)` among them.
+  //
+  // What makes the family unmatchable is not that lightningcss is erratic — it
+  // is that the distinguishing information never reaches this compiler.
+  // Seventeen authored hues from `1e19` to `9223372036854775807` all arrive as
+  // the single value `9223369837831520000`, and lightningcss's resolved path
+  // splits that one arriving value twelve red to five black. No function of the
+  // hue this compiler receives can separate inputs it receives as one number.
+  //
+  // So the compiler emits the answer that IS a function of the arriving hue and
+  // the divergence is pinned here rather than reproduced. This goes red if
+  // lightningcss stabilises, which is when the row belongs in the list above.
   test("a saturated hue diverges from lightningcss's own resolution", () => {
     registerCSS(`
       .resolved { background-color: hsl(calc(infinity) 100% 50%); }
