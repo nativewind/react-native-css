@@ -395,6 +395,60 @@ describe("unresolvable operands", () => {
     expect(component.props.style).toStrictEqual({ color: "#00f" });
   });
 
+  test("an orientation alone in a query never matches", () => {
+    registerCSS(`
+.my-class { color: blue; }
+
+@media (orientation: env(safe-area-inset-top)) {
+  .my-class { color: red; }
+}`);
+
+    act(() => {
+      dimensions.set({ ...dimensions.get(), width: 500, height: 1000 });
+    });
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ color: "#00f" });
+  });
+
+  test("a width alone in a query never matches", () => {
+    registerCSS(`
+.my-class { color: blue; }
+
+@media (min-width: env(safe-area-inset-top)) {
+  .my-class { color: red; }
+}`);
+
+    act(() => {
+      dimensions.set({ ...dimensions.get(), width: 500, height: 1000 });
+    });
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ color: "#00f" });
+  });
+
+  test("the sibling branch of an or still decides the query", () => {
+    registerCSS(`
+.my-class { color: blue; }
+
+@media ((orientation: env(safe-area-inset-top)) or (min-width: 0px)) {
+  .my-class { color: red; }
+}`);
+
+    act(() => {
+      dimensions.set({ ...dimensions.get(), width: 500, height: 1000 });
+    });
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ color: "#f00" });
+  });
+
   test("a resolved orientation still matches", () => {
     registerCSS(`
 .my-class { color: blue; }

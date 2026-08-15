@@ -16,6 +16,22 @@ export function getWebInjectionCode(filePaths: string[]) {
   return Buffer.from(importStatements);
 }
 
+/**
+ * A stylesheet as a native bundle carries it.
+ *
+ * `getNativeInjectionCode` writes the stylesheet into the bundle as JSON source
+ * text, so this is the only shape a device ever injects. `JSON.stringify` cannot
+ * carry `undefined`: inside an array it writes `null`, and as an object value it
+ * drops the key. Anything the compiler emits has to survive that, which is why
+ * an unresolved feature operand compiles to `null` rather than `undefined`.
+ *
+ * Tests inject through this too, so a test cannot certify a shape production
+ * never sees.
+ */
+export function serializeStyleSheet(stylesheet: unknown): string {
+  return JSON.stringify(stylesheet);
+}
+
 export function getNativeInjectionCode(
   cssFilePaths: string[],
   values: unknown[],
@@ -25,7 +41,7 @@ export function getNativeInjectionCode(
     .join("\n");
 
   const contents = values
-    .map((value) => `StyleCollection.inject(${JSON.stringify(value)});`)
+    .map((value) => `StyleCollection.inject(${serializeStyleSheet(value)});`)
     .join("\n");
 
   return Buffer.from(

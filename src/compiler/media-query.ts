@@ -11,6 +11,7 @@ import type {
 import type {
   MediaCondition,
   MediaFeatureComparison,
+  MediaFeatureOperand,
   StyleDescriptor,
 } from "./compiler.types";
 import { parseLength } from "./declarations";
@@ -45,8 +46,11 @@ export function parseMediaQuery(
   if (query.condition) {
     condition = parseMediaQueryCondition(query.condition, builder);
 
-    // If any of these are undefined, the media query is invalid
-    if (!condition || condition.some((v) => v === undefined)) {
+    // A query with nothing left to test cannot apply. An operand the compiler
+    // could not resolve is not that case: it compiles to `null` and stays in
+    // the condition, because a query that is absent applies unconditionally
+    // while a query that is present and refused applies to nothing.
+    if (!condition) {
       return;
     }
   }
@@ -113,21 +117,21 @@ function parseFeature(
       return [
         "=",
         feature.name,
-        parseMediaFeatureValue(feature.value, builder),
+        parseMediaFeatureOperand(feature.value, builder),
       ];
     case "range":
       return [
         parseMediaFeatureOperator(feature.operator),
         feature.name,
-        parseMediaFeatureValue(feature.value, builder),
+        parseMediaFeatureOperand(feature.value, builder),
       ];
     case "interval":
       return [
         "[]",
         feature.name,
-        parseMediaFeatureValue(feature.start, builder),
+        parseMediaFeatureOperand(feature.start, builder),
         parseMediaFeatureOperator(feature.startOperator),
-        parseMediaFeatureValue(feature.end, builder),
+        parseMediaFeatureOperand(feature.end, builder),
         parseMediaFeatureOperator(feature.endOperator),
       ];
     default:
@@ -136,7 +140,22 @@ function parseFeature(
   return;
 }
 
-export function parseMediaFeatureValue(
+/**
+ * A feature value in the one shape an operand slot can hold.
+ *
+ * `parseMediaFeatureValue` answers `undefined` for a value with no compile-time
+ * answer - `env()`, a ratio, an unsupported `calc()`. That marker cannot cross
+ * into a native bundle, which receives the stylesheet as JSON, so it is written
+ * here as `null` and every operand slot is filled through this function.
+ */
+export function parseMediaFeatureOperand(
+  value: CSSMediaFeatureValue,
+  builder: StylesheetBuilder,
+): MediaFeatureOperand {
+  return parseMediaFeatureValue(value, builder) ?? null;
+}
+
+function parseMediaFeatureValue(
   value: CSSMediaFeatureValue,
   builder: StylesheetBuilder,
 ): StyleDescriptor {

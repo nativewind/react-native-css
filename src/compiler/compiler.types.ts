@@ -186,17 +186,27 @@ export type MediaCondition =
   | [
       MediaFeatureComparison,
       MediaFeatureNameFor_MediaFeatureId | "dir",
-      StyleDescriptor,
+      MediaFeatureOperand,
     ]
   // [Start, End]
   | [
       "[]",
       MediaFeatureNameFor_MediaFeatureId,
-      StyleDescriptor, // Start
+      MediaFeatureOperand, // Start
       MediaFeatureComparison, // Start comparison
-      StyleDescriptor, // End
+      MediaFeatureOperand, // End
       MediaFeatureComparison, // End comparison
     ];
+
+/**
+ * The right-hand side of a media or container feature comparison.
+ *
+ * A stylesheet reaches a native bundle as JSON source text, and `JSON.stringify`
+ * writes `undefined` inside an array as `null`. An operand is an array slot, so
+ * `undefined` is not a value this position can hold - the compiler emits `null`
+ * for a feature value it cannot resolve, and the runtime refuses that operand.
+ */
+export type MediaFeatureOperand = Exclude<StyleDescriptor, undefined> | null;
 
 export type MediaFeatureComparison = "=" | ">" | ">=" | "<" | "<=";
 

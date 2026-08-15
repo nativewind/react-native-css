@@ -149,6 +149,74 @@ describe("unresolvable operands", () => {
     expect(child.props.style).toStrictEqual({ color: "#f00" });
   });
 
+  test("a feature alone in a condition never matches", () => {
+    registerCSS(`
+      .container {
+        container-name: my-container;
+        width: 200px;
+      }
+
+      .child {
+        color: red;
+      }
+
+      @container (block-size: env(safe-area-inset-top)) {
+        .child {
+          color: blue;
+        }
+      }
+    `);
+
+    render(
+      <View testID={parentID} className="container">
+        <View testID={childID} className="child" />
+      </View>,
+    );
+
+    const parent = screen.getByTestId(parentID);
+    const child = screen.getByTestId(childID);
+
+    fireEvent(parent, "layout", {
+      nativeEvent: { layout: { width: 500, height: 200 } },
+    });
+
+    expect(child.props.style).toStrictEqual({ color: "#f00" });
+  });
+
+  test("a measurable feature with an unresolvable operand never matches", () => {
+    registerCSS(`
+      .container {
+        container-name: my-container;
+        width: 200px;
+      }
+
+      .child {
+        color: red;
+      }
+
+      @container (width: env(safe-area-inset-top)) {
+        .child {
+          color: blue;
+        }
+      }
+    `);
+
+    render(
+      <View testID={parentID} className="container">
+        <View testID={childID} className="child" />
+      </View>,
+    );
+
+    const parent = screen.getByTestId(parentID);
+    const child = screen.getByTestId(childID);
+
+    fireEvent(parent, "layout", {
+      nativeEvent: { layout: { width: 500, height: 200 } },
+    });
+
+    expect(child.props.style).toStrictEqual({ color: "#f00" });
+  });
+
   test("a feature the runtime can measure still matches", () => {
     registerCSS(`
       .container {

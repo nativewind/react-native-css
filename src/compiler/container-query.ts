@@ -6,8 +6,8 @@ import type {
 
 import type { MediaCondition } from "./compiler.types";
 import {
+  parseMediaFeatureOperand,
   parseMediaFeatureOperator,
-  parseMediaFeatureValue,
 } from "./media-query";
 import type { StylesheetBuilder } from "./stylesheet";
 
@@ -17,8 +17,11 @@ export function parseContainerCondition(
 ) {
   let containerQuery = parseContainerQueryCondition(condition, builder);
 
-  // If any of these are undefined, the media query is invalid
-  if (!containerQuery || containerQuery.some((v) => v === undefined)) {
+  // A condition with nothing left to test cannot apply. An operand the compiler
+  // could not resolve is not that case: it compiles to `null` and stays in the
+  // condition, because a condition that is absent applies to every container
+  // while a condition that is present and refused applies to none.
+  if (!containerQuery) {
     return;
   }
 
@@ -73,21 +76,21 @@ function parseFeature(
       return [
         "=",
         feature.name,
-        parseMediaFeatureValue(feature.value, builder),
+        parseMediaFeatureOperand(feature.value, builder),
       ];
     case "range":
       return [
         parseMediaFeatureOperator(feature.operator),
         feature.name,
-        parseMediaFeatureValue(feature.value, builder),
+        parseMediaFeatureOperand(feature.value, builder),
       ];
     case "interval":
       return [
         "[]",
         feature.name,
-        parseMediaFeatureValue(feature.start, builder),
+        parseMediaFeatureOperand(feature.start, builder),
         parseMediaFeatureOperator(feature.startOperator),
-        parseMediaFeatureValue(feature.end, builder),
+        parseMediaFeatureOperand(feature.end, builder),
         parseMediaFeatureOperator(feature.endOperator),
       ];
     default:

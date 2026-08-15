@@ -107,15 +107,11 @@ function testContainerMediaCondition(
     case "<":
     case "<=":
     case "=": {
+      // A feature the runtime cannot measure has no value, and an operand the
+      // compiler could not resolve is `null`. Neither equals the other, and
+      // neither is a number, so every comparison below refuses them.
       const left = getContainerFeatureValue(condition[1], containerKey, get);
       const right = condition[2];
-
-      // An operand the runtime cannot measure, or one the compiler could not
-      // resolve, satisfies no comparison. Two of them are not equal to each
-      // other.
-      if (left === undefined || right === undefined) {
-        return false;
-      }
 
       if (condition[0] === "=") {
         return left === right;

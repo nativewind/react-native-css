@@ -1,6 +1,8 @@
 import type { MediaCondition } from "react-native-css/compiler";
 import { compile } from "react-native-css/compiler";
 
+import { serializeStyleSheet } from "../../metro/injection-code";
+
 /** The media conditions of every rule compiled for `className`. */
 function mediaConditions(css: string, className: string) {
   const rules =
@@ -143,29 +145,55 @@ describe("comma-separated media query lists", () => {
   });
 });
 
-test("an operand the compiler cannot resolve stays in the condition", () => {
-  // `env()` has no compile-time value, so the operand compiles to `undefined`.
-  // It has to survive into the condition: dropping it would leave the width
-  // alone deciding a query that also asks about orientation. The runtime is
-  // what refuses an unresolved operand.
-  expect(
-    mediaConditions(
-      `@media ((orientation: env(safe-area-inset-top)) and (min-width: 0px)) {
+describe("an operand the compiler cannot resolve", () => {
+  // `env()` has no compile-time value. The operand compiles to `null`, the one
+  // spelling of "no value" that survives `JSON.stringify` into a native bundle,
+  // and it has to survive into the condition: a condition that is absent applies
+  // unconditionally, so dropping the query is the opposite of refusing it.
+  test("compiles to null beside a sibling operand", () => {
+    expect(
+      mediaConditions(
+        `@media ((orientation: env(safe-area-inset-top)) and (min-width: 0px)) {
+        .my-class { background-color: red; }
+      }`,
+        "my-class",
+      ),
+    ).toStrictEqual([
+      [
+        [
+          "&",
+          [
+            ["=", "orientation", null],
+            [">=", "width", 0],
+          ],
+        ],
+      ],
+    ]);
+  });
+
+  test("compiles to null as the only operand", () => {
+    expect(
+      mediaConditions(
+        `@media (orientation: env(safe-area-inset-top)) {
+        .my-class { background-color: red; }
+      }`,
+        "my-class",
+      ),
+    ).toStrictEqual([[["=", "orientation", null]]]);
+  });
+
+  test("survives the serializer that carries it to a device", () => {
+    const conditions = mediaConditions(
+      `@media (orientation: env(safe-area-inset-top)) {
         .my-class { background-color: red; }
       }`,
       "my-class",
-    ),
-  ).toStrictEqual([
-    [
-      [
-        "&",
-        [
-          ["=", "orientation", undefined],
-          [">=", "width", 0],
-        ],
-      ],
-    ],
-  ]);
+    );
+
+    expect(JSON.parse(serializeStyleSheet(conditions))).toStrictEqual(
+      conditions,
+    );
+  });
 });
 
 test("a boolean feature compiles to a boolean condition", () => {

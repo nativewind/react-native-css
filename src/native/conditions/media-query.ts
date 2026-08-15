@@ -5,6 +5,7 @@ import type { MediaFeatureNameFor_MediaFeatureId } from "lightningcss";
 import type {
   MediaCondition,
   MediaFeatureComparison,
+  MediaFeatureOperand,
   StyleDescriptor,
 } from "react-native-css/compiler";
 
@@ -15,7 +16,7 @@ type MediaFeatureName = MediaFeatureNameFor_MediaFeatureId | "dir";
 type MediaComparison = [
   MediaFeatureComparison,
   MediaFeatureName,
-  StyleDescriptor,
+  MediaFeatureOperand,
 ];
 
 export function testMediaQuery(mediaQueries: MediaCondition[], get: Getter) {
@@ -66,7 +67,7 @@ function testComparison(mediaQuery: MediaComparison, get: Getter): Boolean {
 
   // An operand the compiler could not resolve satisfies no comparison. Features
   // whose verdict does not read the value would otherwise match on nothing.
-  if (value === undefined) {
+  if (value === null) {
     return false;
   }
 
