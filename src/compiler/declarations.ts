@@ -2880,6 +2880,14 @@ export function parseTranslateProp(
   return parseLength(value[prop], builder);
 }
 
+/**
+ * colorjs.io holds sRGB in the 0-1 range while `rgba()` takes 0-255 channels.
+ * A `null` coordinate is a missing component, which CSS Color 4 treats as `0`.
+ */
+function toRgbChannel(coordinate: number | null): number {
+  return Math.round((coordinate ?? 0) * 255);
+}
+
 export function parseUnresolvedColor(
   color: UnresolvedColor,
   builder: StylesheetBuilder,
@@ -2901,17 +2909,29 @@ export function parseUnresolvedColor(
           parseUnparsed(color.alpha, builder, property),
         ],
       ];
-    case "hsl":
+    case "hsl": {
+      // An `UnresolvedColor` always leaves the alpha as a `var()`, and an unset
+      // variable with no fallback drops that argument. `hsla()` is rejected
+      // three-argument, so it cannot carry an alpha that may vanish, while
+      // `rgba()` stays valid and renders opaque. lightningcss resolves the hue,
+      // saturation and lightness, so they convert to the sRGB channels
+      // `parseColor` writes for the resolved spelling and share the shape above.
+      const { coords } = new Color({
+        space: "hsl",
+        coords: [color.h, color.s, color.l],
+      }).to("srgb");
+
       return [
         {},
-        color.type,
+        "rgba",
         [
-          color.h,
-          color.s,
-          color.l,
+          toRgbChannel(coords[0]),
+          toRgbChannel(coords[1]),
+          toRgbChannel(coords[2]),
           parseUnparsed(color.alpha, builder, property),
         ],
       ];
+    }
     case "light-dark": {
       const extraRule = builder.extendRule({
         m: [["=", "prefers-color-scheme", "dark"]],

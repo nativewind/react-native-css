@@ -162,6 +162,21 @@ describe("unresolved alpha", () => {
       backgroundColor: "rgba(128, 64, 26, 0.5)",
     });
   });
+
+  // The resolved path compiles the same channels to `#ef4444`, and React Native
+  // rejects both `hsl()` carrying an alpha and `hsla()` missing one.
+  test("hsl resolves to the same channels as the resolved path", () => {
+    registerCSS(`.my-class {
+      background-color: hsl(0 84.2% 60.2% / var(--a, 0.5));
+    }`);
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({
+      backgroundColor: "rgba(239, 68, 68, 0.5)",
+    });
+  });
 });
 
 describe("currentcolor", () => {
