@@ -654,9 +654,11 @@ describe("inherit", () => {
     // both should be `#00f` here. `light-dark()` instead publishes
     // --__rn-css-color from its LIGHT branch only: the extra
     // `prefers-color-scheme: dark` rule carries the dark `color` declaration
-    // beside the light published value. It predates this change — it reproduces
-    // with the double-parse restored — so it is recorded, not fixed here, and a
-    // fix has to come back and update this expectation.
+    // beside the light published value.
+    //
+    // It predates this change — it reproduces with the double parse restored —
+    // and it is #420's defect 2, so it is pinned here rather than fixed. Which
+    // of the two lands first decides who updates this expectation.
     expect(screen.getByTestId("parent").props.style).toStrictEqual({
       color: "#00f",
     });
