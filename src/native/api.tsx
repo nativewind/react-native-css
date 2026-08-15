@@ -1,6 +1,6 @@
 /* eslint-disable  */
 import { useContext, useState, type ComponentType } from "react";
-import { Appearance } from "react-native";
+import { Appearance, DeviceEventEmitter } from "react-native";
 
 import type { StyleDescriptor } from "react-native-css/compiler";
 import { VariableContext } from "react-native-css/native-internal";
@@ -73,10 +73,30 @@ export const colorScheme: ColorScheme = {
     return colorSchemeObs.get() ?? Appearance.getColorScheme() ?? "light";
   },
   set(value) {
-    // Both readers, in one call: useColorScheme() reads Appearance, the class layer
-    // reads the observable. Moving one without the other splits the app's own UI
+    // Every reader, in one call. There are three, and they are three separate
+    // channels: the class layer reads the observable, useColorScheme() reads
+    // Appearance's cache, and every store built the documented way is wired to
+    // Appearance.addChangeListener. Moving one without the others splits the
+    // app's own UI
+    const previous = Appearance.getColorScheme();
     Appearance.setColorScheme(value);
     colorSchemeObs.set(value);
+
+    // RN's setColorScheme assigns the cache and calls the native module; the
+    // only eventEmitter.emit("change") in Libraries/Utilities/Appearance.js is
+    // inside the `appearanceChanged` handler. So a write the platform does not
+    // echo back moves getColorScheme() and notifies nobody. Announce it on the
+    // same device event the platform uses, so Appearance itself performs the
+    // cache write and the emit exactly as it does for an OS change.
+    //
+    // Guarded on the cache having actually moved, so this reports a change and
+    // never invents one: where there is no native Appearance module the write
+    // above is a no-op and both reads are null, and a redundant set of the
+    // current scheme is silent — matching the observable's own equality guard.
+    const current = Appearance.getColorScheme();
+    if (current !== previous) {
+      DeviceEventEmitter.emit("appearanceChanged", { colorScheme: current });
+    }
   },
 };
 

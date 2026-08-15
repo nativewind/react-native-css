@@ -1,68 +1,94 @@
-import { Appearance, type ColorSchemeName } from "react-native";
+import { useSyncExternalStore } from "react";
+import {
+  Appearance,
+  DeviceEventEmitter,
+  Text,
+  type ColorSchemeName,
+} from "react-native";
 
 import { act, render, screen } from "@testing-library/react-native";
 import { View } from "react-native-css/components/View";
 import { registerCSS, testID } from "react-native-css/jest";
 import { colorScheme } from "react-native-css/runtime";
 
-// A stand-in for Appearance, matching react-native/Libraries/Utilities/Appearance.js:
-// getColorScheme reads a process-lifetime cache and setColorScheme writes it. Under the
-// jest preset the real module is the absent-native branch, where every read is null and
-// setColorScheme is a no-op, so it cannot express this.
+// Under the jest preset TurboModuleRegistry.get("Appearance") is null, so
+// react-native's Appearance takes its absent-native branch: every read is null,
+// setColorScheme is a no-op and no `appearanceChanged` listener is registered.
 //
-// It cannot reach useColorScheme, and no fake can: react-native/jest/setup.js:122 replaces
-// that hook with jest.fn(() => "light"), and the real one imports { getColorScheme } from
-// ./Appearance directly rather than through the namespace object replaced below. So the
-// claim that RN's own readers now agree is argued from Appearance's semantics, not tested.
-type ChangeListener = (event: { colorScheme: ColorSchemeName }) => void;
+// Faking that ONE module — rather than replacing Appearance itself — leaves the
+// real Libraries/Utilities/Appearance.js running, so the cache, the change
+// event, the `unspecified` coercion and their ordering are react-native's own
+// rather than a transcription of them. That matters here specifically: the
+// behaviour under test is which of Appearance's two write paths emits.
+jest.mock("react-native/Libraries/Utilities/NativeAppearance", () => {
+  let deviceScheme: ColorSchemeName = "light";
+  const setColorSchemeCalls: string[] = [];
 
-interface FakeAppearance {
-  getColorScheme: () => ColorSchemeName;
-  setColorScheme: (scheme: ColorSchemeName) => void;
-  addChangeListener: (listener: ChangeListener) => { remove: () => void };
-  emitOperatingSystemChange: (scheme: ColorSchemeName) => void;
-  readSetCalls: () => ColorSchemeName[];
-}
-
-jest.mock("react-native", () => {
-  const ReactNative = jest.requireActual("react-native");
-
-  let cachedScheme: ColorSchemeName = "light";
-  const setCalls: ColorSchemeName[] = [];
-  const listeners = new Set<ChangeListener>();
-
-  const fakeAppearance: FakeAppearance = {
-    getColorScheme: () => cachedScheme,
-    setColorScheme: (scheme) => {
-      setCalls.push(scheme);
-      cachedScheme = scheme;
+  return {
+    __esModule: true,
+    default: {
+      // NativeEventEmitter's listener-refcount contract
+      addListener: () => undefined,
+      getColorScheme: () => deviceScheme,
+      readSetColorSchemeCalls: () => [...setColorSchemeCalls],
+      removeListeners: () => undefined,
+      setColorScheme: (next: string) => {
+        setColorSchemeCalls.push(next);
+        // The platform resolves "unspecified" to whatever it is following. With
+        // no OS behind this fake, that is nothing.
+        deviceScheme =
+          next === "unspecified" ? null : (next as ColorSchemeName);
+      },
+      writeDeviceScheme: (next: ColorSchemeName) => {
+        deviceScheme = next;
+      },
     },
-    addChangeListener: (listener) => {
-      listeners.add(listener);
-      return {
-        remove: () => {
-          listeners.delete(listener);
-        },
-      };
-    },
-    emitOperatingSystemChange: (scheme) => {
-      cachedScheme = scheme;
-      for (const listener of listeners) {
-        listener({ colorScheme: scheme });
-      }
-    },
-    readSetCalls: () => setCalls,
   };
-
-  Object.defineProperty(ReactNative, "Appearance", {
-    configurable: true,
-    get: () => fakeAppearance,
-  });
-
-  return ReactNative as unknown;
 });
 
-const appearance = Appearance as unknown as FakeAppearance;
+interface FakeNativeAppearance {
+  readSetColorSchemeCalls: () => string[];
+  writeDeviceScheme: (next: ColorSchemeName) => void;
+}
+
+const nativeAppearanceModule: { default: FakeNativeAppearance } =
+  jest.requireMock("react-native/Libraries/Utilities/NativeAppearance");
+const nativeAppearance = nativeAppearanceModule.default;
+
+// What an OS theme change is: the native module's own state moves, then it
+// emits `appearanceChanged`. Appearance.js registers the listener that turns
+// that event into its cache write and its `change` emit.
+const emitOperatingSystemChange = (scheme: ColorSchemeName): void => {
+  nativeAppearance.writeDeviceScheme(scheme);
+  DeviceEventEmitter.emit("appearanceChanged", { colorScheme: scheme });
+};
+
+// The shape of react-native's own useColorScheme: subscribe through
+// addChangeListener, snapshot through getColorScheme. The real hook cannot be
+// used here — react-native/jest/setup.js replaces it with jest.fn(() => "light")
+// — but it is this store, and so is every other documented way to track the
+// scheme.
+const subscribeToAppearance = (onStoreChange: () => void): (() => void) => {
+  const subscription = Appearance.addChangeListener(onStoreChange);
+  return () => {
+    subscription.remove();
+  };
+};
+
+const readAppearanceColorScheme = (): ColorSchemeName =>
+  Appearance.getColorScheme();
+
+const SubscribedColorScheme = () => {
+  const scheme = useSyncExternalStore(
+    subscribeToAppearance,
+    readAppearanceColorScheme,
+  );
+
+  return <Text testID="subscribed-color-scheme">{scheme ?? "unset"}</Text>;
+};
+
+const readSubscribedColorScheme = (): unknown =>
+  screen.getByTestId("subscribed-color-scheme").props.children;
 
 // Three-way, so "matched neither branch" is distinguishable from "matched light"
 const TRI_STATE_CSS = `
@@ -81,7 +107,11 @@ const BLUE = { color: "#00f" } as const;
 const RED = { color: "#f00" } as const;
 
 beforeEach(() => {
-  appearance.setColorScheme("light");
+  // Reset through the platform path, so the fixture does not depend on the
+  // setter under test
+  act(() => {
+    emitOperatingSystemChange("light");
+  });
 });
 
 test("colorScheme.set writes through to Appearance, so both readers agree", () => {
@@ -93,15 +123,95 @@ test("colorScheme.set writes through to Appearance, so both readers agree", () =
 
   // The argument, not just the resulting cache: without the write-through the cache
   // would still read "light" here, but so would a fix that passed the wrong value
-  expect(appearance.readSetCalls().at(-1)).toBe("dark");
-  expect(appearance.getColorScheme()).toBe("dark");
+  expect(nativeAppearance.readSetColorSchemeCalls().at(-1)).toBe("dark");
+  expect(Appearance.getColorScheme()).toBe("dark");
 
   act(() => {
     colorScheme.set("light");
   });
 
-  expect(appearance.readSetCalls().at(-1)).toBe("light");
-  expect(appearance.getColorScheme()).toBe("light");
+  expect(nativeAppearance.readSetColorSchemeCalls().at(-1)).toBe("light");
+  expect(Appearance.getColorScheme()).toBe("light");
+});
+
+test("colorScheme.set notifies Appearance's subscribers, not just its cache", () => {
+  // The write-through moves getColorScheme() and nothing else: RN's
+  // setColorScheme assigns the cache and calls the native module, and the only
+  // eventEmitter.emit("change") in Appearance.js is inside the native
+  // `appearanceChanged` handler. So a write the platform does not echo back
+  // moves the direct read and tells no subscriber.
+  const heard: ColorSchemeName[] = [];
+  const subscription = Appearance.addChangeListener((event) => {
+    heard.push(event.colorScheme);
+  });
+
+  act(() => {
+    colorScheme.set("dark");
+  });
+
+  expect(Appearance.getColorScheme()).toBe("dark");
+  expect(heard).toStrictEqual(["dark"]);
+
+  act(() => {
+    colorScheme.set("light");
+  });
+
+  expect(heard).toStrictEqual(["dark", "light"]);
+
+  subscription.remove();
+});
+
+test("a colorScheme.set to the scheme already in force announces nothing", () => {
+  // The announcement reports a change and never invents one. Same guard that
+  // keeps it silent where there is no native Appearance module to move, and
+  // the same equality the observable's own set applies
+  const heard: ColorSchemeName[] = [];
+  const subscription = Appearance.addChangeListener((event) => {
+    heard.push(event.colorScheme);
+  });
+
+  act(() => {
+    colorScheme.set("light");
+  });
+
+  expect(Appearance.getColorScheme()).toBe("light");
+  expect(heard).toStrictEqual([]);
+
+  subscription.remove();
+});
+
+test("a reader subscribed the way useColorScheme is moves with colorScheme.set", () => {
+  render(<SubscribedColorScheme />);
+  expect(readSubscribedColorScheme()).toBe("light");
+
+  act(() => {
+    colorScheme.set("dark");
+  });
+
+  // Without the notification this reads "light" while Appearance.getColorScheme()
+  // already answers "dark" — the cache moved and the store was never told to
+  // re-read it
+  expect(readSubscribedColorScheme()).toBe("dark");
+});
+
+test("the class layer and a subscribed reader agree after one colorScheme.set", () => {
+  registerCSS(TRI_STATE_CSS);
+  render(
+    <>
+      <View testID={testID} className="my-class" />
+      <SubscribedColorScheme />
+    </>,
+  );
+
+  act(() => {
+    colorScheme.set("dark");
+  });
+
+  // The split this API exists to prevent: a `dark:` utility and a subscribed
+  // colour prop rendering different schemes in one tree
+  expect(screen.getByTestId(testID).props.style).toStrictEqual(RED);
+  expect(readSubscribedColorScheme()).toBe("dark");
+  expect(colorScheme.get()).toBe("dark");
 });
 
 test("the class layer resolves the scheme the same way colorScheme.get() does", () => {
@@ -128,8 +238,9 @@ test("set(null) hands the scheme back to Appearance", () => {
     colorScheme.set(null);
   });
 
-  expect(appearance.readSetCalls().at(-1)).toBeNull();
-  expect(appearance.getColorScheme()).toBeNull();
+  // "unspecified" is what RN's setColorScheme sends the platform for null
+  expect(nativeAppearance.readSetColorSchemeCalls().at(-1)).toBe("unspecified");
+  expect(Appearance.getColorScheme()).toBeNull();
   expect(colorScheme.get()).toBe("light");
 });
 
@@ -142,7 +253,7 @@ test("an OS change event repaints a mounted element", () => {
   expect(screen.getByTestId(testID).props.style).toStrictEqual(BLUE);
 
   act(() => {
-    appearance.emitOperatingSystemChange("dark");
+    emitOperatingSystemChange("dark");
   });
 
   expect(screen.getByTestId(testID).props.style).toStrictEqual(RED);
