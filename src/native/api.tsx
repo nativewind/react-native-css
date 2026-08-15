@@ -89,13 +89,23 @@ export const colorScheme: ColorScheme = {
     // same device event the platform uses, so Appearance itself performs the
     // cache write and the emit exactly as it does for an OS change.
     //
-    // Guarded on the cache having actually moved, so this reports a change and
-    // never invents one: where there is no native Appearance module the write
-    // above is a no-op and both reads are null, and a redundant set of the
-    // current scheme is silent — matching the observable's own equality guard.
-    const current = Appearance.getColorScheme();
-    if (current !== previous) {
-      DeviceEventEmitter.emit("appearanceChanged", { colorScheme: current });
+    // The announcement carries the REQUESTED scheme rather than a read of the
+    // cache, because what that cache holds at this point differs across the
+    // supported range: from 0.86 it is the requested value, and before that it
+    // is a read-back of the native module, which is stale on both platforms —
+    // Android posts the night-mode switch to the UI thread, iOS never assigns
+    // _currentColorScheme in the setter. Reading it back would make this an
+    // announcement on one react-native and a no-op on another.
+    //
+    // Only a resolved scheme is announced. Every other member of
+    // ColorSchemeName is a hand-back rather than a scheme — null and undefined
+    // before 0.86, the literal "unspecified" from 0.86 on — and only the OS
+    // knows what one resolves to. Announcing it would put a value in
+    // Appearance's cache that no reader can render; the platform's own echo
+    // delivers the resolved scheme instead, exactly as it does for an OS
+    // change. `previous` keeps a set of the scheme already in force silent.
+    if ((value === "dark" || value === "light") && value !== previous) {
+      DeviceEventEmitter.emit("appearanceChanged", { colorScheme: value });
     }
   },
 };
