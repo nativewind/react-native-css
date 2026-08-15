@@ -130,10 +130,15 @@ export class StylesheetBuilder {
    * The form an extra rule takes on its way to a selector.
    *
    * The rule it was opened on supplies the SELECTOR — its specificity, its
-   * pseudo classes, its container and attribute queries, and the media
-   * conditions the extra one is added to. The extra rule supplies the CONTENT,
-   * in full: its declarations, the variables they publish, and the flags they
-   * set. Neither half crosses over.
+   * container query, and the media conditions the extra one is added to. The
+   * extra rule supplies the CONTENT, in full: its declarations, the variables
+   * they publish, and the flags they set. Neither half crosses over.
+   *
+   * Pseudo classes and attribute queries are absent from that list because
+   * they are never on the rule this copies from. They are read off the
+   * selector by `applyRuleToSelectors` and written onto every rule it applies,
+   * this one included, so copying them here would be a second source for a
+   * value that already reaches the merged rule one step later.
    *
    * Content is never inherited, not even for a channel the extra rule leaves
    * empty. The rule it was opened on matches under the extra condition too, so
@@ -150,16 +155,8 @@ export class StylesheetBuilder {
       merged.m = [...rule.m, ...(merged.m ?? [])];
     }
 
-    if (rule.p) {
-      merged.p = { ...rule.p };
-    }
-
     if (rule.cq) {
       merged.cq = [...rule.cq];
-    }
-
-    if (rule.aq) {
-      merged.aq = [...rule.aq];
     }
 
     return merged;

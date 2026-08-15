@@ -329,12 +329,117 @@ describe("an extra rule is scoped to the pseudo-element its rule was", () => {
   );
 });
 
+describe("an extra rule matches where the rule it was opened on matched", () => {
+  /**
+   * The rule an extra rule is opened on supplies the conditions it already
+   * matched under, and the extra rule adds its own to them. A dark rule that
+   * dropped one of them applies where the declaration it carries never
+   * appeared — outside the container, or at any width.
+   */
+  const inContainer = `@container box (min-width: 100px) { .p10 { color: light-dark(red, blue); } }`;
+
+  test("the dark rule is scoped to the container its rule was", () => {
+    const containerQuery = lightRule(inContainer, "p10").cq;
+    const dark = darkRules(inContainer, "p10");
+
+    expect(containerQuery?.length).toBeGreaterThan(0);
+    expect(dark.length).toBeGreaterThan(0);
+    for (const rule of dark) {
+      expect(rule.cq).toStrictEqual(containerQuery);
+    }
+  });
+
+  const inMediaQuery = `@media (min-width: 100px) { .p11 { color: light-dark(red, blue); } }`;
+
+  test("the dark rule adds its condition to the ones its rule already carried", () => {
+    const mediaConditions = lightRule(inMediaQuery, "p11").m;
+    const dark = darkRules(inMediaQuery, "p11");
+
+    expect(mediaConditions?.length).toBeGreaterThan(0);
+    expect(dark.length).toBeGreaterThan(0);
+    for (const rule of dark) {
+      expect(rule.m).toStrictEqual([
+        ...(mediaConditions ?? []),
+        ["=", "prefers-color-scheme", "dark"],
+      ]);
+    }
+  });
+});
+
+describe("an extra rule matches under the conditions of its selector", () => {
+  /**
+   * A pseudo class and an attribute query describe the SELECTOR rather than the
+   * rule, so they reach every rule the selector applies to — an extra rule has
+   * no copy of its own to carry, and needs none.
+   */
+  const withPseudoClass = `.p12:hover { color: light-dark(red, blue); }`;
+
+  test("the dark rule carries the pseudo class its selector named", () => {
+    const pseudoClasses = lightRule(withPseudoClass, "p12").p;
+    const dark = darkRules(withPseudoClass, "p12");
+
+    expect(Object.keys(pseudoClasses ?? {}).length).toBeGreaterThan(0);
+    expect(dark.length).toBeGreaterThan(0);
+    for (const rule of dark) {
+      expect(rule.p).toStrictEqual(pseudoClasses);
+    }
+  });
+
+  const withAttributeQuery = `.p13[data-x="1"] { color: light-dark(red, blue); }`;
+
+  test("the dark rule carries the attribute query its selector named", () => {
+    const attributeQuery = lightRule(withAttributeQuery, "p13").aq;
+    const dark = darkRules(withAttributeQuery, "p13");
+
+    expect(attributeQuery?.length).toBeGreaterThan(0);
+    expect(dark.length).toBeGreaterThan(0);
+    for (const rule of dark) {
+      expect(rule.aq).toStrictEqual(attributeQuery);
+    }
+  });
+});
+
+describe("a container query names its parent classes once per selector", () => {
+  /**
+   * The parent classes a container query names describe the SELECTOR, not the
+   * rule, so how many rules the selector receives cannot change how many times
+   * they are registered. Every `light-dark()` declaration adds one more rule,
+   * and the registration is the same either way.
+   */
+  const oneRule = `.p14-container .p14 { color: red; }`;
+  const manyRules = `
+.p14-container .p14 {
+  color: light-dark(red, blue);
+  background-color: light-dark(green, yellow);
+  border-top-color: light-dark(cyan, magenta);
+}`;
+
+  test("every light-dark() declaration adds a rule to the selector", () => {
+    expect(rulesFor(oneRule, "p14")).toHaveLength(1);
+    expect(rulesFor(manyRules, "p14").length).toBeGreaterThan(
+      rulesFor(oneRule, "p14").length,
+    );
+  });
+
+  test("the container class is registered once, whatever the selector receives", () => {
+    expect(rulesFor(manyRules, "p14-container")).toHaveLength(1);
+    expect(rulesFor(manyRules, "p14-container")).toStrictEqual(
+      rulesFor(oneRule, "p14-container"),
+    );
+  });
+});
+
 describe("a light-dark() declaration opens one extra rule", () => {
   /**
    * `color` writes twice — the style property, and the variable it publishes to
    * its subtree — and `parseColor` is not pure: a `light-dark()` value opens an
    * extra rule. Parsing the value once for both writes is what keeps a colour
-   * declaration to the one dark rule every other colour property gets.
+   * declaration to one dark rule.
+   *
+   * A shorthand parses its value once per longhand it expands to, so it opens
+   * one extra rule per parse: `border-color` emits four identical dark rules,
+   * `border-inline-color` and `border-block-color` two each. Same impurity, a
+   * different caller, and not what this describe measures.
    */
   test.each([
     ["color", `.p9 { color: light-dark(red, blue); }`],
