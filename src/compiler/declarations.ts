@@ -2880,6 +2880,62 @@ export function parseTranslateProp(
   return parseLength(value[prop], builder);
 }
 
+/**
+ * colorjs.io holds sRGB in the 0-1 range while `rgba()` takes 0-255 channels.
+ * A `null` coordinate is a missing component, which CSS Color 4 treats as `0`.
+ */
+function toRgbChannel(coordinate: number | null): number {
+  return Math.round((coordinate ?? 0) * 255);
+}
+
+/**
+ * A hue reaches this function as a 32-bit float, because the compiler runs
+ * lightningcss twice and the second pass reparses the first pass's serialized
+ * output. `2 ** 32` is where one step of that grid first covers a whole turn: a
+ * float32 holds a 24-bit significand, so its ULP at `2 ** exponent` is
+ * `2 ** (exponent - 23)`, which reaches 512 at an exponent of 32.
+ *
+ * `src/__tests__/native/colors.test.tsx` brackets this constant rather than
+ * pinning it. A hue between `2 ** 31` and `2 ** 32` must still reduce and
+ * `2 ** 32` itself must not, so any constant between those two passes. The
+ * window is about a factor of two wide because the derivation above only
+ * resolves to a power of two — the ULP steps from 256 straight to 512, and no
+ * authored hue can land between them.
+ */
+const SMALLEST_UNNAMEABLE_HUE = 2 ** 32;
+
+/**
+ * Past {@link SMALLEST_UNNAMEABLE_HUE} every representable neighbour lands on a
+ * different angle, so reducing the arriving float modulo a turn reports the
+ * float grid rather than the declaration, and the value is a range limit rather
+ * than a hue.
+ *
+ * Both lightningcss passes contribute, and they saturate different inputs. A
+ * visitor is what materialises the AST into JavaScript and back, and the hue
+ * saturates to i64 on that round trip: pass one's declaration visitor saturates
+ * `1e19` through `1e38`, serializing all of them as `9223370000000000000`,
+ * while pass two's rule visitor saturates `calc(infinity)`, which pass one
+ * leaves at the float32 maximum `3.40282e38`. They arrive here as
+ * `9223369837831520000` and `9223372036854776000`. `Infinity`, which is how a
+ * `calc(NaN)` hue arrives, is the same condition at the top of the range.
+ *
+ * This threshold is about where a hue stops naming an angle, not about where it
+ * stops being exact. lightningcss's serializer keeps six significant digits, so
+ * from about `1e6` the arriving float already names a different angle than the
+ * author wrote — `12345678` arrives as `12345700`, `123456789` as `123457000` —
+ * and those hues are still reduced, from a number the serializer chose. That
+ * loss is upstream of this function and no threshold here recovers it.
+ *
+ * CSS Color 4 makes a missing component `0`, so an unnameable hue takes `0`.
+ * That is also what lightningcss's own resolved path produces for most such
+ * hues, with the divergence recorded in `src/__tests__/native/colors.test.tsx`.
+ * `Math.abs` covers `NaN` and both infinities on its own — every comparison
+ * against them is `false` — so a separate finiteness test would be dead code.
+ */
+function toHueDegrees(hue: number): number {
+  return Math.abs(hue) < SMALLEST_UNNAMEABLE_HUE ? hue : 0;
+}
+
 export function parseUnresolvedColor(
   color: UnresolvedColor,
   builder: StylesheetBuilder,
@@ -2888,27 +2944,47 @@ export function parseUnresolvedColor(
 ): StyleDescriptor {
   switch (color.type) {
     case "rgb":
+      // lightningcss resolves rgb channels to integers in the 0-255 range,
+      // including the percentage syntax, so they are already the values
+      // `rgba()` takes.
       return [
         {},
         "rgba",
         [
-          round(color.r * 255),
-          round(color.g * 255),
-          round(color.b * 255),
+          color.r,
+          color.g,
+          color.b,
           parseUnparsed(color.alpha, builder, property),
         ],
       ];
-    case "hsl":
+    case "hsl": {
+      // An `UnresolvedColor` always leaves the alpha as a `var()`, and an unset
+      // variable with no fallback drops that argument. `hsla()` is rejected
+      // three-argument, so it cannot carry an alpha that may vanish, while
+      // `rgba()` stays valid and renders opaque. lightningcss resolves the hue,
+      // saturation and lightness, so they convert to the sRGB channels
+      // `parseColor` writes for the resolved spelling and share the shape above.
+      //
+      // The hue is the only unbounded channel: lightningcss clamps saturation,
+      // lightness and every rgb channel to their range, so the hue is the one
+      // place an out-of-range `calc()` reaches this function. `toHueDegrees`
+      // decides which arriving floats still name an angle.
+      const { coords } = new Color({
+        space: "hsl",
+        coords: [toHueDegrees(color.h), color.s, color.l],
+      }).to("srgb");
+
       return [
         {},
-        color.type,
+        "rgba",
         [
-          color.h,
-          color.s,
-          color.l,
+          toRgbChannel(coords[0]),
+          toRgbChannel(coords[1]),
+          toRgbChannel(coords[2]),
           parseUnparsed(color.alpha, builder, property),
         ],
       ];
+    }
     case "light-dark": {
       const extraRule = builder.extendRule({
         m: [["=", "prefers-color-scheme", "dark"]],
