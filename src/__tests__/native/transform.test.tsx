@@ -2,6 +2,46 @@ import { render } from "@testing-library/react-native";
 import { View } from "react-native-css/components/View";
 import { registerCSS, testID } from "react-native-css/jest";
 
+const renderStyle = (css: string, className: string): unknown => {
+  registerCSS(css);
+
+  return render(<View testID={testID} className={className} />).getByTestId(
+    testID,
+  ).props.style;
+};
+
+/**
+ * The rendered `transform` array, checked against the shape React Native
+ * requires before anything is read out of it.
+ *
+ * `_validateTransforms` counts the keys of every entry and crashes the screen
+ * when the count is not exactly one:
+ *
+ *   You must specify exactly one property per transform object
+ *
+ * The check lives here rather than in one test because a census that reads
+ * THROUGH a nested entry cannot see that crash: a group `[{ scaleX }, { scaleY }]`
+ * yields two correct-looking numeric components and reports green on a style
+ * React Native refuses to render. Both failing counts are covered — a group has
+ * two or more keys, and the empty entry an unsupported transform leaves behind
+ * has none.
+ */
+const renderTransform = (css: string, className: string): unknown[] => {
+  const { transform } = (renderStyle(css, className) ?? {}) as {
+    transform?: unknown;
+  };
+
+  if (!Array.isArray(transform)) {
+    throw new Error(`No transform rendered for .${className}`);
+  }
+
+  expect(
+    transform.map((entry) => Object.keys(entry as object).length),
+  ).toStrictEqual(transform.map(() => 1));
+
+  return transform;
+};
+
 describe("translate", () => {
   test("parsed", () => {
     registerCSS(`.my-class { translate: 10%; }`);
@@ -98,40 +138,22 @@ describe("scale", () => {
   /**
    * Every scale component in the rendered `transform` array, in order.
    * Collecting them rather than asserting the whole style lets one census cover
-   * every shape the two planes produce — `{ scale }` when both axes agree,
-   * `{ scaleX } { scaleY }` when they do not, and the nested entry a runtime
-   * `scale(x, y)` still produces (a separate, pre-existing shape defect: it
-   * reproduces with plain numbers and is not this fix's to make flat).
+   * both shapes the two planes produce — `{ scale }` when the axes agree and
+   * `{ scaleX } { scaleY }` when they do not — without a row per shape.
+   *
+   * It reads one level only, on purpose. `renderTransform` has already refused
+   * anything but a single-key entry, so there is no nesting left to walk, and
+   * walking it would be the very thing that hid the crash.
    */
-  const collectScaleComponents = (entry: unknown): ScaleComponent[] =>
-    Array.isArray(entry)
-      ? entry.flatMap((nested: unknown) => collectScaleComponents(nested))
-      : Object.entries(entry as Record<string, unknown>).filter(([key]) =>
-          scaleKeys.has(key),
-        );
-
-  const renderStyle = (css: string, className: string): unknown => {
-    registerCSS(css);
-
-    return render(<View testID={testID} className={className} />).getByTestId(
-      testID,
-    ).props.style;
-  };
-
   const renderScaleComponents = (
     css: string,
     className: string,
-  ): ScaleComponent[] => {
-    const { transform } = (renderStyle(css, className) ?? {}) as {
-      transform?: unknown;
-    };
-
-    if (!Array.isArray(transform)) {
-      throw new Error(`No transform rendered for .${className}`);
-    }
-
-    return transform.flatMap((entry: unknown) => collectScaleComponents(entry));
-  };
+  ): ScaleComponent[] =>
+    renderTransform(css, className).flatMap((entry: unknown) =>
+      Object.entries(entry as Record<string, unknown>).filter(([key]) =>
+        scaleKeys.has(key),
+      ),
+    );
 
   /**
    * Every row here is a value the compiler CAN see, so the stylesheet already
@@ -339,7 +361,7 @@ describe("scale", () => {
      *
      * The skew rows are the sharp ones. `{ skewX: "75%" }` is already invalid,
      * so a reader can talk themselves into "coercing it cannot make things
-     * worse" — but `{ skewX: 0.75 }` fails `must be a string`, a different
+     * worse" — but `{ skewX: 0.375 }` fails `must be a string`, a different
      * invariant on the same fatal pass, and the percentage handling skew
      * actually needs is a separate fix. Widening the set to reach them turns
      * these two rows red, which is the point of listing them.
@@ -403,7 +425,7 @@ describe("scale", () => {
     /**
      * The two planes do not agree to the last digit, and the disagreement is
      * inherent rather than incidental — so it is pinned here rather than left
-     * for someone to meet as a diff between two builds of one stylesheet.
+     * for someone to discover as a diff between two builds of one stylesheet.
      *
      * lightningcss holds a percentage as an f32, which makes `2%` arrive at the
      * compiler as `0.019999999552965164`; `round()` is what repairs that, and
@@ -514,6 +536,87 @@ describe("transform", () => {
 
     expect(component.props.style).toStrictEqual({
       transform: [{ translateX: "10%" }, { scaleX: 2 }],
+    });
+  });
+
+  /**
+   * A resolver hands back either one component or a GROUP of them, and a group
+   * used to reach React Native as a single nested entry. `_validateTransforms`
+   * counts the keys of every entry and crashes the screen when the count is not
+   * one:
+   *
+   *   You must specify exactly one property per transform object
+   *
+   * That is the same `__DEV__` pass that raises the scale invariant, so these
+   * are full-screen render failures rather than cosmetic shape defects — each
+   * shape below was measured throwing out of React Native's own
+   * `processTransform`.
+   *
+   * The fix is one `.flat()` in the `transform` shorthand resolver, which is
+   * why the rows span scale AND rotate: a group is a group whichever resolver
+   * built it.
+   */
+  describe("one property per entry", () => {
+    test("a two-operand scale() with differing axes renders two entries", () => {
+      // `scale(var, var)` is the shape a two-operand authored shorthand takes
+      // when the axes disagree. It reproduces with plain numbers too — nothing
+      // about it is percentage-specific.
+      expect(
+        renderStyle(
+          `.decoy { --sx: 999%; --sy: 999%; }
+           .my-class { --sx: 75%; --sy: 50%; transform: scale(var(--sx), var(--sy)); }`,
+          "my-class",
+        ),
+      ).toStrictEqual({ transform: [{ scaleX: 0.75 }, { scaleY: 0.5 }] });
+    });
+
+    test("a two-operand translate() renders two entries, beside a sibling", () => {
+      // A different resolver, so this is the row that says the fix is about
+      // groups rather than about scale. The `rotate(45deg)` sibling is here
+      // because a group and a plain component share the array — flattening has
+      // to leave the plain one exactly where it was.
+      //
+      // The LONGHANDS (`translate:`, `rotate:`, `scale:`) never nest: they do
+      // not route through the `transform` shorthand resolver at all. Measured,
+      // because a row that reads as coverage and cannot fail is worse than none.
+      expect(
+        renderStyle(
+          `.decoy { --t: 9px; }
+           .my-class { --t: 10px; transform: translate(var(--t), var(--t)) rotate(45deg); }`,
+          "my-class",
+        ),
+      ).toStrictEqual({
+        transform: [
+          { translateX: 10 },
+          { translateY: 10 },
+          { rotate: "45deg" },
+        ],
+      });
+    });
+
+    test.each([
+      "transform: scale3d(1, 2, 3);",
+      "transform: scaleZ(2);",
+      "transform: matrix(1, 0, 0, 1, 0, 0);",
+    ])("%s renders no entry rather than an empty one", (declarations) => {
+      // React Native supports none of these, so the compiler emits an empty
+      // group for them. Zero keys fails the same invariant two keys does, which
+      // makes an unsupported transform a crash rather than a no-op.
+      expect(
+        renderTransform(`.my-class { ${declarations} }`, "my-class"),
+      ).toStrictEqual([]);
+    });
+
+    test("an empty group is dropped without taking its neighbour", () => {
+      // The discriminating half of the row above: dropping the whole
+      // declaration would also produce a valid style, so a supported transform
+      // has to survive beside the unsupported one.
+      expect(
+        renderTransform(
+          `.my-class { transform: translateX(10px) scale3d(1, 2, 3); }`,
+          "my-class",
+        ),
+      ).toStrictEqual([{ translateX: 10 }]);
     });
   });
 });
