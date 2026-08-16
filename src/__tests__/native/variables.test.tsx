@@ -2,9 +2,15 @@ import { memo, useEffect } from "react";
 import type { ViewProps } from "react-native";
 
 import { render, screen } from "@testing-library/react-native";
-import { styled, VariableContextProvider } from "react-native-css";
+import { styled } from "react-native-css";
 import { View } from "react-native-css/components/View";
 import { registerCSS, testID } from "react-native-css/jest";
+// The native entry, so the provider's value type is the native
+// `StyleDescriptor` one rather than web's `string | number`.
+import {
+  useUnstableNativeVariable,
+  VariableContextProvider,
+} from "react-native-css/native";
 
 test("inline variable", () => {
   registerCSS(`.my-class { width: var(--my-var); --my-var: 10px; }`);
@@ -279,18 +285,59 @@ test("variable overriding with classes", () => {
  * rendering.
  */
 describe("circular variables", () => {
-  const circularStylesheets: [name: string, css: string][] = [
+  /**
+   * Every row closes a cycle on `--a` and reads it from `.child`, beside a
+   * NON-cyclic `--unrelated` that has to keep resolving. The second read is
+   * what makes the assertion falsifiable: a row that only asserts the cycle
+   * produced nothing passes just as green when variable resolution is dead
+   * altogether.
+   *
+   * Every name is declared TWICE because the compiler substitutes a variable
+   * declared exactly once directly into its readers. A single declaration
+   * folds the cycle away before the runtime resolver these rows exist to
+   * exercise ever sees it, leaving a row that reads as one shape and compiles
+   * to another.
+   */
+  const circularStylesheets: [
+    name: string,
+    css: string,
+    style: Record<string, unknown>,
+  ][] = [
     [
       "a variable whose value is itself",
-      `.parent { --a: red } .mid { --a: var(--a) } .child { color: var(--a) }`,
+      `.parent { --a: red;      --unrelated: 1 }
+       .mid    { --a: var(--a); --unrelated: 0.5 }
+       .child  { color: var(--a); opacity: var(--unrelated) }`,
+      { opacity: 0.5 },
     ],
     [
+      // The inner `blue` is the point: a cycle is invalid at computed-value
+      // time, so the cut yields nothing rather than the fallback of the
+      // reference that re-entered it.
       "a variable reached again through a fallback",
-      `.parent { --a: red } .mid { --a: var(--nope, var(--a)) } .child { color: var(--a) }`,
+      `.parent { --a: red;                        --unrelated: 1 }
+       .mid    { --a: var(--nope, var(--a, blue)); --unrelated: 0.5 }
+       .child  { color: var(--a); opacity: var(--unrelated) }`,
+      { opacity: 0.5 },
     ],
     [
       "two variables that name each other",
-      `.parent { --a: red } .mid { --a: var(--b); --b: var(--a) } .child { color: var(--a) }`,
+      `.parent { --a: red;      --b: blue;    --unrelated: 1 }
+       .mid    { --a: var(--b); --b: var(--a); --unrelated: 0.5 }
+       .child  { color: var(--a); opacity: var(--unrelated) }`,
+      { opacity: 0.5 },
+    ],
+    [
+      // Two branches of ONE value re-enter the same name. Cutting the first
+      // branch has to pop only its own frame — a guard that empties the whole
+      // stack lets the second branch start over and recurse forever.
+      "one variable re-entered from two branches of one value",
+      `.parent { --a: red;               --b: blue;     --c: green;    --unrelated: 1 }
+       .mid    { --a: var(--b) var(--c); --b: var(--a); --c: var(--a); --unrelated: 0.5 }
+       .child  { color: var(--a); opacity: var(--unrelated) }`,
+      // The cycle is only part of `--a`, so `color` keeps the surviving
+      // siblings rather than losing the declaration.
+      { color: [], opacity: 0.5 },
     ],
   ];
 
@@ -298,7 +345,7 @@ describe("circular variables", () => {
     expect(circularStylesheets.length).toBeGreaterThan(0);
   });
 
-  test.each(circularStylesheets)("%s renders", (_name, css) => {
+  test.each(circularStylesheets)("%s renders", (_name, css, style) => {
     registerCSS(css);
 
     render(
@@ -309,8 +356,7 @@ describe("circular variables", () => {
       </View>,
     );
 
-    // The cycle has no value, so the declaration reading it resolves to nothing.
-    expect(screen.getByTestId(testID).props.style).toStrictEqual({});
+    expect(screen.getByTestId(testID).props.style).toStrictEqual(style);
   });
 
   test("a variable read twice in ONE declaration is not mistaken for a cycle", () => {
@@ -361,6 +407,68 @@ describe("circular variables", () => {
 
     expect(screen.getByTestId(testID).props.style).toStrictEqual({
       color: "red",
+    });
+  });
+
+  test("a cycle in a variable declared ONCE is cut at compile time", () => {
+    // A variable declared once is substituted into its readers, so this cycle
+    // is closed by the compiler's own guard in `inline-variables.ts` and never
+    // reaches the resolution stack above.
+    registerCSS(
+      `.parent { --unrelated: 1 }
+       .mid    { --unrelated: 0.5 }
+       .child  { --z: var(--z); width: var(--z); opacity: var(--unrelated) }`,
+    );
+
+    render(
+      <View className="parent">
+        <View className="mid">
+          <View testID={testID} className="child" />
+        </View>
+      </View>,
+    );
+
+    expect(screen.getByTestId(testID).props.style).toStrictEqual({
+      opacity: 0.5,
+    });
+  });
+
+  test("useUnstableNativeVariable reads a cycle without recursing", () => {
+    registerCSS(`.parent { --a: red } .mid { --a: var(--a) }`);
+
+    let read: unknown = "not read";
+
+    function Probe() {
+      read = useUnstableNativeVariable("--a");
+      return <View testID={testID} />;
+    }
+
+    render(
+      <View className="parent">
+        <View className="mid">
+          <Probe />
+        </View>
+      </View>,
+    );
+
+    expect(read).toBeUndefined();
+  });
+
+  test("VariableContextProvider accepts a self-referential value", () => {
+    // The provider's value type admits a `var()` reference, so a caller can
+    // hand it a variable that names itself.
+    registerCSS(`.child { color: var(--a); opacity: var(--unrelated) }`);
+
+    render(
+      <VariableContextProvider
+        value={{ "--a": [{}, "var", "a"], "--unrelated": 0.5 }}
+      >
+        <View testID={testID} className="child" />
+      </VariableContextProvider>,
+    );
+
+    expect(screen.getByTestId(testID).props.style).toStrictEqual({
+      opacity: 0.5,
     });
   });
 });
