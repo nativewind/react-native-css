@@ -62,6 +62,16 @@ type Parser<T extends Declaration["property"] = Declaration["property"]> = (
 
 const propertyRename: Record<string, string> = {
   "background-image": "experimental_backgroundImage",
+  // React Native ships no border-block-* WIDTH on Android or the old
+  // architecture: ReactNativeStyleAttributes and BaseViewConfig.android.js
+  // both list the three block COLOURS and none of the widths, and ViewStyle
+  // declares only the colours. BaseViewConfig.ios.js is the outlier that
+  // carries them, which makes an unrenamed block width paint on iOS and
+  // nowhere else. The block axis is never flipped by `direction`, so
+  // block-start is the top edge and block-end the bottom one on every
+  // platform — the colours need no rename because RN already reads them.
+  "border-block-end-width": "border-bottom-width",
+  "border-block-start-width": "border-top-width",
   // React Native has no border-inline-* props, but ships the equivalent
   // RTL-aware border-start-* / border-end-* props
   "border-inline-end-color": "border-end-color",
@@ -71,18 +81,97 @@ const propertyRename: Record<string, string> = {
   "font-variant-caps": "font-variant",
 };
 
-// React Native only supports a uniform borderStyle, so per-side border
+// React Native only supports a uniform borderStyle, so per-edge border
 // styles have no native equivalent and are dropped. "solid" is dropped
-// silently as it matches React Native's default rendering.
-const unsupportedInlineStyles = new Set([
+// silently as it matches React Native's default rendering. A var() keeps the
+// value unknown at compile time, and an unknown value is not a known
+// non-solid one, so the unparsed path drops these as quietly.
+const unsupportedEdgeStyles = new Set([
+  "border-block-style",
+  "border-block-start-style",
+  "border-block-end-style",
   "border-inline-style",
   "border-inline-start-style",
   "border-inline-end-style",
 ]);
 
+/**
+ * The two properties the block axis's colour reaches, everywhere it is set.
+ *
+ * Not `borderBlockColor`, even for the one-value form React Native has that
+ * axis-wide property for. A property has to land on ONE key set: the style
+ * object is flat, so two disjoint sets both survive the cascade and a later
+ * declaration of the same property sits beside the earlier one instead of
+ * replacing it.
+ *
+ * Which of the two then paints is not even stable across platforms. Android
+ * resolves the top edge `BLOCK_START ?: TOP ?: BLOCK ?: VERTICAL ?: ALL`
+ * (`ReactAndroid/.../uimanager/style/BorderColors.kt`), so `borderTopColor`
+ * outranks `borderBlockColor`; iOS assigns `borderTopColor = _borderBlockColor`
+ * whenever the axis property is set (`React/Views/RCTView.m`,
+ * `borderColorsWithTraitCollection`), which is the opposite order. A rule that
+ * emitted both would paint the earlier declaration on one platform and the
+ * later one on the other.
+ *
+ * Nothing is lost by preferring the pair. It is the set both platforms agree
+ * on once the axis property is out of play, and `direction` never flips the
+ * block axis on either — Android keeps `BLOCK_START`/`TOP` for the top edge in
+ * its RTL branch too, and iOS handles the block colours outside its `isRTL`
+ * swap — so physical top and bottom stay the block edges under RTL.
+ *
+ * The per-EDGE block colours are untouched by this: `borderBlockStartColor`
+ * and `borderBlockEndColor` are the highest-precedence name for their edge on
+ * both platforms, so they agree already.
+ */
+const blockColorEdges = [
+  "border-top-color",
+  "border-bottom-color",
+] as const satisfies readonly [string, string];
+
+/**
+ * The inline axis's twin, which needs no such argument — React Native has no
+ * `borderInlineColor` at all, so the RTL-aware pair is the only target there
+ * has ever been.
+ */
+const inlineColorEdges = [
+  "border-start-color",
+  "border-end-color",
+] as const satisfies readonly [string, string];
+
+/**
+ * Where a two-edge logical shorthand lands once a var() has kept it off the
+ * parsed path, at each arity the grammar `<value>{1,2}` allows.
+ *
+ * `edges` is the [start, end] pair two components feed, one each; one
+ * component feeds both, since both edges then carry the same value. Every
+ * member has exactly one such pair — the parsed path writes the same two
+ * properties for the same declaration, which is what makes the two routes one
+ * behaviour.
+ */
+const axisExpansion: Record<
+  string,
+  { readonly edges: readonly [string, string] }
+> = {
+  "border-block-color": { edges: blockColorEdges },
+  "border-block-width": { edges: ["border-top-width", "border-bottom-width"] },
+  "border-inline-color": { edges: inlineColorEdges },
+  "border-inline-width": { edges: ["border-start-width", "border-end-width"] },
+};
+
+// Shorthands whose value has to be split after the variable resolves, so the
+// compiler emits a runtime call instead of descriptors. The six logical-axis
+// shorthands are here for the same reason `border` is — each packs width,
+// style and colour into one list that a var() keeps opaque — and their
+// runtime handlers fan the resolved list onto the per-edge props.
 const unparsedRuntimeParsing = new Set([
   "animation",
   "border",
+  "border-block",
+  "border-block-end",
+  "border-block-start",
+  "border-inline",
+  "border-inline-end",
+  "border-inline-start",
   "box-shadow",
   "line-height",
   "rotate",
@@ -117,12 +206,13 @@ const parsers: {
   "border-block-color": parseBorderColor,
   "border-block-end": parseBorderBlockEnd,
   "border-block-end-color": parseColorDeclaration,
+  "border-block-end-style": parseUnsupportedEdgeStyle,
   "border-block-end-width": parseBorderSideWidthDeclaration,
   "border-block-start": parseBorderBlockStart,
   "border-block-start-color": parseColorDeclaration,
-  "border-block-start-style": parseBorderStyleDeclaration,
+  "border-block-start-style": parseUnsupportedEdgeStyle,
   "border-block-start-width": parseBorderSideWidthDeclaration,
-  "border-block-style": parseBorderBlockStyle,
+  "border-block-style": parseUnsupportedEdgeStyle,
   "border-block-width": parseBorderBlockWidth,
   "border-bottom": parseBorderSide,
   "border-bottom-color": parseColorDeclaration,
@@ -137,13 +227,13 @@ const parsers: {
   "border-inline-color": parseBorderColor,
   "border-inline-end": parseBorderInlineEnd,
   "border-inline-end-color": parseColorDeclaration,
-  "border-inline-end-style": parseBorderInlineStyle,
+  "border-inline-end-style": parseUnsupportedEdgeStyle,
   "border-inline-end-width": parseBorderSideWidthDeclaration,
   "border-inline-start": parseBorderInlineStart,
   "border-inline-start-color": parseColorDeclaration,
-  "border-inline-start-style": parseBorderInlineStyle,
+  "border-inline-start-style": parseUnsupportedEdgeStyle,
   "border-inline-start-width": parseBorderSideWidthDeclaration,
-  "border-inline-style": parseBorderInlineStyle,
+  "border-inline-style": parseUnsupportedEdgeStyle,
   "border-inline-width": parseBorderInlineWidth,
   "border-left": parseBorderSide,
   "border-left-color": parseColorDeclaration,
@@ -304,17 +394,24 @@ export function parseDeclaration(
 function parseWithParser(declaration: Declaration, builder: StylesheetBuilder) {
   if (declaration.property in parsers) {
     const parser = parsers[declaration.property] as Parser;
+    const renamed =
+      propertyRename[declaration.property] ?? declaration.property;
 
-    builder.descriptorProperty = declaration.property;
+    // The default target set, which holds for every parser that writes to the
+    // declaration's own property. It is the RENAMED name because that is what
+    // such a parser writes: `light-dark()` hands its dark half to the builder
+    // as a second rule addressed to `descriptorProperties` rather than
+    // returning it, so seeding the raw CSS name would put the dark half on a
+    // property React Native never renamed and never reads. A parser that
+    // expands onto other properties instead names them itself — see
+    // `parseColorFor`.
+    builder.descriptorProperties = [renamed];
 
     builder.setWarningProperty(declaration.property);
     const value = parser(declaration, builder, declaration.property);
 
     if (value !== undefined) {
-      builder.addDescriptor(
-        propertyRename[declaration.property] ?? declaration.property,
-        value,
-      );
+      builder.addDescriptor(renamed, value);
     }
   } else {
     builder.addWarning("property", declaration.property);
@@ -380,6 +477,30 @@ function parseBorderRadius(
   });
 }
 
+/**
+ * Parse a colour that the caller will write to `targets`.
+ *
+ * `light-dark()` is the reason this exists. It does not return its dark half
+ * through the value the parser hands back — it writes it straight to the
+ * builder as a second rule addressed to whatever `descriptorProperties` names.
+ * `parseWithParser` seeds that with the declaration's own property, which is
+ * right only for a parser that writes there too; a parser that EXPANDS onto
+ * other properties has to name them, or the light half lands on the edges and
+ * the dark half lands on the shorthand's own name, where React Native's view
+ * config drops it without a word.
+ *
+ * `parseUnparsedAxis` does the same thing for the unparsed path, which is what
+ * keeps the two routes one behaviour.
+ */
+function parseColorFor(
+  targets: readonly string[],
+  cssColor: CssColor,
+  builder: StylesheetBuilder,
+) {
+  builder.descriptorProperties = targets;
+  return parseColor(cssColor, builder);
+}
+
 function parseBorderColor(
   declaration: DeclarationType<
     "border-color" | "border-block-color" | "border-inline-color"
@@ -394,18 +515,32 @@ function parseBorderColor(
       "border-right-color": parseColor(declaration.value.right, builder),
     });
   } else {
-    const start = parseColor(declaration.value.start, builder);
-    const end = parseColor(declaration.value.end, builder);
+    // Both axes land on their edge pair at every arity — see `axisExpansion`
+    // for why one key set per property is a correctness requirement rather
+    // than a tidiness one. Collapsing the block axis onto `borderBlockColor`
+    // when both edges agreed made the target depend on how the value happened
+    // to be represented: `red red` collapsed because both components parse to
+    // the same interned string, `currentcolor` did not because `parseColor`
+    // builds a fresh `var()` array per call, and the two therefore reached
+    // disjoint keys while saying the same thing about both edges.
+    //
+    // Each component is parsed against its OWN edge rather than both, so that
+    // a light-dark() start and a light-dark() end each open a dark rule over
+    // the edge they feed. The one-value form arrives here already expanded to
+    // two equal components, so it opens one dark rule per edge and both hold.
+    const [startProperty, endProperty] =
+      declaration.property === "border-inline-color"
+        ? inlineColorEdges
+        : blockColorEdges;
 
-    if (declaration.property === "border-inline-color") {
-      builder.addDescriptor("border-start-color", start);
-      builder.addDescriptor("border-end-color", end);
-    } else if (start === end) {
-      builder.addDescriptor(declaration.property, start);
-    } else {
-      builder.addDescriptor("border-top-color", start);
-      builder.addDescriptor("border-bottom-color", end);
-    }
+    builder.addDescriptor(
+      startProperty,
+      parseColorFor([startProperty], declaration.value.start, builder),
+    );
+    builder.addDescriptor(
+      endProperty,
+      parseColorFor([endProperty], declaration.value.end, builder),
+    );
   }
 }
 
@@ -452,14 +587,20 @@ function parseBorderBlock(
   { value }: DeclarationType<"border-block">,
   builder: StylesheetBuilder,
 ) {
-  builder.addDescriptor("border-block-color", parseColor(value.color, builder));
-  builder.addDescriptor(
-    "border-block-width",
-    parseBorderSideWidth(value.width, builder),
-  );
-  builder.addDescriptor(
-    "border-block-style",
+  // The physical edges, for the reason `axisExpansion` gives: the shorthand
+  // and `border-block-color` set the same two edges, so they have to reach the
+  // same keys or a later one of them will not override an earlier one.
+  const color = parseColorFor(blockColorEdges, value.color, builder);
+  const width = parseBorderSideWidth(value.width, builder);
+
+  builder.addDescriptor(blockColorEdges[0], color);
+  builder.addDescriptor(blockColorEdges[1], color);
+  builder.addDescriptor("border-top-width", width);
+  builder.addDescriptor("border-bottom-width", width);
+  dropUnsupportedEdgeStyle(
     parseBorderStyle(value.style, builder),
+    builder,
+    "border-block-style",
   );
 }
 
@@ -469,11 +610,16 @@ function parseBorderBlockStart(
 ) {
   builder.addDescriptor(
     "border-block-start-color",
-    parseColor(value.color, builder),
+    parseColorFor(["border-block-start-color"], value.color, builder),
   );
   builder.addDescriptor(
-    "border-block-start-width",
+    "border-top-width",
     parseBorderSideWidth(value.width, builder),
+  );
+  dropUnsupportedEdgeStyle(
+    parseBorderStyle(value.style, builder),
+    builder,
+    "border-block-start-style",
   );
 }
 
@@ -483,11 +629,16 @@ function parseBorderBlockEnd(
 ) {
   builder.addDescriptor(
     "border-block-end-color",
-    parseColor(value.color, builder),
+    parseColorFor(["border-block-end-color"], value.color, builder),
   );
   builder.addDescriptor(
-    "border-block-end-width",
+    "border-bottom-width",
     parseBorderSideWidth(value.width, builder),
+  );
+  dropUnsupportedEdgeStyle(
+    parseBorderStyle(value.style, builder),
+    builder,
+    "border-block-end-style",
   );
 }
 
@@ -495,14 +646,14 @@ function parseBorderInline(
   { value }: DeclarationType<"border-inline">,
   builder: StylesheetBuilder,
 ) {
-  const color = parseColor(value.color, builder);
+  const color = parseColorFor(inlineColorEdges, value.color, builder);
   const width = parseBorderSideWidth(value.width, builder);
 
-  builder.addDescriptor("border-start-color", color);
-  builder.addDescriptor("border-end-color", color);
+  builder.addDescriptor(inlineColorEdges[0], color);
+  builder.addDescriptor(inlineColorEdges[1], color);
   builder.addDescriptor("border-start-width", width);
   builder.addDescriptor("border-end-width", width);
-  dropUnsupportedInlineStyle(
+  dropUnsupportedEdgeStyle(
     parseBorderStyle(value.style, builder),
     builder,
     "border-inline-style",
@@ -513,12 +664,15 @@ function parseBorderInlineStart(
   { value }: DeclarationType<"border-inline-start">,
   builder: StylesheetBuilder,
 ) {
-  builder.addDescriptor("border-start-color", parseColor(value.color, builder));
+  builder.addDescriptor(
+    "border-start-color",
+    parseColorFor(["border-start-color"], value.color, builder),
+  );
   builder.addDescriptor(
     "border-start-width",
     parseBorderSideWidth(value.width, builder),
   );
-  dropUnsupportedInlineStyle(
+  dropUnsupportedEdgeStyle(
     parseBorderStyle(value.style, builder),
     builder,
     "border-inline-start-style",
@@ -529,12 +683,15 @@ function parseBorderInlineEnd(
   { value }: DeclarationType<"border-inline-end">,
   builder: StylesheetBuilder,
 ) {
-  builder.addDescriptor("border-end-color", parseColor(value.color, builder));
+  builder.addDescriptor(
+    "border-end-color",
+    parseColorFor(["border-end-color"], value.color, builder),
+  );
   builder.addDescriptor(
     "border-end-width",
     parseBorderSideWidth(value.width, builder),
   );
-  dropUnsupportedInlineStyle(
+  dropUnsupportedEdgeStyle(
     parseBorderStyle(value.style, builder),
     builder,
     "border-inline-end-style",
@@ -555,8 +712,21 @@ export function parseBorderInlineWidth(
   );
 }
 
-export function parseBorderInlineStyle(
+/**
+ * Every per-edge border style, on either logical axis.
+ *
+ * React Native has no per-edge border style at any layer — the two
+ * BaseViewConfigs and ReactNativeStyleAttributes carry `borderStyle` and
+ * nothing else, and Android's BorderDrawable holds one style for the whole
+ * path — so all six longhands drop rather than reaching a key the platform
+ * ignores. The two-value forms name the edge they came from in the warning,
+ * so a reader is told which half of the declaration was discarded.
+ */
+function parseUnsupportedEdgeStyle(
   declaration: DeclarationType<
+    | "border-block-style"
+    | "border-block-start-style"
+    | "border-block-end-style"
     | "border-inline-style"
     | "border-inline-start-style"
     | "border-inline-end-style"
@@ -564,26 +734,32 @@ export function parseBorderInlineStyle(
   builder: StylesheetBuilder,
 ) {
   if (typeof declaration.value === "string") {
-    dropUnsupportedInlineStyle(
+    dropUnsupportedEdgeStyle(
       parseBorderStyle(declaration.value, builder),
       builder,
       declaration.property,
     );
-  } else {
-    dropUnsupportedInlineStyle(
-      parseBorderStyle(declaration.value.start, builder),
-      builder,
-      "border-inline-start-style",
-    );
-    dropUnsupportedInlineStyle(
-      parseBorderStyle(declaration.value.end, builder),
-      builder,
-      "border-inline-end-style",
-    );
+    return;
   }
+
+  const [startProperty, endProperty] =
+    declaration.property === "border-block-style"
+      ? (["border-block-start-style", "border-block-end-style"] as const)
+      : (["border-inline-start-style", "border-inline-end-style"] as const);
+
+  dropUnsupportedEdgeStyle(
+    parseBorderStyle(declaration.value.start, builder),
+    builder,
+    startProperty,
+  );
+  dropUnsupportedEdgeStyle(
+    parseBorderStyle(declaration.value.end, builder),
+    builder,
+    endProperty,
+  );
 }
 
-function dropUnsupportedInlineStyle(
+function dropUnsupportedEdgeStyle(
   style: string | undefined,
   builder: StylesheetBuilder,
   property: string,
@@ -940,8 +1116,11 @@ export function parseUnparsedDeclaration(
     return;
   }
 
-  if (unsupportedInlineStyles.has(property)) {
-    builder.addWarning("property", property);
+  // Nothing is lost that React Native could have rendered: the whole property
+  // has no native attribute, at any value. Warning here would fire on every
+  // Tailwind v4 border-{x,s,e}-* utility, which emits `var(--tw-border-style)`
+  // defaulting to the `solid` the parsed path drops without a word.
+  if (unsupportedEdgeStyles.has(property)) {
     return;
   }
 
@@ -955,10 +1134,22 @@ export function parseUnparsedDeclaration(
     property = rename;
   }
 
+  // Keyed on the name as WRITTEN, and read after the rename above, which holds
+  // only because no `axisExpansion` member is renamed. Give one of them a
+  // `propertyRename` entry and its expansion stops firing here silently — the
+  // lookup misses, the declaration falls through to the single-descriptor path
+  // below, and the axis quietly reaches one property instead of two. A member
+  // that ever needs both has to be keyed on its renamed name.
+  const expansion = axisExpansion[property];
+  if (expansion) {
+    parseUnparsedAxis(declaration.value.value, expansion, builder, property);
+    return;
+  }
+
   /**
    * Unparsed shorthand properties need to be parsed at runtime
    */
-  builder.descriptorProperty = property;
+  builder.descriptorProperties = [property];
 
   if (unparsedRuntimeParsing.has(property)) {
     const args = parseUnparsed(declaration.value.value, builder, property);
@@ -987,6 +1178,76 @@ export function parseUnparsedDeclaration(
       }
     }
   }
+}
+
+/**
+ * The top-level component values of an unparsed value. A component value is a
+ * preserved token, a function, or a block, so every entry here is already one
+ * — a var(), a calc(), a length, a colour. Whitespace is the only entry that
+ * is not, and lightningcss keeps it only sometimes: `var(--a) var(--b)` and
+ * `var(--a)var(--b)` both arrive as two bare var tokens, while `red var(--b)`
+ * keeps its separator. Dropping whitespace is what makes the two agree.
+ */
+function unparsedComponentValues(
+  tokenOrValues: TokenOrValue[],
+): TokenOrValue[] {
+  return tokenOrValues.filter(
+    (tokenOrValue) =>
+      !(
+        tokenOrValue.type === "token" &&
+        tokenOrValue.value.type === "white-space"
+      ),
+  );
+}
+
+/**
+ * Expand a two-edge logical-axis shorthand that a var() kept unparsed, the way
+ * parseBorderInline* / parseBorderBlock* expand the parsed form.
+ */
+function parseUnparsedAxis(
+  tokenOrValues: TokenOrValue[],
+  { edges: [startProperty, endProperty] }: (typeof axisExpansion)[string],
+  builder: StylesheetBuilder,
+  property: string,
+) {
+  const components = unparsedComponentValues(tokenOrValues);
+
+  if (components.length === 1) {
+    /**
+     * One component reaches both edges with the same value — the choice the
+     * parsed path makes for the same declaration. descriptorProperties carries
+     * the whole target set so that light-dark(), which writes to the builder
+     * from inside parseUnparsed rather than through the returned value,
+     * reaches all of the single extra rule it opens.
+     */
+    const targets = [startProperty, endProperty];
+
+    builder.descriptorProperties = targets;
+
+    const value = parseUnparsed(components[0], builder, property);
+
+    for (const target of targets) {
+      builder.addDescriptor(target, value);
+    }
+    return;
+  }
+
+  if (components.length === 2) {
+    builder.descriptorProperties = [startProperty];
+    builder.addDescriptor(
+      startProperty,
+      parseUnparsed(components[0], builder, property),
+    );
+
+    builder.descriptorProperties = [endProperty];
+    builder.addDescriptor(
+      endProperty,
+      parseUnparsed(components[1], builder, property),
+    );
+    return;
+  }
+
+  builder.addWarning("value", `${components.length} values (expected 1 or 2)`);
 }
 
 export function parseCustomDeclaration(
@@ -2188,30 +2449,14 @@ export function parseBorderBlockWidth(
   declaration: DeclarationType<"border-block-width">,
   builder: StylesheetBuilder,
 ) {
-  const start = parseBorderSideWidth(declaration.value.start, builder);
-  const end = parseBorderSideWidth(declaration.value.end, builder);
-
-  if (start === end) {
-    builder.addDescriptor("border-block-width", start);
-  } else {
-    builder.addDescriptor("border-block-start-width", start);
-    builder.addDescriptor("border-block-end-width", end);
-  }
-}
-
-function parseBorderBlockStyle(
-  declaration: DeclarationType<"border-block-style">,
-  builder: StylesheetBuilder,
-) {
-  const start = parseBorderStyle(declaration.value.start, builder);
-  const end = parseBorderStyle(declaration.value.end, builder);
-
-  if (start == end) {
-    builder.addDescriptor("border-block-style", start);
-  } else {
-    builder.addDescriptor("border-block-start-style", start);
-    builder.addDescriptor("border-block-end-style", end);
-  }
+  builder.addDescriptor(
+    "border-top-width",
+    parseBorderSideWidth(declaration.value.start, builder),
+  );
+  builder.addDescriptor(
+    "border-bottom-width",
+    parseBorderSideWidth(declaration.value.end, builder),
+  );
 }
 
 export function parseBorderSideWidthDeclaration(
