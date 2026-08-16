@@ -585,6 +585,90 @@ describe("CSS-wide color keywords", () => {
     });
   });
 
+  /**
+   * The custom-property rows of the keyword table above, which cannot share its
+   * one-declaration template — see `uninlinedCustomProperty`.
+   *
+   * A custom property's value is a raw token stream with no property to inherit
+   * FROM and no per-property initial value to fall back to, so
+   * `property === "color"` is false and the resolving arm never fires for one.
+   * `currentcolor` is the exception, and it is not an exception to the gate:
+   * that arm is keyword-only, because `currentcolor` is valid on every
+   * property, custom ones included.
+   */
+  const uninlinedCustomProperty = (value: string) =>
+    // Two definitions, deliberately. react-native-css's own `inlineVariables`
+    // pass keys on a custom property's DECLARATION COUNT: a name declared once
+    // is folded into its consumer at compile time and the declaration is
+    // deleted, so a single-definition case never reaches the keyword arm as a
+    // custom property at all. The second definition is what puts it there —
+    // and it is why the `currentcolor` rows below expect TWO published values,
+    // one per declaring rule.
+    `.child { --brand: ${value}; color: var(--brand); }
+     .other { --brand: ${value}; }`;
+
+  test.each(["inherit", "initial", "revert", "revert-layer", "INHERIT"])(
+    "--brand: %s is dropped — a custom property has no property context",
+    (keyword) => {
+      expect(
+        publishedVariable(uninlinedCustomProperty(keyword), "brand"),
+      ).toEqual([]);
+    },
+  );
+
+  test.each(["currentcolor", "currentColor"])(
+    "--brand: %s resolves — the currentcolor arm is keyword-only, not property-gated",
+    (spelling) => {
+      // Also the vacuity guard for the drop rows above: same construction, so
+      // an empty result here would mean the inliner had eaten the declaration
+      // and the `[]` there was proving nothing.
+      //
+      // The camelCase spelling is the one THIS package folds — lightningcss
+      // hands a custom property's tokens through verbatim, so without the
+      // `.toLowerCase()` in parseUnparsed the literal string "currentColor" is
+      // published as the variable's value and every consumer renders that.
+      expect(
+        publishedVariable(uninlinedCustomProperty(spelling), "brand"),
+      ).toEqual([
+        [{}, "var", "__rn-css-color"],
+        [{}, "var", "__rn-css-color"],
+      ]);
+    },
+  );
+
+  test("--brand: unset keeps its literal, like unset on any non-color property", () => {
+    // `unset` is absent from the drop rows for the same reason it is absent
+    // from the keyword table: on anything that is not `color` it means
+    // `initial`, and the literal is what the runtime clears a value with.
+    expect(
+      publishedVariable(uninlinedCustomProperty("unset"), "brand"),
+    ).toEqual(["unset", "unset"]);
+  });
+
+  test("a custom property declared ONCE is folded into its consumer first", () => {
+    // Why the rows above declare `--brand` twice. With a single definition the
+    // inliner substitutes the value and deletes the declaration, so
+    // `color: var(--brand)` becomes `color: inherit` and takes the resolving
+    // arm — the opposite outcome from the identical CSS carrying one more
+    // definition of the same name.
+    expect(
+      compile(`.child { --brand: inherit; color: var(--brand); }`).stylesheet(),
+    ).toStrictEqual({
+      s: [
+        [
+          "child",
+          [
+            {
+              s: [1, 1],
+              d: [[[{}, "var", "__rn-css-color"], "color", 1]],
+              dv: 1,
+            },
+          ],
+        ],
+      ],
+    });
+  });
+
   test("color: unset resolves like inherit (unset on an inherited property is inherit)", () => {
     // Per CSS Cascade, `unset` computes to `inherit` on inherited properties,
     // and `color` is inherited — so it maps to the same inherited-color variable.
@@ -603,13 +687,33 @@ describe("CSS-wide color keywords", () => {
     },
   );
 
-  test("PIN: currentColor (camelCase) resolves like currentcolor", () => {
-    // A pin of behaviour that predates this change. Case folding here is
-    // lightningcss's, not ours — it parses either spelling into the same
-    // CssColor before this package sees it.
-    expect(stylesheetFor("currentColor")).toStrictEqual(
-      stylesheetFor("currentcolor"),
-    );
+  test("PIN: currentColor (camelCase) resolves to the inherited-color variable", () => {
+    // A pin of behaviour that predates this change. On the PARSED-color path
+    // the case fold is lightningcss's, not ours — it parses either spelling
+    // into the same CssColor before this package sees it.
+    //
+    // Asserted against the output rather than against
+    // `stylesheetFor("currentcolor")`. An equality between two spellings
+    // lightningcss has ALREADY folded holds whatever this package then does
+    // with the result, so it cannot fail: break `parseColor`'s currentcolor
+    // case and both sides move together while the sibling pin above goes red.
+    // The spelling this package folds itself is the one that reaches the ident
+    // branch — pinned by `--brand: currentColor` in the custom-property rows
+    // above, where the fold is ours and is new here.
+    expect(stylesheetFor("currentColor")).toStrictEqual({
+      s: [
+        [
+          "child",
+          [
+            {
+              s: [1, 1],
+              d: [[[{}, "var", "__rn-css-color"], "color", 1]],
+              dv: 1,
+            },
+          ],
+        ],
+      ],
+    });
   });
 
   test("PIN: currentcolor resolves on a non-color property too (border-color)", () => {
@@ -726,19 +830,25 @@ function declarationsFor(css: string): StyleDeclaration[] {
 }
 
 /**
- * Every value any rule in `css` publishes as `--__rn-css-color`.
+ * Every value any rule in `css` publishes as the custom property `name`, in
+ * compile order and once per publishing rule.
  *
  * Derived from the compiled output rather than restated, so a new rule shape
  * that publishes the variable is covered without editing the reader.
  */
-function publishedInheritedColors(css: string): StyleDescriptor[] {
+function publishedVariable(css: string, name: string): StyleDescriptor[] {
   return (compile(css).stylesheet().s ?? []).flatMap(([, ruleSet]) =>
     ruleSet.flatMap((rule) =>
       (rule.v ?? [])
-        .filter(([name]) => name === "__rn-css-color")
+        .filter(([varName]) => varName === name)
         .map(([, value]) => value),
     ),
   );
+}
+
+/** Every value any rule in `css` publishes as `--__rn-css-color`. */
+function publishedInheritedColors(css: string): StyleDescriptor[] {
+  return publishedVariable(css, "__rn-css-color");
 }
 
 describe("the inherited-color variable is never self-referential", () => {

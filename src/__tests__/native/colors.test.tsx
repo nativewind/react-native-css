@@ -520,6 +520,99 @@ describe("inherit", () => {
     });
   });
 
+  /**
+   * `color: var(--brand)` where the KEYWORD is the custom property's value.
+   *
+   * The two tests below are the same CSS but for one extra declaration of
+   * `--brand`, and they end at opposite outcomes, because `inlineVariables`
+   * keys on a custom property's DECLARATION COUNT:
+   *
+   * - declared once, the value is folded into its consumer at compile time and
+   *   the rule compiles as `color: <keyword>` — the property context exists and
+   *   `inherit` resolves;
+   * - declared twice or more, the fold is defeated, `var(--brand)` survives as
+   *   a runtime lookup, and the compiler meets the keyword on a CUSTOM property
+   *   instead, where there is no property to inherit from — so it drops and the
+   *   lookup resolves to nothing.
+   *
+   * Mapping `color: inherit` to the inherited-color variable reaches the folded
+   * route only: before it BOTH routes were broken, so pinning them together is
+   * what records that the split between them is new.
+   */
+  test("color: var(--brand) with --brand: inherit resolves when the variable is inlined", () => {
+    registerCSS(`
+      .parent { color: red; }
+      .child { --brand: inherit; color: var(--brand); }
+    `);
+
+    render(
+      <View className="parent">
+        <View testID="child" className="child" />
+      </View>,
+    );
+
+    expect(screen.getByTestId("child").props.style).toStrictEqual({
+      color: "#f00",
+    });
+  });
+
+  test("color: var(--brand) with --brand: inherit drops when the variable is NOT inlined", () => {
+    // The unfolded half of the pair, pinned at the current output rather than
+    // at the CSS-correct one. Per CSS the child computes to red here too. The
+    // keyword is not the only thing that would have to change to get there: a
+    // custom property would need to carry the property context of whatever
+    // consumes it, which is a resolver change, not a keyword-table one.
+    registerCSS(`
+      .parent { color: red; }
+      .child { --brand: inherit; color: var(--brand); }
+      .other { --brand: inherit; }
+    `);
+
+    render(
+      <View className="parent">
+        <View testID="child" className="child" />
+      </View>,
+    );
+
+    expect(screen.getByTestId("child").props.style).toStrictEqual({});
+  });
+
+  test.each([
+    ["currentcolor", "inlined"],
+    ["currentcolor", "uninlined"],
+    ["currentColor", "inlined"],
+    ["currentColor", "uninlined"],
+  ] as const)(
+    "color: var(--brand) with --brand: %s resolves on the %s route",
+    (spelling, route) => {
+      // The control for the pair above: `currentcolor` is resolved by a
+      // keyword-only arm, so it never needs a property context and is symmetric
+      // across the fold. The camelCase spelling is symmetric too only because
+      // parseUnparsed folds case: lightningcss hands a custom property's tokens
+      // through verbatim, so without that fold the uninlined route publishes
+      // the literal string "currentColor" as the variable's value and this
+      // element renders it as a colour.
+      const secondDefinition =
+        route === "uninlined" ? `.other { --brand: ${spelling}; }` : "";
+
+      registerCSS(`
+        .parent { color: red; }
+        .child { --brand: ${spelling}; color: var(--brand); }
+        ${secondDefinition}
+      `);
+
+      render(
+        <View className="parent">
+          <View testID="child" className="child" />
+        </View>,
+      );
+
+      expect(screen.getByTestId("child").props.style).toStrictEqual({
+        color: "#f00",
+      });
+    },
+  );
+
   test("color: inherit alongside a box-shadow leaves no placeholder in the style", () => {
     // The delayed-value placeholder `{ color: true }` is internal bookkeeping.
     // A rule whose LAST declaration walks into a nested target (a shadow object)
