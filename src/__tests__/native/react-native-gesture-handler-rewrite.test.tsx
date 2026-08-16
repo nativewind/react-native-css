@@ -6,10 +6,13 @@ import { registerCSS, testID } from "react-native-css/jest";
 import {
   collectProps,
   deprecatedByGestureHandler,
+  disableFabric,
   flattenStyles,
   reachedByTheRewrite,
   requiredProps,
 } from "../_gesture-handler";
+
+beforeAll(disableFabric);
 
 /**
  * `nativeResolver` rewrites every `react-native` import outside this package to

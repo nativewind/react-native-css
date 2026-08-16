@@ -9,9 +9,12 @@ import * as RNGH from "react-native-gesture-handler";
 
 import {
   deriveReDeclared,
+  disableFabric,
   flattenStyles,
   requiredProps,
 } from "../_gesture-handler";
+
+beforeAll(disableFabric);
 
 /**
  * The compiler plane's statement about the gesture-handler defect is that it has none:
@@ -70,8 +73,8 @@ test("the declaration carries a style object, not a prop target", () => {
 });
 
 test("the census the two runtime halves are generated from is non-empty", () => {
-  // Derived by diffing the wrapper's exports against the real package's, so an
-  // eighth re-declaration joins both halves on its own. An emptied census would
+  // Derived by diffing the wrapper's exports against the real package's, so a
+  // further re-declaration joins both halves on its own. An emptied census would
   // make every case below vacuous.
   expect(reDeclared.length).toBeGreaterThan(0);
 });

@@ -1,24 +1,30 @@
-import type { ComponentType } from "react";
+import type { ComponentType, ReactElement } from "react";
 import { DrawerLayoutAndroid as RNDrawerLayoutAndroid } from "react-native";
 
-import { render } from "@testing-library/react-native";
+import { fireEvent, render } from "@testing-library/react-native";
 import * as StyledRNGH from "react-native-css/components/react-native-gesture-handler";
 import { registerCSS, testID } from "react-native-css/jest";
 import * as RNGH from "react-native-gesture-handler";
+import type { PressableProps } from "react-native-gesture-handler";
 
 import {
   collectProps,
   deprecatedByGestureHandler,
   deriveExcludedComponents,
   deriveReDeclared,
+  disableFabric,
   flattenStyles,
+  functionPropNames,
   gestureHandlers,
+  handlerUnobservable,
   notAComponent,
   reachedByTheRewrite,
   reasonedExclusions,
   requiredProps,
   unobservable,
 } from "../_gesture-handler";
+
+beforeAll(disableFabric);
 
 const styledExports = StyledRNGH as unknown as Record<string, unknown>;
 const gestureHandlerExports = RNGH as unknown as Record<string, unknown>;
@@ -61,6 +67,7 @@ test("every gesture-handler export is either re-declared or excluded with a reas
     "BaseButton",
     "BorderlessButton",
     "DrawerLayoutAndroid",
+    "GestureHandlerRootView",
     "Pressable",
     "PureNativeButton",
     "RawButton",
@@ -139,6 +146,92 @@ describe.each(cases)("%s", (name, width) => {
       JSON.stringify(renderWith(gestureHandlerExports[name], extra)),
     );
   });
+
+  test("forwards the same handlers as the unwrapped component", () => {
+    // The guard above compares serialized bytes, and `JSON.stringify` drops exactly the
+    // props whose value is a function — so a wrapper that destructured `onPress` out and
+    // forwarded the rest renders byte-identically and passes it. This is the complement:
+    // the two together see the whole prop set, and neither alone does.
+    const withHandler = { ...extra, onPress: () => undefined };
+
+    expect(
+      functionPropNames(renderWith(styledExports[name], withHandler)),
+    ).toEqual(
+      functionPropNames(renderWith(gestureHandlerExports[name], withHandler)),
+    );
+  });
+});
+
+/**
+ * The comparison above is an equality, so it is only a measurement where both sides have
+ * something in them. These are the members that render a handler at all.
+ */
+const handlerObservable = reDeclared.filter(
+  (name) => !handlerUnobservable.includes(name),
+);
+
+test("every member the handler guard is a measurement on renders one", () => {
+  expect(handlerObservable.length).toBeGreaterThan(0);
+  expect(handlerUnobservable.length).toBeGreaterThan(0);
+
+  for (const name of handlerObservable) {
+    expect(
+      functionPropNames(
+        renderWith(styledExports[name], {
+          ...(requiredProps[name] ?? {}),
+          onPress: () => undefined,
+        }),
+      ).flat(),
+    ).not.toEqual([]);
+  }
+});
+
+test("DrawerLayoutAndroid renders no handler, so its case is an empty equality", () => {
+  // Pins the one exclusion above. React Native's jest mock for the Android-only component
+  // renders a debug placeholder and drops every prop, testID included, so the generated
+  // comparison for it is `[] === []` and would pass over any wrapper at all. If the mock
+  // ever forwards props, this turns red and the exclusion is retaken.
+  expect(
+    functionPropNames(
+      renderWith(styledExports.DrawerLayoutAndroid, {
+        ...requiredProps.DrawerLayoutAndroid,
+        onPress: () => undefined,
+      }),
+    ).flat(),
+  ).toEqual([]);
+});
+
+test("a press cannot stand in for the handler guard — it answers from the caller", () => {
+  // The obvious closer for a swallowed handler is to fire one, and it does not work.
+  // `fireEvent`'s `findEventHandler` walks `element.parent` until some element carries a
+  // prop matching the event, and the JSX element the test itself wrote is on that path —
+  // so a component that drops `onPress` on the floor still answers a press with the
+  // caller's own callback. The swallowing component below is the mutation this guard
+  // exists to catch, and the two assertions are the two verdicts on it.
+  let presses = 0;
+
+  function SwallowsOnPress({
+    onPress: _onPress,
+    ...rest
+  }: PressableProps & { onPress: () => void }): ReactElement {
+    return <RNGH.Pressable {...rest} />;
+  }
+
+  const view = render(
+    <SwallowsOnPress
+      testID={testID}
+      onPress={() => {
+        presses += 1;
+      }}
+    />,
+  );
+
+  fireEvent.press(view.getByTestId(testID));
+  expect(presses).toBe(1);
+
+  expect(functionPropNames(view.toJSON())).not.toEqual(
+    functionPropNames(renderWith(RNGH.Pressable, { onPress: () => undefined })),
+  );
 });
 
 test("resolves a function style beside className on Pressable", () => {
@@ -164,6 +257,58 @@ test("resolves a function style beside className on Pressable", () => {
   }
 });
 
+/**
+ * `GestureHandlerRootView` renders `style={style ?? styles.container}` over a private
+ * `{ flex: 1 }`, so the fallback is reached only while `style` is absent — and a
+ * `className: "style"` mapping is exactly a thing that makes it present. A wrapper that
+ * only mapped the class would resolve the class and silently un-flex every root view
+ * that carries one, collapsing the app to its content's height. The wrapper carries the
+ * default itself for that reason, and these three pin the boundary the `??` draws:
+ * the class does not count as a style, an inline style does.
+ */
+describe("GestureHandlerRootView's flex:1 default", () => {
+  test("survives a className, which supplies a style where none was given", () => {
+    registerCSS(`.w-95 { width: 95px; }`);
+
+    const styles = flattenStyles(
+      renderWith(StyledRNGH.GestureHandlerRootView, { className: "w-95" }),
+    );
+
+    expect(styles).toContainEqual(expect.objectContaining({ width: 95 }));
+    expect(styles).toContainEqual(expect.objectContaining({ flex: 1 }));
+  });
+
+  test("yields to an inline style, exactly as the unwrapped component does", () => {
+    // Not a defect being preserved out of caution: `??` is gesture-handler's own
+    // documented contract for the prop, and an interop wrapper that improved on it
+    // would make the styled root view behave unlike the one every other consumer
+    // in the graph renders.
+    const styles = flattenStyles(
+      renderWith(StyledRNGH.GestureHandlerRootView, {
+        style: { margin: 3 },
+      }),
+    );
+
+    expect(styles).toContainEqual(expect.objectContaining({ margin: 3 }));
+    expect(styles).not.toContainEqual(expect.objectContaining({ flex: 1 }));
+  });
+
+  test("yields to an inline style given beside a className", () => {
+    registerCSS(`.w-96 { width: 96px; }`);
+
+    const styles = flattenStyles(
+      renderWith(StyledRNGH.GestureHandlerRootView, {
+        className: "w-96",
+        style: { margin: 4 },
+      }),
+    );
+
+    expect(styles).toContainEqual(expect.objectContaining({ width: 96 }));
+    expect(styles).toContainEqual(expect.objectContaining({ margin: 4 }));
+    expect(styles).not.toContainEqual(expect.objectContaining({ flex: 1 }));
+  });
+});
+
 test("re-exports the members it does not re-declare", () => {
   for (const name of [...notAComponent, ...reasonedExclusions]) {
     expect(styledExports[name]).toBe(gestureHandlerExports[name]);
@@ -173,12 +318,12 @@ test("re-exports the members it does not re-declare", () => {
 /**
  * The register says `className` is DROPPED on the members it does not re-declare.
  * Dropped and leaked are different failures and only one of them is what the register
- * claims: `PureNativeButton` — the sixth member of the button family, absent from the
- * first five by omission — rendered `{"type":"RNGestureHandlerButton","props":
- * {"className":"pnb"}}`, putting the raw class string on a codegen'd native view.
+ * claims: `PureNativeButton` — a member of the button family absent from the mappings
+ * by omission — renders `{"type":"RNGestureHandlerButton","props":{"className":"pnb"}}`
+ * unwrapped, putting the raw class string on a codegen'd native view.
  *
  * The census is derived from the module rather than from the reason buckets, so a
- * seventh omission is rendered and held to the invariant here on the commit that
+ * further omission is rendered and held to the invariant here on the commit that
  * introduces it, without anybody having to notice a name is missing from a list.
  */
 const droppedWithoutTheRewrite = excludedComponents.filter(

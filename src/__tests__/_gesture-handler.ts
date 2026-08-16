@@ -11,6 +11,18 @@ interface RenderedNode {
   children: RenderedNode[] | null;
 }
 
+/**
+ * `GestureHandlerRootView` calls `maybeInitializeFabric()` while rendering, which
+ * reaches `RNGestureHandlerModule.install()` — a method the JS module carries only
+ * inside a native binary. React Native's own jest setup defines `nativeFabricUIManager`
+ * as `{}`, and `isFabric()` reads that global and nothing else, so clearing it takes
+ * the branch that never touches the module. Every suite that renders the re-declared
+ * census needs this, which is why it is here rather than in one of them.
+ */
+export function disableFabric(): void {
+  Reflect.set(globalThis, "nativeFabricUIManager", undefined);
+}
+
 /** Every rendered element's props, at any depth. */
 export function collectProps(node: unknown): Record<string, unknown>[] {
   if (node === null || typeof node !== "object") {
@@ -24,6 +36,26 @@ export function collectProps(node: unknown): Record<string, unknown>[] {
   const { props, children } = node as RenderedNode;
 
   return [props, ...collectProps(children)];
+}
+
+/**
+ * Every rendered element's function-valued prop names, at any depth. `JSON.stringify`
+ * drops exactly the props whose value is a function, so a byte comparison of two trees
+ * is blind to a wrapper that swallows a handler — and these nodes carry up to four.
+ * This is the complement of what the byte comparison sees, which is what makes the two
+ * together a whole guard.
+ *
+ * The value TYPE is the discriminator, not the name. Gesture Handler's Pressable renders
+ * `testOnly_onPress={props.onPress}` unconditionally, so the KEY is present either way
+ * and `Object.keys()` reports no difference at all; only the value goes `undefined`.
+ */
+export function functionPropNames(node: unknown): string[][] {
+  return collectProps(node).map((props) =>
+    Object.entries(props)
+      .filter(([, value]) => typeof value === "function")
+      .map(([name]) => name)
+      .sort(),
+  );
 }
 
 /**
@@ -48,7 +80,7 @@ export function flattenStyles(node: unknown): Record<string, unknown>[] {
 /**
  * Derived from the module, not restated: a member the wrapper re-declares is one whose
  * export is no longer the one `export *` provided. Every generated case reads this, so
- * an eighth re-declaration is covered the moment it lands.
+ * a further re-declaration is covered the moment it lands.
  */
 export function deriveReDeclared(
   styledExports: Record<string, unknown>,
@@ -69,7 +101,6 @@ export const notAComponent = [
   "Directions",
   "Gesture",
   "GestureDetector",
-  "GestureHandlerRootView",
   "HoverEffect",
   "MouseButton",
   "PointerType",
@@ -128,6 +159,11 @@ export const reasonedExclusions = [
  * when a member has been missed, and the drop invariant is generated from THIS — so
  * an unhandled component is rendered and held to the invariant rather than waiting
  * for the accounting test to notice a name is absent from a list.
+ *
+ * The domain is `Object.keys` over the index module, and that is the limit of what
+ * deriving buys: ReanimatedDrawerLayout and ReanimatedSwipeable ship from their own
+ * entry points, so they are outside it permanently and no upstream change can enrol
+ * them here. Covering those two is an edit to this file, not a thing it notices.
  */
 export function deriveExcludedComponents(
   gestureHandlerExports: Record<string, unknown>,
@@ -139,6 +175,17 @@ export function deriveExcludedComponents(
     )
     .sort();
 }
+
+/**
+ * Re-declared members that render no function-valued prop for the guard to compare, so
+ * its verdict on them is an equality between two empty sets. React Native's jest mock for
+ * the Android-only DrawerLayoutAndroid renders a debug placeholder `View` and forwards
+ * none of its props — not `testID`, not a callback — which is the same tier limit the
+ * RefreshControl exclusion stands on. Naming it is what stops the generated case reading
+ * as a measurement it is not, and the pinned test beside the block is what keeps the
+ * name honest.
+ */
+export const handlerUnobservable = ["DrawerLayoutAndroid"];
 
 /** Props a component will not render at all without. */
 export const requiredProps: Record<string, Record<string, unknown>> = {
