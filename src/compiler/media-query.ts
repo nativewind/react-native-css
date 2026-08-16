@@ -153,7 +153,7 @@ function parseFeature(
  * A feature value in the one shape an operand slot can hold.
  *
  * `parseMediaFeatureValue` answers `undefined` for a value with no compile-time
- * answer - `env()`, a ratio, an unsupported `calc()`. That marker cannot cross
+ * answer, such as `env()` or an unsupported `calc()`. That marker cannot cross
  * into a native bundle, which receives the stylesheet as JSON, so it is written
  * here as `null` and every operand slot is filled through this function.
  */
