@@ -344,3 +344,86 @@ describe("reportCompilerWarnings", () => {
     expect(reported()[0]).toContain(`react-native-css: ${filename} -`);
   });
 });
+
+/**
+ * The syntax channel — a diagnostic lightningcss produced and this compiler
+ * discarded.
+ *
+ * lightningcss has two classes of malformed input. One THROWS, and a throw is
+ * already loud. The other is recovered and reported through `result.warnings`
+ * with no `errorRecovery` flag needed, and that return value was dropped at
+ * both call sites in `compiler.ts` — so an ordinary typo silently deleted a
+ * rule while the feature whose whole subject is surfacing compiler warnings
+ * said nothing.
+ *
+ * Note where the rule is lost. lightningcss passes the malformed sheet through
+ * verbatim; it is this package's own visitor that finds nothing to extract.
+ * So lightningcss's warning is the only signal that anything went wrong.
+ */
+describe("the syntax channel", () => {
+  test("an unknown at-rule swallows a rule and now says so", () => {
+    // `.b` is inside the unknown at-rule and does not survive. The control
+    // below is what makes that a finding rather than an assumption.
+    const compiled = compile(
+      `@unknown-thing { .b { color: blue } }\n.c { color: green }`,
+    );
+
+    expect(compiled.stylesheet().s?.map(([name]) => name)).toStrictEqual(["c"]);
+    expect(compiled.warnings().syntax).toStrictEqual([
+      "Unknown at rule: @unknown-thing",
+    ]);
+  });
+
+  test("an unrecognised pseudo-element does the same", () => {
+    const compiled = compile(`.a::wat { color: red }\n.c { color: green }`);
+
+    expect(compiled.stylesheet().s?.map(([name]) => name)).toStrictEqual(["c"]);
+    expect(compiled.warnings().syntax?.length).toBeGreaterThan(0);
+  });
+
+  test("CONTROL — the same shape, spelled correctly, keeps both rules and warns nothing", () => {
+    // Without this the two tests above would pass against a compiler that had
+    // simply stopped emitting `.b`, which is the opposite of the fix.
+    const compiled = compile(
+      `@media (min-width: 1px) { .b { color: blue } }\n.c { color: green }`,
+    );
+
+    expect(compiled.stylesheet().s?.map(([name]) => name)).toStrictEqual([
+      "b",
+      "c",
+    ]);
+    expect(compiled.warnings().syntax).toBeUndefined();
+  });
+
+  test("CONTROL — this package's OWN at-rules are not reported as unknown", () => {
+    // `@react-native` and `@nativeMapping` are the two at-rules `atRules.ts`
+    // defines, and lightningcss calls both unknown because they are ours. A
+    // channel that reported them would fire on every stylesheet this compiler
+    // is designed to read.
+    expect(compile(`@react-native { }`).warnings().syntax).toBeUndefined();
+  });
+
+  test("the same mistake made twice is reported once, two distinct ones twice", () => {
+    // Measured: lightningcss emits one warning per occurrence and the message
+    // carries no line or column, so a repeat is a second copy of a string the
+    // reader cannot tell apart from the first. Collapsing them is what keeps
+    // the channel readable — and the second assertion is what stops that
+    // collapse from swallowing a genuinely different diagnostic.
+    expect(
+      warningsFor(
+        `@unknown-a { .x { color: red } }
+@unknown-a { .y { color: blue } }`,
+      ).syntax,
+    ).toStrictEqual(["Unknown at rule: @unknown-a"]);
+
+    expect(
+      warningsFor(
+        `@unknown-a { .x { color: red } }
+@unknown-b { .y { color: blue } }`,
+      ).syntax,
+    ).toStrictEqual([
+      "Unknown at rule: @unknown-a",
+      "Unknown at rule: @unknown-b",
+    ]);
+  });
+});

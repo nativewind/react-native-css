@@ -44,6 +44,14 @@ export interface CompilerWarnings {
   values?: Record<string, unknown[]>;
   /** CSS functions with no React Native equivalent. */
   functions?: string[];
+  /**
+   * Declarations lightningcss could not parse at all.
+   *
+   * Distinct from `properties` and `values`, which are things this compiler
+   * understood and cannot express: a syntax warning is malformed CSS, so the
+   * reader's fix is in their stylesheet rather than in this package.
+   */
+  syntax?: string[];
 }
 
 /**
