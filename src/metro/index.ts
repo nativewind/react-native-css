@@ -6,6 +6,7 @@ import type { MetroConfig } from "metro-config";
 import { type CompilerOptions } from "../compiler";
 import { nativeResolver, webResolver } from "./resolver";
 import { setupTypeScript } from "./typescript";
+import type { WarningLevel } from "./warnings";
 
 export interface WithReactNativeCSSOptions extends CompilerOptions {
   /* Specify the path to the TypeScript environment file. Defaults types-env.d.ts */
@@ -15,7 +16,16 @@ export interface WithReactNativeCSSOptions extends CompilerOptions {
   /** Add className to all React Native primitives. Defaults false */
   globalClassNamePolyfill?: boolean;
   hexColors?: boolean;
+  /**
+   * How the compiler's warnings are surfaced while bundling. Defaults
+   * "summary": one deduplicated, capped block per CSS file, printed only when
+   * that file's set of warnings changes. "verbose" lists every entry, "none"
+   * prints nothing. Native only — a web bundle never runs the compiler.
+   */
+  warnings?: WarningLevel;
 }
+
+export type { WarningLevel } from "./warnings";
 
 const metroOverrideResolution = {
   type: "sourceFile",

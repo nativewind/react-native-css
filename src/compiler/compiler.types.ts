@@ -25,6 +25,36 @@ export interface InlineVariableOptions {
 }
 
 /**
+ * The advisory diagnostics a compile recorded, as returned by
+ * `compile(css).warnings()`.
+ *
+ * Every channel is absent rather than empty when nothing was recorded, so an
+ * object with no keys is the "nothing was dropped" answer.
+ */
+export interface CompilerWarnings {
+  /** Properties with no React Native equivalent. The declaration is dropped. */
+  properties?: string[];
+  /**
+   * Values that could not be translated, keyed by the property that held them.
+   *
+   * The recorded value is whatever the compiler had in hand at the point it
+   * gave up — a string for most declarations, a lightningcss node for some —
+   * so consumers must render it defensively.
+   */
+  values?: Record<string, unknown[]>;
+  /** CSS functions with no React Native equivalent. */
+  functions?: string[];
+  /**
+   * Declarations lightningcss could not parse at all.
+   *
+   * Distinct from `properties` and `values`, which are things this compiler
+   * understood and cannot express: a syntax warning is malformed CSS, so the
+   * reader's fix is in their stylesheet rather than in this package.
+   */
+  syntax?: string[];
+}
+
+/**
  * A `react-native-css` StyleSheet
  */
 export interface ReactNativeCssStyleSheet {

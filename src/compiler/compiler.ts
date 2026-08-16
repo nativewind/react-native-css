@@ -11,6 +11,7 @@ import {
   type PropertyRule,
   type Rule,
   type Visitor,
+  type Warning,
 } from "lightningcss";
 
 import { maybeMutateReactNativeOptions, parsePropAtRule } from "./atRules";
@@ -46,6 +47,45 @@ const defaultLogger = debug("react-native-css:compiler");
  * @param options - Compiler options
  * @returns A `ReactNativeCssStyleSheet` that can be passed to `StyleSheet.register` or used with a custom runtime
  */
+/**
+ * The two at-rules this package defines itself.
+ *
+ * lightningcss calls both unknown because they are ours — `@react-native` is a
+ * registered `customAtRules` entry and `@nativeMapping` is handled as an
+ * unknown rule (`atRules.ts`). Reporting them would fire the channel on every
+ * stylesheet this compiler is designed to read.
+ */
+const OWN_AT_RULE_WARNINGS = /^Unknown at rule: @(nativeMapping|react-native)$/u;
+
+/**
+ * Hand lightningcss's own parse diagnostics to the builder.
+ *
+ * These are the recovered-and-warned class: input lightningcss could not parse
+ * but did not throw over. It passes the malformed sheet through verbatim, so
+ * nothing fails — this package's visitor simply finds nothing to extract and
+ * the rule disappears. That makes this warning the ONLY signal the author has.
+ *
+ * Only the FIRST pass is read. The second re-parses the first's output, and
+ * measured against both reachable triggers it returns the identical message —
+ * so reading it would add nothing but a duplicate to suppress. An unknown
+ * at-rule and an unrecognised pseudo-element each warn once per pass, with the
+ * same text.
+ *
+ * Deliberately NOT paired with lightningcss's `errorRecovery` flag. That
+ * converts the throwing class into more of this one, which is a change to what
+ * compiles rather than a diagnostic — and it drops more than it reports.
+ */
+function reportSyntaxWarnings(
+  builder: StylesheetBuilder,
+  warnings: Warning[] | undefined,
+): void {
+  for (const warning of warnings ?? []) {
+    if (!OWN_AT_RULE_WARNINGS.test(warning.message)) {
+      builder.addSyntaxWarning(warning.message);
+    }
+  }
+}
+
 export function compile(code: Buffer | string, options: CompilerOptions = {}) {
   const { logger = defaultLogger } = options;
 
@@ -136,7 +176,7 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
     };
   }
 
-  const { code: firstPass } = lightningcss({
+  const { code: firstPass, warnings: firstPassWarnings } = lightningcss({
     code: typeof code === "string" ? new TextEncoder().encode(code) : code,
     include: Features.DoublePositionGradients | Features.ColorFunction,
     exclude: Features.VendorPrefixes,
@@ -196,6 +236,8 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
     filename: options.filename ?? "style.css",
     projectRoot: options.projectRoot ?? process.cwd(),
   });
+
+  reportSyntaxWarnings(builder, firstPassWarnings);
 
   return {
     stylesheet: () => builder.getNativeStyleSheet(),

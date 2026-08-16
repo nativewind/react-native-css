@@ -9,6 +9,7 @@ import type {
   AnimationKeyframes,
   AnimationRecord,
   CompilerOptions,
+  CompilerWarnings,
   ContainerQuery,
   MediaCondition,
   ReactNativeCssStyleSheet,
@@ -70,6 +71,7 @@ export class StylesheetBuilder {
       warningProperties: string[];
       warningValues: Record<string, unknown[]>;
       warningFunctions: string[];
+      syntaxWarnings: Set<string>;
     } = {
       ruleSets: {},
       rem: 14,
@@ -77,6 +79,7 @@ export class StylesheetBuilder {
       warningProperties: [],
       warningValues: {},
       warningFunctions: [],
+      syntaxWarnings: new Set(),
     },
     private selectors: SelectorList = [],
   ) {}
@@ -227,12 +230,19 @@ export class StylesheetBuilder {
     }
   }
 
-  getWarnings() {
-    const result: {
-      properties?: string[];
-      values?: Record<string, unknown[]>;
-      functions?: string[];
-    } = {};
+  /**
+   * A diagnostic lightningcss produced while parsing.
+   *
+   * A `Set` rather than an array because the compiler runs lightningcss twice
+   * and the second pass re-parses the first pass's output, so one authoring
+   * mistake arrives from both.
+   */
+  addSyntaxWarning(message: string): void {
+    this.shared.syntaxWarnings.add(message);
+  }
+
+  getWarnings(): CompilerWarnings {
+    const result: CompilerWarnings = {};
 
     if (this.shared.warningProperties.length) {
       result.properties = this.shared.warningProperties;
@@ -244,6 +254,10 @@ export class StylesheetBuilder {
 
     if (this.shared.warningFunctions.length) {
       result.functions = this.shared.warningFunctions;
+    }
+
+    if (this.shared.syntaxWarnings.size) {
+      result.syntax = [...this.shared.syntaxWarnings];
     }
 
     return result;

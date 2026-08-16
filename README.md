@@ -235,6 +235,28 @@ This API only allows for setting CSS variables as primitive values. For more com
 > [!IMPORTANT]  
 > By using `VariableContext` you may need to disable the `inlineVariable` optimization
 
+## Compiler warnings
+
+Not every CSS declaration has a React Native equivalent. When the compiler cannot translate one it drops that declaration, and Metro prints a summary for the stylesheet it came from:
+
+```
+react-native-css: src/global.css - 3 declarations dropped, no React Native equivalent
+  properties: columns, float
+  values: z-index: auto
+```
+
+A block is printed the first time a file is compiled, and after that only when the file's set of warnings changes — an incremental rebuild that changes nothing about them stays quiet. Warnings are advisory and never fail a build.
+
+Use the `warnings` option to change how much is printed:
+
+```tsx
+export default withReactNativeCSS(defaultConfig, {
+  warnings: "verbose", // "summary" (the default) | "verbose" | "none"
+});
+```
+
+`summary` lists the first ten entries of each channel, `verbose` lists every entry, and `none` prints nothing. A web bundle never runs the compiler, so this only affects native builds.
+
 ## Optimizations
 
 CSS is a dynamic styling language that use highly optimized engines that are not available in React Native. Instead, we optimize the styles to improve performance
