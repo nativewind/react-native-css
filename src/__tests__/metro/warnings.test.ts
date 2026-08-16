@@ -82,6 +82,41 @@ describe("formatCompilerWarnings", () => {
     );
   });
 
+  test("a syntax warning reaches the terminal at all", () => {
+    // The channel was produced end to end and rendered nowhere: `warnings.ts`
+    // summed only `properties`, `functions` and `values`, so a stylesheet whose
+    // ONLY problem was malformed CSS returned `undefined` and printed nothing.
+    // Every test for this channel read the producer, which is why it shipped
+    // green.
+    expect(
+      formatCompilerWarnings(
+        warningsFor(`@unknown-thing { .b { color: blue } }`),
+        {
+          displayPath: "src/global.css",
+        },
+      ),
+    ).toContain("syntax: Unknown at rule: @unknown-thing");
+  });
+
+  test("a syntax warning is NOT counted as a missing React Native equivalent", () => {
+    // The two are different claims and lead to different fixes. A dropped
+    // property is CSS this package cannot express; a syntax warning is CSS
+    // lightningcss could not parse, so the reader's fix is in their stylesheet.
+    // Folding one into the other's count puts it under a header that misdirects.
+    const formatted = formatCompilerWarnings(
+      warningsFor(`@unknown-thing { .b { color: blue } }
+.a { float: left; }`),
+      { displayPath: "src/global.css" },
+    );
+
+    expect(formatted).toContain(
+      "1 declaration dropped, no React Native equivalent",
+    );
+    expect(formatted).toContain("properties: float");
+    expect(formatted).toContain("could not be parsed");
+    expect(formatted).toContain("syntax: Unknown at rule: @unknown-thing");
+  });
+
   test("a compile that dropped nothing formats to nothing", () => {
     expect(
       formatCompilerWarnings(warningsFor(`.a { color: red; }`), {

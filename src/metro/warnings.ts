@@ -126,7 +126,15 @@ export function formatCompilerWarnings(
       0,
     );
 
-  if (droppedCount === 0) {
+  // Counted apart from the three above, and reported as its own clause, because
+  // it is a different claim. A dropped declaration is CSS this package cannot
+  // EXPRESS; a syntax warning is CSS lightningcss could not PARSE. They send a
+  // reader to different places — one to this package's limits, one to their own
+  // stylesheet — so folding syntax into `droppedCount` would file it under a
+  // header that misdirects.
+  const syntaxCount = warnings.syntax?.length ?? 0;
+
+  if (droppedCount === 0 && syntaxCount === 0) {
     return undefined;
   }
 
@@ -134,10 +142,27 @@ export function formatCompilerWarnings(
   const functions = limit(unique(warnings.functions), verbose);
   const rendered = renderValues(warnings.values, verbose);
   const values = limit(rendered.entries, verbose);
+  const syntax = limit(unique(warnings.syntax), verbose);
 
-  const lines = [
-    `${PREFIX}: ${displayPath} - ${droppedCount} ${pluralize(droppedCount, "declaration")} dropped, no React Native equivalent`,
-  ];
+  // One header carrying whichever claims apply, so a file with both problems
+  // reports both rather than the first one found.
+  const claims: string[] = [];
+  if (droppedCount > 0) {
+    claims.push(
+      `${droppedCount} ${pluralize(droppedCount, "declaration")} dropped, no React Native equivalent`,
+    );
+  }
+  if (syntaxCount > 0) {
+    claims.push(
+      `${syntaxCount} ${pluralize(syntaxCount, "rule")} could not be parsed`,
+    );
+  }
+
+  const lines = [`${PREFIX}: ${displayPath} - ${claims.join("; ")}`];
+
+  if (syntax.shown.length > 0) {
+    lines.push(`  syntax: ${syntax.shown.join("; ")}${suffix(syntax.hidden)}`);
+  }
 
   if (properties.shown.length > 0) {
     lines.push(
@@ -156,7 +181,11 @@ export function formatCompilerWarnings(
   }
 
   if (
-    properties.hidden + values.hidden + functions.hidden + rendered.hidden >
+    properties.hidden +
+      values.hidden +
+      functions.hidden +
+      rendered.hidden +
+      syntax.hidden >
     0
   ) {
     lines.push(
