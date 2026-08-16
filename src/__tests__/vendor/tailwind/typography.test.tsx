@@ -8,14 +8,20 @@ describe("Typography - Font Family", () => {
    * The default theme's own values are the CSS generics — no typeface is
    * registered under `ui-sans-serif` on either platform, so `font-sans` renders
    * in the platform default whether or not the stack was narrowed. Narrowing is
-   * what makes the OVERRIDE below work, which is how a bundled typeface is
-   * actually reached.
+   * what lets an override reach a bundled typeface, which is how one is
+   * actually installed.
    *
    * The four default-theme cases are therefore CONTROLS: they pass on `main`
    * too, because a single-definition theme variable is inlined and narrowed at
    * compile time. They are here because this file is a census of the Typography
-   * utilities and Font Family was the one block missing from it. The two
-   * overrides below are the cases that bind.
+   * utilities and Font Family was the one block missing from it.
+   *
+   * Both overrides below bind, and only one of them reaches a real family.
+   * `:root` resolves `Georgia`. The `.dark` one is not active, so it resolves
+   * the theme's own `ui-sans-serif` — the same generic as the controls, with no
+   * face registered under it either. It binds anyway, because a second
+   * definition defeats the inliner and on `main` that generic arrives as the
+   * whole seven-entry stack rather than as a string.
    */
   test("font-sans", async () => {
     expect(await renderCurrentTest()).toStrictEqual({

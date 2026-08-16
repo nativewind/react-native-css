@@ -54,6 +54,12 @@ export function applyShorthand(value: any) {
  * `applyDeclarations` parks `{ [prop]: true }` on the target while a delayed
  * value resolves, and later reclaims it by identity. It is machinery, never a
  * style value, so it has to reach the target untouched.
+ *
+ * The null exclusion is unreachable from the one call site below, which has
+ * already turned a null into `undefined` and then excluded `undefined`. It
+ * stays because this answers a question about a value rather than about that
+ * caller's ordering, and `typeof null === "object"` is the same trap being
+ * fixed in `isStyleFunction` in this change.
  */
 function isDelayedMarker(value: unknown): boolean {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -102,8 +108,18 @@ export function applyValue(
   if (prop === "fontFamily" && value !== undefined && !isDelayedMarker(value)) {
     const narrowing = narrowFontFamily(value);
 
-    // Nothing usable leaves the key alone rather than clearing it, so a family
-    // an earlier rule set survives the way the cascade says it should.
+    // Nothing usable leaves the key alone rather than clearing it, which
+    // preserves a family already on the target. That guarantee is narrower than
+    // it sounds, and the two paths differ:
+    //
+    //   - compile-time `none` (`font-family: ,;`) emits no descriptor at all,
+    //     so an earlier rule's family stands. Measured under `.b { Georgia }`:
+    //     `Georgia` here, `[]` on `main`.
+    //   - a resolved `var()` has nothing left to preserve, because
+    //     `applyDeclarations` deletes the key before it resolves. Measured on
+    //     the same pair with `var(--n)` over `--n: 12`: `{}` here,
+    //     `{ fontFamily: 12 }` on `main` — better either way, but not a
+    //     survival.
     if (narrowing.kind === "family") {
       target[prop] = narrowing.family;
     }
