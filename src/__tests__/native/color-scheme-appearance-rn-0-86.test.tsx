@@ -3,9 +3,10 @@ import { Appearance, type ColorSchemeName } from "react-native";
 import { act } from "@testing-library/react-native";
 import { colorScheme } from "react-native-css/runtime";
 
-// react-native 0.86 rewrote the one expression the announcement used to read.
-// `setColorScheme` writes the cache from the REQUESTED value, and the native
-// read-back survives only for the literal "unspecified":
+// react-native 0.82 rewrote the one expression the announcement used to read:
+// `setColorScheme` stopped reading the cache back and wrote the REQUESTED
+// value instead. By 0.85.3 a read-back had returned for the literal
+// "unspecified" alone — the shape quoted here, and the one 0.86.0 ships:
 //
 //   NativeAppearance.setColorScheme(colorScheme);
 //   state.appearance = {
