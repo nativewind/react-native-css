@@ -322,9 +322,17 @@ describe("Typography - Text Color", () => {
     });
   });
   test("text-inherit", async () => {
+    // Per CSS Color, `inherit` on the `color` property is defined as
+    // `currentcolor`, so text-inherit resolves to the platform label color —
+    // identical to text-current above — instead of being dropped with a warning.
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { values: { color: "inherit" } },
+      props: {
+        style: {
+          color: {
+            semantic: ["label", "labelColor"],
+          },
+        },
+      },
     });
   });
 });
