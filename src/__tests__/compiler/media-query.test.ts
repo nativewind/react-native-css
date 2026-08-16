@@ -1,6 +1,6 @@
 import { compile, type MediaCondition } from "react-native-css/compiler";
 
-import { sizeComparisons } from "../_media-features";
+import { COMPARISON_MATCHES, sizeComparisons } from "../_media-features";
 
 /**
  * Returns the media conditions the compiler attached to `.my-class`.
@@ -127,9 +127,14 @@ describe("size feature comparisons", () => {
       return [row.condition(400), condition];
     });
 
-  test("the table covers the whole census", () => {
-    expect(cases).toHaveLength(sizeComparisons().length);
+  test("every operator in the census reaches this table", () => {
+    // Against `COMPARISON_MATCHES`, whose keys are the operator union itself,
+    // rather than against the length of the generator these cases came from —
+    // that product holds for any census, an empty one included.
     expect(cases.length).toBeGreaterThan(0);
+    expect(new Set(cases.map(([, condition]) => condition[0]))).toStrictEqual(
+      new Set(Object.keys(COMPARISON_MATCHES)),
+    );
   });
 
   test.each(cases)("@media %s", (prelude, condition) => {

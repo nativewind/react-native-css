@@ -25,12 +25,25 @@ type MediaComparison = Extract<
 /** The feature name a comparison or an interval condition is written against. */
 type MediaFeatureName = MediaComparison[1] | MediaInterval[1];
 
+/**
+ * `rule.m` carries one condition per enclosing `@media` block and one per
+ * media-carrying selector, which CSS intersects, alongside one per comma
+ * branch, which CSS unions. Intersecting is right for the first two and wrong
+ * for the third, and the two are indistinguishable once they are in the array,
+ * so `.some(...)` here would only move the defect onto nesting. The compiler is
+ * where a list has to be marked as one — see `extractMedia`.
+ */
 export function testMediaQuery(mediaQueries: MediaCondition[], get: Getter) {
   return mediaQueries.every((query) => test(query, get));
 }
 
 function test(mediaQuery: MediaCondition, get: Getter): boolean {
   switch (mediaQuery[0]) {
+    // `@media (width)` asks whether the feature is present and non-zero.
+    // Answering it is unimplemented rather than decided: the boolean context
+    // has its own truthiness rule per feature, and `false` here is a media
+    // query that reads as valid and can never match. The container evaluator
+    // holds the same gap.
     case "!!":
       return false;
     case "[]":
@@ -85,17 +98,11 @@ function testComparison(mediaQuery: MediaComparison, get: Getter): boolean {
       return value === "landscape" ? get(vh) < get(vw) : get(vh) >= get(vw);
   }
 
-  if (typeof value !== "number") {
-    return false;
-  }
-
-  const left = getMediaFeatureValue(mediaQuery[1], get);
-
-  if (left === undefined) {
-    return false;
-  }
-
-  return compareMediaFeature(mediaQuery[0], left, value);
+  return compareMediaFeature(
+    mediaQuery[0],
+    getMediaFeatureValue(mediaQuery[1], get),
+    value,
+  );
 }
 
 /**

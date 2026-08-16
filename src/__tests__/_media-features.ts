@@ -12,6 +12,22 @@ import type { MediaFeatureComparison } from "react-native-css/compiler";
  *
  * This is not a test file — `testPathIgnorePatterns` skips a path segment
  * starting with an underscore.
+ *
+ * A note on how the tables built from this are read. A rendered case asserts a
+ * verdict, and the two verdicts fail under opposite defects: a `matches: true`
+ * row reddens when a condition stops being answered, because the block is then
+ * dropped or refused; a `matches: false` row reddens when a condition stops
+ * being asked, because the block is then emitted with nothing to check and
+ * applies everywhere. Neither half observes the other's direction, so a table
+ * of one verdict is half a table however many rows it has — which is why every
+ * table here carries both, and why the counts of the two are worth keeping
+ * near each other.
+ *
+ * A table's size is also not evidence that it covers anything. Every table is
+ * generated from this census, so its length is the census's length by
+ * construction and agrees with a census that lost an operator. Coverage is
+ * asserted against {@link COMPARISON_MATCHES} instead, whose keys are the
+ * `MediaFeatureComparison` union itself.
  */
 
 /**

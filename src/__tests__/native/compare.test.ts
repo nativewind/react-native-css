@@ -44,12 +44,23 @@ const cases = COMPARISON_OPERATORS.flatMap((operator) => {
   });
 });
 
+/**
+ * `COMPARISON_MATCHES` is a total `Record` over `MediaFeatureComparison`, so
+ * its keys are the union itself and comparing the census against them is the
+ * one assertion in this file that an operator cannot go missing from. Every
+ * other table in the suite is generated from `COMPARISON_OPERATORS`, which
+ * makes this the link the rest of them hang off: drop an operator here and
+ * nineteen cases stop being generated across four files, all of them silently.
+ *
+ * Comparing `cases.length` against the product of the two censuses would not
+ * catch it — `cases` is built by mapping over exactly those two, so the length
+ * is the product whatever they contain, zero included.
+ */
 test("the table covers every operator against every ordering", () => {
   expect([...COMPARISON_OPERATORS].sort()).toStrictEqual(
     Object.keys(COMPARISON_MATCHES).sort(),
   );
   expect([...ORDERINGS].sort()).toStrictEqual(Object.keys(operands).sort());
-  expect(cases).toHaveLength(COMPARISON_OPERATORS.length * ORDERINGS.length);
   expect(cases.length).toBeGreaterThan(0);
 });
 
@@ -148,6 +159,16 @@ describe("testMediaFeatureInterval", () => {
   /**
    * A feature the evaluator could not measure, and a bound the compiler could
    * not resolve, are both "no answer" rather than "no bound".
+   *
+   * All three slots are typed `StyleDescriptor`, so a string is inside the
+   * declared domain of each, and `compareMediaFeature`'s numeric guard is what
+   * keeps one out of an arithmetic comparison. Which row observes that guard is
+   * not obvious: a string that does not look like a number is refused by the
+   * comparison itself — `"landscape" < 800` is `NaN < 800` — so the first four
+   * rows hold whether the guard is there or not, and only a string that
+   * COERCES can tell the two apart. The three numeric-string rows are the ones
+   * that do, because `400 < "500"` is `400 < 500` and an unguarded interval
+   * then matches against a value it never measured.
    */
   const unanswerable: [
     label: string,
@@ -166,6 +187,21 @@ describe("testMediaFeatureInterval", () => {
       600,
     ],
     ["an unresolved end bound", ["[]", "width", 400, "<", undefined, "<"], 600],
+    [
+      "a feature value that is a numeric string",
+      ["[]", "width", 400, "<", 800, "<"],
+      "500",
+    ],
+    [
+      "a start bound that is a numeric string",
+      ["[]", "width", "400", "<", 800, "<"],
+      600,
+    ],
+    [
+      "an end bound that is a numeric string",
+      ["[]", "width", 400, "<", "800", "<"],
+      600,
+    ],
   ];
 
   test.each(unanswerable)("%s never matches", (_label, condition, value) => {

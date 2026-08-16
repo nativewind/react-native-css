@@ -96,6 +96,11 @@ function testContainerMediaCondition(
       return condition[1].some((query) => {
         return testContainerMediaCondition(query, containerKey, get);
       });
+    // `@container (width)` asks whether the feature is present and non-zero.
+    // Answering it is unimplemented rather than decided: the boolean context
+    // has its own truthiness rule per feature, and `false` here is a container
+    // query that reads as valid and can never match. The media evaluator holds
+    // the same gap.
     case "!!":
       return false;
     case "[]":
@@ -107,20 +112,12 @@ function testContainerMediaCondition(
     case ">=":
     case "<":
     case "<=":
-    case "=": {
-      const left = getContainerFeatureValue(condition[1], containerKey, get);
-      const right = condition[2];
-
-      if (condition[0] === "=") {
-        return left === right;
-      }
-
-      if (typeof left !== "number" || typeof right !== "number") {
-        return false;
-      }
-
-      return compareMediaFeature(condition[0], left, right);
-    }
+    case "=":
+      return compareMediaFeature(
+        condition[0],
+        getContainerFeatureValue(condition[1], containerKey, get),
+        condition[2],
+      );
     default:
       condition satisfies never;
       return false;
@@ -146,8 +143,14 @@ function getContainerFeatureValue(
       const width = get(containerWidthFamily(containerKey));
       const height = get(containerHeightFamily(containerKey));
       return width > height ? "landscape" : "portrait";
+    // React Native lays out in one writing mode, so the logical axes are the
+    // physical ones: inline is horizontal and block is vertical. `inline-size`
+    // is also the axis `container-type: inline-size` names, which makes it the
+    // feature most container queries are written against.
     case "inline-size":
+      return get(containerWidthFamily(containerKey));
     case "block-size":
+      return get(containerHeightFamily(containerKey));
     default:
       return;
   }

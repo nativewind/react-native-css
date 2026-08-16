@@ -1,6 +1,6 @@
 import { compile, type ContainerQuery } from "react-native-css/compiler";
 
-import { sizeComparisons } from "../_media-features";
+import { COMPARISON_MATCHES, sizeComparisons } from "../_media-features";
 
 /**
  * Returns the container queries the compiler attached to `.child`.
@@ -45,9 +45,14 @@ describe("size feature comparisons", () => {
       return [row.condition(400), query];
     });
 
-  test("the table covers the whole census", () => {
-    expect(cases).toHaveLength(sizeComparisons().length);
+  test("every operator in the census reaches this table", () => {
+    // Against `COMPARISON_MATCHES`, whose keys are the operator union itself,
+    // rather than against the length of the generator these cases came from —
+    // that product holds for any census, an empty one included.
     expect(cases.length).toBeGreaterThan(0);
+    expect(new Set(cases.map(([, query]) => query.m?.[0]))).toStrictEqual(
+      new Set(Object.keys(COMPARISON_MATCHES)),
+    );
   });
 
   test.each(cases)("@container %s", (condition, query) => {
@@ -67,6 +72,12 @@ describe("other size features", () => {
     ["(aspect-ratio >= 4/3)", { m: [">=", "aspect-ratio", 4 / 3] }],
     ["(min-aspect-ratio: 16/9)", { m: [">=", "aspect-ratio", 16 / 9] }],
     ["(max-aspect-ratio: 16/9)", { m: ["<=", "aspect-ratio", 16 / 9] }],
+    // The logical axes. `inline-size` is the feature `container-type:
+    // inline-size` names, so it is the one most container queries are written
+    // against, and it compiles under its own name rather than being folded
+    // into `width` here.
+    ["(min-inline-size: 400px)", { m: [">=", "inline-size", 400] }],
+    ["(max-block-size: 400px)", { m: ["<=", "block-size", 400] }],
     [
       "my-container (min-width: 400px)",
       { m: [">=", "width", 400], n: "c:my-container" },

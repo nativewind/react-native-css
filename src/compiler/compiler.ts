@@ -366,10 +366,26 @@ function extractMedia(
 
   const compiled = media.map((m) => parseMediaQuery(m, builder));
 
-  // A comma-separated media query list is a union, so a branch that cannot
-  // match contributes nothing while the others still apply. When no branch can
-  // match, neither can the block, and its rules must not be emitted at all —
-  // emitting them with no media query applies them everywhere instead.
+  // A branch that cannot match contributes nothing, and when no branch can
+  // match, neither can the block: its rules must not be emitted at all, since
+  // emitting them with no media query applies them everywhere instead. That
+  // holds however the surviving branches are combined, so this decision does
+  // not rest on the divergence below.
+  //
+  // How they ARE combined is where native parts from CSS, and it parts here
+  // rather than in the evaluator. `rule.m` is a flat array fed from two places
+  // with opposite meanings — one entry per comma branch, which CSS unions, and
+  // one per enclosing `@media` block or media-carrying selector, which CSS
+  // intersects — and `testMediaQuery` intersects the whole array. Nesting is
+  // therefore right and a comma list is not: `@media (min-width: 400px),
+  // (min-height: 300px)` matches only where both hold. Two entries of the same
+  // shape mean two different things, so no change to the evaluator can fix one
+  // without breaking the other; the emit has to say which it is, by carrying a
+  // list of two or more as a single `["|", conditions]`, and by emitting no
+  // condition at all when a branch is `always` — `@media all, (…)` is
+  // unconditional. That is a change to what is emitted rather than to how a
+  // condition is evaluated, so it stands as a known limit here rather than as
+  // a half-fix in the evaluator.
   if (compiled.every(({ type }) => type === "never")) {
     return;
   }

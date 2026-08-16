@@ -169,11 +169,20 @@ export function parseMediaFeatureValue(
           value.value satisfies never;
           return undefined;
       }
-    case "ratio":
+    case "ratio": {
       // A `<ratio>` is a pair of numbers standing for their quotient, and the
       // quotient is what both runtimes derive from their two axes. A bare
       // number parses as a ratio too, so `1` arrives here as `[1, 1]`.
-      return value.value[0] / value.value[1];
+      const quotient = value.value[0] / value.value[1];
+
+      // A degenerate ratio — `1/0`, `0/0` — has no finite quotient, so there
+      // is no bound for a comparison to mean anything against. It is refused,
+      // which is what turns the block into one that did not compile and drops
+      // it. Emitting the quotient instead ships a number the bundle cannot
+      // carry: `JSON.stringify` writes `Infinity` and `NaN` as `null`, so the
+      // condition would mean one thing under jest and another on a device.
+      return Number.isFinite(quotient) ? quotient : undefined;
+    }
     case "env":
   }
 

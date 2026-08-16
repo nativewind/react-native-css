@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
+import type { MediaFeatureComparison } from "react-native-css/compiler";
 import { View } from "react-native-css/components/View";
 import { registerCSS } from "react-native-css/jest";
 
@@ -206,24 +207,39 @@ describe("size comparisons", () => {
    * shared census, so this table and the primitive's own cannot disagree about
    * what an operator means.
    */
-  const cases: [condition: string, ordering: Ordering, matches: boolean][] =
-    sizeComparisons().flatMap((row) => {
-      return ORDERINGS.map(
-        (
+  const cases: [
+    condition: string,
+    ordering: Ordering,
+    matches: boolean,
+    operator: MediaFeatureComparison,
+  ][] = sizeComparisons().flatMap((row) => {
+    return ORDERINGS.map(
+      (
+        ordering,
+      ): [
+        condition: string,
+        ordering: Ordering,
+        matches: boolean,
+        operator: MediaFeatureComparison,
+      ] => {
+        return [
+          row.condition(THRESHOLDS[row.feature][ordering]),
           ordering,
-        ): [condition: string, ordering: Ordering, matches: boolean] => {
-          return [
-            row.condition(THRESHOLDS[row.feature][ordering]),
-            ordering,
-            COMPARISON_MATCHES[row.operator][ordering],
-          ];
-        },
-      );
-    });
+          COMPARISON_MATCHES[row.operator][ordering],
+          row.operator,
+        ];
+      },
+    );
+  });
 
-  test("the table covers the whole census", () => {
-    expect(cases).toHaveLength(sizeComparisons().length * ORDERINGS.length);
+  test("every operator in the census reaches this table", () => {
+    // Against `COMPARISON_MATCHES`, whose keys are the operator union itself,
+    // rather than against the length of the generator these cases came from —
+    // that product holds for any census, an empty one included.
     expect(cases.length).toBeGreaterThan(0);
+    expect(new Set(cases.map(([, , , operator]) => operator))).toStrictEqual(
+      new Set(Object.keys(COMPARISON_MATCHES)),
+    );
   });
 
   test.each(cases)(
@@ -242,11 +258,49 @@ test("each size axis is measured on its own axis", () => {
   expect(containerQueryMatches("(height > 300px)", CONTAINER)).toBe(false);
 });
 
+describe("logical size features", () => {
+  /**
+   * `inline-size` and `block-size` are the axes under React Native's single
+   * writing mode, so they are the physical ones: inline is horizontal, block
+   * vertical. `container-type: inline-size` names the first of them, which
+   * makes `(min-inline-size: …)` the most ordinary container query there is.
+   *
+   * Stated differentially as well as absolutely: on a landscape container one
+   * threshold cannot satisfy both axes, so an axis answered off the other one
+   * cannot pass this table by picking convenient numbers.
+   */
+  const cases: [condition: string, matches: boolean][] = [
+    ["(min-inline-size: 400px)", true],
+    ["(min-inline-size: 500px)", false],
+    ["(max-inline-size: 400px)", true],
+    ["(inline-size > 300px)", true],
+    ["(min-block-size: 200px)", true],
+    ["(min-block-size: 300px)", false],
+    ["(block-size > 300px)", false],
+    ["(400px < inline-size < 800px)", false],
+    ["(300px < inline-size < 800px)", true],
+  ];
+
+  test.each(cases)(
+    "@container %s against a 400x200 container matches: %s",
+    (condition, matches) => {
+      expect(containerQueryMatches(condition, CONTAINER)).toBe(matches);
+    },
+  );
+});
+
 describe("aspect ratio", () => {
   /**
    * A container's aspect ratio is its width over its height, so every case
    * names the container it is measured against — the 400x200 landscape one is
    * exactly 2, the 200x400 portrait one exactly 0.5, and 300x300 exactly 1.
+   *
+   * The two verdicts are not interchangeable here. Reintroduce the defect this
+   * table exists for — an `aspect-ratio` value the compiler will not resolve —
+   * and only the `matches: true` rows redden, because the block is refused and
+   * never reaches the runtime. The `matches: false` rows are what catches the
+   * opposite failure, a block kept but emitted with no condition at all, which
+   * is what an unresolved value produces wherever it is not refused.
    */
   const cases: [
     condition: string,
@@ -280,6 +334,11 @@ describe("interval (range pair) conditions", () => {
    * placed on either side of the measured value. Each bound is exercised open
    * and closed, because an interval is two comparisons and getting one of them
    * wrong still looks like an interval.
+   *
+   * As in the aspect-ratio table, the two verdicts observe opposite failures:
+   * an interval arm that stops answering reddens only the `matches: true`
+   * rows, and one that answers everything reddens only the `matches: false`
+   * ones.
    */
   const cases: [condition: string, matches: boolean][] = [
     ["(400px < width < 800px)", true],

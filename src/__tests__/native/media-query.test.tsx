@@ -1,6 +1,7 @@
 import { PixelRatio } from "react-native";
 
 import { act, render, screen } from "@testing-library/react-native";
+import type { MediaFeatureComparison } from "react-native-css/compiler";
 import { View } from "react-native-css/components/View";
 import { registerCSS, testID } from "react-native-css/jest";
 import { colorScheme } from "react-native-css/runtime";
@@ -269,22 +270,39 @@ describe("size comparisons", () => {
    * `@media` and another under `@container` is the drift that primitive
    * exists to make impossible, and only a shared table can observe it.
    */
-  const cases: [prelude: string, ordering: Ordering, matches: boolean][] =
-    sizeComparisons().flatMap((row) => {
-      return ORDERINGS.map(
-        (ordering): [prelude: string, ordering: Ordering, matches: boolean] => {
-          return [
-            row.condition(THRESHOLDS[row.feature][ordering]),
-            ordering,
-            COMPARISON_MATCHES[row.operator][ordering],
-          ];
-        },
-      );
-    });
+  const cases: [
+    prelude: string,
+    ordering: Ordering,
+    matches: boolean,
+    operator: MediaFeatureComparison,
+  ][] = sizeComparisons().flatMap((row) => {
+    return ORDERINGS.map(
+      (
+        ordering,
+      ): [
+        prelude: string,
+        ordering: Ordering,
+        matches: boolean,
+        operator: MediaFeatureComparison,
+      ] => {
+        return [
+          row.condition(THRESHOLDS[row.feature][ordering]),
+          ordering,
+          COMPARISON_MATCHES[row.operator][ordering],
+          row.operator,
+        ];
+      },
+    );
+  });
 
-  test("the table covers the whole census", () => {
-    expect(cases).toHaveLength(sizeComparisons().length * ORDERINGS.length);
+  test("every operator in the census reaches this table", () => {
+    // Against `COMPARISON_MATCHES`, whose keys are the operator union itself,
+    // rather than against the length of the generator these cases came from —
+    // that product holds for any census, an empty one included.
     expect(cases.length).toBeGreaterThan(0);
+    expect(new Set(cases.map(([, , , operator]) => operator))).toStrictEqual(
+      new Set(Object.keys(COMPARISON_MATCHES)),
+    );
   });
 
   test.each(cases)(
@@ -347,6 +365,12 @@ describe("aspect-ratio", () => {
   /**
    * The viewport's aspect ratio is its width over its height, measured off the
    * same two observables `width` and `height` already read.
+   *
+   * The two verdicts are not interchangeable. Reintroduce the defect this
+   * table exists for — an `aspect-ratio` value the compiler will not resolve —
+   * and only the `matches: true` rows redden, because the block is refused and
+   * never reaches the runtime. The `matches: false` rows are what catches the
+   * opposite failure, a block emitted with no condition at all.
    */
   const cases: [
     prelude: string,
@@ -386,6 +410,11 @@ describe("interval (range pair) conditions", () => {
   /**
    * A 600x200 viewport, so both bounds of an interval on either axis can be
    * placed on either side of the measured value.
+   *
+   * As in the aspect-ratio table, the two verdicts observe opposite failures:
+   * an interval arm that stops answering reddens only the `matches: true`
+   * rows, and one that answers everything reddens only the `matches: false`
+   * ones.
    */
   const cases: [prelude: string, matches: boolean][] = [
     ["(400px < width < 800px)", true],
