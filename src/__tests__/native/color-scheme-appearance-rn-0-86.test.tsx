@@ -17,20 +17,25 @@ import { colorScheme } from "react-native-css/runtime";
 //   };
 //     — react-native 0.86.0, Libraries/Utilities/Appearance.js
 //
-// The 0.81.4 pinned in this repo reads the cache back on every path, and
-// `toColorScheme` is gone by 0.86 along with its invariant. `ColorSchemeName`
-// moved too: 0.81 declares 'light' | 'dark' | null | undefined, 0.86 declares
-// 'light' | 'dark' | 'unspecified', so on the current release "unspecified" is
-// the type-legal way to hand the scheme back and `null` is not in the type at
-// all.
+// The 0.81.4 pinned in this repo reads the cache back on every path. The rest
+// of the distance to the shape above is 0.82.0, in one release rather than
+// spread across the range: `toColorScheme` and its invariant were deleted, and
+// `Libraries/Utilities/Appearance.d.ts` re-declared `ColorSchemeName` from
+// 'light' | 'dark' | null | undefined to 'light' | 'dark' | 'unspecified'. So
+// from 0.82 on, "unspecified" is the type-legal way to hand the scheme back and
+// `null` is not in the type at all.
 //
-// `react-native >= 0.81` is the declared peer range, so both are shipping
-// behaviour and no single installed react-native can express both. The two
-// sibling suites drive the installed module; this one stands in for the version
-// that cannot be installed beside it, transcribing the four functions of
-// Appearance.js and nothing else — the `appearanceChanged` registration is
-// still react-native's own `NativeEventEmitter`, so what reaches this cache is
-// what reaches the real one.
+// `react-native >= 0.81` is the declared peer range, so the 0.81 shape and the
+// 0.86 shape are both shipping and no single installed react-native can express
+// both. The two sibling suites drive the installed module; this one stands in
+// for the current release, transcribing the four functions of Appearance.js and
+// nothing else — the `appearanceChanged` registration is still react-native's
+// own `NativeEventEmitter`, so what reaches this cache is what reaches the real
+// one.
+//
+// Neither shape is the whole range. `color-scheme-appearance-cache-rules.test.tsx`
+// carries the census of all three cache-write rules, including the
+// 0.82.0-0.84.1 one that neither this file nor the installed module can reach.
 
 // Declared out here because babel's `jest.mock` hoist check reads a parameter
 // name inside an inline constructor type as a variable access

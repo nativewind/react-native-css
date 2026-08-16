@@ -16,6 +16,7 @@ import { mappingToConfig, useNativeCss } from "./react/useNativeCss";
 import { usePassthrough } from "./react/usePassthrough";
 import {
   colorScheme as colorSchemeObs,
+  holdsRequestNotScheme,
   resolveColorScheme,
   VAR_SYMBOL,
   type Effect,
@@ -80,8 +81,26 @@ export const colorScheme: ColorScheme = {
     // Appearance.addChangeListener. Moving one without the others splits the
     // app's own UI
     const previous = Appearance.getColorScheme();
+
+    // Resolved BEFORE the write, because on react-native 0.82.0-0.84.1 the
+    // write is what destroys the ability to resolve. That band caches the
+    // REQUESTED value verbatim, so a follow-the-system request leaves
+    // Appearance.getColorScheme() answering the literal "unspecified" — and
+    // that cache is the one source resolveColorScheme falls back to when the
+    // observable is holding a hand-back. react-native repaired it in 0.85.3 by
+    // caching the scheme in force instead; on the band that did not, this is
+    // the scheme in force.
+    const inForce = resolveColorScheme(colorSchemeObs.get());
+
     Appearance.setColorScheme(value);
-    colorSchemeObs.set(value);
+
+    // A hand-back is stored as itself wherever the cache can still answer, so
+    // an OS change is still what decides the scheme. Where the cache is now
+    // holding a request rather than an answer, the observable is the only
+    // channel left that can, and it holds what the request resolves to.
+    colorSchemeObs.set(
+      holdsRequestNotScheme(Appearance.getColorScheme()) ? inForce : value,
+    );
 
     // RN's setColorScheme assigns the cache and calls the native module; the
     // only eventEmitter.emit("change") in Libraries/Utilities/Appearance.js is

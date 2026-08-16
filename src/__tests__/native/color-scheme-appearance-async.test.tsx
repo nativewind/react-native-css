@@ -28,11 +28,15 @@ import { colorScheme } from "react-native-css/runtime";
 // is the seam the UI-thread post stands for: an explicit call rather than a
 // timer, so a slow machine cannot change what any test here observes.
 //
-// The sibling `color-scheme-appearance.test.tsx` applies the write inline,
-// which is the shape a caller sees on react-native >= 0.86 — there the cache is
-// the requested value. `color-scheme-appearance-rn-0-86.test.tsx` covers the
-// rest of that version's setter. Between the three, both cache-write rules in
-// the declared peer range (`react-native >= 0.81`) are driven.
+// The sibling `color-scheme-appearance.test.tsx` applies the write inline, so
+// the read-back quoted above answers with the requested value — the cache a
+// caller sees from react-native 0.82 on. `color-scheme-appearance-rn-0-86.test.tsx`
+// covers the rest of the current release's setter.
+//
+// Three suites are not three cache-write rules, and the declared peer range
+// (`react-native >= 0.81`) holds three of those:
+// `color-scheme-appearance-cache-rules.test.tsx` is the census, and it is where
+// the 0.82.0-0.84.1 rule between the two ends is driven.
 jest.mock("react-native/Libraries/Utilities/NativeAppearance", () => {
   // What the OS itself reports, and therefore what "unspecified" resolves to
   const operatingSystemScheme = "light";

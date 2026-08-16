@@ -256,6 +256,28 @@ export function resolveColorScheme(held: ColorSchemeName): "light" | "dark" {
   return reported === "light" || reported === "dark" ? reported : "light";
 }
 
+/**
+ * Whether `Appearance`'s cache is holding a REQUEST rather than an answer.
+ *
+ * `NativeAppearance.getColorScheme()` cannot produce one on either platform:
+ * Android resolves the configuration to "dark" or "light"
+ * (`AppearanceModule.colorSchemeForCurrentConfiguration`) and iOS returns
+ * `_currentColorScheme`. So the only way a non-nullish non-scheme reaches that
+ * cache is react-native 0.82.0-0.84.1 storing a `setColorScheme` argument
+ * verbatim — the band between the read-back 0.81 performs on every path and the
+ * read-back 0.85.3 restored for `"unspecified"` alone.
+ *
+ * Nullish is not that, and stays a real answer: it means the platform reports
+ * no scheme at all, which is what the `"light"` last resort is for.
+ */
+export function holdsRequestNotScheme(held: ColorSchemeName): boolean {
+  return held !== null && held !== undefined && !isScheme(held);
+}
+
+function isScheme(held: ColorSchemeName): held is "light" | "dark" {
+  return held === "light" || held === "dark";
+}
+
 /** Containers ****************************************************************/
 
 export type ContainerContextValue = Record<string, WeakKey>;
