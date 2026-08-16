@@ -288,6 +288,19 @@ describe.each(ruleNames)("react-native %s", (rule) => {
     expect(screen.getByTestId(testID).props.style).toStrictEqual(RED);
   });
 
+  test("a follow-the-system request leaves Appearance answering a scheme", () => {
+    // Not this library's channel — this is react-native's own cache, which
+    // `useColorScheme()` and every store built the documented way read.
+    // `colorScheme.set` is the only caller of `Appearance.setColorScheme` here,
+    // so whatever this answers afterwards is what the library left in the app's
+    // cache for everyone else.
+    act(() => {
+      setColorSchemeAcrossBands(handBackFor(rule));
+    });
+
+    expect(["light", "dark"]).toContain(Appearance.getColorScheme());
+  });
+
   test("no platform echo arrives to repair it, because the resolved scheme never changed", () => {
     act(() => {
       setColorSchemeAcrossBands(handBackFor(rule));
