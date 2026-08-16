@@ -276,3 +276,27 @@ test("a redundant set of the scheme already in force announces nothing", () => {
 
   stop();
 });
+
+test("set('unspecified') resolves to a renderable scheme before the platform echoes", () => {
+  act(() => {
+    colorScheme.set("dark");
+    applyAndEchoPlatformWrite();
+  });
+
+  act(() => {
+    setColorScheme086("unspecified");
+  });
+
+  // No echo yet. The test above steps straight past this window, which is why
+  // nothing caught the leak: "unspecified" is a REQUEST to follow the system,
+  // never a scheme, and the resolution chain totalizes on NULLISHNESS, so the
+  // literal passes through every `??` untouched.
+  //
+  // A reader handed it matches neither `prefers-color-scheme: dark` nor
+  // `: light`, so every scheme-conditional class goes dead rather than falling
+  // back — the app asks to follow a dark system and loses its dark styling.
+  // On Android nothing repairs it until the user toggles the system theme,
+  // because AppearanceModule only emits when the RESOLVED scheme changes.
+  expect(colorScheme.get()).not.toBe("unspecified");
+  expect(["dark", "light"]).toContain(colorScheme.get());
+});
