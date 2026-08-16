@@ -18,6 +18,15 @@ import {
 } from "../reactivity";
 // import { testAttributes } from "./attributes";
 import type { RenderGuard } from "./guards";
+import {
+  conjoin,
+  disjoin,
+  matches,
+  negate,
+  UNKNOWN,
+  type Truth,
+} from "./kleene";
+import { isTruthyFeatureValue } from "./media-query";
 
 export const DEFAULT_CONTAINER_NAME = "c:___default___";
 
@@ -51,7 +60,12 @@ export function testContainerQuery(
   //   return false;
   // }
 
-  if (query.m && !testContainerMediaCondition(query.m, container, get)) {
+  // A conditional group rule is a two-valued context, so a condition that is
+  // still unknown here does not match - MQ5 § 3.1.
+  if (
+    query.m &&
+    !matches(testContainerMediaCondition(query.m, container, get))
+  ) {
     return false;
   }
 
@@ -83,22 +97,36 @@ function testContainerMediaCondition(
   condition: MediaCondition,
   containerKey: WeakKey,
   get: Getter,
-): boolean {
+): Truth {
   switch (condition[0]) {
+    case "?":
+      return UNKNOWN;
     case "!":
-      return !testContainerMediaCondition(condition[1], containerKey, get);
+      return negate(
+        testContainerMediaCondition(condition[1], containerKey, get),
+      );
     case "&":
-      return condition[1].every((query) => {
-        return testContainerMediaCondition(query, containerKey, get);
-      });
+      return conjoin(condition[1], (query) =>
+        testContainerMediaCondition(query, containerKey, get),
+      );
     case "|":
-      return condition[1].some((query) => {
-        return testContainerMediaCondition(query, containerKey, get);
-      });
-    case "!!":
-      return false;
+      return disjoin(condition[1], (query) =>
+        testContainerMediaCondition(query, containerKey, get),
+      );
+    case "!!": {
+      const featureValue = getContainerFeatureValue(
+        condition[1],
+        containerKey,
+        get,
+      );
+      return featureValue === undefined
+        ? UNKNOWN
+        : isTruthyFeatureValue(featureValue);
+    }
     case "[]":
-      return false;
+      // An interval this runtime does not evaluate has no answer, rather than
+      // the answer `false`.
+      return UNKNOWN;
     case ">":
     case ">=":
     case "<":
@@ -107,31 +135,45 @@ function testContainerMediaCondition(
       const left = getContainerFeatureValue(condition[1], containerKey, get);
       const right = condition[2];
 
+      // An operand the compiler could not resolve, or a feature this runtime
+      // cannot measure, leaves the comparison with no answer at all.
+      if (right === null || left === undefined) {
+        return UNKNOWN;
+      }
+
       if (condition[0] === "=") {
         return left === right;
       }
 
+      // An operand that is a length the compiler could not fold reaches here as
+      // a descriptor rather than a number: `(width > 10em)` compiles to
+      // `[{}, "em", 10, 1]`, because `em` is relative to the element's own font
+      // size. `px` folds to a number and `rem` folds against `inlineRem`, so
+      // this arm carries ordinary CSS rather than a malformed prelude.
+      // Ordering an operand the runtime cannot resolve gives `NaN`, which is
+      // false for every operator - and false is the one answer a negation turns
+      // into a match.
       if (typeof left !== "number" || typeof right !== "number") {
-        return false;
+        return UNKNOWN;
       }
 
       switch (condition[0]) {
         case ">":
           return left > right;
         case ">=":
-          return left > right;
+          return left >= right;
         case "<":
-          return left > right;
+          return left < right;
         case "<=":
-          return left > right;
+          return left <= right;
         default:
           condition[0] satisfies never;
-          return false;
+          return UNKNOWN;
       }
     }
     default:
       condition satisfies never;
-      return false;
+      return UNKNOWN;
   }
 }
 

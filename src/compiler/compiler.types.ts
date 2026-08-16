@@ -174,6 +174,17 @@ export type AnimationKeyframes = [string | number, StyleDeclaration[]];
 /******************************    Conditions    ******************************/
 
 export type MediaCondition =
+  /**
+   * A term the compiler could not compile at all - a container `style()`
+   * query, or a sub-condition of a form this compiler does not implement. MQ5
+   * § 3.1 gives `<general-enclosed>` the value unknown, and CSS Conditional 5
+   * § 3 says the same of an unsupported container feature, so the term is
+   * emitted and the runtime answers unknown rather than the term being dropped.
+   *
+   * Dropping it is a different answer: `true and unknown` is unknown, but with
+   * the operand gone the conjunction reads `true`.
+   */
+  | ["?"]
   // Boolean
   | ["!!", MediaFeatureNameFor_MediaFeatureId]
   // Not
@@ -186,17 +197,27 @@ export type MediaCondition =
   | [
       MediaFeatureComparison,
       MediaFeatureNameFor_MediaFeatureId | "dir",
-      StyleDescriptor,
+      MediaFeatureOperand,
     ]
   // [Start, End]
   | [
       "[]",
       MediaFeatureNameFor_MediaFeatureId,
-      StyleDescriptor, // Start
+      MediaFeatureOperand, // Start
       MediaFeatureComparison, // Start comparison
-      StyleDescriptor, // End
+      MediaFeatureOperand, // End
       MediaFeatureComparison, // End comparison
     ];
+
+/**
+ * The right-hand side of a media or container feature comparison.
+ *
+ * A stylesheet reaches a native bundle as JSON source text, and `JSON.stringify`
+ * writes `undefined` inside an array as `null`. An operand is an array slot, so
+ * `undefined` is not a value this position can hold - the compiler emits `null`
+ * for a feature value it cannot resolve, and the runtime refuses that operand.
+ */
+export type MediaFeatureOperand = Exclude<StyleDescriptor, undefined> | null;
 
 export type MediaFeatureComparison = "=" | ">" | ">=" | "<" | "<=";
 

@@ -17,6 +17,7 @@ import { maybeMutateReactNativeOptions, parsePropAtRule } from "./atRules";
 import type {
   CompilerOptions,
   ContainerQuery,
+  MediaCondition,
   StyleDescriptor,
   StyleRuleMapping,
   UniqueVarInfo,
@@ -364,8 +365,25 @@ function extractMedia(
     return;
   }
 
+  const conditions: MediaCondition[] = [];
+
   for (const m of media) {
-    parseMediaQuery(m, builder);
+    const condition = parseMediaQuery(m, builder);
+
+    if (condition) {
+      conditions.push(condition);
+    }
+  }
+
+  // A comma-separated list is a union - the block applies when any one query
+  // matches. A single query is added as-is so it composes with the conditions
+  // of any enclosing rule, which intersect.
+  const [firstCondition, ...remainingConditions] = conditions;
+
+  if (firstCondition) {
+    builder.addMediaQuery(
+      remainingConditions.length === 0 ? firstCondition : ["|", conditions],
+    );
   }
 
   // Iterate over all rules in the mediaRule and extract their styles using the updated CompilerCollection
@@ -386,10 +404,19 @@ function extractContainer(
 ) {
   builder = builder.fork("container");
 
+  const condition = parseContainerCondition(containerRule.condition, builder);
+
+  // A prelude with no condition left at all would apply inside every container,
+  // which is the opposite of what a refused prelude means, so the block is not
+  // emitted. Every `<container-condition>` form now compiles to a term - an
+  // unsupported one to `["?"]` - so this is a backstop against a future parse
+  // gap rather than a path any stylesheet reaches today.
+  if (!condition) {
+    return;
+  }
+
   // Iterate over all rules inside the containerRule and extract their styles using the updated CompilerCollection
-  const query: ContainerQuery = {
-    m: parseContainerCondition(containerRule.condition, builder),
-  };
+  const query: ContainerQuery = { m: condition };
 
   if (containerRule.name) {
     query.n = `c:${containerRule.name}`;

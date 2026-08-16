@@ -11,15 +11,23 @@ import type {
 import type {
   MediaCondition,
   MediaFeatureComparison,
+  MediaFeatureOperand,
   StyleDescriptor,
 } from "./compiler.types";
 import { parseLength } from "./declarations";
 import type { StylesheetBuilder } from "./stylesheet";
 
+/**
+ * Parses a single media query out of a comma-separated list.
+ *
+ * Returns `undefined` when the query cannot apply on native, which the caller
+ * treats the way CSS treats an unmatchable query in a list: it contributes
+ * nothing, and the remaining queries still decide the block.
+ */
 export function parseMediaQuery(
   query: CSSMediaQuery,
   builder: StylesheetBuilder,
-) {
+): MediaCondition | undefined {
   let platformCondition: MediaCondition | undefined;
   let condition: MediaCondition | undefined;
 
@@ -38,8 +46,11 @@ export function parseMediaQuery(
   if (query.condition) {
     condition = parseMediaQueryCondition(query.condition, builder);
 
-    // If any of these are undefined, the media query is invalid
-    if (!condition || condition.some((v) => v === undefined)) {
+    // A query with nothing left to test cannot apply. An operand the compiler
+    // could not resolve is not that case: it compiles to `null` and stays in
+    // the condition, because a query that is absent applies unconditionally
+    // while a query that is present and refused applies to nothing.
+    if (!condition) {
       return;
     }
   }
@@ -57,7 +68,7 @@ export function parseMediaQuery(
     mediaQuery = ["!", mediaQuery];
   }
 
-  builder.addMediaQuery(mediaQuery);
+  return mediaQuery;
 }
 
 function parseMediaQueryCondition(
@@ -68,12 +79,21 @@ function parseMediaQueryCondition(
     case "feature":
       return parseFeature(query.value, builder);
     case "not":
+      // MQ5 § 3.1: the negation of unknown is unknown, so an uncompilable term
+      // has to survive negation as a term rather than vanish. The fallback is
+      // unreachable today - every `<media-condition>` form below compiles to a
+      // term - and is kept because what makes it so is the set of forms this
+      // function handles, which the next feature type added to lightningcss
+      // changes.
       const mediaQuery = parseMediaQueryCondition(query.value, builder);
-      return mediaQuery ? ["!", mediaQuery] : undefined;
+      return ["!", mediaQuery ?? ["?"]];
     case "operation":
-      const mediaQueries = query.conditions
-        .map((c) => parseMediaQueryCondition(c, builder))
-        .filter((v): v is MediaCondition => !!v);
+      // An uncompilable branch becomes an unknown term rather than being
+      // filtered out: MQ5 § 3.1 makes `true and unknown` unknown, which
+      // dropping the branch would turn into true.
+      const mediaQueries = query.conditions.map(
+        (c): MediaCondition => parseMediaQueryCondition(c, builder) ?? ["?"],
+      );
 
       if (mediaQueries.length === 0) {
         return;
@@ -106,21 +126,21 @@ function parseFeature(
       return [
         "=",
         feature.name,
-        parseMediaFeatureValue(feature.value, builder),
+        parseMediaFeatureOperand(feature.value, builder),
       ];
     case "range":
       return [
         parseMediaFeatureOperator(feature.operator),
         feature.name,
-        parseMediaFeatureValue(feature.value, builder),
+        parseMediaFeatureOperand(feature.value, builder),
       ];
     case "interval":
       return [
         "[]",
         feature.name,
-        parseMediaFeatureValue(feature.start, builder),
+        parseMediaFeatureOperand(feature.start, builder),
         parseMediaFeatureOperator(feature.startOperator),
-        parseMediaFeatureValue(feature.end, builder),
+        parseMediaFeatureOperand(feature.end, builder),
         parseMediaFeatureOperator(feature.endOperator),
       ];
     default:
@@ -129,7 +149,22 @@ function parseFeature(
   return;
 }
 
-export function parseMediaFeatureValue(
+/**
+ * A feature value in the one shape an operand slot can hold.
+ *
+ * `parseMediaFeatureValue` answers `undefined` for a value with no compile-time
+ * answer, such as `env()` or an unsupported `calc()`. That marker cannot cross
+ * into a native bundle, which receives the stylesheet as JSON, so it is written
+ * here as `null` and every operand slot is filled through this function.
+ */
+export function parseMediaFeatureOperand(
+  value: CSSMediaFeatureValue,
+  builder: StylesheetBuilder,
+): MediaFeatureOperand {
+  return parseMediaFeatureValue(value, builder) ?? null;
+}
+
+function parseMediaFeatureValue(
   value: CSSMediaFeatureValue,
   builder: StylesheetBuilder,
 ): StyleDescriptor {

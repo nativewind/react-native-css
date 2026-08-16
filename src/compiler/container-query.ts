@@ -6,8 +6,8 @@ import type {
 
 import type { MediaCondition } from "./compiler.types";
 import {
+  parseMediaFeatureOperand,
   parseMediaFeatureOperator,
-  parseMediaFeatureValue,
 } from "./media-query";
 import type { StylesheetBuilder } from "./stylesheet";
 
@@ -17,8 +17,11 @@ export function parseContainerCondition(
 ) {
   let containerQuery = parseContainerQueryCondition(condition, builder);
 
-  // If any of these are undefined, the media query is invalid
-  if (!containerQuery || containerQuery.some((v) => v === undefined)) {
+  // A condition with nothing left to test cannot apply. An operand the compiler
+  // could not resolve is not that case: it compiles to `null` and stays in the
+  // condition, because a condition that is absent applies to every container
+  // while a condition that is present and refused applies to none.
+  if (!containerQuery) {
     return;
   }
 
@@ -33,12 +36,22 @@ function parseContainerQueryCondition(
     case "feature":
       return parseFeature(condition.value, builder);
     case "not":
+      // MQ5 § 3.1: the negation of unknown is unknown, so an uncompilable term
+      // has to survive negation as a term rather than vanish. The fallback is
+      // unreachable today - every `<container-condition>` form below compiles
+      // to a term, `style()` to `["?"]` - and is kept because what makes it so
+      // is the set of forms this function handles, which the next feature type
+      // added to lightningcss changes.
       const query = parseContainerCondition(condition.value, builder);
-      return query ? ["!", query] : undefined;
+      return ["!", query ?? ["?"]];
     case "operation":
-      const conditions = condition.conditions
-        .map((c) => parseContainerQueryCondition(c, builder))
-        .filter((v): v is MediaCondition => !!v);
+      // An uncompilable branch becomes an unknown term rather than being
+      // filtered out: MQ5 § 3.1 makes `true and unknown` unknown, which
+      // dropping the branch would turn into true.
+      const conditions = condition.conditions.map(
+        (c): MediaCondition =>
+          parseContainerQueryCondition(c, builder) ?? ["?"],
+      );
 
       if (conditions.length === 0) {
         return;
@@ -54,8 +67,9 @@ function parseContainerQueryCondition(
           return;
       }
     case "style":
-      // We don't support these yet
-      return;
+      // CSS Conditional 5 § 3: an unsupported container feature makes the
+      // condition unknown for that element, which is not the same as absent.
+      return ["?"];
     default:
       condition satisfies never;
       return;
@@ -73,21 +87,21 @@ function parseFeature(
       return [
         "=",
         feature.name,
-        parseMediaFeatureValue(feature.value, builder),
+        parseMediaFeatureOperand(feature.value, builder),
       ];
     case "range":
       return [
         parseMediaFeatureOperator(feature.operator),
         feature.name,
-        parseMediaFeatureValue(feature.value, builder),
+        parseMediaFeatureOperand(feature.value, builder),
       ];
     case "interval":
       return [
         "[]",
         feature.name,
-        parseMediaFeatureValue(feature.start, builder),
+        parseMediaFeatureOperand(feature.start, builder),
         parseMediaFeatureOperator(feature.startOperator),
-        parseMediaFeatureValue(feature.end, builder),
+        parseMediaFeatureOperand(feature.end, builder),
         parseMediaFeatureOperator(feature.endOperator),
       ];
     default:

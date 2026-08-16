@@ -283,3 +283,332 @@ describe("max-resolution", () => {
     expect(component.props.style).toStrictEqual(undefined);
   });
 });
+
+describe("comma-separated media query lists", () => {
+  test("apply when only the first query matches", () => {
+    registerCSS(`
+@media (min-width: 100px), (min-width: 9999px) {
+  .my-class { color: red; }
+}`);
+
+    act(() => {
+      dimensions.set({ ...dimensions.get(), width: 500 });
+    });
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ color: "#f00" });
+  });
+
+  test("apply when only the last query matches", () => {
+    registerCSS(`
+@media (min-width: 9999px), (min-width: 100px) {
+  .my-class { color: red; }
+}`);
+
+    act(() => {
+      dimensions.set({ ...dimensions.get(), width: 500 });
+    });
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ color: "#f00" });
+  });
+
+  test("do not apply when no query matches", () => {
+    registerCSS(`
+@media (min-width: 9999px), (max-width: 10px) {
+  .my-class { color: red; }
+}`);
+
+    act(() => {
+      dimensions.set({ ...dimensions.get(), width: 500 });
+    });
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual(undefined);
+  });
+
+  test("react to a query becoming true", () => {
+    registerCSS(`
+.my-class { color: blue; }
+
+@media (min-width: 9999px), (min-height: 400px) {
+  .my-class { color: red; }
+}`);
+
+    act(() => {
+      dimensions.set({ ...dimensions.get(), width: 500, height: 100 });
+    });
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ color: "#00f" });
+
+    act(() => {
+      dimensions.set({ ...dimensions.get(), width: 500, height: 500 });
+    });
+
+    expect(component.props.style).toStrictEqual({ color: "#f00" });
+  });
+});
+
+describe("unresolvable operands", () => {
+  test("an orientation the compiler could not resolve never matches", () => {
+    registerCSS(`
+.my-class { color: blue; }
+
+@media ((orientation: env(safe-area-inset-top)) and (min-width: 0px)) {
+  .my-class { color: red; }
+}`);
+
+    act(() => {
+      dimensions.set({ ...dimensions.get(), width: 500, height: 1000 });
+    });
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ color: "#00f" });
+  });
+
+  test("a hover value the compiler could not resolve never matches", () => {
+    registerCSS(`
+.my-class { color: blue; }
+
+@media ((hover: env(safe-area-inset-top)) and (min-width: 0px)) {
+  .my-class { color: red; }
+}`);
+
+    act(() => {
+      dimensions.set({ ...dimensions.get(), width: 500, height: 1000 });
+    });
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ color: "#00f" });
+  });
+
+  test("an orientation alone in a query never matches", () => {
+    registerCSS(`
+.my-class { color: blue; }
+
+@media (orientation: env(safe-area-inset-top)) {
+  .my-class { color: red; }
+}`);
+
+    act(() => {
+      dimensions.set({ ...dimensions.get(), width: 500, height: 1000 });
+    });
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ color: "#00f" });
+  });
+
+  test("a width alone in a query never matches", () => {
+    registerCSS(`
+.my-class { color: blue; }
+
+@media (min-width: env(safe-area-inset-top)) {
+  .my-class { color: red; }
+}`);
+
+    act(() => {
+      dimensions.set({ ...dimensions.get(), width: 500, height: 1000 });
+    });
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ color: "#00f" });
+  });
+
+  test("the sibling branch of an or still decides the query", () => {
+    registerCSS(`
+.my-class { color: blue; }
+
+@media ((orientation: env(safe-area-inset-top)) or (min-width: 0px)) {
+  .my-class { color: red; }
+}`);
+
+    act(() => {
+      dimensions.set({ ...dimensions.get(), width: 500, height: 1000 });
+    });
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ color: "#f00" });
+  });
+
+  test("a resolved orientation still matches", () => {
+    registerCSS(`
+.my-class { color: blue; }
+
+@media ((orientation: portrait) and (min-width: 0px)) {
+  .my-class { color: red; }
+}`);
+
+    act(() => {
+      dimensions.set({ ...dimensions.get(), width: 500, height: 1000 });
+    });
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ color: "#f00" });
+  });
+});
+
+describe("boolean features", () => {
+  test("height matches when the viewport has one", () => {
+    registerCSS(`
+.my-class { color: blue; }
+
+@media (height) {
+  .my-class { color: red; }
+}`);
+
+    act(() => {
+      dimensions.set({ ...dimensions.get(), width: 500, height: 1000 });
+    });
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ color: "#f00" });
+  });
+
+  test("width does not match a viewport of zero width", () => {
+    registerCSS(`
+.my-class { color: blue; }
+
+@media (width) {
+  .my-class { color: red; }
+}`);
+
+    act(() => {
+      dimensions.set({ ...dimensions.get(), width: 0, height: 1000 });
+    });
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ color: "#00f" });
+  });
+
+  test("hover matches, because the runtime reports hover", () => {
+    registerCSS(`
+.my-class { color: blue; }
+
+@media (hover) {
+  .my-class { color: red; }
+}`);
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ color: "#f00" });
+  });
+
+  test("color matches, because the display has color components", () => {
+    registerCSS(`
+.my-class { color: blue; }
+
+@media (color) {
+  .my-class { color: red; }
+}`);
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ color: "#f00" });
+  });
+
+  test("a feature the runtime has no source for does not match", () => {
+    registerCSS(`
+.my-class { color: blue; }
+
+@media (environment-blending) {
+  .my-class { color: red; }
+}`);
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ color: "#00f" });
+  });
+});
+
+describe("features the runtime answers from one place", () => {
+  test("only the hover value the runtime reports matches", () => {
+    registerCSS(`
+.my-class { color: blue; }
+
+@media (hover: hover) { .my-class { color: red; } }
+@media (hover: none) { .my-class { color: green; } }`);
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ color: "#f00" });
+  });
+
+  test("no color scheme preference is light, in both contexts", () => {
+    registerCSS(`
+.my-class { color: blue; }
+
+@media (prefers-color-scheme: light) { .my-class { color: red; } }
+@media (prefers-color-scheme: dark) { .my-class { color: green; } }`);
+
+    act(() => {
+      colorScheme.set(null);
+    });
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ color: "#f00" });
+  });
+
+  test("a color scheme preference is answered the same way boolean context is", () => {
+    registerCSS(`
+.my-class { color: blue; }
+
+@media (prefers-color-scheme) { .my-class { color: red; } }`);
+
+    act(() => {
+      colorScheme.set(null);
+    });
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ color: "#f00" });
+  });
+
+  test("dark still matches when the user prefers it", () => {
+    registerCSS(`
+.my-class { color: blue; }
+
+@media (prefers-color-scheme: light) { .my-class { color: red; } }
+@media (prefers-color-scheme: dark) { .my-class { color: green; } }`);
+
+    act(() => {
+      colorScheme.set("dark");
+    });
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({ color: "#008000" });
+  });
+});

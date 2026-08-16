@@ -113,3 +113,221 @@ test("container query width", () => {
     color: "#00f",
   });
 });
+
+describe("unresolvable operands", () => {
+  test("a feature the runtime cannot measure never matches", () => {
+    registerCSS(`
+      .container {
+        container-name: my-container;
+        width: 200px;
+      }
+
+      .child {
+        color: red;
+      }
+
+      @container ((block-size: env(safe-area-inset-top)) and (width > 0px)) {
+        .child {
+          color: blue;
+        }
+      }
+    `);
+
+    render(
+      <View testID={parentID} className="container">
+        <View testID={childID} className="child" />
+      </View>,
+    );
+
+    const parent = screen.getByTestId(parentID);
+    const child = screen.getByTestId(childID);
+
+    fireEvent(parent, "layout", {
+      nativeEvent: { layout: { width: 500, height: 200 } },
+    });
+
+    expect(child.props.style).toStrictEqual({ color: "#f00" });
+  });
+
+  test("a feature alone in a condition never matches", () => {
+    registerCSS(`
+      .container {
+        container-name: my-container;
+        width: 200px;
+      }
+
+      .child {
+        color: red;
+      }
+
+      @container (block-size: env(safe-area-inset-top)) {
+        .child {
+          color: blue;
+        }
+      }
+    `);
+
+    render(
+      <View testID={parentID} className="container">
+        <View testID={childID} className="child" />
+      </View>,
+    );
+
+    const parent = screen.getByTestId(parentID);
+    const child = screen.getByTestId(childID);
+
+    fireEvent(parent, "layout", {
+      nativeEvent: { layout: { width: 500, height: 200 } },
+    });
+
+    expect(child.props.style).toStrictEqual({ color: "#f00" });
+  });
+
+  test("a measurable feature with an unresolvable operand never matches", () => {
+    registerCSS(`
+      .container {
+        container-name: my-container;
+        width: 200px;
+      }
+
+      .child {
+        color: red;
+      }
+
+      @container (width: env(safe-area-inset-top)) {
+        .child {
+          color: blue;
+        }
+      }
+    `);
+
+    render(
+      <View testID={parentID} className="container">
+        <View testID={childID} className="child" />
+      </View>,
+    );
+
+    const parent = screen.getByTestId(parentID);
+    const child = screen.getByTestId(childID);
+
+    fireEvent(parent, "layout", {
+      nativeEvent: { layout: { width: 500, height: 200 } },
+    });
+
+    expect(child.props.style).toStrictEqual({ color: "#f00" });
+  });
+
+  test("a feature the runtime can measure still matches", () => {
+    registerCSS(`
+      .container {
+        container-name: my-container;
+        width: 200px;
+      }
+
+      .child {
+        color: red;
+      }
+
+      @container ((width: 500px) and (width > 0px)) {
+        .child {
+          color: blue;
+        }
+      }
+    `);
+
+    render(
+      <View testID={parentID} className="container">
+        <View testID={childID} className="child" />
+      </View>,
+    );
+
+    const parent = screen.getByTestId(parentID);
+    const child = screen.getByTestId(childID);
+
+    fireEvent(parent, "layout", {
+      nativeEvent: { layout: { width: 500, height: 200 } },
+    });
+
+    expect(child.props.style).toStrictEqual({ color: "#00f" });
+  });
+});
+
+describe("boolean features", () => {
+  test("width matches a container that has one", () => {
+    registerCSS(`
+      .container { container-name: my-container; }
+      .child { color: red; }
+
+      @container (width) {
+        .child { color: blue; }
+      }
+    `);
+
+    render(
+      <View testID={parentID} className="container">
+        <View testID={childID} className="child" />
+      </View>,
+    );
+
+    const parent = screen.getByTestId(parentID);
+    const child = screen.getByTestId(childID);
+
+    fireEvent(parent, "layout", {
+      nativeEvent: { layout: { width: 500, height: 200 } },
+    });
+
+    expect(child.props.style).toStrictEqual({ color: "#00f" });
+  });
+
+  test("width does not match a container of zero width", () => {
+    registerCSS(`
+      .container { container-name: my-container; }
+      .child { color: red; }
+
+      @container (width) {
+        .child { color: blue; }
+      }
+    `);
+
+    render(
+      <View testID={parentID} className="container">
+        <View testID={childID} className="child" />
+      </View>,
+    );
+
+    const parent = screen.getByTestId(parentID);
+    const child = screen.getByTestId(childID);
+
+    fireEvent(parent, "layout", {
+      nativeEvent: { layout: { width: 0, height: 200 } },
+    });
+
+    expect(child.props.style).toStrictEqual({ color: "#f00" });
+  });
+
+  test("a feature the runtime cannot measure does not match", () => {
+    registerCSS(`
+      .container { container-name: my-container; }
+      .child { color: red; }
+
+      @container (inline-size) {
+        .child { color: blue; }
+      }
+    `);
+
+    render(
+      <View testID={parentID} className="container">
+        <View testID={childID} className="child" />
+      </View>,
+    );
+
+    const parent = screen.getByTestId(parentID);
+    const child = screen.getByTestId(childID);
+
+    fireEvent(parent, "layout", {
+      nativeEvent: { layout: { width: 500, height: 200 } },
+    });
+
+    expect(child.props.style).toStrictEqual({ color: "#f00" });
+  });
+});
