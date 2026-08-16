@@ -65,6 +65,22 @@ const styleKeys = (id: string): string[] => {
 };
 
 /**
+ * The distinct values a rendered component's style holds, sorted.
+ *
+ * A key-set assertion cannot see a scheme whose colour never applied — the
+ * keys are identical either way — so any test that switches scheme asserts
+ * over this as well.
+ */
+const styleValues = (id: string): unknown[] => {
+  const { style } = screen.getByTestId(id).props as { style?: object };
+  return style === undefined
+    ? []
+    : [...new Set(Object.values(style))].sort((first, second) =>
+        String(first).localeCompare(String(second)),
+      );
+};
+
+/**
  * React Native has no `borderInline*` style attribute of any kind, so a key
  * shaped like one is inert whatever value it carries.
  */
@@ -663,19 +679,22 @@ describe("the block axis reaching the component", () => {
   /**
    * The block axis is the inline axis's twin and React Native supports it
    * differently, which is why it needs its own expectations rather than a
-   * mirrored copy of the ones above. The three block COLOURS are real props —
-   * `borderBlockColor`, `borderBlockStartColor` and `borderBlockEndColor` are
-   * in `ReactNativeStyleAttributes`, in both `BaseViewConfig`s and in
-   * `ViewStyle` — so they are kept. The block WIDTHS are in
-   * `BaseViewConfig.ios.js` only, so they map to the physical edges every
-   * platform reads. `direction` never flips the block axis, so block-start is
-   * the top edge and block-end the bottom one on every platform.
+   * mirrored copy of the ones above. The per-EDGE block colours are real props
+   * — `borderBlockStartColor` and `borderBlockEndColor` are in
+   * `ReactNativeStyleAttributes`, in both `BaseViewConfig`s and in `ViewStyle`,
+   * and each outranks every other name for its edge on both platforms — so
+   * they are kept. The block WIDTHS are in `BaseViewConfig.ios.js` only, and
+   * the axis-wide `borderBlockColor` is read in the opposite order by the two
+   * platforms, so both map to the physical edges every platform agrees on.
+   * `direction` never flips the block axis, so block-start is the top edge and
+   * block-end the bottom one on every platform.
    */
   test.each([
     [
       "border-block",
       {
-        borderBlockColor: "#26e",
+        borderTopColor: "#26e",
+        borderBottomColor: "#26e",
         borderTopWidth: 6,
         borderBottomWidth: 6,
       },
@@ -733,7 +752,8 @@ describe("the block axis reaching the component", () => {
       {
         borderTopWidth: 1,
         borderBottomWidth: 1,
-        borderBlockColor: "red",
+        borderTopColor: "red",
+        borderBottomColor: "red",
       },
     ],
     ["border-block-start", { borderTopWidth: 1, borderBlockStartColor: "red" }],
@@ -833,14 +853,31 @@ describe("the block axis reaching the component", () => {
    *
    * Two declarations of the same property have to resolve as one — later wins.
    * They only can if they land on the same keys: React Native's style object
-   * is flat, so two DISJOINT key sets both survive, and its per-edge
-   * properties outrank the axis one. A route that emitted
+   * is flat, so two DISJOINT key sets both survive, and the platforms then
+   * disagree about which of them paints. A route that emitted
    * `borderBlockStartColor` / `borderBlockEndColor` here would leave the var()
-   * painting both edges while the `green` written after it sat unused under
-   * `borderBlockColor`.
+   * painting both edges while the `green` written after it sat unused.
+   *
+   * The matrix is the full cross product of the two arities and not its
+   * diagonal. Two routes that agree at each arity separately still disagree
+   * across arities, and only an off-diagonal cell can see it.
    */
   test.each([
-    ["var(--color)", "green", { borderBlockColor: "#008000" }],
+    [
+      "var(--color)",
+      "green",
+      { borderTopColor: "#008000", borderBottomColor: "#008000" },
+    ],
+    [
+      "var(--color) var(--other-color)",
+      "green",
+      { borderTopColor: "#008000", borderBottomColor: "#008000" },
+    ],
+    [
+      "var(--color)",
+      "green lime",
+      { borderTopColor: "#008000", borderBottomColor: "#0f0" },
+    ],
     [
       "var(--color) var(--other-color)",
       "green lime",
@@ -859,6 +896,42 @@ describe("the block axis reaching the component", () => {
       expect(screen.getByTestId(testID).props.style).toStrictEqual(expected);
     },
   );
+
+  /**
+   * The same requirement stated over the whole property rather than over one
+   * pair of declarations, because arity is not the only thing that moved the
+   * target.
+   *
+   * `parseBorderColor` chose between the axis property and the edge pair by
+   * comparing the two parsed components with `===`, which is a REFERENCE
+   * comparison: `red red` collapses because both components parse to the same
+   * interned string, while `currentcolor` splits because `parseColor` builds a
+   * fresh `[{}, "var", "__rn-css-color"]` array per call. Two declarations
+   * whose CSS says the same thing about both edges therefore landed on
+   * disjoint keys depending on how their value happened to be represented,
+   * which no author could predict and no cascade could reconcile.
+   */
+  test.each([
+    ["red", "parsed, one component"],
+    ["red blue", "parsed, two components"],
+    ["red red", "parsed, two equal components"],
+    ["currentcolor", "parsed, one non-primitive component"],
+    ["var(--color)", "unparsed, one component"],
+    ["var(--color) var(--other-color)", "unparsed, two components"],
+    ["var(--color) var(--color)", "unparsed, two equal components"],
+  ])("border-block-color: %s (%s) reaches the block edge pair", (value) => {
+    registerCSS(`
+      .my-class { color: black; border-block-color: ${value}; }
+      ${twiceDefined}
+    `);
+
+    render(<View testID={testID} className="my-class" />);
+    expect(styleKeys(testID)).toStrictEqual([
+      "borderBottomColor",
+      "borderTopColor",
+      "color",
+    ]);
+  });
 });
 
 /**
@@ -904,6 +977,61 @@ describe("no logical border property reaches a key React Native lacks", () => {
     if (property.endsWith("-style")) return "var(--style)";
     return "var(--shorthand)";
   };
+
+  /**
+   * The members that can carry a colour, which is every member that is not a
+   * width or a style — the six shorthands and the six `-color` longhands.
+   * Derived from the census rather than listed, so a member added to one is
+   * added to the other.
+   */
+  const COLOUR_BEARING = FAMILY.filter(
+    (property) => !property.endsWith("-width") && !property.endsWith("-style"),
+  );
+
+  /**
+   * The two halves as written in CSS, and as the compiler emits them. Both
+   * routes emit the compressed form — a custom property's value is compressed
+   * where it is defined, so a var() carries the same text a literal does by
+   * the time it reaches a style object.
+   */
+  const LIGHT_SOURCE = "#2266ee";
+  const DARK_SOURCE = "#66aaff";
+  const LIGHT_COLOUR = "#26e";
+  const DARK_COLOUR = "#6af";
+
+  const lightDarkFor = (property: string): string =>
+    property.endsWith("-color")
+      ? `light-dark(${LIGHT_SOURCE}, ${DARK_SOURCE})`
+      : `6px dashed light-dark(${LIGHT_SOURCE}, ${DARK_SOURCE})`;
+
+  /**
+   * The same value with the two halves behind variables, which is a different
+   * ROUTE rather than a different spelling: a var() keeps the declaration off
+   * the parsed path, so the light-dark() is reduced by the unparsed reducer
+   * instead of by `parseColor`. Both reducers open the dark rule the same way,
+   * so both have to address it the same way.
+   *
+   * The census is the `-color` members only, and the three-part shorthands are
+   * left out deliberately rather than overlooked. A var() inside one of those
+   * compiles to a single runtime call carrying width, style and colour
+   * together, and the dark rule the reducer opens holds the colour ALONE — so
+   * whichever of the two rules lands second wins the whole set, and no choice
+   * of target for the dark rule can fix that. Making it correct means giving
+   * the reducer a scheme so the shorthand is reduced twice, once per branch,
+   * which is machinery every runtime-parsed shorthand shares (`border`,
+   * `border-top`, `box-shadow` and `text-shadow` all miss the same way today)
+   * and is not this family's to change.
+   */
+  const LIGHT_DARK_VAR_COVERED = COLOUR_BEARING.filter((property) =>
+    property.endsWith("-color"),
+  );
+
+  const lightDarkVarFor = (): string => "light-dark(var(--light), var(--dark))";
+
+  const lightDarkDefinitions = `
+    :root { --light: ${LIGHT_SOURCE}; --dark: ${DARK_SOURCE}; }
+    .redefine { --light: #000; --dark: #000; }
+  `;
 
   /**
    * Generating the census trades a drift failure for a vacuity one: a family
@@ -971,4 +1099,70 @@ describe("no logical border property reaches a key React Native lacks", () => {
       styleKeys(testID).filter((key) => !isRealStyleKey(key)),
     ).toStrictEqual([]);
   });
+
+  /**
+   * The same guard over the scheme the two spellings above cannot reach.
+   *
+   * `light-dark()` does not return its dark half through the value the parser
+   * hands back — it writes it straight to the builder as a second rule carried
+   * by `descriptorProperties`. Every expectation in this file that renders
+   * only the light scheme is therefore blind to where that second rule landed,
+   * and a dark rule addressed to a name React Native drops paints nothing with
+   * no error, no warning and no fallback.
+   *
+   * Both halves are asserted because a dead key is only one of the two ways
+   * the dark rule can miss. Landing on a REAL key that the light scheme did not
+   * use is the other: the two schemes then disagree about which key holds the
+   * colour, so the style object keeps both and the value that paints is
+   * whichever one the platform ranks higher, not the one the scheme selected.
+   */
+  test.each(COLOUR_BEARING)(
+    "%s (light-dark) emits only real style keys in both schemes",
+    (property) => {
+      registerCSS(`.my-class { ${property}: ${lightDarkFor(property)}; }`);
+
+      render(<View testID={testID} className="my-class" />);
+      const light = styleKeys(testID);
+
+      expect(light.filter((key) => !isRealStyleKey(key))).toStrictEqual([]);
+      expect(styleValues(testID)).toContain(LIGHT_COLOUR);
+
+      act(() => {
+        colorScheme.set("dark");
+      });
+
+      const dark = styleKeys(testID);
+
+      expect(dark.filter((key) => !isRealStyleKey(key))).toStrictEqual([]);
+      expect(dark).toStrictEqual(light);
+
+      // The half a key-set assertion cannot see: a dark rule that landed on a
+      // real key can still be the one that never applied.
+      expect(styleValues(testID)).toContain(DARK_COLOUR);
+      expect(styleValues(testID)).not.toContain(LIGHT_COLOUR);
+    },
+  );
+
+  test.each(LIGHT_DARK_VAR_COVERED)(
+    "%s (light-dark over var) carries its scheme's colour to every key it sets",
+    (property) => {
+      registerCSS(`
+        .my-class { ${property}: ${lightDarkVarFor()}; }
+        ${lightDarkDefinitions}
+      `);
+
+      render(<View testID={testID} className="my-class" />);
+      const light = styleKeys(testID);
+
+      expect(light.filter((key) => !isRealStyleKey(key))).toStrictEqual([]);
+      expect(styleValues(testID)).toStrictEqual([LIGHT_COLOUR]);
+
+      act(() => {
+        colorScheme.set("dark");
+      });
+
+      expect(styleKeys(testID)).toStrictEqual(light);
+      expect(styleValues(testID)).toStrictEqual([DARK_COLOUR]);
+    },
+  );
 });

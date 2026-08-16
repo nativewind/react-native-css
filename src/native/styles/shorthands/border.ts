@@ -28,14 +28,18 @@ const matchBorder = shorthandHandler(mappings, [], "object");
  *
  * The two axes reach different props because React Native supports them
  * differently. The inline axis has no native prop of its own, so it maps onto
- * the RTL-aware `borderStart*` / `borderEnd*` pair. The block axis has native
- * COLOURS — `borderBlockColor`, `borderBlockStartColor` and
- * `borderBlockEndColor` are in `ReactNativeStyleAttributes`, both
- * `BaseViewConfig`s and `ViewStyle` — but its WIDTHS exist only in
- * `BaseViewConfig.ios.js`, so a `borderBlockWidth` paints on iOS and nowhere
- * else. Block widths therefore map to the physical edges, which every
- * platform reads; block start is the top edge and block end the bottom one,
- * on every platform, because `direction` never flips the block axis.
+ * the RTL-aware `borderStart*` / `borderEnd*` pair. The block axis maps onto
+ * the physical edges: its WIDTHS exist only in `BaseViewConfig.ios.js`, so a
+ * `borderBlockWidth` paints on iOS and nowhere else, and its axis-wide COLOUR
+ * is real on both platforms but ordered against `borderTopColor` oppositely by
+ * each — Android has `borderTopColor` outrank it, iOS the reverse — so a
+ * `borderBlock` that emitted `borderBlockColor` could not be overridden by a
+ * `border-block-color` declared after it without the two platforms
+ * disagreeing about which won. `src/compiler/declarations.ts`'s
+ * `axisExpansion` carries the platform reads; the compiler makes the same
+ * choice there, which is what keeps the two routes one behaviour. Block start
+ * is the top edge and block end the bottom one on every platform, because
+ * `direction` never flips the block axis.
  *
  * `borderStyle` is absent from every entry deliberately. React Native has no
  * per-edge border style at any layer: `BaseViewConfig.{android,ios}.js` lists
@@ -61,7 +65,7 @@ const axisTargets = {
   },
   borderBlock: {
     borderWidth: ["borderTopWidth", "borderBottomWidth"],
-    borderColor: ["borderBlockColor"],
+    borderColor: ["borderTopColor", "borderBottomColor"],
   },
   borderBlockStart: {
     borderWidth: ["borderTopWidth"],

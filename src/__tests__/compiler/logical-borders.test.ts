@@ -322,9 +322,9 @@ describe("logical border shorthands with two values (unparsed path)", () => {
  * why that field carries a list.
  *
  * The native suite covers the rendered result; these assert the emitted rules,
- * so the compiler plane can see a regression here on its own. The two axes are
- * both here because they name different targets: the inline axis opens its
- * dark rule over the edge pair, the block axis over the single axis property.
+ * so the compiler plane can see a regression here on its own. Both axes are
+ * here because they name different edge pairs — the inline axis the RTL-aware
+ * start/end props, the block axis the physical top/bottom ones.
  */
 describe("the axis expansion under light-dark() (unparsed path)", () => {
   test("border-inline-color reaches both edges in each scheme", () => {
@@ -351,18 +351,24 @@ describe("the axis expansion under light-dark() (unparsed path)", () => {
     ]);
   });
 
-  test("border-block-color reaches the axis property in each scheme", () => {
+  test("border-block-color reaches both edges in each scheme", () => {
     expect(
       getRule("border-block-color: light-dark(var(--a), var(--b));").rule,
     ).toStrictEqual([
       {
         s: [1, 1],
-        d: [[[{}, "var", "a", 1], "borderBlockColor", 1]],
+        d: [
+          [[{}, "var", "a", 1], "borderTopColor", 1],
+          [[{}, "var", "a", 1], "borderBottomColor", 1],
+        ],
         dv: 1,
       },
       {
         s: [1, 1],
-        d: [[[{}, "var", "b", 1], "borderBlockColor", 1]],
+        d: [
+          [[{}, "var", "b", 1], "borderTopColor", 1],
+          [[{}, "var", "b", 1], "borderBottomColor", 1],
+        ],
         dv: 1,
         m: [["=", "prefers-color-scheme", "dark"]],
       },
@@ -425,13 +431,15 @@ describe("logical border three-part shorthands via var() (unparsed path)", () =>
 /**
  * The block axis, which React Native supports differently from the inline one.
  *
- * The three block COLOURS are real props — `borderBlockColor`,
- * `borderBlockStartColor` and `borderBlockEndColor` are in
- * `ReactNativeStyleAttributes`, in both `BaseViewConfig`s and in `ViewStyle` —
- * so they are emitted as-is. The block WIDTHS appear only in
- * `BaseViewConfig.ios.js`, so emitting them paints on iOS and nowhere else;
- * they map to the physical edges instead. `direction` never flips the block
- * axis, so block-start is the top edge on every platform.
+ * The per-EDGE block colours are real props — `borderBlockStartColor` and
+ * `borderBlockEndColor` are in `ReactNativeStyleAttributes`, in both
+ * `BaseViewConfig`s and in `ViewStyle` — and each is the highest-precedence
+ * name for its edge on both platforms, so they are emitted as-is. The block
+ * WIDTHS appear only in `BaseViewConfig.ios.js`, so emitting them paints on
+ * iOS and nowhere else, and the axis-wide `borderBlockColor` is real but
+ * ordered against `borderTopColor` oppositely by the two platforms; both map
+ * to the physical edges instead. `direction` never flips the block axis, so
+ * block-start is the top edge on every platform.
  */
 describe("block border widths", () => {
   test("border-block-start-width", () => {
@@ -463,10 +471,15 @@ describe("block border colors", () => {
   test.each([
     ["border-block-start-color", "borderBlockStartColor"],
     ["border-block-end-color", "borderBlockEndColor"],
-    ["border-block-color", "borderBlockColor"],
   ])("%s keeps React Native's own prop", (property, key) => {
     expect(getRule(`${property}: red;`).rule).toStrictEqual([
       { s: [1, 1], d: [{ [key]: "#f00" }] },
+    ]);
+  });
+
+  test("border-block-color reaches the edge pair", () => {
+    expect(getRule("border-block-color: red;").rule).toStrictEqual([
+      { s: [1, 1], d: [{ borderTopColor: "#f00", borderBottomColor: "#f00" }] },
     ]);
   });
 });
@@ -512,7 +525,8 @@ describe("block border shorthands", () => {
         s: [1, 1],
         d: [
           {
-            borderBlockColor: "#f00",
+            borderTopColor: "#f00",
+            borderBottomColor: "#f00",
             borderTopWidth: 2,
             borderBottomWidth: 2,
           },
@@ -567,20 +581,21 @@ describe("block borders via var() (unparsed path)", () => {
   });
 
   /**
-   * The block colours are where React Native's support stops being uniform, so
-   * the unparsed path has to make the parsed path's choice rather than a
-   * consistent-looking one of its own: one value collapses onto the axis
-   * property `borderBlockColor`, two split across the physical edges. Picking
-   * `borderBlockStartColor` / `borderBlockEndColor` for either arity would be
-   * a THIRD key set, disjoint from both — see the cascade test below for what
-   * that costs. `border-block-width` needs no such split because
-   * `borderBlockWidth` is in `BaseViewConfig.ios.js` alone.
+   * One value reaches both edges, which is the choice the parsed path makes
+   * for the same declaration. A property has to land on ONE key set whatever
+   * its arity: the style object is flat, so a second key set would survive the
+   * cascade beside this one rather than replacing it, and the two platforms
+   * order `borderBlockColor` against `borderTopColor` oppositely — see the
+   * native suite's cascade matrix for what that costs.
    */
-  test("border-block-color takes the axis property for one value", () => {
+  test("border-block-color reaches both edges for one value", () => {
     expect(getRule("border-block-color: var(--v);").rule).toStrictEqual([
       {
         s: [1, 1],
-        d: [[[{}, "var", "v", 1], "borderBlockColor", 1]],
+        d: [
+          [[{}, "var", "v", 1], "borderTopColor", 1],
+          [[{}, "var", "v", 1], "borderBottomColor", 1],
+        ],
         dv: 1,
       },
     ]);
