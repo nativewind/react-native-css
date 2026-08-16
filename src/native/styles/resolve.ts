@@ -50,7 +50,8 @@ export type ResolveValueOptions = {
   inheritedVariables?: VariableContextValue;
   inlineVariables?: InlineVariable | undefined;
   renderGuards?: RenderGuard[];
-  variableHistory?: Set<string>;
+  /** The variable names whose resolution is currently in progress. */
+  namesBeingResolved?: Set<string>;
   /** Pass down to perform recursive calculations and avoid circular dependencies */
   calculateProps?: typeof calculateProps;
 };

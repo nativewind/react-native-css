@@ -92,6 +92,12 @@ export const animation: StyleFunctionResolver = (
   for (const [progress, declarations] of keyframes) {
     animation[progress] ??= {};
 
+    /**
+     * Keyframe declarations resolve through a fresh options object, so the
+     * resolution stack in `../variables.ts` does not cross this boundary. The
+     * animation name is resolved and its frame popped before this runs, which
+     * leaves no live frame for a keyframe to re-enter.
+     */
     const props = options.calculateProps?.(
       get,
       // Cast this into a StyleRule[]
