@@ -1,4 +1,7 @@
-import { isStyleFunction } from "react-native-css/utilities";
+import {
+  isStyleDescriptorArray,
+  isStyleFunction,
+} from "react-native-css/utilities";
 
 /**
  * A style function is a descriptor the runtime evaluates - `[{}, "var", …]`.
@@ -32,5 +35,37 @@ describe("isStyleFunction", () => {
   test("an array headed by null is not, and does not throw", () => {
     // `typeof null` is `"object"`, and `Object.keys(null)` throws.
     expect(isStyleFunction([null, "Arial"])).toBe(false);
+  });
+});
+
+/**
+ * The sibling predicate, six lines above `isStyleFunction` in the same file and
+ * asking the same question from the other side: is this a list of VALUES rather
+ * than a function to evaluate? It carries the identical `typeof value[0] ===
+ * "object"` trap, so the null case lands on it too.
+ */
+describe("isStyleDescriptorArray", () => {
+  test("a plain descriptor array is one", () => {
+    // CONTROL — passes on `main`. Says the answer did not move.
+    expect(isStyleDescriptorArray(["Inter", "Helvetica"])).toBe(true);
+    expect(isStyleDescriptorArray([1, 2])).toBe(true);
+  });
+
+  test("a style function is not one", () => {
+    // CONTROL — the discrimination this predicate exists to make.
+    expect(isStyleDescriptorArray([{}, "var", "font-sans"])).toBe(false);
+  });
+
+  test("an array headed by an array is one", () => {
+    // A nested group is a descriptor, not a function head.
+    expect(isStyleDescriptorArray([["Inter"], "Arial"])).toBe(true);
+  });
+
+  test("an array headed by null is one", () => {
+    // `typeof null` is `"object"`, so the raw check falls into the branch that
+    // demands an array and answers `false`. But `null` is a VALUE — a hole the
+    // compiler left, which reaches a native runtime as `null` after
+    // `JSON.stringify` — so this is a descriptor array like any other.
+    expect(isStyleDescriptorArray([null, "Arial"])).toBe(true);
   });
 });
