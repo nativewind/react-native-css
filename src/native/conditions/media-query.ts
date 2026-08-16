@@ -55,7 +55,7 @@ function testComparison(mediaQuery: MediaCondition, get: Getter): Boolean {
       // function both call, so the class layer and the prop layer cannot answer
       // differently. Reading the raw observable instead leaves this matching
       // neither light nor dark whenever it holds a non-scheme: null at rest and
-      // after set(null), "unspecified" after a follow-the-system request on 0.86
+      // after set(null), "unspecified" after a follow-the-system request on 0.82+
       return value === resolveColorScheme(get(colorScheme));
     }
     case "display-mode":

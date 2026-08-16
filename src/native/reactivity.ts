@@ -225,7 +225,7 @@ Appearance.addChangeListener((event) => colorScheme.set(event.colorScheme));
  * What a reader renders, from whatever the scheme channel is holding.
  *
  * Totalized over the scheme UNION rather than over nullishness, and that is the
- * whole of it. `"unspecified"` is react-native 0.86's spelling of "follow the
+ * whole of it. `"unspecified"` is react-native 0.82's spelling of "follow the
  * system" — the request 0.81 spells `null` — so it is a REQUEST, never a scheme.
  * A `?? Appearance.getColorScheme() ?? "light"` chain only fires on nullish, so
  * the literal passes straight through, and a reader handed it matches neither
