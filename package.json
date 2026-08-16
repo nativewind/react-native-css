@@ -47,6 +47,18 @@
         "types": "./dist/typescript/commonjs/src/components/index.d.ts"
       }
     },
+    "./components/react-native-gesture-handler": {
+      "source": "./src/components/react-native-gesture-handler.native.tsx",
+      "react-native": "./src/components/react-native-gesture-handler.native.tsx",
+      "import": {
+        "types": "./dist/typescript/module/src/components/react-native-gesture-handler.d.ts",
+        "default": "./dist/module/components/react-native-gesture-handler.js"
+      },
+      "require": {
+        "types": "./dist/typescript/commonjs/src/components/react-native-gesture-handler.d.ts",
+        "default": "./dist/commonjs/components/react-native-gesture-handler.js"
+      }
+    },
     "./components/react-native-safe-area-context": {
       "source": "./src/components/react-native-safe-area-context.native.tsx",
       "react-native": "./src/components/react-native-safe-area-context.native.tsx",
@@ -241,6 +253,7 @@
     "react": "19.1.0",
     "react-native": "0.81.4",
     "react-native-builder-bob": "^0.43.0",
+    "react-native-gesture-handler": "2.28.0",
     "react-native-reanimated": "~4.1.0",
     "react-native-safe-area-context": "5.6.1",
     "react-native-worklets": "~0.5.0",

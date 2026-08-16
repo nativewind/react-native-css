@@ -15,6 +15,16 @@ declare module "@react-native/virtualized-lists" {
   }
 }
 
+declare module "react-native-gesture-handler" {
+  // BaseButtonProps, RectButtonProps and BorderlessButtonProps all extend this one.
+  // PressableProps reaches className through ViewProps instead; the button family
+  // extends neither that nor TouchableWithoutFeedbackProps
+  interface RawButtonProps {
+    className?: string | undefined;
+    cssInterop?: boolean | undefined;
+  }
+}
+
 declare module "react-native" {
   interface ButtonProps {
     className?: string;

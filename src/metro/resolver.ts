@@ -1,4 +1,4 @@
-import { basename, resolve, sep } from "node:path";
+import { basename, dirname, join, resolve, sep } from "node:path";
 
 import type {
   CustomResolutionContext,
@@ -8,8 +8,20 @@ import type {
 
 import { allowedModules } from "../babel/allowedModules";
 
-const thisModuleDist = resolve(__dirname, "../../../dist");
-const thisModuleSrc = resolve(__dirname, "../../../src");
+/**
+ * `__dirname` is `<package>/dist/<commonjs|module>/metro` once bob has built
+ * this, and `<package>/src/metro` when the `source` export condition wins.
+ * Anchoring on the segment that names the layout rather than on a fixed number
+ * of levels keeps the exemption below true either way — and an exemption that
+ * misses is a resolution cycle, since it sends this package's own components
+ * back through the wrapper that imports them.
+ */
+const packageRoot = resolve(
+  __dirname,
+  basename(dirname(__dirname)) === "src" ? "../.." : "../../..",
+);
+const thisModuleDist = join(packageRoot, "dist");
+const thisModuleSrc = join(packageRoot, "src");
 
 function isFromThisModule(filename: string): boolean {
   return (
@@ -39,6 +51,12 @@ export function nativeResolver(
     return resolver(
       context,
       `react-native-css/components/react-native-safe-area-context`,
+      platform,
+    );
+  } else if (moduleName === "react-native-gesture-handler") {
+    return resolver(
+      context,
+      `react-native-css/components/react-native-gesture-handler`,
       platform,
     );
   } else if (

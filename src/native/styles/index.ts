@@ -352,6 +352,27 @@ function mergeDefinedProps(
   return result;
 }
 
+type StyleCallback = (state: unknown) => unknown;
+
+function isStyleCallback(value: unknown): value is StyleCallback {
+  return typeof value === "function";
+}
+
+/**
+ * `Pressable` declares `style` as either styles or a callback taking its pressed state,
+ * and invokes it with `typeof style === "function"`. Merging a callback into an array
+ * would answer "object" there, so the callback would never run and the unevaluated
+ * function would reach the native component — every pressed-state style silently gone.
+ * Composing into a new callback keeps the shape the consumer switches on, and applies
+ * the same left-then-right precedence the array form would have.
+ */
+function composeStyleCallback(left: unknown, right: unknown): StyleCallback {
+  return (state) => [
+    isStyleCallback(left) ? left(state) : left,
+    isStyleCallback(right) ? right(state) : right,
+  ];
+}
+
 function deepMergeConfig(
   config: Config,
   left: Record<string, any> | undefined,
@@ -396,7 +417,15 @@ function deepMergeConfig(
               typeof filteredRightStyle === "object" &&
               !Array.isArray(filteredRightStyle);
 
-            if (leftIsObject && rightIsObject) {
+            if (
+              isStyleCallback(leftStyle) ||
+              isStyleCallback(filteredRightStyle)
+            ) {
+              result.style = composeStyleCallback(
+                leftStyle,
+                filteredRightStyle,
+              );
+            } else if (leftIsObject && rightIsObject) {
               if (hasNonOverlappingProperties(leftStyle, filteredRightStyle)) {
                 result.style = [leftStyle, filteredRightStyle];
               } else {
@@ -420,8 +449,9 @@ function deepMergeConfig(
       } else if (!rightIsInline && right?.style) {
         // Merging non-inline styles (e.g., important styles)
         if (left?.style) {
-          // If left.style is an array, append right.style
-          if (Array.isArray(left.style)) {
+          if (isStyleCallback(left.style) || isStyleCallback(right.style)) {
+            result.style = composeStyleCallback(left.style, right.style);
+          } else if (Array.isArray(left.style)) {
             const combined = [...left.style, right.style];
             result.style = flattenStyleArray(combined);
           } else if (
@@ -504,7 +534,9 @@ function deepMergeConfig(
           typeof rightValue === "object" &&
           rightValue !== null &&
           !Array.isArray(rightValue);
-        if (leftIsObj && rightIsObj) {
+        if (isStyleCallback(leftValue) || isStyleCallback(rightValue)) {
+          result[finalKey] = composeStyleCallback(leftValue, rightValue);
+        } else if (leftIsObj && rightIsObj) {
           if (hasNonOverlappingProperties(leftValue, rightValue)) {
             result[finalKey] = [leftValue, rightValue];
           } else {
@@ -537,8 +569,14 @@ function deepMergeConfig(
   }
 
   if (rightValue !== undefined) {
-    result[target] =
-      left && target in left ? [left[target], rightValue] : rightValue;
+    if (left && target in left) {
+      result[target] =
+        isStyleCallback(left[target]) || isStyleCallback(rightValue)
+          ? composeStyleCallback(left[target], rightValue)
+          : [left[target], rightValue];
+    } else {
+      result[target] = rightValue;
+    }
   }
 
   return result;
