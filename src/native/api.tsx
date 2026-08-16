@@ -16,6 +16,7 @@ import { mappingToConfig, useNativeCss } from "./react/useNativeCss";
 import { usePassthrough } from "./react/usePassthrough";
 import {
   colorScheme as colorSchemeObs,
+  toVariableRecord,
   VAR_SYMBOL,
   type Effect,
   type Getter,
@@ -115,10 +116,5 @@ export function useNativeVariable(name: string) {
  * @deprecated Use `<VariableContextProvider />` instead.
  */
 export function vars(variables: Record<string, StyleDescriptor>) {
-  return Object.assign(
-    { [VAR_SYMBOL]: "inline" },
-    Object.fromEntries(
-      Object.entries(variables).map(([k, v]) => [k.replace(/^--/, ""), v]),
-    ),
-  );
+  return Object.assign({ [VAR_SYMBOL]: "inline" }, toVariableRecord(variables));
 }
