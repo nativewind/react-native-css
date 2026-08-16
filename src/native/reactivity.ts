@@ -186,6 +186,31 @@ export type VariableContextValue = Record<string, StyleDescriptor> & {
   [VAR_SYMBOL]: true;
 };
 
+/**
+ * Normalises the `Record<"--name", value>` shape the two JavaScript channels
+ * into the variable system accept - `vars()` and `<VariableContextProvider />` -
+ * into the unprefixed record the runtime stores.
+ *
+ * An entry with no value produces no key. Variable lookup is presence-keyed
+ * (`name in variables`), so a key holding `undefined` reads as "this variable
+ * is set to nothing" and stops the cascade before the inherited value, the
+ * `:root` value and the `var()` fallback. Absence is how a record spells "no
+ * value"; `"unset"` is how a variable is deliberately cleared.
+ */
+export function toVariableRecord(
+  variables: Record<string, StyleDescriptor>,
+): Record<string, StyleDescriptor> {
+  const record: Record<string, StyleDescriptor> = {};
+
+  for (const [name, value] of Object.entries(variables)) {
+    if (value !== undefined) {
+      record[name.replace(/^--/, "")] = value;
+    }
+  }
+
+  return record;
+}
+
 /** Pseudo Classes ************************************************************/
 
 export const hoverFamily = weakFamily(() => observable(false));
