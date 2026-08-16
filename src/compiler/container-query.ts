@@ -4,6 +4,7 @@ import type {
   QueryFeatureFor_ContainerSizeFeatureId,
 } from "lightningcss";
 
+import type { CompiledContainerCondition } from "./compiled-condition";
 import type { MediaCondition } from "./compiler.types";
 import {
   parseMediaFeatureOperator,
@@ -14,15 +15,17 @@ import type { StylesheetBuilder } from "./stylesheet";
 export function parseContainerCondition(
   condition: CSSContainerCondition,
   builder: StylesheetBuilder,
-) {
-  let containerQuery = parseContainerQueryCondition(condition, builder);
+): CompiledContainerCondition {
+  const containerQuery = parseContainerQueryCondition(condition, builder);
 
-  // If any of these are undefined, the media query is invalid
+  // If any of these are undefined, the container query is invalid. An invalid
+  // query cannot be shown to match, so it matches nothing — it does not become
+  // a query with no condition.
   if (!containerQuery || containerQuery.some((v) => v === undefined)) {
-    return;
+    return { type: "never" };
   }
 
-  return containerQuery;
+  return { type: "condition", condition: containerQuery };
 }
 
 function parseContainerQueryCondition(
@@ -34,7 +37,7 @@ function parseContainerQueryCondition(
       return parseFeature(condition.value, builder);
     case "not":
       const query = parseContainerCondition(condition.value, builder);
-      return query ? ["!", query] : undefined;
+      return query.type === "condition" ? ["!", query.condition] : undefined;
     case "operation":
       const conditions = condition.conditions
         .map((c) => parseContainerQueryCondition(c, builder))

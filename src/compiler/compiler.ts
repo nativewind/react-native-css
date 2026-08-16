@@ -364,8 +364,36 @@ function extractMedia(
     return;
   }
 
-  for (const m of media) {
-    parseMediaQuery(m, builder);
+  const compiled = media.map((m) => parseMediaQuery(m, builder));
+
+  // A branch that cannot match contributes nothing, and when no branch can
+  // match, neither can the block: its rules must not be emitted at all, since
+  // emitting them with no media query applies them everywhere instead. That
+  // holds however the surviving branches are combined, so this decision does
+  // not rest on the divergence below.
+  //
+  // How they ARE combined is where native parts from CSS, and it parts here
+  // rather than in the evaluator. `rule.m` is a flat array fed from two places
+  // with opposite meanings — one entry per comma branch, which CSS unions, and
+  // one per enclosing `@media` block or media-carrying selector, which CSS
+  // intersects — and `testMediaQuery` intersects the whole array. Nesting is
+  // therefore right and a comma list is not: `@media (min-width: 400px),
+  // (min-height: 300px)` matches only where both hold. Two entries of the same
+  // shape mean two different things, so no change to the evaluator can fix one
+  // without breaking the other; the emit has to say which it is, by carrying a
+  // list of two or more as a single `["|", conditions]`, and by emitting no
+  // condition at all when a branch is `always` — `@media all, (…)` is
+  // unconditional. That is a change to what is emitted rather than to how a
+  // condition is evaluated, so it stands as a known limit here rather than as
+  // a half-fix in the evaluator.
+  if (compiled.every(({ type }) => type === "never")) {
+    return;
+  }
+
+  for (const query of compiled) {
+    if (query.type === "condition") {
+      builder.addMediaQuery(query.condition);
+    }
   }
 
   // Iterate over all rules in the mediaRule and extract their styles using the updated CompilerCollection
@@ -386,9 +414,18 @@ function extractContainer(
 ) {
   builder = builder.fork("container");
 
+  const compiled = parseContainerCondition(containerRule.condition, builder);
+
+  // A condition that did not compile cannot be shown to match, so the block's
+  // rules must not be emitted at all — emitting them with no condition applies
+  // them inside every container instead.
+  if (compiled.type === "never") {
+    return;
+  }
+
   // Iterate over all rules inside the containerRule and extract their styles using the updated CompilerCollection
   const query: ContainerQuery = {
-    m: parseContainerCondition(containerRule.condition, builder),
+    m: compiled.condition,
   };
 
   if (containerRule.name) {
