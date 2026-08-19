@@ -81,6 +81,13 @@ export function observable<Value, Arg = Value>(
     }
     if (!didInit) {
       value = (init as Read<Value, Arg>)(getter, undefined);
+      // Latch it. Without this a DERIVED observable re-runs its read function on every `get` —
+      // `didInit` was only ever set by the static-init branch and by `set`, so a computed value was
+      // recomputed per read rather than per change. Recomputation on change is `effect.run`, which
+      // re-reads and re-assigns when a dependency notifies; this only stops the redundant work
+      // between those. For the resolved-style cache it is `calculateProps` on every render of every
+      // styled element, which is the work the cache exists to avoid.
+      didInit = true;
     }
 
     return value;
