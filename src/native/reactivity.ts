@@ -136,6 +136,38 @@ export function observable<Value, Arg = Value>(
   return obs;
 }
 
+/**
+ * Run every effect a batch collected, including any re-notified while it drains.
+ *
+ * A batch is a `Set`, and iterating one does not revisit a member already passed — so an effect
+ * notified a SECOND time during the drain, because a derived observable it depends on recomputed
+ * after it ran, was silently dropped. That was survivable while every `get` recomputed: the effect
+ * pulled fresh values out of its dependencies whenever it happened to run. It is not survivable
+ * once a derived observable memoises, because the effect then reads the value its dependency held
+ * before the recompute, and nothing runs it again — the stale value is permanent.
+ *
+ * Draining as a work list fixes it: the member is removed BEFORE it runs, so a re-notification
+ * re-enqueues it rather than landing on an entry the iteration has already passed.
+ */
+export function drainObservableBatch() {
+  const batch = observableBatch.current;
+
+  if (!batch) {
+    return;
+  }
+
+  while (batch.size > 0) {
+    const next = batch.values().next();
+
+    if (next.done) {
+      break;
+    }
+
+    batch.delete(next.value);
+    next.value.run();
+  }
+}
+
 export function cleanupEffect(effect: Effect) {
   if (!effect) return;
   for (const dep of effect.observers) {
@@ -278,9 +310,7 @@ Dimensions.addEventListener("change", ({ window }) => {
   vw.set(window.width);
   vh.set(window.height);
 
-  for (const effect of observableBatch.current) {
-    effect.run();
-  }
+  drainObservableBatch();
 
   observableBatch.current = undefined;
 });

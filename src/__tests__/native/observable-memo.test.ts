@@ -13,7 +13,10 @@ import type { Effect } from "../../native/reactivity";
  * and re-assigns, and subscribers are notified from there.
  */
 
-const subscriber = (): Effect => ({ observers: new Set<Effect>(), run: () => undefined });
+const subscriber = (): Effect => ({
+  observers: new Set<Effect>(),
+  run: () => undefined,
+});
 
 test("a derived observable computes once per change, not once per read", () => {
   let computed = 0;
@@ -43,12 +46,46 @@ test("a derived observable recomputes when a dependency changes", () => {
   });
 
   expect(derived.get(subscriber())).toBe(2);
-  const afterFirstRead = computed;
+  expect(computed).toBe(1);
 
   source.set(5);
 
+  // Exactly one recompute for the change, and none for the read that follows it. `toBeGreaterThan`
+  // would be satisfied by the per-read recompute this commit removes, so it would pass on both
+  // sides and guard nothing.
   expect(derived.get(subscriber())).toBe(10);
-  expect(computed).toBeGreaterThan(afterFirstRead);
+  expect(computed).toBe(2);
+});
+
+test("a conditional dependency is picked up the first time the branch is taken", () => {
+  // The classic memo hazard: the first compute takes a branch that never reads B, so B is never
+  // registered. It holds here because `effect.run` re-executes the read function and PULLS B's
+  // current value in the same pass that registers it — registration and the correct read are the
+  // same act, so nothing waits on a notification that was never owed.
+  let computed = 0;
+  const gate = observable(0);
+  const hidden = observable(100);
+  const derived = observable((read) => {
+    computed += 1;
+    return read(gate) > 0 ? read(hidden) : -1;
+  });
+
+  expect(derived.get(subscriber())).toBe(-1);
+  expect(hidden.observers.size).toBe(0);
+
+  // A change to the unread branch cannot matter, and must not recompute.
+  hidden.set(200);
+  expect(derived.get(subscriber())).toBe(-1);
+
+  // Opening the gate must pick up the CURRENT value of the branch it now reads.
+  gate.set(1);
+  expect(derived.get(subscriber())).toBe(200);
+  expect(hidden.observers.size).toBeGreaterThan(0);
+
+  // And it tracks from then on.
+  hidden.set(300);
+  expect(derived.get(subscriber())).toBe(300);
+  expect(computed).toBeGreaterThan(1);
 });
 
 test("a static observable is unaffected", () => {
