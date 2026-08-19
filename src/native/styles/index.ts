@@ -187,16 +187,23 @@ export const stylesFamily = family(
      * other stays registered is what left every entry in the map for the life of the process.
      * Called with no arguments it is a pure release check, which is how `cleanupEffect` uses it.
      */
-    return Object.assign(obs, {
+    const entry = Object.assign(obs, {
       cleanup: (...effects: readonly Effect[]) => {
         for (const effect of effects) {
           obs.observers.delete(effect);
+          // Drop the reverse edge too. Leaving it means a component that superseded this entry
+          // still lists it as a dependency, so its unmount walks back here and releases an entry it
+          // no longer uses — one another component may since have joined.
+          effect.observers.delete(entry);
         }
         if (obs.observers.size === 0) {
-          stylesFamily.delete(hash);
+          // By identity, never by hash alone: this hash may since map to a different observable.
+          stylesFamily.deleteIf(hash, entry);
         }
       },
     });
+
+    return entry;
   },
   MAX_STYLE_CACHE_ENTRIES,
 );

@@ -50,7 +50,11 @@ export function observable<Value, Arg = Value>(
 
   const observers = new Set<Effect>();
   const effect: Effect = {
-    observers,
+    // The internal effect's OWN set. Sharing `observers` with the observable conflates two
+    // opposite directions in one container: what subscribes to this observable, and what this
+    // observable reads. A derived observable then appears in its own subscriber list once per
+    // dependency, so `notify()` walks a cycle and a release check can never reach zero.
+    observers: new Set<Effect>(),
     run: () => {
       if (!isStatic) {
         const nextValue = (init as Read<Value, Arg>)(getter, lastArg);
@@ -185,6 +189,17 @@ export function family<Key, Result = Key, Args extends any = void>(
     {
       delete(key: Key) {
         return map.delete(key);
+      },
+      /**
+       * Delete a key only while it still maps to `value`.
+       *
+       * A cached value that releases itself knows the key it was created under, and that key may
+       * since have been remapped — by eviction and a rebuild, or by a consumer that superseded its
+       * own entry and left a stale reference behind. Deleting by key alone then destroys whatever
+       * took the key, which belongs to somebody else and is live.
+       */
+      deleteIf(key: Key, value: Result) {
+        return map.get(key) === value ? map.delete(key) : false;
       },
       size() {
         return map.size;

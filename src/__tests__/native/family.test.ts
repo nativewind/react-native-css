@@ -106,3 +106,29 @@ test("an unbounded family is unchanged", () => {
 
   expect(unbounded.size()).toBe(40);
 });
+
+test("deleteIf removes a key only while it still maps to that value", () => {
+  // A cached value that releases itself knows the key it was created under, and that key may since
+  // have been remapped — by eviction and a rebuild, or by a consumer that superseded its own entry.
+  // Deleting by key alone then destroys whatever took the key, which is live and someone else's.
+  const built: string[] = [];
+  const cache = family<string, { readonly built: number }>((key) => {
+    built.push(key);
+    return { built: built.length };
+  });
+
+  const original = cache("shared");
+  cache.delete("shared");
+  const replacement = cache("shared");
+
+  expect(replacement).not.toBe(original);
+
+  // The original releasing itself must not touch the replacement.
+  expect(cache.deleteIf("shared", original)).toBe(false);
+  expect(cache.size()).toBe(1);
+  expect(cache("shared")).toBe(replacement);
+
+  // The holder of the current value can still release it.
+  expect(cache.deleteIf("shared", replacement)).toBe(true);
+  expect(cache.size()).toBe(0);
+});
