@@ -71,14 +71,10 @@ export function observable<Value, Arg = Value>(
   const getter: Getter = (observable) => observable.get(effect);
 
   function get(effect?: Effect) {
-    if (effect) {
-      observers.add(effect);
-      // The reverse edge, and the whole reason `cleanupEffect` can do anything. Recording only the
-      // forward direction leaves a subscriber with no record of what it reads, so the unmount walk
-      // iterates an empty set: no observable is ever unsubscribed, every unmounted component stays
-      // reachable through its `run` closure, and every cache entry outlives the tree that used it.
-      effect.observers.add(obs);
-    }
+    // Compute BEFORE registering. A read function can throw — `resolve` does, on an unknown
+    // function — and registering first left the caller subscribed to an observable that never
+    // initialised: on the list, owed nothing, counted by every "does anyone observe me" question.
+    // Computing first means a failure leaves the observable exactly as the call found it.
     if (!didInit) {
       value = (init as Read<Value, Arg>)(getter, undefined);
       // Latch it. Without this a DERIVED observable re-runs its read function on every `get` —
@@ -88,6 +84,15 @@ export function observable<Value, Arg = Value>(
       // between those. For the resolved-style cache it is `calculateProps` on every render of every
       // styled element, which is the work the cache exists to avoid.
       didInit = true;
+    }
+
+    if (effect) {
+      observers.add(effect);
+      // The reverse edge, and the whole reason `cleanupEffect` can do anything. Recording only the
+      // forward direction leaves a subscriber with no record of what it reads, so the unmount walk
+      // iterates an empty set: no observable is ever unsubscribed, every unmounted component stays
+      // reachable through its `run` closure, and every cache entry outlives the tree that used it.
+      effect.observers.add(obs);
     }
 
     return value;
