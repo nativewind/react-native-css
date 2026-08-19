@@ -289,48 +289,49 @@ const hashKeyFamily = weakFamily(() => hashKeyCount++);
 
 export function generateStateHash(
   state: ComponentState,
-  iterableKeys?: Iterable<WeakKey>,
-  variables?: WeakKey,
-  inlineVars?: Set<WeakKey>,
+  iterableKeys: Iterable<WeakKey>,
 ): string {
-  if (!iterableKeys) {
-    return "";
-  }
-
-  const keys = [state.configs, ...iterableKeys];
-
-  if (variables) {
-    keys.push(variables);
-  }
-
-  if (inlineVars) {
-    keys.push(...inlineVars);
-  }
-
-  return generateHash(keys);
+  // The config is always a key, so this never answers the empty string. That matters: the empty
+  // string used to double as a no-keys sentinel here, which would have given two different states
+  // one cache entry now that the key is a join rather than a digest.
+  return generateHash([state.configs, ...iterableKeys]);
 }
 
 /**
- * Quickly generate a unique hash for a set of numbers.
- * This is not a cryptographic hash, but it is fast and has a low chance of collision.
+ * Encode a set of weak keys as a cache key.
+ *
+ * This is an exact canonical encoding rather than a hash: it has no chance of collision, and it
+ * must not be folded back into one. The value keys the resolved-style cache, where two different
+ * key sets meeting on one string do not cost a cache miss — the second element renders the first
+ * element's styles.
+ *
+ * Every member is encoded. A key skipped here would be erased from the value, so two key sets
+ * differing only in the skipped member would collide — which is why `WeakKey` is load-bearing
+ * rather than decorative, and why a value outside it fails at the `WeakMap` rather than passing
+ * through.
  */
-const MOD = 9007199254740871; // Largest prime within safe integer range 2^53
-const PRIME = 31; // A smaller prime for mixing
 export function generateHash(keys: WeakKey[]): string {
-  let hash = 0;
-  let product = 1; // Used for mixing to enhance uniqueness
+  // A Float64Array rather than an array, because `.sort()` on a typed array is numeric and native.
+  // `Array.prototype.sort` needs a comparator to order numbers, and that comparator is a JS
+  // function Hermes calls O(n log n) times — measured on a physical device, it is the whole cost of
+  // ordering here. Float64 rather than Int32 because the key counter is unbounded and Int32 wraps
+  // silently at 2^31, which would turn two distinct key sets into one string.
+  const numbers = new Float64Array(keys.length);
+  let index = 0;
 
   for (const key of keys) {
-    if (!key) continue; // Skip if key is undefined
-
-    const num = hashKeyFamily(key);
-    hash = (hash ^ num) % MOD; // XOR and modular arithmetic
-    product = (product * (num + PRIME)) % MOD; // Mix with multiplication
+    numbers[index] = hashKeyFamily(key);
+    index += 1;
   }
 
-  // Combine hash and product to form the final hash
-  hash = (hash + product) % MOD;
+  // Sorted, so a set of keys encodes the same however it was iterated. The
+  // caller relies on that: the rule set is a Set built in render order.
+  //
+  // Joined rather than folded into a single number, so distinct key sets
+  // cannot land on one string. This value keys the resolved-style cache, and
+  // a collision there does not cost a cache miss — it hands one element
+  // another element's styles.
+  numbers.sort();
 
-  // Return the hash as a string
-  return hash.toString(36);
+  return numbers.join(",");
 }
