@@ -242,8 +242,11 @@ export function updateRules(
     return state;
   }
 
-  // Remove this component from the old observer
-  state.stylesObs?.cleanup(state.ruleEffect);
+  // Detach this component from the observable it is leaving — BOTH effects, or the old entry keeps
+  // an observer and is never released. A component that re-renders with a fresh inline `vars()`
+  // object supersedes its entry on every render, so this is the difference between a cache the size
+  // of what is mounted and one the size of everything ever rendered.
+  state.stylesObs?.cleanup(state.ruleEffect, state.styleEffect);
 
   return {
     ...state,

@@ -70,8 +70,10 @@ export function useNativeCss(
   const inheritedContainers = useContext(ContainerContext);
 
   const [state, setState] = useState((): ComponentState => {
-    // Both effects share the same observers to improve memory usage
-    const observers = new Set<Effect>();
+    // Each effect owns its dependency set. Sharing one Set between them saves an allocation per
+    // component and makes detaching UNEXPRESSIBLE: `cleanupEffect` removes the effect it was handed
+    // from each observable and then clears the shared set, so the sibling stays registered on every
+    // observable it ever read — forever, holding this component's `setState` after it unmounts.
 
     /**
      * When fired, this effect will force the rules to be re-evaluated.
@@ -80,7 +82,7 @@ export function useNativeCss(
      * Use this when a rule condition changes, e.g FastRefresh or media queries
      */
     const ruleEffect: Effect = {
-      observers,
+      observers: new Set<Effect>(),
       run: () => setState((state) => updateRules(state)),
     };
 
@@ -91,7 +93,7 @@ export function useNativeCss(
      * Use this when a value changes, e.g vm units or light / dark mode
      */
     const styleEffect: Effect = {
-      observers,
+      observers: new Set<Effect>(),
       run: () => setState((state) => ({ ...state })),
     };
 
@@ -113,8 +115,14 @@ export function useNativeCss(
     );
   });
 
-  // Both effects share the same observers, so we only need to cleanup one of them
-  useEffect(() => () => cleanupEffect(state.ruleEffect), [state.ruleEffect]);
+  // Each effect owns its dependency set, so each is detached on its own. Cleaning only one is what
+  // left the other observing every observable it had ever read.
+  useEffect(() => {
+    return () => {
+      cleanupEffect(state.ruleEffect);
+      cleanupEffect(state.styleEffect);
+    };
+  }, [state.ruleEffect, state.styleEffect]);
 
   // Check if our derived state has changed (e.g the className prop)
   if (

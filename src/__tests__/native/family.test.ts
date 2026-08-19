@@ -40,3 +40,69 @@ test("a weak key hashes to the same value on every lookup", () => {
   expect(generateHash([key])).toBe("0");
   expect(generateHash([key])).toBe(generateHash([key]));
 });
+
+test("a bounded family never exceeds its cap", () => {
+  // Unbounded is the pre-existing shape and it is reachable from the public API: `vars()` returns a
+  // fresh object per call, so an inline `style={vars({...})}` hands the resolved-style cache a new
+  // weak key — and therefore a new entry — on every render of a component that never unmounts.
+  const bounded = family<string, { readonly key: string }>(
+    (key) => ({ key }),
+    4,
+  );
+
+  for (let index = 0; index < 40; index += 1) {
+    bounded(`key-${String(index)}`);
+  }
+
+  expect(bounded.size()).toBe(4);
+});
+
+test("a bounded family evicts the least recently READ, not the oldest", () => {
+  // Which entry goes matters more than that one goes. The workload that fills this cache is a
+  // churn of single-use keys arriving beside a small set that is read every render — so evicting by
+  // insertion order would discard exactly the entries worth keeping and leave the garbage.
+  const built: string[] = [];
+  const bounded = family<string, { readonly key: string }>((key) => {
+    built.push(key);
+    return { key };
+  }, 3);
+
+  bounded("keep");
+  bounded("evict-me");
+  bounded("also-keep");
+  bounded("keep"); // a read, which must renew it
+  bounded("also-keep");
+  bounded("fresh"); // pushes past the cap
+
+  // Re-reading tells us which survived: a survivor is served from the map, an evicted key is built
+  // a second time. That is a stronger check than a membership helper — it proves the entry is gone
+  // rather than merely unreported.
+  bounded("keep");
+  bounded("also-keep");
+  bounded("fresh");
+  bounded("evict-me");
+
+  expect(bounded.size()).toBe(3);
+  expect(built).toStrictEqual([
+    "keep",
+    "evict-me",
+    "also-keep",
+    "fresh",
+    "evict-me",
+  ]);
+});
+
+test("an unbounded family is unchanged", () => {
+  // Every other `family` in the library is keyed by something the stylesheet bounds — a class name,
+  // a variable name — so a cap there would be a cost with nothing to buy. Omitting it must keep the
+  // exact prior behaviour rather than applying a default.
+  const unbounded = family<string, { readonly key: string }>((key) => ({
+    key,
+  }));
+
+  for (let index = 0; index < 40; index += 1) {
+    unbounded(`key-${String(index)}`);
+  }
+
+  expect(unbounded.size()).toBe(40);
+});
