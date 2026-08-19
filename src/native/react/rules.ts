@@ -263,7 +263,22 @@ export function updateRules(
  */
 const getRuleVariation = weakFamily((rule: StyleRule) => {
   return weakFamily((config: Config): StyleRule => {
-    return { ...rule, target: config.target };
+    // A `target: false` config still needs somewhere to put its declarations before
+    // `nativeStyleMapping` redistributes them into real props. That scratch space is this config's
+    // OWN source key rather than `style`, because `style` is a real target another config can own
+    // and sharing it makes the two drain each other. Sources are `Object.entries(mapping)` keys, so
+    // no two configs can collide on one.
+    //
+    // A config whose TARGET names another config's source is not excluded by the types, only by
+    // reachability: that mapping already throws in `updateRules` when the source prop is passed,
+    // which is the same condition a scratch needs to exist at all.
+    //
+    // The key never ships. `getStyledProps` strips every consumed source, and a `target: false`
+    // config is always consumed because `config.source !== config.target` holds for it.
+    return {
+      ...rule,
+      target: config.target === false ? [config.source] : config.target,
+    };
   });
 });
 

@@ -557,7 +557,8 @@ function nativeStyleMapping(
   if (typeof config.target === "string") {
     source = props[config.target];
   } else if (config.target === false) {
-    source = props["style"];
+    // The scratch space `getRuleVariation` gave this config — its own source key, not `style`.
+    source = props[config.source];
   } else {
     const tokens = [...config.target];
     const lastToken = tokens.pop()!;
