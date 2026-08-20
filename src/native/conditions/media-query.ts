@@ -3,7 +3,13 @@ import { I18nManager, PixelRatio, Platform } from "react-native";
 
 import type { MediaCondition } from "react-native-css/compiler";
 
-import { colorScheme, vh, vw, type Getter } from "../reactivity";
+import {
+  colorScheme,
+  resolveColorScheme,
+  vh,
+  vw,
+  type Getter,
+} from "../reactivity";
 
 export function testMediaQuery(mediaQueries: MediaCondition[], get: Getter) {
   return mediaQueries.every((query) => test(query, get));
@@ -45,7 +51,12 @@ function testComparison(mediaQuery: MediaCondition, get: Getter): Boolean {
     case "platform":
       return value === "native" || value === Platform.OS;
     case "prefers-color-scheme": {
-      return value === get(colorScheme);
+      // The same resolution the public colorScheme.get() uses — through the one
+      // function both call, so the class layer and the prop layer cannot answer
+      // differently. Reading the raw observable instead leaves this matching
+      // neither light nor dark whenever it holds a non-scheme: null at rest and
+      // after set(null), "unspecified" after a follow-the-system request on 0.82+
+      return value === resolveColorScheme(get(colorScheme));
     }
     case "display-mode":
       return value === "native" || Platform.OS === value;

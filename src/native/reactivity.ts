@@ -221,6 +221,63 @@ export const colorScheme = observable<ColorSchemeName>(
 );
 Appearance.addChangeListener((event) => colorScheme.set(event.colorScheme));
 
+/**
+ * What a reader renders, from whatever the scheme channel is holding.
+ *
+ * Totalized over the scheme UNION rather than over nullishness, and that is the
+ * whole of it. `"unspecified"` is react-native 0.82's spelling of "follow the
+ * system" — the request 0.81 spells `null` — so it is a REQUEST, never a scheme.
+ * A `?? Appearance.getColorScheme() ?? "light"` chain only fires on nullish, so
+ * the literal passes straight through, and a reader handed it matches neither
+ * `prefers-color-scheme: dark` nor `: light`: every scheme-conditional class
+ * goes dead rather than falling back. On Android nothing repairs that until the
+ * user toggles the system theme, because `AppearanceModule` emits only when the
+ * RESOLVED scheme changes.
+ *
+ * It accepts a resolved scheme and rejects everything else, rather than naming
+ * the members it must reject. That is what makes it total: a future release can
+ * add another "no scheme yet" spelling and this keeps answering correctly,
+ * where a deny-list would silently gain a third hole. It is also why nothing
+ * here compares against `"unspecified"`, which is outside the `ColorSchemeName`
+ * the installed react-native declares.
+ *
+ * One function rather than the expression written at each reader, because both
+ * readers have to give the SAME answer — the class layer and the prop layer
+ * disagreeing about the scheme is the defect, not the duplication. The two
+ * copies this replaces had already drifted into being wrong together.
+ *
+ * `"light"` is the last resort, per MQ5 §5.4.
+ */
+export function resolveColorScheme(held: ColorSchemeName): "light" | "dark" {
+  if (held === "light" || held === "dark") {
+    return held;
+  }
+  const reported = Appearance.getColorScheme();
+  return reported === "light" || reported === "dark" ? reported : "light";
+}
+
+/**
+ * Whether `Appearance`'s cache is holding a REQUEST rather than an answer.
+ *
+ * `NativeAppearance.getColorScheme()` cannot produce one on either platform:
+ * Android resolves the configuration to "dark" or "light"
+ * (`AppearanceModule.colorSchemeForCurrentConfiguration`) and iOS returns
+ * `_currentColorScheme`. So the only way a non-nullish non-scheme reaches that
+ * cache is react-native 0.82.0-0.84.1 storing a `setColorScheme` argument
+ * verbatim — the band between the read-back 0.81 performs on every path and the
+ * read-back 0.85.3 restored for `"unspecified"` alone.
+ *
+ * Nullish is not that, and stays a real answer: it means the platform reports
+ * no scheme at all, which is what the `"light"` last resort is for.
+ */
+export function holdsRequestNotScheme(held: ColorSchemeName): boolean {
+  return held !== null && held !== undefined && !isScheme(held);
+}
+
+function isScheme(held: ColorSchemeName): held is "light" | "dark" {
+  return held === "light" || held === "dark";
+}
+
 /** Containers ****************************************************************/
 
 export type ContainerContextValue = Record<string, WeakKey>;
