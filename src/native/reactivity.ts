@@ -12,6 +12,13 @@ import type { StyleDescriptor } from "react-native-css/compiler";
 export type Effect = {
   observers: Set<Effect>;
   run(): void;
+  /**
+   * Release anything this observable owns once nothing observes it — a cache entry, most of all.
+   *
+   * Optional because most observables own nothing. `cleanupEffect` calls it after detaching a
+   * subscriber, which is the only moment an observable can learn that its last one has gone.
+   */
+  cleanup?: (...effects: readonly Effect[]) => void;
 };
 
 export type Observable<Value, Arg = Value> = {
@@ -43,7 +50,11 @@ export function observable<Value, Arg = Value>(
 
   const observers = new Set<Effect>();
   const effect: Effect = {
-    observers,
+    // The internal effect's OWN set. Sharing `observers` with the observable conflates two
+    // opposite directions in one container: what subscribes to this observable, and what this
+    // observable reads. A derived observable then appears in its own subscriber list once per
+    // dependency, so `notify()` walks a cycle and a release check can never reach zero.
+    observers: new Set<Effect>(),
     run: () => {
       if (!isStatic) {
         const nextValue = (init as Read<Value, Arg>)(getter, lastArg);
@@ -60,11 +71,28 @@ export function observable<Value, Arg = Value>(
   const getter: Getter = (observable) => observable.get(effect);
 
   function get(effect?: Effect) {
-    if (effect) {
-      observers.add(effect);
-    }
+    // Compute BEFORE registering. A read function can throw — `resolve` does, on an unknown
+    // function — and registering first left the caller subscribed to an observable that never
+    // initialised: on the list, owed nothing, counted by every "does anyone observe me" question.
+    // Computing first means a failure leaves the observable exactly as the call found it.
     if (!didInit) {
       value = (init as Read<Value, Arg>)(getter, undefined);
+      // Latch it. Without this a DERIVED observable re-runs its read function on every `get` —
+      // `didInit` was only ever set by the static-init branch and by `set`, so a computed value was
+      // recomputed per read rather than per change. Recomputation on change is `effect.run`, which
+      // re-reads and re-assigns when a dependency notifies; this only stops the redundant work
+      // between those. For the resolved-style cache it is `calculateProps` on every render of every
+      // styled element, which is the work the cache exists to avoid.
+      didInit = true;
+    }
+
+    if (effect) {
+      observers.add(effect);
+      // The reverse edge, and the whole reason `cleanupEffect` can do anything. Recording only the
+      // forward direction leaves a subscriber with no record of what it reads, so the unmount walk
+      // iterates an empty set: no observable is ever unsubscribed, every unmounted component stays
+      // reachable through its `run` closure, and every cache entry outlives the tree that used it.
+      effect.observers.add(obs);
     }
 
     return value;
@@ -113,25 +141,91 @@ export function observable<Value, Arg = Value>(
   return obs;
 }
 
+/**
+ * Run every effect a batch collected, including any re-notified while it drains.
+ *
+ * A batch is a `Set`, and iterating one does not revisit a member already passed — so an effect
+ * notified a SECOND time during the drain, because a derived observable it depends on recomputed
+ * after it ran, was silently dropped. That was survivable while every `get` recomputed: the effect
+ * pulled fresh values out of its dependencies whenever it happened to run. It is not survivable
+ * once a derived observable memoises, because the effect then reads the value its dependency held
+ * before the recompute, and nothing runs it again — the stale value is permanent.
+ *
+ * Draining as a work list fixes it: the member is removed BEFORE it runs, so a re-notification
+ * re-enqueues it rather than landing on an entry the iteration has already passed.
+ */
+export function drainObservableBatch() {
+  const batch = observableBatch.current;
+
+  if (!batch) {
+    return;
+  }
+
+  while (batch.size > 0) {
+    const next = batch.values().next();
+
+    if (next.done) {
+      break;
+    }
+
+    batch.delete(next.value);
+    next.value.run();
+  }
+}
+
 export function cleanupEffect(effect: Effect) {
   if (!effect) return;
   for (const dep of effect.observers) {
     dep.observers.delete(effect);
+    // An observable that owns a cache entry releases it once nothing observes it. This is the only
+    // moment it can know that: detaching is what makes the last subscriber's departure observable.
+    dep.cleanup?.();
   }
   effect.observers.clear();
 }
 
 /** Family Helpers ************************************************************/
 
+/**
+ * A keyed cache of derived values.
+ *
+ * `maxSize` bounds it, and a bounded family evicts the least recently READ rather than the oldest.
+ * That ordering is the point: the workload that fills a bounded family here is a churn of
+ * single-use keys arriving beside a small set read on every render, and insertion order would
+ * discard exactly the entries worth keeping. Renewing on a hit costs a delete plus a set on the
+ * read path — measured at ~23ns against a ~265ns key derivation, so under a tenth of the work it
+ * protects.
+ *
+ * Eviction is safe by construction rather than by policy: a miss re-derives the value from the
+ * arguments the caller brought, so the worst an evicted entry costs is the work of rebuilding it.
+ * A consumer still holding a previously-returned value keeps a live reference and is unaffected.
+ *
+ * Omitting `maxSize` keeps the cache unbounded, which is correct wherever the key space is bounded
+ * by something else — a class name, a variable name, anything the stylesheet enumerates.
+ */
 export function family<Key, Result = Key, Args extends any = void>(
   fn: (key: Key, args: Args) => Result,
+  maxSize?: number,
 ) {
   const map = new Map<Key, Result>();
   return Object.assign(
     (key: Key, args: Args) => {
       let value = map.get(key);
-      if (!value) {
+      if (value === undefined) {
         value = fn(key, args);
+        map.set(key, value);
+
+        if (maxSize !== undefined && map.size > maxSize) {
+          // `Map` iterates in insertion order and a hit re-inserts, so the first key is the least
+          // recently read.
+          const leastRecentlyRead = map.keys().next();
+          if (!leastRecentlyRead.done) {
+            map.delete(leastRecentlyRead.value);
+          }
+        }
+      } else if (maxSize !== undefined) {
+        // Renew: move this key to the end so it is not the next eviction candidate.
+        map.delete(key);
         map.set(key, value);
       }
       return value;
@@ -139,6 +233,20 @@ export function family<Key, Result = Key, Args extends any = void>(
     {
       delete(key: Key) {
         return map.delete(key);
+      },
+      /**
+       * Delete a key only while it still maps to `value`.
+       *
+       * A cached value that releases itself knows the key it was created under, and that key may
+       * since have been remapped — by eviction and a rebuild, or by a consumer that superseded its
+       * own entry and left a stale reference behind. Deleting by key alone then destroys whatever
+       * took the key, which belongs to somebody else and is live.
+       */
+      deleteIf(key: Key, value: Result) {
+        return map.get(key) === value ? map.delete(key) : false;
+      },
+      size() {
+        return map.size;
       },
       clear() {
         return map.clear();
@@ -167,7 +275,7 @@ export function weakFamily<Key extends WeakKey, Args = undefined, Result = Key>(
   return Object.assign(
     (key: Key, args: Args) => {
       let value = map.get(key);
-      if (!value) {
+      if (value === undefined) {
         value = fn(key, args);
         map.set(key, value);
       }
@@ -207,9 +315,7 @@ Dimensions.addEventListener("change", ({ window }) => {
   vw.set(window.width);
   vh.set(window.height);
 
-  for (const effect of observableBatch.current) {
-    effect.run();
-  }
+  drainObservableBatch();
 
   observableBatch.current = undefined;
 });

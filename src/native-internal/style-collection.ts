@@ -8,6 +8,7 @@ import type {
 
 import { DEFAULT_CONTAINER_NAME } from "../native/conditions/container-query";
 import {
+  drainObservableBatch,
   family,
   observable,
   observableBatch,
@@ -95,9 +96,7 @@ globalThis.__react_native_css_style_collection ??= {
       }
     }
 
-    for (const effect of observableBatch.current) {
-      effect.run();
-    }
+    drainObservableBatch();
 
     observableBatch.current = undefined;
   },

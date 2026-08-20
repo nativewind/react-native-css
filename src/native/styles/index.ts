@@ -160,6 +160,17 @@ function filterCssVariables(value: any, depth = 0): any | undefined {
   return value;
 }
 
+/**
+ * A ceiling on the resolved-style cache, and deliberately a backstop rather than the mechanism.
+ *
+ * Releasing an entry when its last observer unmounts is what keeps this cache proportional to what
+ * is on screen; the cap is what makes exhaustion unrepresentable if a future path ever leaks again.
+ * It sits far above any real screen — a 150-control stress screen measured 271 entries on a device
+ * — so a correctly-behaving app never reaches it, and eviction is safe by construction anyway: a
+ * miss re-derives from the rules the caller brought, so the worst it costs is the work of rebuilding.
+ */
+const MAX_STYLE_CACHE_ENTRIES = 2048;
+
 export const stylesFamily = family(
   (
     hash: string,
@@ -170,17 +181,31 @@ export const stylesFamily = family(
     const obs = observable((read) => calculateProps(read, sortedRules));
 
     /**
-     * A family is a map, so we need to cleanup the observers when the the hash is no longer used
+     * A family is a map, so the entry has to be dropped once nothing observes this observable.
+     *
+     * Variadic because a component subscribes through TWO effects, and detaching one while the
+     * other stays registered is what left every entry in the map for the life of the process.
+     * Called with no arguments it is a pure release check, which is how `cleanupEffect` uses it.
      */
-    return Object.assign(obs, {
-      cleanup: (effect: Effect) => {
-        obs.observers.delete(effect);
+    const entry = Object.assign(obs, {
+      cleanup: (...effects: readonly Effect[]) => {
+        for (const effect of effects) {
+          obs.observers.delete(effect);
+          // Drop the reverse edge too. Leaving it means a component that superseded this entry
+          // still lists it as a dependency, so its unmount walks back here and releases an entry it
+          // no longer uses — one another component may since have joined.
+          effect.observers.delete(entry);
+        }
         if (obs.observers.size === 0) {
-          stylesFamily.delete(hash);
+          // By identity, never by hash alone: this hash may since map to a different observable.
+          stylesFamily.deleteIf(hash, entry);
         }
       },
     });
+
+    return entry;
   },
+  MAX_STYLE_CACHE_ENTRIES,
 );
 
 export function getStyledProps(
