@@ -16,6 +16,7 @@ import { testGuards, type RenderGuard } from "../conditions/guards";
 import {
   cleanupEffect,
   ContainerContext,
+  weakFamily,
   type ContainerContextValue,
   type Effect,
   type Getter,
@@ -167,9 +168,23 @@ export function useNativeCss(
 }
 
 /**
- * Convert the styled() mapping to a config array
+ * Convert the styled() mapping to a config array.
+ *
+ * Derived once per mapping. `generateStateHash` keys the resolved-style cache on `state.configs`
+ * by object identity, so an equal-but-fresh array per consumer gives each of them its own cache
+ * entry, its own sorted rules and its own observable. `styled()` already avoids that by deriving
+ * at module scope; `useCssElement` derives per component instance, and every wrapper this library
+ * ships passes it a module constant.
+ *
+ * Caching on the mapping's identity means a mapping MUTATED after its first use is not re-derived.
+ * That is a narrowing of behaviour rather than a change of it: `useCssElement` already froze the
+ * derivation per instance through `useState`, so a live element never saw a mutation either — only
+ * a newly mounted one did, which made the same mapping mean two things at once. A caller that wants
+ * a different mapping passes a different object, which is what every call site here already does.
  */
-export function mappingToConfig(mapping: StyledConfiguration<any>) {
+const configForMapping = weakFamily(function (
+  mapping: StyledConfiguration<any>,
+): Config[] {
   return Object.entries(mapping).flatMap(([key, value]): Config => {
     if (value === true) {
       return {
@@ -213,4 +228,24 @@ export function mappingToConfig(mapping: StyledConfiguration<any>) {
 
     throw new Error(`styled(): Invalid mapping for ${key}: ${value}`);
   });
+});
+
+/**
+ * A mapping is a record of prop name to style target, and that is the only shape either entry point
+ * is typed to accept. Anything else is refused here, by name.
+ *
+ * The predicate is deliberately NARROWER than what the `WeakMap` behind `configForMapping` would
+ * take: a function and an unregistered symbol are both valid weak keys, and both are refused,
+ * because neither is a mapping. What the guard buys is the message — without it a primitive reaches
+ * that `WeakMap` and raises `Invalid value used as weak map key` from inside `reactivity`, naming
+ * neither `styled()` nor the argument that was wrong.
+ */
+export function mappingToConfig(mapping: StyledConfiguration<any>): Config[] {
+  if (typeof mapping !== "object" || mapping === null) {
+    throw new Error(
+      `styled(): mapping must be an object, received ${mapping === null ? "null" : typeof mapping}`,
+    );
+  }
+
+  return configForMapping(mapping);
 }
