@@ -15,6 +15,7 @@ import type { StyledConfiguration } from "../../runtime.types";
 import { testGuards, type RenderGuard } from "../conditions/guards";
 import {
   cleanupEffect,
+  containerAttributesFamily,
   ContainerContext,
   type ContainerContextValue,
   type Effect,
@@ -114,6 +115,24 @@ export function useNativeCss(
 
   // Both effects share the same observers, so we only need to cleanup one of them
   useEffect(() => () => cleanupEffect(state.ruleEffect), [state.ruleEffect]);
+
+  /**
+   * Publish this component's props for any descendant whose rule asks about them.
+   *
+   * After the commit rather than during the render, because a write here notifies descendants
+   * and a render must not. NO dependency array, deliberately: the props a descendant queries are
+   * not the ones this component's own render guards track — `group-data-[disabled=true]:*` on a
+   * child reads a key this component may render nothing from — so keying the effect on anything
+   * this component knows about would miss exactly the changes the channel exists to deliver.
+   * The observable's own equality is what makes an unchanged republish free.
+   */
+  useEffect(() => {
+    if (state.containers) {
+      containerAttributesFamily(state.ruleEffectGetter).set(
+        originalProps ?? undefined,
+      );
+    }
+  });
 
   // Check if our derived state has changed (e.g the className prop)
   if (
