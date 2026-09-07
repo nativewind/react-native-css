@@ -9,6 +9,7 @@ import type {
 
 import {
   activeFamily,
+  containerAttributesFamily,
   containerHeightFamily,
   containerWidthFamily,
   focusFamily,
@@ -16,7 +17,7 @@ import {
   type ContainerContextValue,
   type Getter,
 } from "../reactivity";
-// import { testAttributes } from "./attributes";
+import { testAttributes } from "./attributes";
 import type { RenderGuard } from "./guards";
 
 export const DEFAULT_CONTAINER_NAME = "c:___default___";
@@ -47,9 +48,16 @@ export function testContainerQuery(
     return false;
   }
 
-  // if (query.a && !testAttributes(query.a, container.props, guards)) {
-  //   return false;
-  // }
+  // The container's props, not this element's — read through `get` so this element's rule effect
+  // subscribes to them and re-evaluates when the ancestor changes. No render guard is recorded:
+  // a guard is checked against this element's own `currentProps`, which cannot speak for another
+  // component's (see `testAttributes`).
+  if (
+    query.a &&
+    !testAttributes(query.a, get(containerAttributesFamily(container)))
+  ) {
+    return false;
+  }
 
   if (query.m && !testContainerMediaCondition(query.m, container, get)) {
     return false;
