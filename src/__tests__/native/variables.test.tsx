@@ -271,3 +271,120 @@ test("variable overriding with classes", () => {
   const component = screen.getByTestId(testID);
   expect(component.props.style).toStrictEqual({ color: "#f00" });
 });
+
+/**
+ * css-cascade-4 §7.2 makes inheritance a DEFAULTING step: an element inherits a
+ * property only when the cascade produces no declared value for it. A custom
+ * property is an ordinary property (css-variables-1 §2), so an element that
+ * declares `--x` in one of its own matched rules uses that value, whatever any
+ * ancestor declares.
+ *
+ * These cases use no `vars()`. A rule's `v` entries and a `vars()` object land
+ * in the same runtime bucket (`calculate-props.ts`), so the ordering is one
+ * behaviour — but plain stylesheet CSS is the half every consumer writes, and
+ * it is the half that had no coverage.
+ *
+ * `--my-var` is declared more than once in every sheet below on purpose:
+ * `inline-variables.ts` folds a singly-declared custom property into the
+ * declaration that reads it, and a folded property performs no runtime lookup
+ * at all — so the one-definition form of each of these passes without reaching
+ * the code under test. `src/__tests__/compiler/inline-variables.test.ts` pins
+ * that fold, so this requirement is checkable rather than remembered.
+ */
+const DEFEAT_INLINING = `.elsewhere { --my-var: seed; }`;
+
+test("an element's own rule outranks an ancestor's rule", () => {
+  registerCSS(`
+    ${DEFEAT_INLINING}
+    .ancestor { --my-var: red; }
+    .own { --my-var: blue; color: var(--my-var); }
+  `);
+
+  render(
+    <View className="ancestor">
+      <View testID={testID} className="own" />
+    </View>,
+  );
+
+  expect(screen.getByTestId(testID).props.style).toStrictEqual({
+    color: "blue",
+  });
+});
+
+test("an element's own rule outranks a VariableContextProvider", () => {
+  registerCSS(`
+    ${DEFEAT_INLINING}
+    .own { --my-var: blue; color: var(--my-var); }
+  `);
+
+  render(
+    <VariableContextProvider value={{ "--my-var": "red" }}>
+      <View testID={testID} className="own" />
+    </VariableContextProvider>,
+  );
+
+  expect(screen.getByTestId(testID).props.style).toStrictEqual({
+    color: "blue",
+  });
+});
+
+test("an element's own rule outranks :root", () => {
+  registerCSS(`
+    :root { --my-var: red; }
+    ${DEFEAT_INLINING}
+    .own { --my-var: blue; color: var(--my-var); }
+  `);
+
+  render(<View testID={testID} className="own" />);
+
+  expect(screen.getByTestId(testID).props.style).toStrictEqual({
+    color: "blue",
+  });
+});
+
+test("a changed inherited value does not displace the element's own declaration", () => {
+  registerCSS(`
+    ${DEFEAT_INLINING}
+    .own { --my-var: blue; color: var(--my-var); }
+  `);
+
+  const tree = (inherited: string) => (
+    <VariableContextProvider value={{ "--my-var": inherited }}>
+      <View testID={testID} className="own" />
+    </VariableContextProvider>
+  );
+
+  render(tree("red"));
+  const component = screen.getByTestId(testID);
+  expect(component.props.style).toStrictEqual({ color: "blue" });
+
+  // The re-render is the part worth having: the inherited value is what the
+  // render guard is keyed on, so a context change re-resolves the element even
+  // though its answer must not move.
+  screen.rerender(tree("green"));
+  expect(component.props.style).toStrictEqual({ color: "blue" });
+});
+
+test("a declaring element's value still reaches its descendants", () => {
+  registerCSS(`
+    ${DEFEAT_INLINING}
+    .own { --my-var: blue; color: var(--my-var); }
+    .reader { color: var(--my-var); }
+  `);
+
+  render(
+    <View testID="parent" className="own">
+      <View testID="child" className="reader" />
+    </View>,
+  );
+
+  // Consulting the element's own record first must not stop it publishing that
+  // record downwards — the declaration is both its own value and the one its
+  // descendants inherit.
+  expect(screen.getByTestId("parent").props.style).toStrictEqual({
+    color: "blue",
+  });
+  expect(screen.getByTestId("child").props.style).toStrictEqual({
+    color: "blue",
+  });
+});
