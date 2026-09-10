@@ -46,11 +46,6 @@ export function varResolver(
     return;
   }
 
-  if (name in variables) {
-    renderGuards?.push(["v", name, variables[name]]);
-    return resolve(variables[name]);
-  }
-
   variableHistory.add(name);
 
   let value = resolve(inlineVariables?.[name] as StyleDescriptor);
@@ -61,13 +56,11 @@ export function varResolver(
     return value;
   }
 
-  value = resolve(variables[name]);
-  if (value !== undefined) {
-    renderGuards?.push(["v", name, value]);
-    options.inlineVariables ??= { [VAR_SYMBOL]: "inline" };
-    options.inlineVariables[name] = value;
-
-    return value;
+  // Variables declared on this element take precedence over inherited values.
+  // Guards retain the ancestor's raw descriptor, matching the context value.
+  if (name in variables) {
+    renderGuards?.push(["v", name, variables[name]]);
+    return resolve(variables[name]);
   }
 
   value = resolve(get(universalVariables(name)));

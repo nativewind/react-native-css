@@ -3,22 +3,17 @@ import type { StyleDescriptor, StyleFunction } from "react-native-css/compiler";
 export function isStyleDescriptorArray(
   value: unknown,
 ): value is StyleDescriptor[] {
-  if (Array.isArray(value)) {
-    // If its an array and the first item is an object, the only allowed value is an array
-    return typeof value[0] === "object" ? Array.isArray(value[0]) : true;
-  }
-
-  return false;
+  return Array.isArray(value) && !isStyleFunction(value);
 }
 
-export function isStyleFunction(
-  value: StyleDescriptor,
-): value is StyleFunction {
-  if (Array.isArray(value)) {
-    return typeof value[0] === "object"
-      ? Object.keys(value[0]).length === 0
-      : false;
-  }
-
-  return false;
+export function isStyleFunction(value: unknown): value is StyleFunction {
+  if (!Array.isArray(value)) return false;
+  const marker: unknown = value[0];
+  return (
+    marker !== null &&
+    typeof marker === "object" &&
+    !Array.isArray(marker) &&
+    Object.keys(marker).length === 0 &&
+    typeof value[1] === "string"
+  );
 }

@@ -186,6 +186,9 @@ export const stylesFamily = family(
 export function getStyledProps(
   state: ComponentState,
   inline: Record<string, any> | undefined | null,
+  adaptProps: (
+    props: Record<string, any> | undefined,
+  ) => Record<string, any> | undefined = (props) => props,
 ) {
   let result: Record<string, any> | undefined;
 
@@ -208,7 +211,7 @@ export function getStyledProps(
   for (const config of state.configs) {
     result = deepMergeConfig(
       config,
-      nativeStyleMapping(config, styledProps?.normal),
+      nativeStyleMapping(config, adaptProps(styledProps?.normal)),
       inline,
       true,
     );
@@ -217,7 +220,7 @@ export function getStyledProps(
       result = deepMergeConfig(
         config,
         result,
-        nativeStyleMapping(config, styledProps.important),
+        nativeStyleMapping(config, adaptProps(styledProps.important)),
       );
     }
 
@@ -548,7 +551,11 @@ function nativeStyleMapping(
   config: Config,
   props: Record<string, any> | undefined,
 ) {
-  if (!config.nativeStyleMapping || !props) {
+  if (!props) {
+    return props;
+  }
+  if (!config.nativeStyleMapping) {
+    if (config.target === false) delete props.style;
     return props;
   }
 
@@ -597,5 +604,6 @@ function nativeStyleMapping(
     target[lastToken!] = styleValue;
   }
 
+  if (config.target === false) delete props.style;
   return props;
 }

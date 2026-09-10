@@ -7,7 +7,7 @@ import {
   useState,
   type ComponentType,
 } from "react";
-import { Pressable, View } from "react-native";
+import { Image, Pressable, StyleSheet, View } from "react-native";
 
 import { VariableContext } from "react-native-css/native-internal";
 
@@ -137,7 +137,11 @@ export function useNativeCss(
     return createElement(Fragment);
   }
 
-  let props = getStyledProps(state, originalProps);
+  let props = getStyledProps(
+    state,
+    originalProps,
+    type === Image ? adaptImageProps : undefined,
+  );
 
   if (type === View && props?.onPress) {
     type = Pressable;
@@ -156,8 +160,18 @@ export function useNativeCss(
   }
 
   if (state.containers) {
+    // Publish a new props snapshot even when this component's own rules did not
+    // change. Descendants can depend on an ancestor attribute through a group.
+    const containers = Object.fromEntries(
+      Object.entries(state.containers).map(([name, container]) => [
+        name,
+        container.key === state.ruleEffectGetter
+          ? { key: container.key, props: originalProps }
+          : (inheritedContainers[name] ?? container),
+      ]),
+    );
     props = {
-      value: state.containers,
+      value: containers,
       children: createElement(type, props),
     };
     type = ContainerContext.Provider;
@@ -181,12 +195,12 @@ export function mappingToConfig(mapping: StyledConfiguration<any>) {
     } else if (typeof value === "string") {
       return { source: key, target: value.split(".") };
     } else if (typeof value === "object") {
-      const nativeStyleMapping = value.nativeStyleMapping
+      // Keep the declared deprecated alias working. The current spelling wins
+      // when both are provided, including an intentionally empty mapping.
+      const mapping = value.nativeStyleMapping ?? value.nativeStyleToProp;
+      const nativeStyleMapping = mapping
         ? Object.fromEntries(
-            Object.entries(value.nativeStyleMapping).map(([k, v]) => [
-              k,
-              v === true ? k : v,
-            ]),
+            Object.entries(mapping).map(([k, v]) => [k, v === true ? k : v]),
           )
         : undefined;
 
@@ -213,4 +227,15 @@ export function mappingToConfig(mapping: StyledConfiguration<any>) {
 
     throw new Error(`styled(): Invalid mapping for ${key}: ${value}`);
   });
+}
+
+// Apply native Image fitting before normal, inline, and important props merge.
+// The compiler's contentFit mapping remains available to Expo Image adapters.
+function adaptImageProps(props: Record<string, any> | undefined) {
+  if (!props || !("contentFit" in props)) return props;
+  const { contentFit, style, ...rest } = props;
+  return {
+    ...rest,
+    style: { ...StyleSheet.flatten(style), objectFit: contentFit },
+  };
 }

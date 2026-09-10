@@ -36,7 +36,7 @@ function testAttribute(
     case "!":
       return !value;
     case "=":
-      return value == testValue;
+      return (typeof value === "boolean" ? String(value) : value) == testValue;
     case "~=":
       return testValue && value?.toString().split(" ").includes(testValue);
     case "|=":

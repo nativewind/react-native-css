@@ -16,7 +16,7 @@ import {
   type ContainerContextValue,
   type Getter,
 } from "../reactivity";
-// import { testAttributes } from "./attributes";
+import { testAttributes } from "./attributes";
 import type { RenderGuard } from "./guards";
 
 export const DEFAULT_CONTAINER_NAME = "c:___default___";
@@ -47,15 +47,17 @@ export function testContainerQuery(
     return false;
   }
 
-  // if (query.a && !testAttributes(query.a, container.props, guards)) {
-  //   return false;
-  // }
-
-  if (query.m && !testContainerMediaCondition(query.m, container, get)) {
+  // Ancestor snapshots have their own context guard. Their attributes must not
+  // be compared with this descendant's props by the ordinary attribute guards.
+  if (query.a && !testAttributes(query.a, container.props, [])) {
     return false;
   }
 
-  if (query.p && !testContainerPseudoCondition(query.p, container, get)) {
+  if (query.m && !testContainerMediaCondition(query.m, container.key, get)) {
+    return false;
+  }
+
+  if (query.p && !testContainerPseudoCondition(query.p, container.key, get)) {
     return false;
   }
 
@@ -119,11 +121,11 @@ function testContainerMediaCondition(
         case ">":
           return left > right;
         case ">=":
-          return left > right;
+          return left >= right;
         case "<":
-          return left > right;
+          return left < right;
         case "<=":
-          return left > right;
+          return left <= right;
         default:
           condition[0] satisfies never;
           return false;

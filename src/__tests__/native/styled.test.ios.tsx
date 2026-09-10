@@ -6,7 +6,7 @@ import { styled } from "react-native-css/runtime";
 
 const children = undefined;
 
-test.skip("static styles w/ only target", () => {
+test("static styles w/ only target", () => {
   registerCSS(`
     .text-blue-500 {
       color: blue;
@@ -26,12 +26,12 @@ test.skip("static styles w/ only target", () => {
     testID,
     children,
     style: {
-      color: "#0000ff",
+      color: "#00f",
     },
   });
 });
 
-test.skip("static styles w/ target & nativeStyleMapping", () => {
+test("static styles w/ target & nativeStyleMapping", () => {
   registerCSS(`
     .text-blue-500 {
       color: blue;
@@ -57,14 +57,14 @@ test.skip("static styles w/ target & nativeStyleMapping", () => {
   expect(component.props).toStrictEqual({
     testID,
     children,
-    myColor: "#0000ff",
+    myColor: "#00f",
     other: {
-      backgroundColor: "#ff0000",
+      backgroundColor: "#f00",
     },
   });
 });
 
-test.skip("static styles w/ target none", () => {
+test("static styles w/ target none", () => {
   registerCSS(`
     .text-blue-500 {
       color: blue;
@@ -90,11 +90,11 @@ test.skip("static styles w/ target none", () => {
   expect(component.props).toStrictEqual({
     testID,
     children,
-    myColor: "#0000ff",
+    myColor: "#00f",
   });
 });
 
-test.skip("dynamic styles w/ target & nativeStyleToProp", () => {
+test("dynamic styles w/ target & nativeStyleToProp", () => {
   registerCSS(`
     .text-blue-500 {
       --blue: blue;
@@ -122,9 +122,59 @@ test.skip("dynamic styles w/ target & nativeStyleToProp", () => {
   expect(component.props).toStrictEqual({
     testID,
     children,
-    myColor: "blue",
+    myColor: "#00f",
     other: {
-      backgroundColor: "red",
+      backgroundColor: "#f00",
     },
   });
 });
+
+// Both spellings are part of the declared API during migration.
+test.each(["nativeStyleMapping", "nativeStyleToProp"] as const)(
+  "%s updates, removes, and restores mapped values without discarding inline styles",
+  (option) => {
+    registerCSS(`.first { color: blue; background-color: red; }
+      .second { color: green; background-color: red; }`);
+    const StyledView = styled(View, {
+      className: { target: false, [option]: { color: "accessibilityLabel" } },
+    });
+    render(<StyledView testID={testID} style={{ opacity: 0.4 }} />);
+    for (const [className, expected] of [
+      ["first", "#00f"],
+      ["second", "#008000"],
+      ["", undefined],
+      ["first", "#00f"],
+    ] as const) {
+      const element = (
+        <StyledView
+          testID={testID}
+          className={className}
+          style={{ opacity: 0.4 }}
+        />
+      );
+      screen.rerender(element);
+      expect(screen.getByTestId(testID).props.accessibilityLabel).toBe(
+        expected,
+      );
+      expect(screen.getByTestId(testID).props.style).toEqual({ opacity: 0.4 });
+    }
+  },
+);
+
+test.each([false, true])(
+  "current mapping wins over deprecated alias (empty: %s)",
+  (empty) => {
+    registerCSS(`.subject { color: blue; }`);
+    const StyledView = styled(View, {
+      className: {
+        target: "style",
+        nativeStyleMapping: empty ? {} : { color: "accessibilityLabel" },
+        nativeStyleToProp: { color: "testID" },
+      },
+    });
+    render(<StyledView testID={testID} className="subject" />);
+    const props = screen.getByTestId(testID).props;
+    expect(props.accessibilityLabel).toBe(empty ? undefined : "#00f");
+    if (empty) expect(props.style).toEqual({ color: "#00f" });
+  },
+);

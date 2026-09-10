@@ -1,6 +1,6 @@
 /* eslint-disable  */
 import { useContext, useState, type ComponentType } from "react";
-import { Appearance } from "react-native";
+import { Appearance, type ViewStyle } from "react-native";
 
 import type { StyleDescriptor } from "react-native-css/compiler";
 import { VariableContext } from "react-native-css/native-internal";
@@ -73,7 +73,7 @@ export const colorScheme: ColorScheme = {
     return colorSchemeObs.get() ?? Appearance.getColorScheme() ?? "light";
   },
   set(value) {
-    return colorSchemeObs.set(value);
+    return colorSchemeObs.set(value === "unspecified" ? null : value);
   },
 };
 
@@ -114,11 +114,11 @@ export function useNativeVariable(name: string) {
 /**
  * @deprecated Use `<VariableContextProvider />` instead.
  */
-export function vars(variables: Record<string, StyleDescriptor>) {
+export function vars(variables: Record<string, StyleDescriptor>): ViewStyle {
   return Object.assign(
     { [VAR_SYMBOL]: "inline" },
     Object.fromEntries(
       Object.entries(variables).map(([k, v]) => [k.replace(/^--/, ""), v]),
     ),
-  );
+  ) as ViewStyle;
 }

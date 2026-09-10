@@ -12,12 +12,8 @@ import {
 import { copyComponentProperties } from "./copyComponentProperties";
 
 const mapping: StyledConfiguration<typeof RNImageBackground> = {
-  className: {
-    target: "style",
-    nativeStyleMapping: {
-      backgroundColor: true,
-    },
-  },
+  className: "style",
+  imageClassName: "imageStyle",
 };
 
 export const ImageBackground = copyComponentProperties(

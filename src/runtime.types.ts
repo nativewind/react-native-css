@@ -90,10 +90,7 @@ interface StyledConfigurationObject<
         ComponentProps<C>
       >;
   /** @deprecated Please use nativeStyleMapping */
-  nativeStyleToProp?: NativeStyleMapping<
-    ResolveDotPath<T, ComponentProps<C>>,
-    ComponentProps<C>
-  >;
+  nativeStyleToProp?: StyledConfigurationObject<C, T>["nativeStyleMapping"];
 }
 
 type NativeStyleMapping<T, S> = T extends object
@@ -145,6 +142,6 @@ export type RNStyle = ViewStyle & TextStyle & ImageStyle;
 /********************************    Globals    ********************************/
 
 export interface ColorScheme {
-  get: () => ColorSchemeName;
-  set: (value: ColorSchemeName) => void;
+  get: () => ColorSchemeName | null | undefined;
+  set: (value: ColorSchemeName | null | undefined) => void;
 }

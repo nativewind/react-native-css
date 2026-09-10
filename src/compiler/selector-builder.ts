@@ -260,7 +260,12 @@ function parseComponents(
           ? // [data-*] are turned into `dataSet` queries
             ["d", toRNProperty(component.name.replace("data-", ""))]
           : // Everything else is turned into `attribute` queries
-            ["a", toRNProperty(component.name)];
+            [
+              "a",
+              component.name.startsWith("aria-")
+                ? component.name
+                : toRNProperty(component.name),
+            ];
         if (component.operation) {
           let operator: AttrSelectorOperator | undefined;
           switch (component.operation.operator) {
@@ -464,7 +469,12 @@ function parseIsWhereComponents(
         ? // [data-*] are turned into `dataSet` queries
           ["d", toRNProperty(component.name.replace("data-", ""))]
         : // Everything else is turned into `attribute` queries
-          ["a", toRNProperty(component.name)];
+          [
+            "a",
+            component.name.startsWith("aria-")
+              ? component.name
+              : toRNProperty(component.name),
+          ];
       if (component.operation) {
         const operator = operatorMap[component.operation.operator];
         // Append the operator onto the attribute query

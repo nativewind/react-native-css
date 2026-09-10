@@ -73,7 +73,7 @@ export const colorScheme: ColorScheme = {
     return Appearance.getColorScheme();
   },
   set(name) {
-    Appearance.setColorScheme(name);
+    Appearance.setColorScheme(name ?? "unspecified");
   },
 };
 

@@ -5,6 +5,7 @@ import type {
   StyleDescriptor,
   StyleFunction,
 } from "react-native-css/compiler";
+import { isStyleDescriptorArray } from "react-native-css/utilities";
 
 import type { RenderGuard } from "../conditions/guards";
 import { type Getter, type VariableContextValue } from "../reactivity";
@@ -12,6 +13,7 @@ import type { calculateProps } from "./calculate-props";
 import { transformKeys } from "./defaults";
 import * as functions from "./functions";
 import { lineHeight } from "./line-height";
+import { scaleFactor } from "./scale-factor";
 import * as shorthands from "./shorthands";
 import { em, rem, vh, vw } from "./units";
 import { varResolver } from "./variables";
@@ -77,7 +79,7 @@ export function resolveValue(
         return null;
       } else if (value.endsWith("px")) {
         // Inline vars() might set a value with a px suffix
-        return parseInt(value.slice(0, -2), 10);
+        return parseFloat(value.slice(0, -2));
       } else {
         return value;
       }
@@ -87,7 +89,7 @@ export function resolveValue(
         return value;
       }
 
-      if (isDescriptorArray(value)) {
+      if (isStyleDescriptorArray(value)) {
         value = value
           .map((d) => resolveValue(d, get, options))
           .filter((d) => d !== undefined);
@@ -122,7 +124,16 @@ export function resolveValue(
         ) as StyleDescriptor;
       } else if (transformKeys.has(name)) {
         // translate, rotate, scale, etc.
-        return { [name]: simpleResolve(value[2], castToArray) };
+        let resolved = simpleResolve(value[2], castToArray);
+        // CSS scale percentages describe a factor, unlike translation percentages.
+        if (
+          (name === "scaleX" || name === "scaleY" || name === "scale") &&
+          typeof resolved === "string" &&
+          resolved.endsWith("%")
+        ) {
+          resolved = scaleFactor(resolved);
+        }
+        return { [name]: resolved };
       } else {
         let args = simpleResolve(value[2], castToArray);
 
@@ -153,12 +164,4 @@ export function resolveValue(
       return castToArray && value && !Array.isArray(value) ? [value] : value;
     }
   }
-}
-
-function isDescriptorArray(
-  value: StyleDescriptor | StyleDescriptor[],
-): value is StyleDescriptor[] {
-  return Array.isArray(value) && typeof value[0] === "object"
-    ? Array.isArray(value[0])
-    : true;
 }

@@ -97,3 +97,17 @@ export const dropShadow: StyleFunctionResolver = (
       }
     : undefined;
 };
+
+/** CSS variables may expand to multiple filters; native filter arrays must be flat. */
+export const filter: StyleFunctionResolver = (resolveValue, descriptor) => {
+  const value: unknown = resolveValue(descriptor[2]);
+  if (Array.isArray(value)) {
+    const filters: unknown[] = value.flat(Infinity);
+    return filters.filter(
+      (entry) => entry !== undefined && entry !== "initial",
+    );
+  }
+  if (value === undefined || value === "initial") return;
+  if (value === "none") return null;
+  return typeof value === "string" ? value : [value];
+};

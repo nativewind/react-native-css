@@ -37,6 +37,7 @@ import type {
 } from "lightningcss";
 
 import { isStyleFunction } from "../utilities";
+import { isMappingProperty } from "./atRules";
 import type {
   StyleDescriptor,
   StyleFunction,
@@ -62,13 +63,36 @@ type Parser<T extends Declaration["property"] = Declaration["property"]> = (
 
 const propertyRename: Record<string, string> = {
   "background-image": "experimental_backgroundImage",
+  // React Native has no border-inline-* props, but ships the equivalent
+  // RTL-aware border-start-* / border-end-* props
+  "border-inline-end-color": "border-end-color",
+  "border-inline-end-width": "border-end-width",
+  "border-inline-start-color": "border-start-color",
+  "border-inline-start-width": "border-start-width",
+  "border-block-start-width": "border-top-width",
+  "border-block-end-width": "border-bottom-width",
   "font-variant-caps": "font-variant",
 };
+
+// React Native only supports a uniform borderStyle, so per-side border
+// styles have no native equivalent and are dropped. "solid" is dropped
+// silently as it matches React Native's default rendering.
+const unsupportedLogicalStyles = new Set([
+  "border-inline-style",
+  "border-inline-start-style",
+  "border-inline-end-style",
+  "border-block-style",
+  "border-block-start-style",
+  "border-block-end-style",
+]);
 
 const unparsedRuntimeParsing = new Set([
   "animation",
   "border",
+  "border-block-width",
+  "border-inline-width",
   "box-shadow",
+  "filter",
   "line-height",
   "rotate",
   "scale",
@@ -102,10 +126,11 @@ const parsers: {
   "border-block-color": parseBorderColor,
   "border-block-end": parseBorderBlockEnd,
   "border-block-end-color": parseColorDeclaration,
+  "border-block-end-style": parseBorderInlineStyle,
   "border-block-end-width": parseBorderSideWidthDeclaration,
   "border-block-start": parseBorderBlockStart,
   "border-block-start-color": parseColorDeclaration,
-  "border-block-start-style": parseBorderStyleDeclaration,
+  "border-block-start-style": parseBorderInlineStyle,
   "border-block-start-width": parseBorderSideWidthDeclaration,
   "border-block-style": parseBorderBlockStyle,
   "border-block-width": parseBorderBlockWidth,
@@ -382,14 +407,14 @@ function parseBorderColor(
     const start = parseColor(declaration.value.start, builder);
     const end = parseColor(declaration.value.end, builder);
 
-    if (start === end) {
+    if (declaration.property === "border-inline-color") {
+      builder.addDescriptor("border-start-color", start);
+      builder.addDescriptor("border-end-color", end);
+    } else if (start === end) {
       builder.addDescriptor(declaration.property, start);
-    } else if (declaration.property === "border-block-color") {
+    } else {
       builder.addDescriptor("border-top-color", start);
       builder.addDescriptor("border-bottom-color", end);
-    } else {
-      builder.addDescriptor("border-left-color", start);
-      builder.addDescriptor("border-right-color", end);
     }
   }
 }
@@ -438,13 +463,13 @@ function parseBorderBlock(
   builder: StylesheetBuilder,
 ) {
   builder.addDescriptor("border-block-color", parseColor(value.color, builder));
-  builder.addDescriptor(
-    "border-block-width",
-    parseBorderSideWidth(value.width, builder),
-  );
-  builder.addDescriptor(
-    "border-block-style",
+  const width = parseBorderSideWidth(value.width, builder);
+  builder.addDescriptor("border-top-width", width);
+  builder.addDescriptor("border-bottom-width", width);
+  dropUnsupportedInlineStyle(
     parseBorderStyle(value.style, builder),
+    builder,
+    "border-block-style",
   );
 }
 
@@ -457,8 +482,13 @@ function parseBorderBlockStart(
     parseColor(value.color, builder),
   );
   builder.addDescriptor(
-    "border-block-start-width",
+    "border-top-width",
     parseBorderSideWidth(value.width, builder),
+  );
+  dropUnsupportedInlineStyle(
+    parseBorderStyle(value.style, builder),
+    builder,
+    "border-block-start-style",
   );
 }
 
@@ -471,8 +501,13 @@ function parseBorderBlockEnd(
     parseColor(value.color, builder),
   );
   builder.addDescriptor(
-    "border-block-end-width",
+    "border-bottom-width",
     parseBorderSideWidth(value.width, builder),
+  );
+  dropUnsupportedInlineStyle(
+    parseBorderStyle(value.style, builder),
+    builder,
+    "border-block-end-style",
   );
 }
 
@@ -480,17 +515,17 @@ function parseBorderInline(
   { value }: DeclarationType<"border-inline">,
   builder: StylesheetBuilder,
 ) {
-  builder.addDescriptor(
-    "border-inline-color",
-    parseColor(value.color, builder),
-  );
-  builder.addDescriptor(
-    "border-inline-width",
-    parseBorderSideWidth(value.width, builder),
-  );
-  builder.addDescriptor(
-    "border-inline-style",
+  const color = parseColor(value.color, builder);
+  const width = parseBorderSideWidth(value.width, builder);
+
+  builder.addDescriptor("border-start-color", color);
+  builder.addDescriptor("border-end-color", color);
+  builder.addDescriptor("border-start-width", width);
+  builder.addDescriptor("border-end-width", width);
+  dropUnsupportedInlineStyle(
     parseBorderStyle(value.style, builder),
+    builder,
+    "border-inline-style",
   );
 }
 
@@ -498,17 +533,15 @@ function parseBorderInlineStart(
   { value }: DeclarationType<"border-inline-start">,
   builder: StylesheetBuilder,
 ) {
+  builder.addDescriptor("border-start-color", parseColor(value.color, builder));
   builder.addDescriptor(
-    "border-inline-start-color",
-    parseColor(value.color, builder),
-  );
-  builder.addDescriptor(
-    "border-inline-start-width",
+    "border-start-width",
     parseBorderSideWidth(value.width, builder),
   );
-  builder.addDescriptor(
-    "border-inline-start-style",
+  dropUnsupportedInlineStyle(
     parseBorderStyle(value.style, builder),
+    builder,
+    "border-inline-start-style",
   );
 }
 
@@ -516,17 +549,15 @@ function parseBorderInlineEnd(
   { value }: DeclarationType<"border-inline-end">,
   builder: StylesheetBuilder,
 ) {
+  builder.addDescriptor("border-end-color", parseColor(value.color, builder));
   builder.addDescriptor(
-    "border-inline-end-color",
-    parseColor(value.color, builder),
-  );
-  builder.addDescriptor(
-    "border-inline-end-width",
+    "border-end-width",
     parseBorderSideWidth(value.width, builder),
   );
-  builder.addDescriptor(
-    "border-inline-end-style",
+  dropUnsupportedInlineStyle(
     parseBorderStyle(value.style, builder),
+    builder,
+    "border-inline-end-style",
   );
 }
 
@@ -535,8 +566,12 @@ export function parseBorderInlineWidth(
   builder: StylesheetBuilder,
 ) {
   builder.addDescriptor(
-    "border-inline-width",
+    "border-start-width",
     parseBorderSideWidth(declaration.value.start, builder),
+  );
+  builder.addDescriptor(
+    "border-end-width",
+    parseBorderSideWidth(declaration.value.end, builder),
   );
 }
 
@@ -545,28 +580,38 @@ export function parseBorderInlineStyle(
     | "border-inline-style"
     | "border-inline-start-style"
     | "border-inline-end-style"
+    | "border-block-start-style"
+    | "border-block-end-style"
   >,
   builder: StylesheetBuilder,
 ) {
   if (typeof declaration.value === "string") {
-    builder.addDescriptor(
-      declaration.property,
+    dropUnsupportedInlineStyle(
       parseBorderStyle(declaration.value, builder),
-    );
-  } else if (declaration.value.start === declaration.value.end) {
-    builder.addDescriptor(
+      builder,
       declaration.property,
-      parseBorderStyle(declaration.value.start, builder),
     );
   } else {
-    builder.addDescriptor(
-      "border-inline-start-style",
+    dropUnsupportedInlineStyle(
       parseBorderStyle(declaration.value.start, builder),
+      builder,
+      "border-inline-start-style",
     );
-    builder.addDescriptor(
-      "border-inline-end-style",
+    dropUnsupportedInlineStyle(
       parseBorderStyle(declaration.value.end, builder),
+      builder,
+      "border-inline-end-style",
     );
+  }
+}
+
+function dropUnsupportedInlineStyle(
+  style: string | undefined,
+  builder: StylesheetBuilder,
+  property: string,
+) {
+  if (style !== undefined && style !== "solid") {
+    builder.addWarning("style", property, style);
   }
 }
 
@@ -839,7 +884,7 @@ export function parseScaleValue(
   builder: StylesheetBuilder,
 ): StyleDescriptor {
   if (translate === "none") {
-    return 0;
+    return 1;
   }
 
   return parseLength(translate[prop], builder);
@@ -917,6 +962,11 @@ export function parseUnparsedDeclaration(
     return;
   }
 
+  if (unsupportedLogicalStyles.has(property)) {
+    builder.addWarning("property", property);
+    return;
+  }
+
   builder.setWarningProperty(property);
 
   /**
@@ -967,7 +1017,10 @@ export function parseCustomDeclaration(
 ) {
   const property = declaration.value.name;
 
-  if (property === "-webkit-line-clamp") {
+  if (isMappingProperty(property)) {
+    // Consumed before declarations so property order cannot affect mapping.
+    return;
+  } else if (property === "-webkit-line-clamp") {
     builder.addDescriptor(
       property,
       parseUnparsed(declaration.value.value, builder, property),
@@ -1607,7 +1660,7 @@ export function parseColorDeclaration(
   builder: StylesheetBuilder,
 ) {
   builder.addDescriptor(
-    declaration.property,
+    propertyRename[declaration.property] ?? declaration.property,
     parseColor(declaration.value, builder),
   );
 }
@@ -2163,12 +2216,8 @@ export function parseBorderBlockWidth(
   const start = parseBorderSideWidth(declaration.value.start, builder);
   const end = parseBorderSideWidth(declaration.value.end, builder);
 
-  if (start === end) {
-    builder.addDescriptor("border-block-width", start);
-  } else {
-    builder.addDescriptor("border-block-start-width", start);
-    builder.addDescriptor("border-block-end-width", end);
-  }
+  builder.addDescriptor("border-top-width", start);
+  builder.addDescriptor("border-bottom-width", end);
 }
 
 function parseBorderBlockStyle(
@@ -2178,12 +2227,8 @@ function parseBorderBlockStyle(
   const start = parseBorderStyle(declaration.value.start, builder);
   const end = parseBorderStyle(declaration.value.end, builder);
 
-  if (start == end) {
-    builder.addDescriptor("border-block-style", start);
-  } else {
-    builder.addDescriptor("border-block-start-style", start);
-    builder.addDescriptor("border-block-end-style", end);
-  }
+  dropUnsupportedInlineStyle(start, builder, "border-block-start-style");
+  dropUnsupportedInlineStyle(end, builder, "border-block-end-style");
 }
 
 export function parseBorderSideWidthDeclaration(
@@ -2191,7 +2236,7 @@ export function parseBorderSideWidthDeclaration(
   builder: StylesheetBuilder,
 ) {
   builder.addDescriptor(
-    declaration.property,
+    propertyRename[declaration.property] ?? declaration.property,
     parseBorderSideWidth(declaration.value, builder),
   );
 }
@@ -2235,12 +2280,10 @@ export function parseLineHeightDeclaration(
   declaration: DeclarationType<"line-height">,
   builder: StylesheetBuilder,
 ) {
-  builder.addDescriptor("line-height", [
-    {},
-    "lineHeight",
-    [parseLineHeight(declaration.value, builder)],
-    1,
-  ]);
+  builder.addDescriptor(
+    "line-height",
+    parseLineHeight(declaration.value, builder),
+  );
 }
 
 export function parseLineHeight(
@@ -2251,7 +2294,7 @@ export function parseLineHeight(
     case "normal":
       return undefined;
     case "number":
-      return [{}, "em", [value.value], 1];
+      return [{}, "em", value.value, 1];
     case "length": {
       const length = value.value;
 
@@ -3144,21 +3187,25 @@ function parseBackgroundImage(
   declaration: DeclarationType<"background-image">,
   builder: StylesheetBuilder,
 ) {
-  builder.addDescriptor(
-    "experimental_backgroundImage",
-    declaration.value.flatMap((image): StyleDescriptor[] => {
-      switch (image.type) {
-        case "gradient": {
-          const gradient = parseGradient(image.value, builder);
-          return gradient ? [gradient] : [];
+  builder.addDescriptor("experimental_backgroundImage", [
+    {},
+    "join",
+    [
+      declaration.value.flatMap((image): StyleDescriptor[] => {
+        switch (image.type) {
+          case "gradient": {
+            const gradient = parseGradient(image.value, builder);
+            return gradient ? [gradient] : [];
+          }
+          case "none":
+            return ["none"];
         }
-        case "none":
-          return ["none"];
-      }
 
-      return [];
-    }),
-  );
+        return [];
+      }),
+      ", ",
+    ],
+  ]);
   return;
 }
 
@@ -3213,10 +3260,10 @@ function parseGradientItem(
         args.push(parseLength(item.position, builder));
       }
 
-      return [{}, "@colorStop", args, 1];
+      return [{}, "colorStop", args, 1];
     }
     case "hint":
-      return parseLength(item.value, builder);
+      return [{}, "gradientPosition", parseLength(item.value, builder), 1];
   }
 }
 
@@ -3316,7 +3363,7 @@ function parseFilter(
           } as unknown as StyleDescriptor;
         case "hue-rotate":
           return {
-            [value.type]: parseAngle(value.value, builder),
+            [toRNProperty(value.type)]: parseAngle(value.value, builder),
           } as unknown as StyleDescriptor;
         case "drop-shadow":
           return [

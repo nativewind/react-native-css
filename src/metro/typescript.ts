@@ -1,5 +1,6 @@
 /* eslint-disable */
 import { existsSync, readFileSync, writeFileSync } from "fs";
+import { dirname, relative, resolve } from "node:path";
 
 import { CommentArray, parse, stringify } from "comment-json";
 
@@ -16,10 +17,16 @@ export function setupTypeScript(
     }
 
     const configFileName = ts.findConfigFile(
-      "./",
+      resolve("."),
       ts.sys.fileExists,
       "tsconfig.json",
     );
+
+    if (!configFileName) return;
+
+    const configDirectory = dirname(resolve(configFileName));
+    const environmentFile = resolve(envPath);
+    const relativeEnvironmentFile = relative(configDirectory, environmentFile);
 
     const userConfig = parse(
       readFileSync(configFileName, {
@@ -48,16 +55,55 @@ export function setupTypeScript(
       output.push(`Created ${cyan(envPath)}`);
     }
 
-    userConfig.include ??= new CommentArray(envPath);
     if (
       Array.isArray(userConfig.include) &&
-      !userConfig.include.includes(envPath)
+      !(
+        Array.isArray(userConfig.files) &&
+        userConfig.files.includes(relativeEnvironmentFile)
+      ) &&
+      !userConfig.include.includes(relativeEnvironmentFile)
     ) {
-      userConfig.include.push(envPath);
+      userConfig.include.push(relativeEnvironmentFile);
       updatedConfig = true;
       output.push(
         `Updated ${configFileName} to include the ${cyan(envPath)} file`,
       );
+    }
+
+    // Resolve inheritance on a copy so comments and the user's own settings survive.
+    const effectiveConfig = ts.parseJsonConfigFileContent(
+      JSON.parse(JSON.stringify(userConfig)),
+      ts.sys,
+      configDirectory,
+      {},
+      resolve(configFileName),
+    );
+    if (
+      !effectiveConfig.fileNames.some(
+        (file: string) => resolve(file) === environmentFile,
+      )
+    ) {
+      // A files entry can include the declaration even when inherited include or
+      // exclude settings omit it. Preserve the original implicit include as well.
+      if (
+        effectiveConfig.raw.include === undefined &&
+        effectiveConfig.raw.files === undefined
+      ) {
+        userConfig.include = new CommentArray("**/*");
+      }
+      userConfig.files ??= new CommentArray(
+        ...(effectiveConfig.raw.files || []),
+      );
+      if (
+        Array.isArray(userConfig.files) &&
+        !userConfig.files.includes(relativeEnvironmentFile)
+      ) {
+        userConfig.files.push(relativeEnvironmentFile);
+        updatedConfig = true;
+        output.push(
+          `Updated ${configFileName} to include the ${cyan(envPath)} file`,
+        );
+      }
     }
 
     if (updatedConfig) {
@@ -66,7 +112,7 @@ export function setupTypeScript(
 
     if (output.length) {
       console.log(
-        `${cyan(bold("NativeWind"))} made the following changes to your project to support TypeScript:\n  - ${output.join("\n  - ")}`,
+        `${cyan(bold("Nativewind"))} made the following changes to your project to support TypeScript:\n  - ${output.join("\n  - ")}`,
       );
     }
   } catch {}

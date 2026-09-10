@@ -216,14 +216,20 @@ Dimensions.addEventListener("change", ({ window }) => {
 
 /** Color Scheme **************************************************************/
 
-export const colorScheme = observable<ColorSchemeName>(
+export const colorScheme = observable<ColorSchemeName | null | undefined>(
   Appearance.getColorScheme(),
 );
 Appearance.addChangeListener((event) => colorScheme.set(event.colorScheme));
 
 /** Containers ****************************************************************/
 
-export type ContainerContextValue = Record<string, WeakKey>;
+export type ContainerContextValue = Record<
+  string,
+  {
+    key: WeakKey;
+    props: Record<string, unknown> | null | undefined;
+  }
+>;
 export const ContainerContext = createContext<ContainerContextValue>({});
 
 export const containerLayoutFamily = weakFamily(() => {
@@ -243,6 +249,6 @@ export const containerWidthFamily = weakFamily((key) => {
 
 export const containerHeightFamily = weakFamily((key) => {
   return observable((read) => {
-    return read(containerLayoutFamily(key))?.width || 0;
+    return read(containerLayoutFamily(key))?.height || 0;
   });
 });
