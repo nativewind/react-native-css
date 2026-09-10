@@ -133,3 +133,50 @@ describe("dataSet attribute selector", () => {
     });
   });
 });
+
+describe("[class=…] reads the prop the class list actually arrives on", () => {
+  // CSS 2.1 §5.8.1's own example is `span[class=example]`. On React Native the
+  // class list is `className`, so an unmapped query reads `props.class` — which no
+  // element has — and answers false for every element. The compiler's own compound
+  // path already maps it, building `["a", "className", "*=", name]` for a second
+  // class name in the same selector.
+  const matchedWidth = (
+    selector: string,
+    className: string,
+  ): number | undefined => {
+    registerCSS(`.test${selector} { width: 10px; }`);
+    render(<Text testID={testID} className={`test ${className}`} />);
+    const style = screen.getByTestId(testID).props.style as
+      | { width?: number }
+      | undefined;
+    return style?.width;
+  };
+
+  test("[class=val] compares against the WHOLE class list", () => {
+    // §6.1's `=` is an exact match on the attribute's value, and the value here
+    // is the entire class list — so the spec's own `span[class=example]` matches
+    // `class="example"` and not `class="test example"`, exactly as in a browser.
+    expect(matchedWidth(`[class='test example']`, "example")).toBe(10);
+    expect(matchedWidth(`[class='example']`, "example")).toBeUndefined();
+  });
+
+  test("[class~=val] finds one word of the class list", () => {
+    expect(matchedWidth(`[class~='example']`, "example")).toBe(10);
+    expect(matchedWidth(`[class~='example']`, "other")).toBeUndefined();
+  });
+
+  test("[class*=val] finds a substring of the class list", () => {
+    expect(matchedWidth(`[class*='xamp']`, "example")).toBe(10);
+    expect(matchedWidth(`[class*='xamp']`, "other")).toBeUndefined();
+  });
+
+  test("[class] is present whenever the element carries a class", () => {
+    expect(matchedWidth(`[class]`, "example")).toBe(10);
+  });
+
+  test("the name maps at the :is() build site too", () => {
+    // `:is()` builds its queries on a separate path, so the mapping has to reach
+    // it as well.
+    expect(matchedWidth(`:is([class~='example'])`, "example")).toBe(10);
+  });
+});
