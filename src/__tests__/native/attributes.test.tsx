@@ -152,6 +152,14 @@ describe("[class=…] reads the prop the class list actually arrives on", () => 
     return style?.width;
   };
 
+  test("[class=val] compares against the WHOLE class list", () => {
+    // §6.1's `=` is an exact match on the attribute's value, and the value here
+    // is the entire class list — so the spec's own `span[class=example]` matches
+    // `class="example"` and not `class="test example"`, exactly as in a browser.
+    expect(matchedWidth(`[class='test example']`, "example")).toBe(10);
+    expect(matchedWidth(`[class='example']`, "example")).toBeUndefined();
+  });
+
   test("[class~=val] finds one word of the class list", () => {
     expect(matchedWidth(`[class~='example']`, "example")).toBe(10);
     expect(matchedWidth(`[class~='example']`, "other")).toBeUndefined();
