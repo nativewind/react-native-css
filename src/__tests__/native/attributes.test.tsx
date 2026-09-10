@@ -133,3 +133,43 @@ describe("dataSet attribute selector", () => {
     });
   });
 });
+
+describe("a namespace-qualified attribute selector represents nothing", () => {
+  const matchedWidth = (selector: string): number | undefined => {
+    registerCSS(`.test${selector} { width: 10px; }`);
+    render(
+      <Text testID={testID} className="test" {...{ dataSet: { x: "a" } }} />,
+    );
+    const style = screen.getByTestId(testID).props.style as
+      | { width?: number }
+      | undefined;
+    return style?.width;
+  };
+
+  // Measured against lightningcss: only `[ns|att]` reports a `specific` namespace.
+  // `[att]` and `[|att]` report none and `[*|att]` reports `any`, and with no
+  // namespaced props in the tree those three denote the same set.
+  test.each([
+    ["no namespace", `[data-x='a']`],
+    ["explicitly no namespace", `[|data-x='a']`],
+    ["any namespace", `[*|data-x='a']`],
+  ])("%s matches the prop", (_label, selector) => {
+    expect(matchedWidth(selector)).toBe(10);
+  });
+
+  test("a declared prefix matches nothing — no prop is in a namespace", () => {
+    registerCSS(
+      `@namespace ns url(http://example.com/ns); .test[ns|data-x='a'] { width: 10px; }`,
+    );
+    render(
+      <Text testID={testID} className="test" {...{ dataSet: { x: "a" } }} />,
+    );
+    expect(screen.getByTestId(testID).props.style).toBeUndefined();
+  });
+
+  test("an undeclared prefix matches nothing — the selector is invalid", () => {
+    // Selectors L3 §6.3.3. lightningcss passes the prefix through rather than
+    // rejecting it, so dropping the selector is this compiler's job.
+    expect(matchedWidth(`[undeclared|data-x='a']`)).toBeUndefined();
+  });
+});

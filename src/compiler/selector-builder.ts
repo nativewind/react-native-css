@@ -251,6 +251,17 @@ function parseComponents(
 
         getMediaQuery(ref).push([operator, "dir", component.operation.value]);
         return parseComponents(rest, options, root, ref, specificity);
+      } else if (isNamespacedAttribute(component)) {
+        // Selectors §6 — `[ns|att]` represents only attributes in `ns`. A React
+        // Native prop is in no namespace, so nothing can match and the selector is
+        // dropped. An UNDECLARED prefix reaches here too: lightningcss passes it
+        // through rather than rejecting it, and Selectors L3 §6.3.3 makes such a
+        // selector invalid, which is the same outcome.
+        //
+        // `[att]`, `[|att]` and `[*|att]` are all unaffected — the first two name
+        // no namespace and the third names any, and with no namespaced props in
+        // the tree those three denote the same set.
+        return [];
       } else {
         // specificity[Specificity.ClassName] =
         //   (specificity[Specificity.ClassName] ?? 0) + 1;
@@ -456,6 +467,12 @@ function parseIsWhereComponents(
         return null;
       }
 
+      if (isNamespacedAttribute(component)) {
+        // See the compound path: no prop carries a namespace, so this argument
+        // represents nothing and the selector it belongs to cannot match.
+        return null;
+      }
+
       if (type !== "where") {
         // specificity[Specificity.ClassName] =
         //   (specificity[Specificity.ClassName] ?? 0) + 1;
@@ -581,6 +598,20 @@ type CamelCase<S extends string> =
   S extends `${infer P1}-${infer P2}${infer P3}`
     ? `${Lowercase<P1>}${Uppercase<P2>}${CamelCase<P3>}`
     : Lowercase<S>;
+
+/**
+ * Whether an attribute selector names a specific namespace.
+ *
+ * Measured against lightningcss: `[att]` and `[|att]` both report `null`, `[*|att]`
+ * reports `{ type: "any" }`, and only `[ns|att]` reports `{ type: "specific" }` —
+ * for a DECLARED prefix and an undeclared one alike, the second being a selector
+ * Selectors L3 §6.3.3 makes invalid.
+ */
+function isNamespacedAttribute(
+  component: Extract<Selector[number], { type: "attribute" }>,
+): boolean {
+  return component.namespace?.type === "specific";
+}
 
 const operatorMap: Record<AttrOperation["operator"], AttrSelectorOperator> = {
   "equal": "=",
