@@ -254,13 +254,12 @@ function parseComponents(
       } else {
         // specificity[Specificity.ClassName] =
         //   (specificity[Specificity.ClassName] ?? 0) + 1;
-        const attributeQuery: AttributeQuery = component.name.startsWith(
-          "data-",
-        )
+        const name = attributePropName(component.name);
+        const attributeQuery: AttributeQuery = name.startsWith("data-")
           ? // [data-*] are turned into `dataSet` queries
-            ["d", toRNProperty(component.name.replace("data-", ""))]
+            ["d", toRNProperty(name.replace("data-", ""))]
           : // Everything else is turned into `attribute` queries
-            ["a", toRNProperty(component.name)];
+            ["a", toRNProperty(name)];
         if (component.operation) {
           let operator: AttrSelectorOperator | undefined;
           switch (component.operation.operator) {
@@ -460,11 +459,12 @@ function parseIsWhereComponents(
         // specificity[Specificity.ClassName] =
         //   (specificity[Specificity.ClassName] ?? 0) + 1;
       }
-      const attributeQuery: AttributeQuery = component.name.startsWith("data-")
+      const name = attributePropName(component.name);
+      const attributeQuery: AttributeQuery = name.startsWith("data-")
         ? // [data-*] are turned into `dataSet` queries
-          ["d", toRNProperty(component.name.replace("data-", ""))]
+          ["d", toRNProperty(name.replace("data-", ""))]
         : // Everything else is turned into `attribute` queries
-          ["a", toRNProperty(component.name)];
+          ["a", toRNProperty(name)];
       if (component.operation) {
         const operator = operatorMap[component.operation.operator];
         // Append the operator onto the attribute query
@@ -581,6 +581,19 @@ type CamelCase<S extends string> =
   S extends `${infer P1}-${infer P2}${infer P3}`
     ? `${Lowercase<P1>}${Uppercase<P2>}${CamelCase<P3>}`
     : Lowercase<S>;
+
+/**
+ * The prop an attribute name is read from.
+ *
+ * `class` is the one attribute whose React Native spelling differs: the class
+ * list arrives as `className`, so an unmapped `[class=…]` query reads `props.class`
+ * — a prop no element has — and answers false for every element. The compound
+ * form already knows this, building `["a", "className", "*=", name]` for a second
+ * class name in the same selector.
+ */
+function attributePropName(name: string): string {
+  return name === "class" ? "className" : name;
+}
 
 const operatorMap: Record<AttrOperation["operator"], AttrSelectorOperator> = {
   "equal": "=",
