@@ -249,49 +249,21 @@ function parseComponents(
           return [];
         }
 
-        getMediaQuery(ref).push([operator, "dir", component.operation.value]);
+        // `dir` is on HTML's ASCII-case-insensitive attribute list, so a browser
+        // answers `[dir="RTL"]` for `dir="rtl"` with no `i` flag written. The
+        // media condition this compiles to compares literally, so the operand is
+        // folded here — which also makes an explicit `i` flag a no-op rather than
+        // something silently dropped.
+        getMediaQuery(ref).push([
+          operator,
+          "dir",
+          component.operation.value.toLowerCase(),
+        ]);
         return parseComponents(rest, options, root, ref, specificity);
       } else {
         // specificity[Specificity.ClassName] =
         //   (specificity[Specificity.ClassName] ?? 0) + 1;
-        const attributeQuery: AttributeQuery = component.name.startsWith(
-          "data-",
-        )
-          ? // [data-*] are turned into `dataSet` queries
-            ["d", toRNProperty(component.name.replace("data-", ""))]
-          : // Everything else is turned into `attribute` queries
-            ["a", toRNProperty(component.name)];
-        if (component.operation) {
-          let operator: AttrSelectorOperator | undefined;
-          switch (component.operation.operator) {
-            case "equal":
-              operator = "=";
-              break;
-            case "includes":
-              operator = "~=";
-              break;
-            case "dash-match":
-              operator = "|=";
-              break;
-            case "prefix":
-              operator = "^=";
-              break;
-            case "substring":
-              operator = "*=";
-              break;
-            case "suffix":
-              operator = "$=";
-              break;
-            default:
-              component.operation.operator satisfies never;
-              break;
-          }
-          if (operator) {
-            // Append the operator onto the attribute query
-            attributeQuery.push(operator, component.operation.value);
-          }
-        }
-        getAttributeQuery(ref).push(attributeQuery);
+        getAttributeQuery(ref).push(attributeQueryFor(component));
         specificity[Specificity.ClassName] =
           (specificity[Specificity.ClassName] ?? 0) + 1;
         return parseComponents(rest, options, root, ref, specificity);
@@ -460,16 +432,7 @@ function parseIsWhereComponents(
         // specificity[Specificity.ClassName] =
         //   (specificity[Specificity.ClassName] ?? 0) + 1;
       }
-      const attributeQuery: AttributeQuery = component.name.startsWith("data-")
-        ? // [data-*] are turned into `dataSet` queries
-          ["d", toRNProperty(component.name.replace("data-", ""))]
-        : // Everything else is turned into `attribute` queries
-          ["a", toRNProperty(component.name)];
-      if (component.operation) {
-        const operator = operatorMap[component.operation.operator];
-        // Append the operator onto the attribute query
-        attributeQuery.push(operator, component.operation.value);
-      }
+      const attributeQuery = attributeQueryFor(component);
       queries ??= [{ specificity: [] }];
       for (const query of queries) {
         if (type === "is") {
@@ -581,6 +544,42 @@ type CamelCase<S extends string> =
   S extends `${infer P1}-${infer P2}${infer P3}`
     ? `${Lowercase<P1>}${Uppercase<P2>}${CamelCase<P3>}`
     : Lowercase<S>;
+
+/**
+ * One attribute query, built in one place.
+ *
+ * Both callers — the ordinary compound path and the `:is()` / `:where()` one — used
+ * to build this inline, which is how `[dir=…]` came to be the third construction
+ * site with none of the operator handling and how a §6.3 flag could reach one
+ * caller and not the other.
+ *
+ * §6.3's flags: only `i` changes a comparison, so only `i` is emitted. `s` asks for
+ * the default, and a query carrying it would be a fifth element the runtime reads
+ * and then ignores. The HTML-document-conditional value never applies either —
+ * there is no HTML element and no HTML document for its condition to be true in, so
+ * it resolves to the default as well.
+ */
+function attributeQueryFor(
+  component: Extract<Selector[number], { type: "attribute" }>,
+): AttributeQuery {
+  const isData = component.name.startsWith("data-");
+  const query: AttributeQuery = isData
+    ? // [data-*] are turned into `dataSet` queries
+      ["d", toRNProperty(component.name.replace("data-", ""))]
+    : // Everything else is turned into `attribute` queries
+      ["a", toRNProperty(component.name)];
+
+  const operation = component.operation;
+  if (!operation) {
+    return query;
+  }
+
+  query.push(operatorMap[operation.operator], operation.value);
+  if (operation.caseSensitivity === "ascii-case-insensitive") {
+    query.push("i");
+  }
+  return query;
+}
 
 const operatorMap: Record<AttrOperation["operator"], AttrSelectorOperator> = {
   "equal": "=",
