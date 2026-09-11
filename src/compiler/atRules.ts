@@ -1,4 +1,5 @@
 import type {
+  Declaration,
   DeclarationBlock,
   ParsedComponent,
   Rule,
@@ -96,6 +97,49 @@ export function parsePropAtRule(rules?: (Rule | PropAtRule)[]) {
     }
   }
 
+  return mapping;
+}
+
+const mappingProperty = "-rn-native-mapping";
+
+export function isMappingProperty(name: string) {
+  return name === mappingProperty || name.startsWith(`${mappingProperty}-`);
+}
+
+/** Declaration metadata survives the optimizer flattening nested at rules. */
+export function parsePropDeclarations(declarations: Declaration[] = []) {
+  const mapping: StyleRuleMapping = {};
+  for (const declaration of declarations) {
+    if (
+      declaration.property !== "custom" ||
+      !isMappingProperty(declaration.value.name)
+    ) {
+      continue;
+    }
+    const { name, value } = declaration.value;
+    const target = value.filter(
+      (item): item is Extract<TokenOrValue, { type: "token" }> =>
+        item.type === "token" && item.value.type !== "white-space",
+    );
+    if (target.length === 0) continue;
+    nativeMappingAtRuleBlock(
+      [
+        {
+          type: "token",
+          value: {
+            type: "ident",
+            value:
+              name === mappingProperty
+                ? "*"
+                : name.slice(mappingProperty.length + 1),
+          },
+        },
+        { type: "token", value: { type: "colon" } },
+        ...target,
+      ],
+      mapping,
+    );
+  }
   return mapping;
 }
 

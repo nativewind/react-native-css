@@ -32,8 +32,9 @@ export function usePassthrough(
     if (Array.isArray(target)) {
       for (let i = 0; i < target.length - 1; i++) {
         const prop = target[i]!;
-        props[prop] ??= {};
-        targetProps = props[prop];
+        const value = targetProps[prop];
+        targetProps[prop] = Array.isArray(value) ? [...value] : { ...value };
+        targetProps = targetProps[prop];
       }
       target = target[target.length - 1]!;
     }

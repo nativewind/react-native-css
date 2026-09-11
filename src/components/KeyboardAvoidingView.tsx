@@ -12,9 +12,8 @@ import {
 import { copyComponentProperties } from "./copyComponentProperties";
 
 const mapping: StyledConfiguration<typeof RNKeyboardAvoidingView> = {
-  className: {
-    target: "style",
-  },
+  className: "style",
+  contentContainerClassName: "contentContainerStyle",
 };
 
 export const KeyboardAvoidingView = copyComponentProperties(

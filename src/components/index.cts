@@ -90,7 +90,7 @@ module.exports = {
     return require("react-native").TouchableNativeFeedback;
   },
   get TouchableWithoutFeedback() {
-    return require("react-native").TouchableWithoutFeedback;
+    return require("./TouchableWithoutFeedback").TouchableWithoutFeedback;
   },
   get VirtualizedSectionList() {
     return require("react-native").VirtualizedSectionList;
@@ -259,5 +259,50 @@ module.exports = {
   },
   get VirtualViewMode() {
     return require("react-native").VirtualViewMode;
+  },
+  get EventEmitter() {
+    return require("react-native").EventEmitter;
+  },
+  get unstable_NativeText() {
+    return require("react-native").unstable_NativeText;
+  },
+  get unstable_NativeView() {
+    return require("react-native").unstable_NativeView;
+  },
+  get unstable_VirtualArray() {
+    return require("react-native").unstable_VirtualArray;
+  },
+  get unstable_createVirtualCollectionView() {
+    return require("react-native").unstable_createVirtualCollectionView;
+  },
+  get unstable_VirtualColumn() {
+    return require("react-native").unstable_VirtualColumn;
+  },
+  get unstable_VirtualColumnGenerator() {
+    return require("react-native").unstable_VirtualColumnGenerator;
+  },
+  get unstable_VirtualRow() {
+    return require("react-native").unstable_VirtualRow;
+  },
+  get unstable_getScrollParent() {
+    return require("react-native").unstable_getScrollParent;
+  },
+  get unstable_DEFAULT_INITIAL_NUM_TO_RENDER() {
+    return require("react-native").unstable_DEFAULT_INITIAL_NUM_TO_RENDER;
+  },
+  get NativeComponentRegistry() {
+    return require("react-native").NativeComponentRegistry;
+  },
+  get ReactNativeVersion() {
+    return require("react-native").ReactNativeVersion;
+  },
+  get useAnimatedValueXY() {
+    return require("react-native").useAnimatedValueXY;
+  },
+  get useAnimatedColor() {
+    return require("react-native").useAnimatedColor;
+  },
+  get usePressability() {
+    return require("react-native").usePressability;
   },
 };

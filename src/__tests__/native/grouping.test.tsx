@@ -2,7 +2,10 @@ import { fireEvent, render, screen } from "@testing-library/react-native";
 import { View } from "react-native-css/components/View";
 import { registerCSS } from "react-native-css/jest";
 
-// import { getAnimatedStyle } from "react-native-reanimated";
+// Verify group state at the Reanimated boundary; native motion is separate.
+jest.mock("../../native/reanimated", () => ({
+  animatedComponentFamily: (component: unknown) => component,
+}));
 
 const parentID = "parent";
 const childID = "child";
@@ -58,43 +61,26 @@ test("group - active", () => {
   expect(child.props.style).toStrictEqual({ backgroundColor: "#f00" });
 });
 
-test.skip("group - active (animated)", () => {
-  registerCSS(`
-    .group\\/item:active .my-class {
-      color: red;
-      transition: color 1s;
-    }`);
-
+test("group - active (animated) supplies changed and restored transition targets", () => {
+  registerCSS(`.my-class { color: black; transition: color 1s linear; }
+    .group:active .my-class { color: red; }`);
   render(
-    <View testID={parentID} className="group/item">
+    <View testID={parentID} className="group">
       <View testID={childID} className="my-class" />
     </View>,
   );
-
-  const parent = screen.getByTestId(parentID);
-  const child = screen.getByTestId(childID);
-
-  expect(child.props.style).toStrictEqual(undefined);
-
-  fireEvent(parent, "pressIn");
-
-  jest.advanceTimersByTime(0);
-
-  // expect(getAnimatedStyle(child)).toStrictEqual({
-  //   color: "rgba(0, 0, 0, 1)",
-  // });
-
-  jest.advanceTimersByTime(500);
-
-  // expect(getAnimatedStyle(child)).toStrictEqual({
-  //   color: "rgba(151, 0, 0, 1)",
-  // });
-
-  jest.advanceTimersByTime(500);
-
-  // expect(getAnimatedStyle(child)).toStrictEqual({
-  //   color: "rgba(255, 0, 0, 1)",
-  // });
+  const expectStyle = (color: string) => {
+    expect(screen.getByTestId(childID).props.style).toMatchObject({
+      color,
+      transitionProperty: ["color"],
+      transitionDuration: [1000],
+    });
+  };
+  expectStyle("#000");
+  fireEvent(screen.getByTestId(parentID), "pressIn");
+  expectStyle("#f00");
+  fireEvent(screen.getByTestId(parentID), "pressOut");
+  expectStyle("#000");
 });
 
 test("group selector", () => {

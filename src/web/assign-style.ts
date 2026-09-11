@@ -19,7 +19,8 @@ export function assignStyle(
     }
     return props;
   } else {
-    props[target] ??= {};
+    const existing = props[target];
+    props[target] = Array.isArray(existing) ? [...existing] : { ...existing };
     assignStyle(value, targets, props[target]);
     return props;
   }

@@ -23,16 +23,17 @@ export const min: StyleFunctionResolver = (resolveValue, value) => {
 export const clamp: StyleFunctionResolver = (resolveValue, value) => {
   const args = resolveValue(value[2]);
 
-  const [clampValue, min, max] = args as number[];
+  if (!Array.isArray(args)) return;
+
+  const [minimum, preferred, maximum] = args as unknown[];
 
   if (
-    !Array.isArray(args) ||
-    typeof clampValue !== "number" ||
-    typeof min !== "number" ||
-    typeof max !== "number"
+    typeof minimum !== "number" ||
+    typeof preferred !== "number" ||
+    typeof maximum !== "number"
   ) {
     return;
   }
 
-  return Math.min(Math.max(clampValue, min), max);
+  return Math.max(minimum, Math.min(preferred, maximum));
 };

@@ -39,6 +39,8 @@ export const animationShorthand = shorthandHandler(
     [name],
     [duration, name],
     [name, duration],
+    [name, duration, timingFunction],
+    [duration, timingFunction, name],
     [name, duration, iteration],
     [name, duration, timingFunction, iteration],
     [duration, delay, name],
@@ -67,7 +69,7 @@ export const animation: StyleFunctionResolver = (
 ) => {
   const animationShortHandTuples = animationShorthand(
     resolveValue,
-    value,
+    [value[2]],
     get,
     options,
   );
@@ -84,6 +86,10 @@ export const animation: StyleFunctionResolver = (
 
   if (!nameTuple || typeof name !== "string") {
     return;
+  }
+
+  if (name === "none") {
+    return applyShorthand(animationShortHandTuples);
   }
 
   const keyframes = get(StyleCollection.keyframes(name));
@@ -127,5 +133,5 @@ export const animationName: StyleFunctionResolver = (
   options,
 ) => {
   const shorthand: any = animation(resolveValue, value, get, options);
-  return shorthand.animationName;
+  return shorthand?.animationName;
 };

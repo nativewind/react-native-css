@@ -53,6 +53,9 @@ jobs:
       - name: Build package
         run: yarn build
 
+      - name: Verify Node tooling
+        run: node --test node/__tests__/*.mjs
+
       - name: Check for unstaged files
         uses: ./.github/actions/check-unstaged-files
 

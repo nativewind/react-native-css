@@ -11,7 +11,7 @@ export function testAttributes(
 }
 
 function testAttribute(
-  [type, prop, operator, testValue]: AttributeQuery,
+  [type, prop, operator, testValue, caseSensitivity]: AttributeQuery,
   props: Record<string, unknown> | undefined | null,
   guards: RenderGuard[],
 ) {
@@ -32,21 +32,38 @@ function testAttribute(
     return value !== undefined && value !== null && value !== false;
   }
 
+  if (operator === "!") return !value;
+  if (value === undefined || value === null || testValue === undefined)
+    return false;
+
+  if (
+    typeof value !== "string" &&
+    typeof value !== "number" &&
+    typeof value !== "boolean"
+  )
+    return false;
+  let actual = String(value);
+  if (caseSensitivity === "i") {
+    // CSS attribute flags fold ASCII letters only, not Unicode characters.
+    actual = actual.replace(/[A-Z]/g, (letter) => letter.toLowerCase());
+    testValue = testValue.replace(/[A-Z]/g, (letter) => letter.toLowerCase());
+  }
+
   switch (operator) {
-    case "!":
-      return !value;
     case "=":
-      return value == testValue;
+      return actual === testValue;
     case "~=":
-      return testValue && value?.toString().split(" ").includes(testValue);
+      return (
+        testValue !== "" && actual.split(/[\t\n\f\r ]+/).includes(testValue)
+      );
     case "|=":
-      return testValue && value?.toString().startsWith(testValue + "-");
+      return actual === testValue || actual.startsWith(testValue + "-");
     case "^=":
-      return testValue && value?.toString().startsWith(testValue);
+      return testValue !== "" && actual.startsWith(testValue);
     case "$=":
-      return testValue && value?.toString().endsWith(testValue);
+      return testValue !== "" && actual.endsWith(testValue);
     case "*=":
-      return testValue && value?.toString().includes(testValue);
+      return testValue !== "" && actual.includes(testValue);
     default:
       operator satisfies never;
       return false;

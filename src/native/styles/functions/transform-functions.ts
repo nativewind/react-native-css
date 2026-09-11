@@ -1,16 +1,17 @@
 import { isStyleDescriptorArray } from "react-native-css/utilities";
 
 import type { StyleFunctionResolver } from "../resolve";
+import { scaleFactor } from "../scale-factor";
 
 export const scale: StyleFunctionResolver = (resolveValue, descriptor) => {
   const args = descriptor[2];
 
   if (!isStyleDescriptorArray(args)) {
-    return { scale: resolveValue(args) };
+    return { scale: scaleFactor(resolveValue(args)) };
   }
 
-  const x = resolveValue(args[0]);
-  const y = resolveValue(args[1]);
+  const x = scaleFactor(resolveValue(args[0]));
+  const y = scaleFactor(resolveValue(args[1]));
 
   const isXValid = typeof x === "string" || typeof x === "number";
   const isYValid = typeof y === "string" || typeof y === "number";
@@ -18,7 +19,7 @@ export const scale: StyleFunctionResolver = (resolveValue, descriptor) => {
   if (isXValid && isYValid) {
     return x === y ? { scale: x } : [{ scaleX: x }, { scaleY: y }];
   } else if (isXValid) {
-    return { scaleX: x };
+    return { scale: x };
   } else if (isYValid) {
     return { scaleY: y };
   }

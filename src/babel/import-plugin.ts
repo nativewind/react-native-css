@@ -1,4 +1,4 @@
-import { resolve } from "path";
+import { basename, dirname, resolve, sep } from "path";
 
 import { type PluginObj } from "@babel/core";
 import type { Statement } from "@babel/types";
@@ -16,6 +16,7 @@ import {
 import {
   handleReactNativeWebIdentifierRequire,
   handleReactNativeWebImport,
+  handleReactNativeWebInteropRequireDefault,
   handleReactNativeWebObjectPatternRequire,
 } from "./react-native-web";
 
@@ -26,8 +27,12 @@ export default function ({
 }): PluginObj<PluginState> {
   const processed = new WeakSet();
 
-  const thisModuleDist = resolve(__dirname, "../../../dist");
-  const thisModuleSrc = resolve(__dirname, "../../../src");
+  const packageRoot = resolve(
+    __dirname,
+    basename(dirname(__dirname)) === "src" ? "../.." : "../../..",
+  );
+  const thisModuleDist = resolve(packageRoot, "dist") + sep;
+  const thisModuleSrc = resolve(packageRoot, "src") + sep;
 
   function isFromThisModule(filename: string): boolean {
     return (
@@ -94,6 +99,11 @@ export default function ({
           return;
         }
 
+        // A local function called require is not the module loader.
+        if (path.scope.getBinding("require")) {
+          return;
+        }
+
         const initArg = init.arguments.at(0);
 
         if (!initArg) {
@@ -152,10 +162,11 @@ export default function ({
           if (!source) {
             return;
           }
-          statements = handleReactNativeWebIdentifierRequire(
+          statements = handleReactNativeWebInteropRequireDefault(
             path,
             t,
             id.name,
+            init,
             source,
             state.filename,
           );

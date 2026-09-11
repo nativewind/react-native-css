@@ -4,6 +4,7 @@ import { versions } from "node:process";
 import type { MetroConfig } from "metro-config";
 
 import { type CompilerOptions } from "../compiler";
+import { getCacheVersion } from "./cache-version";
 import { nativeResolver, webResolver } from "./resolver";
 import { setupTypeScript } from "./typescript";
 
@@ -47,6 +48,7 @@ export function withReactNativeCSS<
 
   return {
     ...config,
+    cacheVersion: getCacheVersion(config.cacheVersion, options),
     transformerPath: require.resolve("./metro-transformer"),
     transformer: {
       ...config.transformer,

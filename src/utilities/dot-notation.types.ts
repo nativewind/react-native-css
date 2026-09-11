@@ -1,4 +1,6 @@
 /* eslint-disable */
+import type { Component, ReactElement } from "react";
+
 // ---------- Base Utilities ----------
 
 type Falsy = undefined | null | false | "";
@@ -32,13 +34,12 @@ export type StyleProp<T> =
 type UnwrapRecursiveArray<
   T,
   Depth extends unknown[] = [],
-  MaxDepth extends number = 10
+  MaxDepth extends number = 10,
 > = Depth["length"] extends MaxDepth
   ? T
   : T extends (infer I)[]
     ? UnwrapRecursiveArray<I, [...Depth, unknown], MaxDepth>
     : T;
-
 
 // Remove null, false, undefined, etc.
 type RemoveFalsy<T> = Exclude<T, Falsy>;
@@ -53,7 +54,7 @@ type ExtractStyleObject<T> = RemoveRegisteredStyle<
 
 // Check if something is a non-array plain object
 type IsPlainObject<T> = T extends object
-  ? T extends Function
+  ? T extends Function | Component | ReactElement
     ? false
     : T extends readonly any[]
       ? false

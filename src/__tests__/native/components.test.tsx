@@ -1,12 +1,16 @@
 import {
   Button as RNButton,
+  KeyboardAvoidingView as RNKeyboardAvoidingView,
   TextInput as RNTextInput,
+  StyleSheet,
+  View,
   type ButtonProps,
   type TextInputProps,
 } from "react-native";
 
 import { render } from "@testing-library/react-native";
 import { copyComponentProperties } from "react-native-css/components/copyComponentProperties";
+import { KeyboardAvoidingView } from "react-native-css/components/KeyboardAvoidingView";
 import { TextInput } from "react-native-css/components/TextInput";
 import { registerCSS, testID } from "react-native-css/jest";
 import { useCssElement } from "react-native-css/native";
@@ -113,4 +117,37 @@ test("nativeStyleMapping with boolean true on custom component", () => {
 
   expect(component.props.textAlign).toBe("right");
   expect(component.props.style).not.toHaveProperty("textAlign");
+});
+
+test("KeyboardAvoidingView maps content classes through replacement, removal, and restoration", () => {
+  registerCSS(
+    `.first-content { padding: 12px; } .second-content { padding: 24px; }`,
+  );
+  const contentStyle = Object.freeze({ opacity: 0.5 });
+  const result = render(
+    <KeyboardAvoidingView behavior="position">
+      <View testID="keyboard-child" />
+    </KeyboardAvoidingView>,
+  );
+  for (const [className, padding] of [
+    ["first-content", 12],
+    ["second-content", 24],
+    [undefined, undefined],
+    ["first-content", 12],
+  ] as const) {
+    result.rerender(
+      <KeyboardAvoidingView
+        behavior="position"
+        contentContainerClassName={className}
+        contentContainerStyle={contentStyle}
+      >
+        <View testID="keyboard-child" />
+      </KeyboardAvoidingView>,
+    );
+    const inner = result.UNSAFE_getByType(RNKeyboardAvoidingView);
+    const style = StyleSheet.flatten(inner.props.contentContainerStyle);
+    expect(style.padding).toBe(padding);
+    expect(style.opacity).toBe(0.5);
+    expect(contentStyle).toEqual({ opacity: 0.5 });
+  }
 });

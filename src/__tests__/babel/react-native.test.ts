@@ -1,9 +1,15 @@
 import { pluginTester, type TestObject } from "babel-plugin-tester";
 
+import { format } from "prettier";
+
 import plugin from "../../babel/import-plugin";
 
 const appendTitles = (tests: TestObject[]) => {
-  return tests.map((test) => ({ ...test, title: test.code }));
+  return tests.map((test) => ({
+    ...test,
+    title: test.code,
+    babelOptions: { filename: "/consumer/component.js", ...test.babelOptions },
+  }));
 };
 
 describe("react-native", () => {
@@ -15,6 +21,27 @@ describe("react-native", () => {
       filename: "/someFile.js",
     },
     tests: appendTitles([
+      {
+        code: `import typeof View from 'react-native';`,
+        output: `import typeof View from "react-native";`,
+        babelOptions: { parserOpts: { plugins: ["flow"] } },
+        formatResult: (code) => format(code, { parser: "babel-flow" }),
+      },
+      {
+        code: `import { type View, Text } from 'react-native';`,
+        output: `import { type View } from "react-native";
+import { Text } from "react-native-css/components/Text";`,
+        babelOptions: { parserOpts: { plugins: ["typescript"] } },
+      },
+      {
+        code: `import type { View } from 'react-native';`,
+        output: `import type { View } from "react-native";`,
+        babelOptions: { parserOpts: { plugins: ["typescript"] } },
+      },
+      {
+        code: `import NativeView from 'react-native/Libraries/Components/View/View';`,
+        output: `import { View as NativeView } from "react-native-css/components/View";`,
+      },
       {
         code: `import 'react-native';`,
         output: `import "react-native-css/components";`,
