@@ -798,7 +798,7 @@ describe("@property defaults with shadow variables", () => {
     ]);
   });
 
-  test("currentcolor resolves to platform color object", () => {
+  test("currentcolor resolves to the concrete root seed", () => {
     registerCSS(`
       @property --my-shadow {
         syntax: "*";
@@ -827,8 +827,9 @@ describe("@property defaults with shadow variables", () => {
       blurRadius: 0,
       spreadDistance: 2,
     });
-    // currentcolor resolves to a platform color object, not a string
-    expect(typeof component.props.style.boxShadow[0].color).toBe("object");
+    // currentcolor resolves through the root seed, which is a concrete colour on every
+    // platform — a value a paint path can take, rather than an object it must resolve first.
+    expect(component.props.style.boxShadow[0].color).toBe("#000000");
   });
 
   test("three vars with two transparent (Tailwind ring pattern)", () => {
