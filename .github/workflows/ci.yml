@@ -23,6 +23,9 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
+      - name: Build package
+        run: yarn build
+
       - name: Lint files
         run: yarn lint
 
@@ -79,7 +82,9 @@ jobs:
         uses: ./.github/actions/check-unstaged-files
 
   build-ios-dev:
-    runs-on: macos-15
+    runs-on: macos-26
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4

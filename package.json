@@ -183,6 +183,7 @@
     "example": "yarn workspace react-native-css-example",
     "lint": "eslint",
     "prepare": "bob build",
+    "prepack": "bob build",
     "prepublishOnly": "bob build",
     "release": "release-it --config ./.config/release-it.config.ts",
     "start": "yarn example start",
