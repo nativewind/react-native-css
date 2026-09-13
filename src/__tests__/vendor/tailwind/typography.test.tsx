@@ -282,6 +282,37 @@ describe("Typography - Text Align", () => {
       props: { style: { textAlign: "justify" } },
     });
   });
+  test("text-start", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: { style: { textAlign: "left" } },
+    });
+  });
+  test("text-end", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: { style: { textAlign: "right" } },
+    });
+  });
+  test("text-start is RTL-safe and compiles identically to text-left", async () => {
+    await expect(
+      renderSimple({ className: "text-start" }),
+    ).resolves.toStrictEqual(await renderSimple({ className: "text-left" }));
+  });
+  test("text-end is RTL-safe and compiles identically to text-right", async () => {
+    await expect(
+      renderSimple({ className: "text-end" }),
+    ).resolves.toStrictEqual(await renderSimple({ className: "text-right" }));
+  });
+  test("unsupported text-align value drops with a warning (no over-match)", async () => {
+    expect(
+      await renderSimple({
+        className: "text-match-parent",
+        extraCss: ".text-match-parent { text-align: match-parent; }",
+      }),
+    ).toStrictEqual({
+      props: {},
+      warnings: { values: { "text-align": "match-parent" } },
+    });
+  });
 });
 
 describe("Typography - Text Color", () => {

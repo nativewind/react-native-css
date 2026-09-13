@@ -296,6 +296,12 @@ export default withReactNativeCSS(defaultConfig, {
 });
 ```
 
+## Caveats
+
+### `text-align` on wrapper elements
+
+On native, `textAlign` is resolved from the `Text` component's own text attributes and is **not** inherited across a `View` → `Text` boundary. Applying `text-start` or `text-end` (or any `text-align` utility) to a wrapper `View` will compile correctly but have no visual effect. Apply the class to the `Text` itself, or use flex alignment (e.g. `items-start` / `items-end`) on the wrapper.
+
 ## Contributing
 
 See the [contributing guide](CONTRIBUTING.md) to learn how to contribute to the repository and the development workflow.
