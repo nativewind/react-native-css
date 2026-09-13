@@ -105,14 +105,20 @@ export function applyDeclarations(
   target: Record<string, any> = {},
   topLevelTarget = target,
 ) {
-  const originalTarget = target;
-
   for (const declaration of declarations) {
-    target = originalTarget;
+    /**
+     * Scoped to THIS declaration. The delayed and transform closures below
+     * capture it, and they run after every declaration has been walked — so a
+     * binding shared across iterations hands them whatever nested object the
+     * LAST declaration ended on (a shadow, a transform entry) instead of the
+     * target this declaration resolved. The placeholder then never matches, and
+     * `{ [prop]: true }` is left in the style.
+     */
+    let declarationTarget = target;
 
     if (!Array.isArray(declaration)) {
       // Static styles
-      Object.assign(target, declaration);
+      Object.assign(declarationTarget, declaration);
     } else {
       // Dynamic styles
       let value: any = declaration[0];
@@ -131,7 +137,7 @@ export function applyDeclarations(
         if (final) {
           if (first !== "&") {
             topLevelTarget[first] ??= {};
-            target = topLevelTarget[first];
+            declarationTarget = topLevelTarget[first];
           }
 
           let previousProp: string | number = first;
@@ -143,19 +149,19 @@ export function applyDeclarations(
 
               if (!Array.isArray(previousTarget[previousProp])) {
                 previousTarget[previousProp] = [];
-                target = previousTarget[previousProp];
+                declarationTarget = previousTarget[previousProp];
               }
             }
-            previousTarget = target;
+            previousTarget = declarationTarget;
             previousProp = prop;
 
-            target[prop] ??= {};
-            target = target[prop];
+            declarationTarget[prop] ??= {};
+            declarationTarget = declarationTarget[prop];
           }
 
           prop = final;
         } else {
-          target = topLevelTarget;
+          declarationTarget = topLevelTarget;
           prop = first;
         }
       } else {
@@ -186,19 +192,19 @@ export function applyDeclarations(
               renderGuards: guards,
               calculateProps,
             });
-            applyValue(target, prop, value);
+            applyValue(declarationTarget, prop, value);
           });
         } else {
           delayedStyles.push(() => {
-            if (getDeepPath(target, prop) === value) {
-              delete target[prop];
+            if (getDeepPath(declarationTarget, prop) === value) {
+              delete declarationTarget[prop];
               value = resolveValue(originalValue, get, {
                 inlineVariables,
                 inheritedVariables,
                 renderGuards: guards,
                 calculateProps,
               });
-              applyValue(target, prop, value);
+              applyValue(declarationTarget, prop, value);
             }
           });
         }
@@ -211,7 +217,7 @@ export function applyDeclarations(
         });
       }
 
-      applyValue(target, prop, value);
+      applyValue(declarationTarget, prop, value);
     }
   }
 }
