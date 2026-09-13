@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import subprocess
 import tarfile
+import time
 import urllib.error
 import urllib.request
 
@@ -48,14 +49,33 @@ def verify_latest(before, after):
     check(before.get("latest") == after.get("latest"), "The stable latest tag changed")
 
 
-def registry_json(route, missing_ok=False):
-    try:
-        with urllib.request.urlopen(REGISTRY + route, timeout=60) as response:
-            return json.load(response)
-    except urllib.error.HTTPError as error:
-        if missing_ok and error.code == 404:
-            return None
-        raise
+def registry_json(route, missing_ok=False, attempts=1):
+    for attempt in range(attempts):
+        try:
+            request = urllib.request.Request(REGISTRY + route, headers={"Cache-Control": "no-cache"})
+            with urllib.request.urlopen(request, timeout=60) as response:
+                return json.load(response)
+        except urllib.error.HTTPError as error:
+            if error.code != 404:
+                raise
+            if attempt + 1 < attempts:
+                print("Waiting for npm registry visibility...", flush=True)
+                time.sleep(10)
+                continue
+            if missing_ok:
+                return None
+            raise
+
+
+def wait_for_rc_tag(before, version, attempts=31):
+    for attempt in range(attempts):
+        after = registry_json("/-/package/react-native-css/dist-tags")
+        verify_latest(before, after)
+        if after.get("rc") == version:
+            return after
+        if attempt + 1 < attempts:
+            time.sleep(10)
+    raise RuntimeError("RC tag is not visible after waiting for the registry")
 
 
 def run(*args, cwd=None, env=None):
@@ -130,7 +150,7 @@ def main():
     if existing is None:
         run("npm", "publish", str(archive), "--tag", "rc-staging", "--access", "public",
             "--ignore-scripts", "--registry=" + REGISTRY, "--loglevel=warn")
-    metadata = registry_json(version_route)
+    metadata = registry_json(version_route, attempts=31)
     verify_registry(metadata, descriptor)
     receipt["registry"] = metadata
     save("registry-integrity-verified")
@@ -143,9 +163,7 @@ def main():
     save("registry-consumer-passed")
     verify_latest(before, registry_json(tag_route))
     run("npm", "dist-tag", "add", "react-native-css@" + version, "rc", "--registry=" + REGISTRY)
-    after = registry_json(tag_route)
-    verify_latest(before, after)
-    check(after.get("rc") == version, "RC tag did not advance")
+    after = wait_for_rc_tag(before, version)
     receipt["tagsAfter"] = after
     save("rc-published")
     run("gh", "release", "edit", version, "--draft=false", "--prerelease", "--latest=false")

@@ -6,8 +6,10 @@ from pathlib import Path
 import tarfile
 import tempfile
 import unittest
+from unittest.mock import patch
+from urllib.error import HTTPError
 
-from release_rc import validate_version, verify_archive, verify_latest, verify_registry
+from release_rc import registry_json, validate_version, verify_archive, verify_latest, verify_registry, wait_for_rc_tag
 
 
 class ReleaseGuards(unittest.TestCase):
@@ -86,6 +88,46 @@ class ReleaseGuards(unittest.TestCase):
     def test_stable_tag_change_is_rejected(self):
         with self.assertRaisesRegex(RuntimeError, "latest"):
             verify_latest({"latest": "3.0.7"}, {"latest": "3.1.0-rc.0"})
+
+    def test_new_registry_version_can_become_visible_after_404(self):
+        missing = HTTPError("https://registry.npmjs.org/example", 404, "Not found", {}, None)
+        with patch("release_rc.urllib.request.urlopen", side_effect=[missing, io.BytesIO(b'{"version":"3.1.0-rc.0"}')]) as fetch:
+            with patch("release_rc.time.sleep") as sleep:
+                self.assertEqual(registry_json("/example", attempts=3)["version"], "3.1.0-rc.0")
+        self.assertEqual(fetch.call_count, 2)
+        sleep.assert_called_once_with(10)
+
+    def test_missing_version_retry_is_bounded(self):
+        missing = HTTPError("https://registry.npmjs.org/example", 404, "Not found", {}, None)
+        with patch("release_rc.urllib.request.urlopen", side_effect=missing) as fetch:
+            with patch("release_rc.time.sleep") as sleep:
+                with self.assertRaises(HTTPError):
+                    registry_json("/example", attempts=3)
+        self.assertEqual(fetch.call_count, 3)
+        self.assertEqual(sleep.call_count, 2)
+
+    def test_authentication_errors_are_not_retried_as_propagation(self):
+        forbidden = HTTPError("https://registry.npmjs.org/example", 403, "Forbidden", {}, None)
+        with patch("release_rc.urllib.request.urlopen", side_effect=forbidden):
+            with patch("release_rc.time.sleep") as sleep:
+                with self.assertRaises(HTTPError):
+                    registry_json("/example", attempts=3)
+        sleep.assert_not_called()
+
+    def test_rc_tag_can_become_visible_after_stale_response(self):
+        before = {"latest": "3.0.7"}
+        after = {**before, "rc": "3.1.0-rc.0"}
+        with patch("release_rc.registry_json", side_effect=[before, after]):
+            with patch("release_rc.time.sleep") as sleep:
+                self.assertEqual(wait_for_rc_tag(before, "3.1.0-rc.0", attempts=3), after)
+        sleep.assert_called_once_with(10)
+
+    def test_rc_polling_never_accepts_a_stable_tag_change(self):
+        with patch("release_rc.registry_json", return_value={"latest": "3.1.0-rc.0", "rc": "3.1.0-rc.0"}):
+            with patch("release_rc.time.sleep") as sleep:
+                with self.assertRaisesRegex(RuntimeError, "latest"):
+                    wait_for_rc_tag({"latest": "3.0.7"}, "3.1.0-rc.0")
+        sleep.assert_not_called()
 
 
 if __name__ == "__main__":
