@@ -3,6 +3,7 @@ import type {
   ClassicComponentClass,
   ComponentClass,
   ComponentProps,
+  ComponentPropsWithRef,
   ComponentType,
   ForwardRefExoticComponent,
   FunctionComponent,
@@ -44,20 +45,24 @@ export type StyledProps<P, M extends StyledConfiguration<any>> = P & {
     : never]?: string;
 };
 
-export type Styled = <
-  const C extends ReactComponent,
-  const M extends StyledConfiguration<C>,
->(
-  component: C,
-  mapping: M & StyledConfiguration<C>,
-  options?: StyledOptions,
-) => StyledComponent<C, M>;
+export interface Styled {
+  <const C extends ReactComponent>(
+    component: C,
+    mapping?: undefined,
+    options?: StyledOptions,
+  ): ComponentType<ComponentPropsWithRef<C> & { className?: string }>;
+  <const C extends ReactComponent, const M extends StyledConfiguration<C>>(
+    component: C,
+    mapping: M & StyledConfiguration<C>,
+    options?: StyledOptions,
+  ): StyledComponent<C, M>;
+}
 
 type StyledComponent<
   C extends ReactComponent,
   M extends StyledConfiguration<C>,
 > = ComponentType<
-  ComponentProps<C> & {
+  ComponentPropsWithRef<C> & {
     [K in keyof M as K extends string
       ? M[K] extends undefined | false
         ? never
@@ -90,10 +95,7 @@ interface StyledConfigurationObject<
         ComponentProps<C>
       >;
   /** @deprecated Please use nativeStyleMapping */
-  nativeStyleToProp?: NativeStyleMapping<
-    ResolveDotPath<T, ComponentProps<C>>,
-    ComponentProps<C>
-  >;
+  nativeStyleToProp?: StyledConfigurationObject<C, T>["nativeStyleMapping"];
 }
 
 type NativeStyleMapping<T, S> = T extends object
@@ -145,6 +147,6 @@ export type RNStyle = ViewStyle & TextStyle & ImageStyle;
 /********************************    Globals    ********************************/
 
 export interface ColorScheme {
-  get: () => ColorSchemeName;
-  set: (value: ColorSchemeName) => void;
+  get: () => ColorSchemeName | null | undefined;
+  set: (value: ColorSchemeName | null | undefined) => void;
 }

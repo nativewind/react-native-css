@@ -24,9 +24,10 @@ export function parseMediaQuery(
   let condition: MediaCondition | undefined;
 
   if (query.mediaType) {
-    // Print is for printing documents
+    // Native screens never match print. Negating that media type matches
+    // regardless of the remaining feature tests in the same conjunction.
     if (query.mediaType === "print") {
-      return;
+      return query.qualifier === "not";
     }
 
     // These all/screen are not conditions, they always apply
@@ -40,7 +41,7 @@ export function parseMediaQuery(
 
     // If any of these are undefined, the media query is invalid
     if (!condition || condition.some((v) => v === undefined)) {
-      return;
+      return false;
     }
   }
 
@@ -50,7 +51,8 @@ export function parseMediaQuery(
       : platformCondition || condition;
 
   if (!mediaQuery) {
-    return;
+    // Unqualified all/screen apply; not all and not screen do not.
+    return query.qualifier !== "not";
   }
 
   if (query.qualifier === "not") {
@@ -58,6 +60,7 @@ export function parseMediaQuery(
   }
 
   builder.addMediaQuery(mediaQuery);
+  return true;
 }
 
 function parseMediaQueryCondition(
@@ -65,15 +68,23 @@ function parseMediaQueryCondition(
   builder: StylesheetBuilder,
 ): MediaCondition | undefined {
   switch (query.type) {
-    case "feature":
-      return parseFeature(query.value, builder);
+    case "feature": {
+      const feature = parseFeature(query.value, builder);
+      return feature?.some((value) => value === undefined)
+        ? undefined
+        : feature;
+    }
     case "not":
       const mediaQuery = parseMediaQueryCondition(query.value, builder);
       return mediaQuery ? ["!", mediaQuery] : undefined;
     case "operation":
-      const mediaQueries = query.conditions
-        .map((c) => parseMediaQueryCondition(c, builder))
-        .filter((v): v is MediaCondition => !!v);
+      const parsed = query.conditions.map((c) =>
+        parseMediaQueryCondition(c, builder),
+      );
+      if (query.operator === "and" && parsed.some((c) => !c)) {
+        return;
+      }
+      const mediaQueries = parsed.filter((v): v is MediaCondition => !!v);
 
       if (mediaQueries.length === 0) {
         return;

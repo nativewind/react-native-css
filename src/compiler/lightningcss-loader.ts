@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
+import { dirname, resolve } from "node:path";
+
 export function lightningcssLoader() {
   let lightningcssPath: string | undefined;
 
@@ -33,23 +35,22 @@ export function lightningcssLoader() {
     lightningcssPath,
   ) as typeof import("lightningcss");
 
+  let version: unknown;
   try {
-    const lightningcssPackageJSONPath = require.resolve("../../package.json", {
-      paths: [lightningcssPath],
-    });
-
-    const packageJSON = require(lightningcssPackageJSONPath) as Record<
-      string,
-      unknown
-    >;
-
-    if (packageJSON.version === "1.30.2") {
-      throw new Error(
-        "[react-native-css] lightningcss version 1.30.2 has a critical bug that breaks compilation. Please pin the version of lightningcss to 1.30.1; or try upgrading.",
-      );
-    }
+    // Lightning CSS keeps its entry in node/ and does not export package.json.
+    // Resolve relative to the selected copy, not the consumer or this loader.
+    const packageJSON = require(
+      resolve(dirname(lightningcssPath), "../package.json"),
+    ) as Record<string, unknown>;
+    version = packageJSON.version;
   } catch {
-    // Intentionally left empty
+    // Some bundlers do not retain package metadata. Loading remains supported.
+  }
+
+  if (version === "1.30.2") {
+    throw new Error(
+      "[react-native-css] lightningcss version 1.30.2 has a critical bug that breaks compilation. Please pin the version of lightningcss to 1.30.1; or try upgrading.",
+    );
   }
 
   return {

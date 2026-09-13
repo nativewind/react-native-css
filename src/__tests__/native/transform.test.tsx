@@ -56,7 +56,7 @@ describe("scale", () => {
     ).getByTestId(testID);
 
     expect(component.props.style).toStrictEqual({
-      transform: [{ scaleX: "2%" }, { scaleY: "2%" }],
+      transform: [{ scaleX: 0.02 }, { scaleY: 0.02 }],
     });
   });
 

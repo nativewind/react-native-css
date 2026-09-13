@@ -3,7 +3,11 @@ import { pluginTester, type TestObject } from "babel-plugin-tester";
 import plugin from "../../babel/import-plugin";
 
 const appendTitles = (tests: TestObject[]) => {
-  return tests.map((test) => ({ ...test, title: test.code }));
+  return tests.map((test) => ({
+    ...test,
+    title: test.code,
+    babelOptions: { filename: "/consumer/component.js", ...test.babelOptions },
+  }));
 };
 
 describe("plugin smoke tests", () => {

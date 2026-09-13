@@ -60,24 +60,22 @@ describe("Filters - Drop Shadow", () => {
       props: {
         style: {
           filter: [
-            [
-              {
-                dropShadow: {
-                  standardDeviation: 2,
-                  color: "#0000001a",
-                  offsetX: 0,
-                  offsetY: 1,
-                },
+            {
+              dropShadow: {
+                standardDeviation: 2,
+                color: "#0000001a",
+                offsetX: 0,
+                offsetY: 1,
               },
-              {
-                dropShadow: {
-                  standardDeviation: 1,
-                  color: "#0000000f",
-                  offsetX: 0,
-                  offsetY: 1,
-                },
+            },
+            {
+              dropShadow: {
+                standardDeviation: 1,
+                color: "#0000000f",
+                offsetX: 0,
+                offsetY: 1,
               },
-            ],
+            },
           ],
         },
       },

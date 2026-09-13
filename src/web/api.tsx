@@ -1,7 +1,6 @@
 import {
   createElement,
   useMemo,
-  type ComponentPropsWithRef,
   type ComponentType,
   type PropsWithChildren,
 } from "react";
@@ -12,25 +11,21 @@ import type {
   Props,
   StyledConfiguration,
   StyledOptions,
-  StyledProps,
 } from "react-native-css";
 
-import type { ReactComponent } from "../runtime.types";
+import type { ReactComponent, Styled } from "../runtime.types";
 import { assignStyle } from "./assign-style";
 
 const defaultMapping: StyledConfiguration<ComponentType<{ style: unknown }>> = {
   className: "style",
 };
 
-export const styled = <
-  const C extends ReactComponent,
-  const M extends StyledConfiguration<C>,
->(
-  baseComponent: C,
-  mapping: M = defaultMapping as M,
+export const styled: Styled = (
+  baseComponent: ReactComponent,
+  mapping: StyledConfiguration<ReactComponent> = defaultMapping,
   _options?: StyledOptions,
 ) => {
-  return (props: StyledProps<ComponentPropsWithRef<C>, M>) => {
+  return (props: Props) => {
     return useCssElement(baseComponent, props, mapping);
   };
 };
@@ -73,7 +68,7 @@ export const colorScheme: ColorScheme = {
     return Appearance.getColorScheme();
   },
   set(name) {
-    Appearance.setColorScheme(name);
+    Appearance.setColorScheme(name ?? "unspecified");
   },
 };
 

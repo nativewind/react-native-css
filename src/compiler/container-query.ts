@@ -36,9 +36,14 @@ function parseContainerQueryCondition(
       const query = parseContainerCondition(condition.value, builder);
       return query ? ["!", query] : undefined;
     case "operation":
-      const conditions = condition.conditions
-        .map((c) => parseContainerQueryCondition(c, builder))
-        .filter((v): v is MediaCondition => !!v);
+      const parsed = condition.conditions.map((c) =>
+        parseContainerCondition(c, builder),
+      );
+      if (condition.operator === "and" && parsed.some((c) => !c)) {
+        // Dropping a conjunct would broaden the query to unrelated containers.
+        return;
+      }
+      const conditions = parsed.filter((c): c is MediaCondition => !!c);
 
       if (conditions.length === 0) {
         return;

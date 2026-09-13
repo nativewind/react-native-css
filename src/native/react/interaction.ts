@@ -11,7 +11,7 @@ import {
 
 const mainCache = new WeakMap<
   WeakKey,
-  WeakMap<Function, (event: any) => void>
+  Map<InteractionType, WeakMap<Function, (event: any) => void>>
 >();
 
 type Handler = (event: unknown) => void;
@@ -40,13 +40,18 @@ const defaultHandlers: Record<InteractionType, Handler> = {
 export function getInteractionHandler(
   weakKey: WeakKey,
   type: InteractionType,
-  handler = defaultHandlers[type],
+  handler?: Handler | null,
 ) {
-  let cache = mainCache.get(weakKey);
-  if (!cache) {
-    cache = new WeakMap();
-    mainCache.set(weakKey, cache);
+  handler ??= defaultHandlers[type];
+  let interactions = mainCache.get(weakKey);
+  if (!interactions) {
+    interactions = new Map();
+    mainCache.set(weakKey, interactions);
   }
+
+  // A caller may reuse one callback for events that update opposite states.
+  let cache = interactions.get(type);
+  if (!cache) interactions.set(type, (cache = new WeakMap()));
 
   let cached = cache.get(handler);
   if (!cached) {

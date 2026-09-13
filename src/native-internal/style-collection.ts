@@ -91,7 +91,7 @@ globalThis.__react_native_css_style_collection ??= {
 
     if (options.vu) {
       for (const entry of options.vu) {
-        rootVariables(entry[0]).set(entry[1]);
+        universalVariables(entry[0]).set(entry[1]);
       }
     }
 

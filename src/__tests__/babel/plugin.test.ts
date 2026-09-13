@@ -11,35 +11,38 @@ pluginTester({
   },
   tests: {
     "rewrite imports from within React Native": {
-      only: true,
       code: `import View from '../View/View';`,
-      output: `import { View } from "react-native-css/dist/module/components/View";`,
+      output: `import { View } from "react-native-css/components/View";`,
       babelOptions: {
         filename:
           "node_modules/react-native/Libraries/Components/ScrollView/ScrollView.js",
       },
     },
     "rewrite react-native imports": {
+      babelOptions: { filename: "/consumer/component.js" },
       code: `import { View, Text, StyleSheet, Dimensions } from "react-native";`,
-      output: `import { View } from "react-native-css/dist/module/components/View";
-import { Text } from "react-native-css/dist/module/components/Text";
+      output: `import { View } from "react-native-css/components/View";
+import { Text } from "react-native-css/components/Text";
 import { StyleSheet } from "react-native";
 import { Dimensions } from "react-native";`,
     },
     "rewrite react-native deep imports": {
+      babelOptions: { filename: "/consumer/component.js" },
       code: `import { View } from "react-native/lib/components/View";`,
-      output: `import { View } from "react-native-css/dist/module/components/View";`,
+      output: `import { View } from "react-native-css/components/View";`,
     },
     "rewrite react-native-web imports": {
+      babelOptions: { filename: "/consumer/component.js" },
       code: `import { View, Text, StyleSheet, Dimensions } from "react-native-web";`,
-      output: `import { View } from "react-native-css/dist/module/components/View";
-import { Text } from "react-native-css/dist/module/components/Text";
+      output: `import { View } from "react-native-css/components/View";
+import { Text } from "react-native-css/components/Text";
 import { StyleSheet } from "react-native-web";
 import { Dimensions } from "react-native-web";`,
     },
     "rewrite react-native-web deep imports": {
+      babelOptions: { filename: "/consumer/component.js" },
       code: `import { View } from "react-native-web/lib/components/View";`,
-      output: `import { View } from "react-native-css/dist/module/components/View";`,
+      output: `import { View } from "react-native-css/components/View";`,
     },
   },
 });

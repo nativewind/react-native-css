@@ -202,3 +202,25 @@ test("infinity", () => {
     borderRadius: 9007199254740990,
   });
 });
+
+test("dynamic clamp prefers the minimum when bounds cross and follows new values", () => {
+  registerCSS(`.test { width: clamp(var(--minimum), var(--preferred), var(--maximum)); }
+    .crossed { --minimum: 100px; --preferred: 50px; --maximum: 20px; }
+    .middle { --minimum: 20px; --preferred: 50px; --maximum: 100px; }
+    .below { --minimum: 20px; --preferred: 10px; --maximum: 100px; }
+    .above { --minimum: 20px; --preferred: 150px; --maximum: 100px; }`);
+  const tree = (state: string) => (
+    <View testID={testID} className={`test ${state}`} />
+  );
+  render(tree("crossed"));
+  for (const [state, expected] of [
+    ["crossed", 100],
+    ["middle", 50],
+    ["below", 20],
+    ["above", 100],
+    ["crossed", 100],
+  ] as const) {
+    screen.rerender(tree(state));
+    expect(screen.getByTestId(testID).props.style.width).toBe(expected);
+  }
+});

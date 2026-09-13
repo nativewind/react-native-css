@@ -66,3 +66,52 @@ test("color-mix() - black with transparent (NaN oklab channels)", () => {
     backgroundColor: "#00000080",
   });
 });
+
+// Independent sRGB channel arithmetic, including normalized weights and original alpha.
+test.each([
+  ["25%, var(--right)", [63.75, 0, 191.25, 1]],
+  [", var(--right) 25%", [191.25, 0, 63.75, 1]],
+  [", var(--right)", [127.5, 0, 127.5, 1]],
+  ["20%, var(--right) 20%", [127.5, 0, 127.5, 0.4]],
+  ["80%, var(--right) 80%", [127.5, 0, 127.5, 1]],
+  [", transparent 75%", [255, 0, 0, 0.25]],
+  ["25%, transparent 25%", [255, 0, 0, 0.25]],
+] as const)(
+  "dynamic color-mix uses weights rather than replacing alpha: %s",
+  (tail, expected) => {
+    registerCSS(
+      `.test { --left: red; --right: blue; background-color: color-mix(in srgb, var(--left) ${tail}); }`,
+      { inlineVariables: false },
+    );
+    render(<View testID={testID} className="test" />);
+    const color = screen.getByTestId(testID).props.style
+      ?.backgroundColor as string;
+    expect(color).toMatch(/^rgba\(/);
+    const channels = color.slice(5, -1).split(",").map(Number);
+    expected.forEach((value, index) => {
+      expect(channels[index]).toBeCloseTo(value, 6);
+    });
+  },
+);
+
+test("mixing an already translucent color preserves its alpha and restores changes", () => {
+  registerCSS(
+    `.test { background-color: color-mix(in srgb, var(--left) 50%, transparent); }
+    .half { --left: #ff000080; } .full { --left: red; }`,
+    { inlineVariables: false },
+  );
+  const tree = (state: string) => (
+    <View testID={testID} className={`test ${state}`} />
+  );
+  render(tree("half"));
+  for (const [state, expected] of [
+    ["half", 128 / 255 / 2],
+    ["full", 0.5],
+    ["half", 128 / 255 / 2],
+  ] as const) {
+    screen.rerender(tree(state));
+    const color = screen.getByTestId(testID).props.style
+      .backgroundColor as string;
+    expect(Number(color.slice(5, -1).split(",")[3])).toBeCloseTo(expected, 6);
+  }
+});

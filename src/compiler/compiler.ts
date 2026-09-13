@@ -4,7 +4,6 @@ import { inspect } from "node:util";
 import { debug } from "debug";
 import {
   type ContainerRule,
-  type MediaQuery as CSSMediaQuery,
   type CustomAtRules,
   type MediaRule,
   type ParsedComponent,
@@ -13,7 +12,11 @@ import {
   type Visitor,
 } from "lightningcss";
 
-import { maybeMutateReactNativeOptions, parsePropAtRule } from "./atRules";
+import {
+  maybeMutateReactNativeOptions,
+  parsePropAtRule,
+  parsePropDeclarations,
+} from "./atRules";
 import type {
   CompilerOptions,
   ContainerQuery,
@@ -95,7 +98,38 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
     options.inlineRem = effectiveRem;
   }
 
-  const firstPassVisitor: Visitor<CustomAtRules> = {};
+  const firstPassVisitor: Visitor<CustomAtRules> = {
+    Rule(rule) {
+      if (
+        rule.type === "unknown" &&
+        ["cssInterop", "react-native"].includes(rule.value.name)
+      ) {
+        throw new Error(
+          `Unsupported @${rule.value.name} configuration. Use the compiler inlineVariables.exclude option to preserve variables, @media (prefers-color-scheme: dark) for dark mode, and React Native Appearance.setColorScheme() for manual selection.`,
+        );
+      }
+      // Reject before variable inlining can erase an unsupported condition and
+      // accidentally turn its values into unconditional declarations.
+      if (
+        rule.type === "style" &&
+        rule.value.selectors.some(
+          (selector) =>
+            selector.some(
+              (part) => part.type === "pseudo-class" && part.kind === "root",
+            ) &&
+            selector.some(
+              (part) =>
+                part.type === "class" ||
+                (part.type === "attribute" && part.name === "class"),
+            ),
+        )
+      ) {
+        throw new Error(
+          "Class-qualified :root selectors are unsupported on native. Use @media (prefers-color-scheme: dark) for dark mode, and React Native Appearance.setColorScheme() for manual selection.",
+        );
+      }
+    },
+  };
 
   if (effectiveRem !== false) {
     const remMultiplier = effectiveRem;
@@ -255,7 +289,12 @@ function extractRule(
       const value = rule.value;
 
       const declarationBlock = value.declarations;
-      mapping = { ...mapping, ...parsePropAtRule(value.rules) };
+      mapping = {
+        ...mapping,
+        ...parsePropAtRule(value.rules),
+        ...parsePropDeclarations(declarationBlock?.declarations),
+        ...parsePropDeclarations(declarationBlock?.importantDeclarations),
+      };
 
       // If the rule is a style declaration, extract it with the `getExtractedStyle` function and store it in the `declarations` map
       builder = builder.fork("style", value.selectors);
@@ -338,39 +377,16 @@ function extractMedia(
   builder: StylesheetBuilder,
   mapping: StyleRuleMapping,
 ) {
-  builder = builder.fork("media");
-
-  // Initialize an empty array to store screen media queries
-  const media: CSSMediaQuery[] = [];
-
-  // Iterate over all media queries in the mediaRule
+  // Comma separated queries are alternatives. Each branch inherits the outer
+  // conditions without adding its siblings as required conjunctions.
   for (const mediaQuery of mediaRule.query.mediaQueries) {
-    if (
-      // If this is only a media query
-      (mediaQuery.mediaType === "print" && mediaQuery.qualifier !== "not") ||
-      // If this is a @media not print {}
-      // We can only do this if there are no conditions, as @media not print and (min-width: 100px) could be valid
-      (mediaQuery.mediaType !== "print" &&
-        mediaQuery.qualifier === "not" &&
-        mediaQuery.condition === null)
-    ) {
+    const queryBuilder = builder.fork("media");
+    if (!parseMediaQuery(mediaQuery, queryBuilder)) {
       continue;
     }
-
-    media.push(mediaQuery);
-  }
-
-  if (media.length === 0) {
-    return;
-  }
-
-  for (const m of media) {
-    parseMediaQuery(m, builder);
-  }
-
-  // Iterate over all rules in the mediaRule and extract their styles using the updated CompilerCollection
-  for (const rule of mediaRule.rules) {
-    extractRule(rule, builder, mapping);
+    for (const rule of mediaRule.rules) {
+      extractRule(rule, queryBuilder, mapping);
+    }
   }
 }
 
@@ -387,9 +403,12 @@ function extractContainer(
   builder = builder.fork("container");
 
   // Iterate over all rules inside the containerRule and extract their styles using the updated CompilerCollection
-  const query: ContainerQuery = {
-    m: parseContainerCondition(containerRule.condition, builder),
-  };
+  const condition = parseContainerCondition(containerRule.condition, builder);
+  if (!condition) {
+    // An unsupported condition must not turn into an unconditional container.
+    return;
+  }
+  const query: ContainerQuery = { m: condition };
 
   if (containerRule.name) {
     query.n = `c:${containerRule.name}`;
@@ -439,21 +458,14 @@ function parsePropertyInitialValue(
     case "length-percentage":
       return parseLength(component.value, builder);
     case "token-list":
-      return reduceParseUnparsed(
-        component.value,
-        builder,
-        "@property",
-        false,
-      );
+      return reduceParseUnparsed(component.value, builder, "@property", false);
     case "custom-ident":
     case "literal":
       return component.value;
     case "repeated": {
       const results = component.value.components
         .map((c) => parsePropertyInitialValue(c, builder))
-        .filter(
-          (v): v is NonNullable<StyleDescriptor> => v !== undefined,
-        );
+        .filter((v): v is NonNullable<StyleDescriptor> => v !== undefined);
       // Unwrap single-child repeated values so downstream consumers get a
       // scalar instead of a 1-element array. For example, `<length>+` with
       // initial-value `10px` should produce the same shape as `<length>`.

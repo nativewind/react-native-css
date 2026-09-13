@@ -260,7 +260,12 @@ function parseComponents(
           ? // [data-*] are turned into `dataSet` queries
             ["d", toRNProperty(component.name.replace("data-", ""))]
           : // Everything else is turned into `attribute` queries
-            ["a", toRNProperty(component.name)];
+            [
+              "a",
+              component.name.startsWith("aria-")
+                ? component.name
+                : toRNProperty(component.name),
+            ];
         if (component.operation) {
           let operator: AttrSelectorOperator | undefined;
           switch (component.operation.operator) {
@@ -289,6 +294,15 @@ function parseComponents(
           if (operator) {
             // Append the operator onto the attribute query
             attributeQuery.push(operator, component.operation.value);
+            if (
+              component.operation.caseSensitivity === "ascii-case-insensitive"
+            ) {
+              attributeQuery.push("i");
+            } else if (
+              component.operation.caseSensitivity === "explicit-case-sensitive"
+            ) {
+              attributeQuery.push("s");
+            }
           }
         }
         getAttributeQuery(ref).push(attributeQuery);
@@ -311,7 +325,7 @@ function parseComponents(
         getAttributeQuery(ref).unshift([
           "a",
           "className",
-          "*=",
+          "~=",
           component.name,
         ]);
       } else {
@@ -464,11 +478,23 @@ function parseIsWhereComponents(
         ? // [data-*] are turned into `dataSet` queries
           ["d", toRNProperty(component.name.replace("data-", ""))]
         : // Everything else is turned into `attribute` queries
-          ["a", toRNProperty(component.name)];
+          [
+            "a",
+            component.name.startsWith("aria-")
+              ? component.name
+              : toRNProperty(component.name),
+          ];
       if (component.operation) {
         const operator = operatorMap[component.operation.operator];
         // Append the operator onto the attribute query
         attributeQuery.push(operator, component.operation.value);
+        if (component.operation.caseSensitivity === "ascii-case-insensitive") {
+          attributeQuery.push("i");
+        } else if (
+          component.operation.caseSensitivity === "explicit-case-sensitive"
+        ) {
+          attributeQuery.push("s");
+        }
       }
       queries ??= [{ specificity: [] }];
       for (const query of queries) {

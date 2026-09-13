@@ -10,7 +10,7 @@ import {
 import type { StyleDescriptor } from "react-native-css/compiler";
 
 export type Effect = {
-  observers: Set<Effect>;
+  observers: Set<Observable<any, any>>;
   run(): void;
 };
 
@@ -19,6 +19,7 @@ export type Observable<Value, Arg = Value> = {
   get: (effect?: Effect) => Value;
   set: (arg: Arg) => void;
   run: () => void;
+  unsubscribe: (effect: Effect) => void;
 };
 type Read<Value, Arg> = (get: Getter, arg?: Arg) => Value;
 export type Getter = <Value>(observable: Observable<Value, any>) => Value;
@@ -43,9 +44,10 @@ export function observable<Value, Arg = Value>(
 
   const observers = new Set<Effect>();
   const effect: Effect = {
-    observers,
+    observers: new Set(),
     run: () => {
       if (!isStatic) {
+        cleanupEffect(effect);
         const nextValue = (init as Read<Value, Arg>)(getter, lastArg);
         if (equality(value, nextValue)) {
           return;
@@ -57,14 +59,19 @@ export function observable<Value, Arg = Value>(
     },
   };
 
-  const getter: Getter = (observable) => observable.get(effect);
+  const getter: Getter = (observable) =>
+    observable.get(observers.size > 0 ? effect : undefined);
 
-  function get(effect?: Effect) {
-    if (effect) {
-      observers.add(effect);
+  function get(subscriber?: Effect) {
+    if (subscriber) {
+      if (observers.size === 0 && !isStatic) didInit = false;
+      observers.add(subscriber);
+      subscriber.observers.add(obs);
     }
     if (!didInit) {
-      value = (init as Read<Value, Arg>)(getter, undefined);
+      cleanupEffect(effect);
+      value = (init as Read<Value, Arg>)(getter, lastArg);
+      didInit = observers.size > 0;
     }
 
     return value;
@@ -77,9 +84,10 @@ export function observable<Value, Arg = Value>(
       }
       value = arg as unknown as Value;
     } else {
+      cleanupEffect(effect);
       const nextValue = (init as Read<Value, Arg>)(getter, arg);
 
-      didInit = true;
+      didInit = observers.size > 0;
       lastArg = arg;
 
       if (equality(value, nextValue)) {
@@ -108,6 +116,13 @@ export function observable<Value, Arg = Value>(
     get,
     set,
     run: effect.run,
+    unsubscribe(subscriber) {
+      if (observers.delete(subscriber) && observers.size === 0 && !isStatic) {
+        cleanupEffect(effect);
+        didInit = false;
+      }
+      subscriber.observers.delete(obs);
+    },
   };
 
   return obs;
@@ -115,10 +130,11 @@ export function observable<Value, Arg = Value>(
 
 export function cleanupEffect(effect: Effect) {
   if (!effect) return;
-  for (const dep of effect.observers) {
-    dep.observers.delete(effect);
-  }
+  const dependencies = Array.from(effect.observers);
   effect.observers.clear();
+  for (const dep of dependencies) {
+    dep.unsubscribe(effect);
+  }
 }
 
 /** Family Helpers ************************************************************/
@@ -129,11 +145,9 @@ export function family<Key, Result = Key, Args extends any = void>(
   const map = new Map<Key, Result>();
   return Object.assign(
     (key: Key, args: Args) => {
-      let value = map.get(key);
-      if (!value) {
-        value = fn(key, args);
-        map.set(key, value);
-      }
+      if (map.has(key)) return map.get(key)!;
+      const value = fn(key, args);
+      map.set(key, value);
       return value;
     },
     {
@@ -166,11 +180,9 @@ export function weakFamily<Key extends WeakKey, Args = undefined, Result = Key>(
   const map = new WeakMap<Key, Result>();
   return Object.assign(
     (key: Key, args: Args) => {
-      let value = map.get(key);
-      if (!value) {
-        value = fn(key, args);
-        map.set(key, value);
-      }
+      if (map.has(key)) return map.get(key)!;
+      const value = fn(key, args);
+      map.set(key, value);
       return value;
     },
     {
@@ -216,14 +228,20 @@ Dimensions.addEventListener("change", ({ window }) => {
 
 /** Color Scheme **************************************************************/
 
-export const colorScheme = observable<ColorSchemeName>(
+export const colorScheme = observable<ColorSchemeName | null | undefined>(
   Appearance.getColorScheme(),
 );
 Appearance.addChangeListener((event) => colorScheme.set(event.colorScheme));
 
 /** Containers ****************************************************************/
 
-export type ContainerContextValue = Record<string, WeakKey>;
+export type ContainerContextValue = Record<
+  string,
+  {
+    key: WeakKey;
+    props: Record<string, unknown> | null | undefined;
+  }
+>;
 export const ContainerContext = createContext<ContainerContextValue>({});
 
 export const containerLayoutFamily = weakFamily(() => {
@@ -243,6 +261,6 @@ export const containerWidthFamily = weakFamily((key) => {
 
 export const containerHeightFamily = weakFamily((key) => {
   return observable((read) => {
-    return read(containerLayoutFamily(key))?.width || 0;
+    return read(containerLayoutFamily(key))?.height || 0;
   });
 });

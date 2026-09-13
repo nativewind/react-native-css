@@ -1,7 +1,8 @@
-import { resolve } from "path";
+import { dirname, resolve } from "path";
 
 import { type NodePath } from "@babel/traverse";
 import tBabelTypes, {
+  type CallExpression,
   type ImportDeclaration,
   type ObjectPattern,
   type Statement,
@@ -14,7 +15,7 @@ type BabelTypes = typeof tBabelTypes;
 
 function parseReactNativeWebSource(source: string, filename: string) {
   if (source.startsWith(".")) {
-    source = resolve(filename, source);
+    source = resolve(dirname(filename), source);
 
     const internalPath = source.split("react-native-web/dist")[1];
     if (!internalPath) {
@@ -48,6 +49,7 @@ export function handleReactNativeWebImport(
   filename: string,
 ): Statement[] | undefined {
   const { specifiers, source } = declaration;
+  if (declaration.importKind && declaration.importKind !== "value") return;
 
   const rnwSource = parseReactNativeWebSource(source.value, filename);
   if (!rnwSource) {
@@ -76,7 +78,7 @@ export function handleReactNativeWebImport(
       } else {
         statements.push(
           t.importDeclaration(
-            [t.importSpecifier(specifier.local, specifier.local)],
+            [t.importSpecifier(specifier.local, t.identifier(name))],
             t.stringLiteral(`react-native-css/components/${name}`),
           ),
         );
@@ -89,6 +91,10 @@ export function handleReactNativeWebImport(
         ),
       );
     } else {
+      if (specifier.importKind && specifier.importKind !== "value") {
+        statements.push(t.importDeclaration([specifier], source));
+        continue;
+      }
       const localName = t.isStringLiteral(specifier.imported)
         ? specifier.imported.value
         : specifier.imported.name;
@@ -158,6 +164,28 @@ export function handleReactNativeWebIdentifierRequire(
   }
 }
 
+export function handleReactNativeWebInteropRequireDefault(
+  path: NodePath<VariableDeclaration>,
+  t: BabelTypes,
+  id: string,
+  init: CallExpression,
+  source: string,
+  filename: string,
+) {
+  const parsed = parseReactNativeWebSource(source, filename);
+  if (!parsed) return;
+
+  const wrapped = t.cloneNode(init);
+  wrapped.arguments = [
+    t.callExpression(t.identifier("require"), [t.stringLiteral(parsed.source)]),
+  ];
+  return [
+    t.variableDeclaration(path.node.kind, [
+      t.variableDeclarator(t.identifier(id), wrapped),
+    ]),
+  ];
+}
+
 export function handleReactNativeWebObjectPatternRequire(
   path: NodePath<VariableDeclaration>,
   t: BabelTypes,
@@ -180,6 +208,7 @@ export function handleReactNativeWebObjectPatternRequire(
       // We need to exit as we do not handle `const { Text, ...rest } = require('react-native-web');`
       return;
     } else if (
+      identifier.computed ||
       !(t.isIdentifier(identifier.value) && t.isIdentifier(identifier.key))
     ) {
       // Bail out on anything that isn't `const { <key>: <identifier> } = require('react-native-web');`

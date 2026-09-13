@@ -172,9 +172,10 @@ export const stylesFamily = family(
     /**
      * A family is a map, so we need to cleanup the observers when the the hash is no longer used
      */
+    const unsubscribe = obs.unsubscribe;
     return Object.assign(obs, {
-      cleanup: (effect: Effect) => {
-        obs.observers.delete(effect);
+      unsubscribe: (effect: Effect) => {
+        unsubscribe(effect);
         if (obs.observers.size === 0) {
           stylesFamily.delete(hash);
         }
@@ -186,29 +187,23 @@ export const stylesFamily = family(
 export function getStyledProps(
   state: ComponentState,
   inline: Record<string, any> | undefined | null,
+  adaptProps: (
+    props: Record<string, any> | undefined,
+  ) => Record<string, any> | undefined = (props) => props,
 ) {
   let result: Record<string, any> | undefined;
 
   const styledProps = state.stylesObs?.get(state.styleEffect);
 
-  // When multiple configs exist (e.g. ScrollView with className→style and
-  // contentContainerClassName→contentContainerStyle), each iteration of
-  // deepMergeConfig produces a full props object via Object.assign({}, left, right).
-  // Later iterations overwrite earlier ones' correctly-merged target props.
-  // We save each iteration's target value and restore them after the loop.
-  //
-  // Note: This uses the leaf key of config.target for storage/restoration.
-  // For nested array targets (length > 1), the leaf key is stored at the
-  // top level, which is correct because deepMergeConfig already builds the
-  // nested structure. If two configs ever share the same leaf key, the last
-  // one wins — but no built-in component mapping produces this scenario.
-  const computedTargets: Record<string, any> = {};
+  // Each config merges a complete props object. Preserve its full target path
+  // before the next config merges unrelated inline props over that object.
+  const computedTargets: { path: string[]; value: unknown }[] = [];
   const consumedSources: string[] = [];
 
   for (const config of state.configs) {
     result = deepMergeConfig(
       config,
-      nativeStyleMapping(config, styledProps?.normal),
+      nativeStyleMapping(config, adaptProps(styledProps?.normal)),
       inline,
       true,
     );
@@ -217,17 +212,19 @@ export function getStyledProps(
       result = deepMergeConfig(
         config,
         result,
-        nativeStyleMapping(config, styledProps.important),
+        nativeStyleMapping(config, adaptProps(styledProps.important)),
       );
     }
 
-    // Save the correctly-merged target prop from this iteration
     if (result && config.target) {
-      const targetKey = Array.isArray(config.target)
-        ? config.target[config.target.length - 1]
-        : config.target;
-      if (targetKey && targetKey in result) {
-        computedTargets[targetKey] = result[targetKey];
+      const path = Array.isArray(config.target)
+        ? config.target
+        : [config.target];
+      let target = result;
+      for (const key of path.slice(0, -1)) target = target?.[key];
+      const key = path[path.length - 1];
+      if (target && key && key in target) {
+        computedTargets.push({ path, value: target[key] });
       }
     }
 
@@ -297,8 +294,15 @@ export function getStyledProps(
   // Restore correctly-merged target props that may have been overwritten
   // by later config iterations' Object.assign({}, left, right)
   if (result) {
-    for (const key in computedTargets) {
-      result[key] = computedTargets[key];
+    for (const { path, value } of computedTargets) {
+      let target = result;
+      for (const key of path.slice(0, -1)) {
+        const existing = target[key];
+        target = target[key] = Array.isArray(existing)
+          ? [...existing]
+          : { ...existing };
+      }
+      target[path[path.length - 1]!] = value;
     }
     for (const source of consumedSources) {
       delete result[source];
@@ -462,15 +466,10 @@ function deepMergeConfig(
    *  If target is a path, deep merge until we get to the last key
    */
   if (Array.isArray(config.target)) {
-    for (let i = 0; i < config.target.length - 1; i++) {
-      const key = config.target[i];
-
-      if (key === undefined) {
-        return result;
-      }
-
+    if (config.target.length > 1) {
+      const key = config.target[0]!;
       result[key] = deepMergeConfig(
-        { source: config.source, target: config.target.slice(i + 1) },
+        { source: config.source, target: config.target.slice(1) },
         left?.[key],
         right?.[key],
         rightIsInline,
@@ -548,7 +547,11 @@ function nativeStyleMapping(
   config: Config,
   props: Record<string, any> | undefined,
 ) {
-  if (!config.nativeStyleMapping || !props) {
+  if (!props) {
+    return props;
+  }
+  if (!config.nativeStyleMapping) {
+    if (config.target === false) delete props.style;
     return props;
   }
 
@@ -597,5 +600,6 @@ function nativeStyleMapping(
     target[lastToken!] = styleValue;
   }
 
+  if (config.target === false) delete props.style;
   return props;
 }

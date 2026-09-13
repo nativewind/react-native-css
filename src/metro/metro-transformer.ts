@@ -2,11 +2,14 @@ import { unstable_transformerPath } from "@expo/metro-config";
 import type {
   JsTransformerConfig,
   JsTransformOptions,
-  TransformResponse,
 } from "metro-transform-worker";
 
 import { compile, type CompilerOptions } from "../compiler";
 import { getNativeInjectionCode } from "./injection-code";
+
+type TransformResponse = Awaited<
+  ReturnType<typeof import("metro-transform-worker").transform>
+>;
 
 const worker =
   // eslint-disable-next-line @typescript-eslint/no-require-imports

@@ -39,7 +39,7 @@ function testComparison(mediaQuery: MediaCondition, get: Getter): Boolean {
 
   switch (mediaQuery[1]) {
     case "dir":
-      return (I18nManager.isRTL && value === "rtl") || value === "ltr";
+      return value === (I18nManager.isRTL ? "rtl" : "ltr");
     case "hover":
       return true;
     case "platform":

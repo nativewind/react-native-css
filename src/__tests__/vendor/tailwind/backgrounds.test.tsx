@@ -192,7 +192,7 @@ describe("Backgrounds - Background Image", () => {
     ).toStrictEqual({
       props: {
         style: {
-          experimental_backgroundImage: ["none"],
+          experimental_backgroundImage: "none",
         },
       },
     });

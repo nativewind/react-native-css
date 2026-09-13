@@ -8,6 +8,7 @@ import type { RenderGuard } from "../conditions/guards";
 import { getDeepPath } from "../objects";
 import {
   activeFamily,
+  cleanupEffect,
   containerLayoutFamily,
   focusFamily,
   hoverFamily,
@@ -30,6 +31,7 @@ export function updateRules(
   forceUpdate = false,
   isRerender = true,
 ): ComponentState {
+  cleanupEffect(state.ruleEffect);
   const guards: RenderGuard[] = [];
   const rules = new Set<StyleRule | InlineVariable | VariableContextValue>();
   if (forceUpdate) {
@@ -144,13 +146,19 @@ export function updateRules(
           containers = {
             ...inheritedContainers,
             // This container becomes the default container
-            [DEFAULT_CONTAINER_NAME]: state.ruleEffectGetter,
+            [DEFAULT_CONTAINER_NAME]: {
+              key: state.ruleEffectGetter,
+              props: currentProps,
+            },
           };
         }
 
         // This this component as the named container
         for (const name of rule.c) {
-          containers![name] = state.ruleEffectGetter;
+          containers![name] = {
+            key: state.ruleEffectGetter,
+            props: currentProps,
+          };
         }
 
         // Enable hover/active/focus/layout handlers
@@ -212,14 +220,14 @@ export function updateRules(
     };
   }
 
-  if (usesVariables || variables) {
+  if (usesVariables || variables || inlineVariables.size) {
     rules.add(inheritedVariables);
 
     if (inlineVariables.size) {
       variables = Object.assign(
         {},
-        variables,
         inheritedVariables,
+        variables,
         ...Array.from(inlineVariables),
         { [VAR_SYMBOL]: true },
       );
@@ -243,7 +251,7 @@ export function updateRules(
   }
 
   // Remove this component from the old observer
-  state.stylesObs?.cleanup(state.ruleEffect);
+  state.stylesObs?.unsubscribe(state.styleEffect);
 
   return {
     ...state,
