@@ -34,7 +34,7 @@ const staticDeclarations = new WeakMap<
   Record<string, StyleDescriptor>
 >();
 
-const extraRules = new WeakMap<StyleRule, Partial<StyleRule>[]>();
+const extraRules = new WeakMap<StyleRule, StyleRule[]>();
 
 const keywords = new Set(["unset"]);
 
@@ -58,7 +58,12 @@ export class StylesheetBuilder {
     },
     // Any default mapping should be included in the @nativeMapping parsing
     private mapping: StyleRuleMapping = {},
-    public descriptorProperty?: string,
+    /**
+     * The properties the declaration being parsed writes to. Usually one, but a
+     * declaration that also publishes a variable writes to every one of them,
+     * and an unnamed descriptor has to reach all of them.
+     */
+    public descriptorProperties?: readonly string[],
     private shared: {
       ruleSets: Record<string, StyleRuleSet>;
       rootVariables?: VariableRecord;
@@ -102,7 +107,7 @@ export class StylesheetBuilder {
       mode,
       this.cloneRule(),
       { ...this.mapping },
-      this.descriptorProperty,
+      this.descriptorProperties,
       this.shared,
       selectors,
     );
@@ -121,23 +126,40 @@ export class StylesheetBuilder {
     return rule;
   }
 
-  private createRuleFromPartial(rule: StyleRule, partial: Partial<StyleRule>) {
-    rule = this.cloneRule(rule);
+  /**
+   * The form an extra rule takes on its way to a selector.
+   *
+   * The rule it was opened on supplies the SELECTOR — its specificity, its
+   * container query, and the media conditions the extra one is added to. The
+   * extra rule supplies the CONTENT, in full: its declarations, the variables
+   * they publish, and the flags they set. Neither half crosses over.
+   *
+   * Pseudo classes and attribute queries are absent from that list because
+   * they are never on the rule this copies from. They are read off the
+   * selector by `applyRuleToSelectors` and written onto every rule it applies,
+   * this one included, so copying them here would be a second source for a
+   * value that already reaches the merged rule one step later.
+   *
+   * Content is never inherited, not even for a channel the extra rule leaves
+   * empty. The rule it was opened on matches under the extra condition too, so
+   * anything left out still arrives from there — while restating it makes the
+   * extra rule a second place that value is written, and being applied last it
+   * overwrites whatever an earlier extra rule on the same rule published.
+   */
+  private mergeExtraRule(rule: StyleRule, extraRule: StyleRule): StyleRule {
+    const merged = this.cloneRule(extraRule);
 
-    if (partial.m) {
-      rule.m ??= [];
-      rule.m.push(...partial.m);
+    merged.s = [...rule.s];
+
+    if (rule.m) {
+      merged.m = [...rule.m, ...(merged.m ?? [])];
     }
 
-    if (partial.d) {
-      rule.d = partial.d;
+    if (rule.cq) {
+      merged.cq = [...rule.cq];
     }
 
-    return rule;
-  }
-
-  extendRule(rule: Partial<StyleRule>) {
-    return this.cloneRule({ ...this.rule, ...rule });
+    return merged;
   }
 
   getOptions(): CompilerOptions {
@@ -267,14 +289,30 @@ export class StylesheetBuilder {
     this.newRule(mapping, { important });
   }
 
-  /** Hack for light-dark, which requires adding a new rule without changing the current rule */
-  addExtraRule(rule: Partial<StyleRule>) {
+  /**
+   * Open an extra rule: the current rule again under one more media condition,
+   * for a declaration whose value differs under that condition. `light-dark()`
+   * is the caller — it resolves to two values where a declaration parser
+   * returns one, so the dark branch is delivered by an extra rule under
+   * `prefers-color-scheme: dark`.
+   *
+   * The rule is created EMPTY and returned for the caller to write descriptors
+   * into through the same `addDescriptor` seams as the current rule. It is
+   * never seeded from the current rule: a copy taken mid-parse carries every
+   * value written before it, so a second `light-dark()` on the same rule would
+   * hand its dark rule the first declaration's light value.
+   */
+  openExtraRule(condition: MediaCondition): StyleRule {
+    const extraRule: StyleRule = { s: [], m: [condition] };
+
     let extraRuleArray = extraRules.get(this.rule);
     if (!extraRuleArray) {
       extraRuleArray = [];
       extraRules.set(this.rule, extraRuleArray);
     }
-    extraRuleArray.push(rule);
+    extraRuleArray.push(extraRule);
+
+    return extraRule;
   }
 
   private addRuleToRuleSet(name: string, rule = this.rule) {
@@ -305,11 +343,13 @@ export class StylesheetBuilder {
     forceTuple?: boolean,
     rule = this.rule,
   ) {
-    if (this.descriptorProperty === undefined) {
+    if (this.descriptorProperties === undefined) {
       return;
     }
 
-    this.addDescriptor(this.descriptorProperty, value, forceTuple, rule);
+    for (const property of this.descriptorProperties) {
+      this.addDescriptor(property, value, forceTuple, rule);
+    }
   }
 
   addDescriptor(
@@ -447,106 +487,22 @@ export class StylesheetBuilder {
       this.options,
     );
 
+    /**
+     * The rules a selector receives: the current rule, and every extra rule
+     * opened on it already carrying the current rule's selector context. They
+     * are applied identically from here — a step the current rule takes and an
+     * extra rule skips is a step the selector never applied to it.
+     */
+    const extraRulesArray = extraRules.get(this.rule) ?? [];
+    const sourceRules = [
+      this.rule,
+      ...extraRulesArray.map((extraRule) =>
+        this.mergeExtraRule(this.rule, extraRule),
+      ),
+    ];
+
     for (const selector of normalizedSelectors) {
-      // We are going to be apply the current rule to n selectors, so we clone the rule
-      let rule: StyleRule | undefined = this.cloneRule(this.rule);
-
-      if (selector.type === "className" && selector.pseudoElementQuery) {
-        if (selector.pseudoElementQuery.includes("selection")) {
-          rule = modifyRuleForSelection(rule);
-        } else if (selector.pseudoElementQuery.includes("placeholder")) {
-          rule = modifyRuleForPlaceholder(rule);
-        }
-      }
-
-      if (!rule) {
-        continue;
-      }
-
-      if (selector.type === "className") {
-        const {
-          specificity,
-          className,
-          mediaQuery,
-          containerQuery,
-          pseudoClassesQuery,
-          attributeQuery,
-        } = selector;
-
-        if (!className) {
-          continue; // No className, nothing to do
-        }
-
-        // Combine the specificity of the selector with the rule's specificity
-        for (let i = 0; i < specificity.length; i++) {
-          const spec = specificity[i];
-          if (!spec) continue;
-          rule.s[i] = spec + (rule.s[i] ?? 0);
-        }
-
-        if (mediaQuery) {
-          rule.m ??= [];
-          rule.m.push(...mediaQuery);
-        }
-
-        if (containerQuery) {
-          rule.cq ??= [];
-          rule.cq.push(...containerQuery);
-
-          for (const query of containerQuery) {
-            const name = query.n;
-
-            if (typeof name !== "string") {
-              continue;
-            }
-
-            const [first, ...rest] = name.slice(2).split(".");
-
-            if (typeof first !== "string") {
-              continue;
-            }
-
-            const containerRule: StyleRule = {
-              // These are not "real" rules, so they use the lowest specificity
-              s: [0],
-              c: [name],
-            };
-
-            if (rest.length) {
-              containerRule.aq = rest.map((attr) => [
-                "a",
-                "className",
-                "*=",
-                attr,
-              ]);
-            }
-
-            // Create rules for the parent classes
-            this.addRuleToRuleSet(first, containerRule);
-          }
-        }
-
-        if (pseudoClassesQuery) {
-          rule.p = { ...rule.p, ...pseudoClassesQuery };
-        }
-
-        if (attributeQuery) {
-          rule.aq ??= [];
-          rule.aq.push(...attributeQuery);
-        }
-
-        this.addRuleToRuleSet(className, rule);
-
-        const extraRulesArray = extraRules.get(this.rule);
-        if (extraRulesArray) {
-          for (const extraRule of extraRulesArray) {
-            this.addRuleToRuleSet(
-              className,
-              this.createRuleFromPartial(rule, extraRule),
-            );
-          }
-        }
-      } else {
+      if (selector.type !== "className") {
         // These can only have variable declarations
         if (!this.rule.v) {
           continue;
@@ -568,6 +524,106 @@ export class StylesheetBuilder {
             this.shared[type][remName].push(variableValue);
           }
         }
+
+        continue;
+      }
+
+      const {
+        specificity,
+        className,
+        mediaQuery,
+        containerQuery,
+        pseudoClassesQuery,
+        attributeQuery,
+      } = selector;
+
+      if (!className) {
+        continue; // No className, nothing to do
+      }
+
+      // The parent classes a container query names describe the selector, not
+      // the rule, so they are registered once however many rules it receives.
+      let parentContainersRegistered = false;
+
+      for (const sourceRule of sourceRules) {
+        // We are going to be apply the rule to n selectors, so we clone the rule
+        let rule: StyleRule | undefined = this.cloneRule(sourceRule);
+
+        if (selector.pseudoElementQuery) {
+          if (selector.pseudoElementQuery.includes("selection")) {
+            rule = modifyRuleForSelection(rule);
+          } else if (selector.pseudoElementQuery.includes("placeholder")) {
+            rule = modifyRuleForPlaceholder(rule);
+          }
+        }
+
+        if (!rule) {
+          continue;
+        }
+
+        // Combine the specificity of the selector with the rule's specificity
+        for (let i = 0; i < specificity.length; i++) {
+          const spec = specificity[i];
+          if (!spec) continue;
+          rule.s[i] = spec + (rule.s[i] ?? 0);
+        }
+
+        if (mediaQuery) {
+          rule.m ??= [];
+          rule.m.push(...mediaQuery);
+        }
+
+        if (containerQuery) {
+          rule.cq ??= [];
+          rule.cq.push(...containerQuery);
+
+          if (!parentContainersRegistered) {
+            parentContainersRegistered = true;
+
+            for (const query of containerQuery) {
+              const name = query.n;
+
+              if (typeof name !== "string") {
+                continue;
+              }
+
+              const [first, ...rest] = name.slice(2).split(".");
+
+              if (typeof first !== "string") {
+                continue;
+              }
+
+              const containerRule: StyleRule = {
+                // These are not "real" rules, so they use the lowest specificity
+                s: [0],
+                c: [name],
+              };
+
+              if (rest.length) {
+                containerRule.aq = rest.map((attr) => [
+                  "a",
+                  "className",
+                  "*=",
+                  attr,
+                ]);
+              }
+
+              // Create rules for the parent classes
+              this.addRuleToRuleSet(first, containerRule);
+            }
+          }
+        }
+
+        if (pseudoClassesQuery) {
+          rule.p = { ...rule.p, ...pseudoClassesQuery };
+        }
+
+        if (attributeQuery) {
+          rule.aq ??= [];
+          rule.aq.push(...attributeQuery);
+        }
+
+        this.addRuleToRuleSet(className, rule);
       }
     }
   }
