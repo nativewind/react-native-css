@@ -33,20 +33,17 @@ describe("Interactivity - Appearance", () => {
 describe("Interactivity - Cursor", () => {
   test("cursor-auto", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { properties: ["cursor"] },
+      props: { style: { cursor: "auto" } },
     });
   });
   test("cursor-default", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { properties: ["cursor"] },
+      props: { style: { cursor: "default" } },
     });
   });
-  test("cursor-default", async () => {
+  test("cursor-pointer", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { properties: ["cursor"] },
+      props: { style: { cursor: "pointer" } },
     });
   });
 });
