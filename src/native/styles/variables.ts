@@ -83,6 +83,10 @@ export function varResolver(
       return variableCycles.has(name) ? resolve(fallback) : value;
     }
 
+    // Guard the absence too, so an ancestor that later provides the variable
+    // replaces the :root / fallback value.
+    renderGuards?.push(["v", name, undefined]);
+
     value = resolve(get(rootVariables(name)));
     if (variableCycles.has(name)) return resolve(fallback);
     if (value !== undefined) {
