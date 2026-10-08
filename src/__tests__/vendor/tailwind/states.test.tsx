@@ -1,9 +1,25 @@
+import { I18nManager } from "react-native";
+
 import { fireEvent, screen } from "@testing-library/react-native";
 import { Switch, TextInput, View } from "react-native-css/components";
 
 import { render } from "./_tailwind";
 
 const testID = "component";
+
+const originalIsRTL = Object.getOwnPropertyDescriptor(I18nManager, "isRTL");
+afterEach(() => {
+  if (originalIsRTL) {
+    Object.defineProperty(I18nManager, "isRTL", originalIsRTL);
+  }
+});
+
+function setIsRTL(isRTL: boolean) {
+  Object.defineProperty(I18nManager, "isRTL", {
+    configurable: true,
+    value: isRTL,
+  });
+}
 
 test("hover", async () => {
   await render(<TextInput testID={testID} className="hover:text-white" />);
@@ -142,5 +158,28 @@ test("disabled", async () => {
         alignSelf: "flex-start",
       },
     }),
+  );
+});
+
+// Tailwind compiles these to :dir(), which lightningcss downcompiles to
+// :lang() for a fixed list of RTL languages. Both paths have to survive the
+// compiler and end up as a dir condition. See #453.
+test.each([true, false])("rtl: with isRTL=%s", async (isRTL) => {
+  setIsRTL(isRTL);
+
+  await render(<View testID={testID} className="rtl:text-white" />);
+
+  expect(screen.getByTestId(testID)).toHaveStyle(
+    isRTL ? { color: "#fff" } : undefined,
+  );
+});
+
+test.each([true, false])("ltr: with isRTL=%s", async (isRTL) => {
+  setIsRTL(isRTL);
+
+  await render(<View testID={testID} className="ltr:text-white" />);
+
+  expect(screen.getByTestId(testID)).toHaveStyle(
+    isRTL ? undefined : { color: "#fff" },
   );
 });
