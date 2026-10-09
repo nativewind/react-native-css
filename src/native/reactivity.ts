@@ -198,6 +198,21 @@ export type VariableContextValue = Record<string, StyleDescriptor> & {
   [VAR_SYMBOL]: true;
 };
 
+// Variable lookup is presence-keyed, so an entry with no value produces no key rather than one that stops the cascade
+export function toVariableRecord(
+  variables: Record<string, StyleDescriptor>,
+): Record<string, StyleDescriptor> {
+  const record: Record<string, StyleDescriptor> = {};
+
+  for (const [name, value] of Object.entries(variables)) {
+    if (value !== undefined) {
+      record[name.replace(/^--/, "")] = value;
+    }
+  }
+
+  return record;
+}
+
 /** Pseudo Classes ************************************************************/
 
 export const hoverFamily = weakFamily(() => observable(false));
