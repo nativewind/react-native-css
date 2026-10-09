@@ -164,7 +164,7 @@ function renderStyle(css: string): unknown {
 }
 
 // A second definition keeps each variable from being inlined, so it resolves at runtime
-const decoy = `.decoy { --sx: 9; --sy: 9; --t: 9px; --offset: 1px; }`;
+const decoy = `.decoy { --sx: 9; --sy: 9; --t: 9px; --offset: 1px; --s: 1; }`;
 
 // React Native requires exactly one property per transform object, and its validator throws otherwise
 describe("one property per entry", () => {
@@ -205,6 +205,23 @@ describe("one property per entry", () => {
   ])("%s translates along x only", (declarations) => {
     expect(renderStyle(`${decoy} .my-class { ${declarations} }`)).toStrictEqual(
       { transform: [{ translateX: 10 }, { translateY: 0 }] },
+    );
+  });
+
+  // Chromium 153, Firefox 155 and WebKit 26.6 read an operand list a var() supplies whole
+  test.each([
+    [
+      "--offset: 10px 20px; translate: var(--offset);",
+      [{ translateX: 10 }, { translateY: 20 }],
+    ],
+    [
+      "--offset: 10px, 20px; transform: translate(var(--offset));",
+      [{ translateX: 10 }, { translateY: 20 }],
+    ],
+    ["--s: 2 3; scale: var(--s);", [{ scaleX: 2 }, { scaleY: 3 }]],
+  ] as const)("%s reads both operands", (declarations, transform) => {
+    expect(renderStyle(`${decoy} .my-class { ${declarations} }`)).toStrictEqual(
+      { transform },
     );
   });
 
@@ -254,6 +271,7 @@ test.each([
   "transform: translateX(10px) scaleX(var(--missing));",
   "transform: translate(10px, var(--missing));",
   "transform: rotate(var(--missing));",
+  "transform: scale(2, var(--missing));",
   "--offset: 10px 20px; transform: var(--offset);",
   "--offset: 10px 20px; transform: translateX(5px) var(--offset);",
   "--sx: none; transform: scaleX(var(--sx));",
