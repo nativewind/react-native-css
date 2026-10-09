@@ -5,7 +5,10 @@ import type {
   StyleDescriptor,
   StyleFunction,
 } from "react-native-css/compiler";
-import { isStyleDescriptorArray } from "react-native-css/utilities";
+import {
+  INHERITED_COLOR_VARIABLE,
+  isStyleDescriptorArray,
+} from "react-native-css/utilities";
 
 import type { RenderGuard } from "../conditions/guards";
 import { type Getter, type VariableContextValue } from "../reactivity";
@@ -54,6 +57,8 @@ export type ResolveValueOptions = {
   renderGuards?: RenderGuard[];
   variableHistory?: Set<string>;
   variableCycles?: Set<string>;
+  /** Resolving the element's own `color`, where css-color-4 §6.4 makes `currentcolor` the inherited colour */
+  computingColor?: boolean;
   /** Pass down to perform recursive calculations and avoid circular dependencies */
   calculateProps?: typeof calculateProps;
 };
@@ -109,6 +114,21 @@ export function resolveValue(
       };
 
       if (name === "var") {
+        if (options.computingColor && readsInheritedColor(value)) {
+          const inheritedScope: ResolveValueOptions = {
+            ...options,
+            inlineVariables: undefined,
+            computingColor: false,
+          };
+
+          return varResolver(
+            (inner) => resolveValue(inner, get, inheritedScope),
+            value,
+            get,
+            inheritedScope,
+          );
+        }
+
         return varResolver(simpleResolve, value, get, options);
       } else if (name in functionResolvers) {
         const fn = functionResolvers[name as keyof typeof functionResolvers];
@@ -165,4 +185,11 @@ export function resolveValue(
       return castToArray && value && !Array.isArray(value) ? [value] : value;
     }
   }
+}
+
+function readsInheritedColor(fn: StyleFunction): boolean {
+  const args = fn[2];
+  const name = Array.isArray(args) ? args[0] : args;
+
+  return name === INHERITED_COLOR_VARIABLE;
 }
