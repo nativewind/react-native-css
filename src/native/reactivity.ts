@@ -156,6 +156,20 @@ export function hasChangedDependencies(effect: Effect): boolean {
   return false;
 }
 
+export function batch(update: () => void) {
+  const notified = new Set<Effect>();
+  observableBatch.current = notified;
+  update();
+
+  // Deleted before it runs, so an effect notified again during the drain is re-added and runs again
+  for (const effect of notified) {
+    notified.delete(effect);
+    effect.run();
+  }
+
+  observableBatch.current = undefined;
+}
+
 /** Family Helpers ************************************************************/
 
 export function family<Key, Result = Key, Args extends any = void>(
@@ -172,6 +186,9 @@ export function family<Key, Result = Key, Args extends any = void>(
     {
       delete(key: Key) {
         return map.delete(key);
+      },
+      deleteIf(key: Key, value: Result) {
+        return map.get(key) === value && map.delete(key);
       },
       size() {
         return map.size;
@@ -237,15 +254,10 @@ export const vh = observable<number>(
 );
 
 Dimensions.addEventListener("change", ({ window }) => {
-  observableBatch.current = new Set();
-  vw.set(window.width);
-  vh.set(window.height);
-
-  for (const effect of observableBatch.current) {
-    effect.run();
-  }
-
-  observableBatch.current = undefined;
+  batch(() => {
+    vw.set(window.width);
+    vh.set(window.height);
+  });
 });
 
 /** Color Scheme **************************************************************/
