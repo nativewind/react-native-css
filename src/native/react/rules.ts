@@ -22,14 +22,12 @@ import type { ComponentState, Config } from "./useNativeCss";
 
 export const INLINE_RULE_SYMBOL = Symbol("react-native-css.inlineRule");
 
-export function updateRules(
+function deriveRules(
   state: ComponentState,
-  // Either update the state with new props or use the current props
-  currentProps = state.currentProps,
-  inheritedVariables = state.inheritedVariables,
-  inheritedContainers = state.inheritedContainers,
-  forceUpdate = false,
-  isRerender = true,
+  currentProps: ComponentState["currentProps"],
+  inheritedVariables: VariableContextValue,
+  inheritedContainers: ContainerContextValue,
+  forceUpdate: boolean,
 ): ComponentState {
   cleanupEffect(state.ruleEffect);
   const guards: RenderGuard[] = [];
@@ -45,7 +43,6 @@ export function updateRules(
   const inlineVariables = new Set<InlineVariable>();
 
   let animated = false;
-  let pressable = false;
 
   for (const config of state.configs) {
     const source = currentProps?.[config.source];
@@ -180,33 +177,17 @@ export function updateRules(
       // Add the rule to the set and update the hash
       rules.add(rule);
     }
-
-    if (process.env.NODE_ENV !== "production") {
-      if (isRerender) {
-        const pressable = activeFamily.has(state.ruleEffectGetter);
-
-        if (Boolean(variables) !== Boolean(state.variables)) {
-          console.log(
-            `ReactNativeCss: className '${source}' added or removed a variable after the initial render. This causes the components state to be reset and all children be re-mounted. Use the className 'will-change-variable' to avoid this warning. If this was caused by sibling components being added/removed, use a 'key' prop so React can track the component correctly.`,
-          );
-        } else if (Boolean(containers) !== Boolean(state.containers)) {
-          console.log(
-            `ReactNativeCss: className '${source}' added or removed a container after the initial render. This causes the components state to be reset and all children be re-mounted. This will cause unexpected behavior. Use the className 'will-change-container' to avoid this warning. If this was caused by sibling components being added/removed, use a 'key' prop so React can track the component correctly.`,
-          );
-        } else if (animated !== state.animated) {
-          console.log(
-            `ReactNativeCss: className '${source}' added or removed an animation after the initial render. This causes the components state to be reset and all children be re-mounted. This will cause unexpected behavior. Use the className 'will-change-animation' to avoid this warning. If this was caused by sibling components being added/removed, use a 'key' prop so React can track the component correctly.`,
-          );
-        } else if (pressable !== state.pressable) {
-          console.log(
-            `ReactNativeCss: className '${source}' added or removed a pressable state after the initial render. This causes the components state to be reset and all children be re-mounted. This will cause unexpected behavior. Use the className 'will-change-pressable' to avoid this warning. If this was caused by sibling components being added/removed, use a 'key' prop so React can track the component correctly.`,
-          );
-        }
-      }
-    }
   }
 
-  pressable = activeFamily.has(state.ruleEffectGetter);
+  // useNativeCss leaves pressable undefined on an element it never swaps for a Pressable
+  const pressable =
+    state.pressable === undefined
+      ? undefined
+      : activeFamily.has(state.ruleEffectGetter);
+
+  if (pressable !== undefined) {
+    guards.push(["p", "onPress", Boolean(currentProps?.onPress)]);
+  }
 
   if (!rules.size && !state.stylesObs && !inlineVariables.size) {
     return {
@@ -263,6 +244,72 @@ export function updateRules(
     animated,
     pressable,
   };
+}
+
+export function updateRules(
+  state: ComponentState,
+  // Either update the state with new props or use the current props
+  currentProps = state.currentProps,
+  inheritedVariables = state.inheritedVariables,
+  inheritedContainers = state.inheritedContainers,
+  forceUpdate = false,
+  isRerender = true,
+): ComponentState {
+  const nextState = deriveRules(
+    state,
+    currentProps,
+    inheritedVariables,
+    inheritedContainers,
+    forceUpdate,
+  );
+
+  if (process.env.NODE_ENV !== "production" && isRerender) {
+    warnOnRemount(state, nextState);
+  }
+
+  return nextState;
+}
+
+// useNativeCss picks the element's wrappers and component from these four fields, so changing one re-mounts it
+function warnOnRemount(previous: ComponentState, next: ComponentState) {
+  const classNames = describeClassNames(next.configs, next.currentProps);
+
+  if (Boolean(next.variables) !== Boolean(previous.variables)) {
+    console.log(
+      `ReactNativeCss: ${classNames} added or removed a variable after the initial render. This causes the components state to be reset and all children be re-mounted. Use the className 'will-change-variable' to avoid this warning. If this was caused by sibling components being added/removed, use a 'key' prop so React can track the component correctly.`,
+    );
+  } else if (Boolean(next.containers) !== Boolean(previous.containers)) {
+    console.log(
+      `ReactNativeCss: ${classNames} added or removed a container after the initial render. This causes the components state to be reset and all children be re-mounted. This will cause unexpected behavior. Use the className 'will-change-container' to avoid this warning. If this was caused by sibling components being added/removed, use a 'key' prop so React can track the component correctly.`,
+    );
+  } else if (next.animated !== previous.animated) {
+    console.log(
+      `ReactNativeCss: ${classNames} added or removed an animation after the initial render. This causes the components state to be reset and all children be re-mounted. This will cause unexpected behavior. Use the className 'will-change-animation' to avoid this warning. If this was caused by sibling components being added/removed, use a 'key' prop so React can track the component correctly.`,
+    );
+  } else if (rendersAsPressable(next) !== rendersAsPressable(previous)) {
+    console.log(
+      `ReactNativeCss: ${classNames} added or removed a pressable state after the initial render. This causes the components state to be reset and all children be re-mounted. This will cause unexpected behavior. Use the className 'will-change-pressable' to avoid this warning. If this was caused by sibling components being added/removed, use a 'key' prop so React can track the component correctly.`,
+    );
+  }
+}
+
+// useNativeCss swaps a View for a Pressable once it has an onPress, its own or the one an :active rule adds
+function rendersAsPressable(state: ComponentState) {
+  return (
+    state.pressable !== undefined &&
+    Boolean(state.pressable || state.currentProps?.onPress)
+  );
+}
+
+function describeClassNames(
+  configs: Config[],
+  props: Record<string, any> | undefined | null,
+): string {
+  const described = configs
+    .filter((config) => typeof props?.[config.source] === "string")
+    .map((config) => `${config.source} '${props?.[config.source]}'`);
+
+  return described.length ? described.join(", ") : "className 'undefined'";
 }
 
 /**
