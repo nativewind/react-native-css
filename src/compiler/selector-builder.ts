@@ -528,14 +528,7 @@ function isContainerQuery(
   return !("type" in value);
 }
 
-/**
- * An ancestor compound is a container query, whether or not it names a class.
- *
- * The rule's `cq` list is what the runtime evaluates, and a ref reaches it here. Only the class
- * arm used to attach one, so a compound identified by a condition alone — `[data-state="on"] .x`,
- * `:hover .x` — wrote that condition onto an object nothing read, and the rule applied to every
- * element the class named, in every state.
- */
+// Every condition in an ancestor's compound must hold (Selectors 4 §14.1), whether or not the compound names a class
 function attachContainerQuery(
   root: PartialSelector,
   ref: PartialSelector | ContainerQuery,
