@@ -36,7 +36,7 @@ import type {
   UnresolvedColor,
 } from "lightningcss";
 
-import { isStyleFunction } from "../utilities";
+import { isStyleFunction, narrowFontFamily } from "../utilities";
 import { isMappingProperty } from "./atRules";
 import type {
   StyleDescriptor,
@@ -992,7 +992,25 @@ export function parseUnparsedDeclaration(
       builder.addDescriptor(property, [{}, toRNProperty(property), args, 1]);
     }
   } else {
-    const value = parseUnparsed(declaration.value.value, builder, property);
+    let value = parseUnparsed(declaration.value.value, builder, property);
+
+    if (property === "font-family") {
+      // A stack LightningCSS could not type is still one family, so only a leading var() waits for render
+      const narrowing = narrowFontFamily(value);
+
+      switch (narrowing.kind) {
+        case "family":
+          value = narrowing.family;
+          break;
+        case "none":
+          value = undefined;
+          break;
+        case "deferred":
+          break;
+        default:
+          narrowing satisfies never;
+      }
+    }
 
     builder.addDescriptor(property, value);
 
