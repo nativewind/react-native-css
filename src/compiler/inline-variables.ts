@@ -441,7 +441,7 @@ function collectVariableScope(
     }
   }
 
-  // An element no declaration reaches holds the registered initial value (css-properties-values-api-1 §2.3)
+  // Where nothing declares a registered property, every element holds its initial value (css-properties-values-api-1 §3.3)
   for (const [name, initialValue] of initialValues) {
     if (declared.has(name) || exclude.includes(name)) continue;
 
