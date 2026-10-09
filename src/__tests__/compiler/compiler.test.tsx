@@ -230,20 +230,7 @@ test("light-dark()", () => {
         "my-class",
         [
           {
-            d: [
-              {
-                backgroundColor: "#333b3c",
-              },
-            ],
-            s: [1, 1],
-          },
-          {
-            d: [
-              {
-                backgroundColor: "#efefec",
-              },
-            ],
-            m: [["=", "prefers-color-scheme", "dark"]],
+            d: [[[{}, "lightDark", ["#333b3c", "#efefec"]], "backgroundColor"]],
             s: [1, 1],
           },
         ],

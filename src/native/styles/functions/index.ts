@@ -6,3 +6,4 @@ export * from "./platform-functions";
 export * from "./string-functions";
 export * from "./transform-functions";
 export * from "./color-mix";
+export * from "./light-dark";
