@@ -6,7 +6,10 @@ import { compile } from "react-native-css/compiler";
 import { Text } from "react-native-css/components/Text";
 import { registerCSS, testID } from "react-native-css/jest";
 import { styled } from "react-native-css/runtime";
-import { specificityCompareFn } from "react-native-css/utilities/specificity";
+import {
+  Specificity,
+  specificityCompareFn,
+} from "react-native-css/utilities/specificity";
 
 test("inline styles", () => {
   registerCSS(`.red { background-color: red; }`);
@@ -192,26 +195,128 @@ test("passThrough - inline important existing", () => {
   });
 });
 
-test("a pseudo-element rule still outranks a plain one after the sheet's JSON transport", () => {
-  const rules = compile(
+test("the runtime sort reproduces the compile-time order after the sheet's JSON transport", () => {
+  const compiled = compile(
     `.inp { color: red; } .inp::placeholder { color: blue; }`,
   ).stylesheet().s?.[0]?.[1];
 
-  if (rules === undefined) {
+  if (compiled === undefined) {
     throw new Error(
       "compiled no rules for .inp — the fixture or the compiler moved",
     );
   }
 
+  const pseudoElementCounts = (rules: StyleRule[]) =>
+    rules.map((rule) => rule.s[Specificity.PseudoElements] ?? 0);
+
+  expect(pseudoElementCounts(compiled)).toEqual([0, 1]);
+
   // Metro injects the sheet as JSON, which writes each specificity hole as `null`.
-  const [plain, placeholder] = JSON.parse(JSON.stringify(rules)) as StyleRule[];
+  const transported = JSON.parse(JSON.stringify(compiled)) as StyleRule[];
 
-  if (plain === undefined || placeholder === undefined) {
-    throw new Error("expected two rules");
+  expect(transported.flatMap((rule) => rule.s)).toContain(null);
+
+  for (const order of [transported, [...transported].reverse()]) {
+    expect(pseudoElementCounts([...order].sort(specificityCompareFn))).toEqual([
+      0, 1,
+    ]);
   }
+});
 
-  expect(placeholder.s).toContain(null);
-  expect(specificityCompareFn(plain, placeholder)).toBeLessThan(0);
-  expect(specificityCompareFn(placeholder, plain)).toBeGreaterThan(0);
-  expect(specificityCompareFn({}, placeholder)).toBeGreaterThan(0);
+describe("specificityCompareFn", () => {
+  const slotsByPrecedence = [
+    ["Important", Specificity.Important],
+    ["Inline", Specificity.Inline],
+    ["PseudoElements", Specificity.PseudoElements],
+    ["ClassName", Specificity.ClassName],
+    ["Order", Specificity.Order],
+  ] as const;
+
+  const ruleWith = (entries: [slot: number, value: number | null][]) => {
+    const s: StyleRule["s"] = [];
+    for (const [slot, value] of entries) {
+      s[slot] = value;
+    }
+    return { s };
+  };
+
+  test.each(slotsByPrecedence)("%s decides when it alone is set", (_, slot) => {
+    expect(
+      specificityCompareFn(ruleWith([[slot, 1]]), ruleWith([])),
+    ).toBeGreaterThan(0);
+    expect(
+      specificityCompareFn(ruleWith([]), ruleWith([[slot, 1]])),
+    ).toBeLessThan(0);
+  });
+
+  test.each(slotsByPrecedence.slice(0, -1))(
+    "%s outranks every slot beneath it",
+    (name, slot) => {
+      const beneath = slotsByPrecedence
+        .slice(slotsByPrecedence.findIndex(([entry]) => entry === name) + 1)
+        .map(([, lower]): [number, number] => [lower, 9]);
+
+      expect(
+        specificityCompareFn(ruleWith([[slot, 1]]), ruleWith(beneath)),
+      ).toBeGreaterThan(0);
+    },
+  );
+
+  const withUnsetSlot = (
+    slot: number,
+    spelling: "hole" | "null" | "zero",
+    order: number,
+  ) =>
+    ruleWith([
+      ...(spelling === "hole"
+        ? []
+        : [[slot, spelling === "null" ? null : 0] as [number, number | null]]),
+      [Specificity.Order, order],
+    ]);
+
+  test.each(slotsByPrecedence.slice(0, -1))(
+    "an unset %s defers to the slots beneath it however each side spells it",
+    (_, slot) => {
+      for (const [left, right] of [
+        ["hole", "null"],
+        ["null", "zero"],
+        ["zero", "hole"],
+      ] as const) {
+        expect(
+          specificityCompareFn(
+            withUnsetSlot(slot, left, 2),
+            withUnsetSlot(slot, right, 1),
+          ),
+        ).toBeGreaterThan(0);
+        expect(
+          specificityCompareFn(
+            withUnsetSlot(slot, right, 2),
+            withUnsetSlot(slot, left, 1),
+          ),
+        ).toBeGreaterThan(0);
+      }
+    },
+  );
+
+  test.each(slotsByPrecedence)(
+    "%s ranks a hole, a null and a zero alike",
+    (_, slot) => {
+      const hole = ruleWith([]);
+      const transported = ruleWith([[slot, null]]);
+      const zero = ruleWith([[slot, 0]]);
+
+      expect(specificityCompareFn(hole, transported)).toBe(0);
+      expect(specificityCompareFn(transported, zero)).toBe(0);
+      expect(specificityCompareFn(zero, hole)).toBe(0);
+    },
+  );
+
+  test("an inline record ranks beneath an important rule and above any selector", () => {
+    expect(
+      specificityCompareFn({}, ruleWith([[Specificity.Important, 1]])),
+    ).toBeLessThan(0);
+    expect(
+      specificityCompareFn({}, ruleWith([[Specificity.ClassName, 9]])),
+    ).toBeGreaterThan(0);
+  });
 });
