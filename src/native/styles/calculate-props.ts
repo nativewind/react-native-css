@@ -33,8 +33,7 @@ export function calculateProps(
 
   const delayedStyles: (() => void)[] = [];
   const transformStyles: (() => void)[] = [];
-  const pseudoElementVariables: Partial<Record<PseudoElement, InlineVariable>> =
-    {};
+  const pseudoElementScopes = new Map<PseudoElement, PseudoElementScope>();
 
   for (const rule of rules) {
     if (VAR_SYMBOL in rule) {
@@ -46,14 +45,15 @@ export function calculateProps(
       continue;
     }
 
-    // A pseudo-element's own variables shadow the element's, which it otherwise inherits
-    const variables: InlineVariable = rule.pe
-      ? (pseudoElementVariables[rule.pe] ??= Object.create(inlineVariables))
-      : inlineVariables;
+    const pseudoElementScope = rule.pe
+      ? readPseudoElementScope(pseudoElementScopes, rule.pe)
+      : undefined;
 
     if (rule.v) {
+      const declared = pseudoElementScope?.declared ?? inlineVariables;
+
       for (const variable of rule.v) {
-        variables[variable[0]] = variable[1];
+        declared[variable[0]] = variable[1];
       }
     }
 
@@ -76,7 +76,7 @@ export function calculateProps(
       applyDeclarations(
         get,
         rule.d,
-        variables,
+        pseudoElementScope?.resolved ?? inlineVariables,
         inheritedVariables,
         delayedStyles,
         transformStyles,
@@ -85,6 +85,12 @@ export function calculateProps(
         topLevelTarget,
       );
     }
+  }
+
+  // A pseudo-element's own variables shadow the element's, which it otherwise inherits.
+  // Every declaration that reads a variable is delayed, so it resolves against the full scope.
+  for (const { declared, resolved } of pseudoElementScopes.values()) {
+    Object.assign(resolved, inlineVariables, declared);
   }
 
   for (const delayedStyle of delayedStyles) {
@@ -100,6 +106,30 @@ export function calculateProps(
     guards,
     important,
   };
+}
+
+interface PseudoElementScope {
+  /** The variables the pseudo-element's own rules declare */
+  declared: InlineVariable;
+  /** What its declarations resolve against: the element's variables, then its own */
+  resolved: InlineVariable;
+}
+
+function readPseudoElementScope(
+  scopes: Map<PseudoElement, PseudoElementScope>,
+  pseudoElement: PseudoElement,
+): PseudoElementScope {
+  let scope = scopes.get(pseudoElement);
+
+  if (!scope) {
+    scope = {
+      declared: { [VAR_SYMBOL]: "inline" },
+      resolved: { [VAR_SYMBOL]: "inline" },
+    };
+    scopes.set(pseudoElement, scope);
+  }
+
+  return scope;
 }
 
 export function applyDeclarations(
