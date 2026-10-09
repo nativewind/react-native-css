@@ -271,3 +271,124 @@ test("variable overriding with classes", () => {
   const component = screen.getByTestId(testID);
   expect(component.props.style).toStrictEqual({ color: "#f00" });
 });
+
+// Inheritance applies only where the cascade yields no declared value (css-cascade-4 §7.2); each sheet declares --my-var twice so it is not inlined
+const DEFEAT_INLINING = `.elsewhere { --my-var: seed; }`;
+
+test("an element's own rule outranks an ancestor's rule", () => {
+  registerCSS(`
+    ${DEFEAT_INLINING}
+    .ancestor { --my-var: red; }
+    .own { --my-var: blue; color: var(--my-var); }
+  `);
+
+  render(
+    <View className="ancestor">
+      <View testID={testID} className="own" />
+    </View>,
+  );
+
+  expect(screen.getByTestId(testID).props.style).toStrictEqual({
+    color: "blue",
+  });
+});
+
+test("an element's own rule outranks a VariableContextProvider", () => {
+  registerCSS(`
+    ${DEFEAT_INLINING}
+    .own { --my-var: blue; color: var(--my-var); }
+  `);
+
+  render(
+    <VariableContextProvider value={{ "--my-var": "red" }}>
+      <View testID={testID} className="own" />
+    </VariableContextProvider>,
+  );
+
+  expect(screen.getByTestId(testID).props.style).toStrictEqual({
+    color: "blue",
+  });
+});
+
+test("an element's own rule outranks :root", () => {
+  registerCSS(`
+    :root { --my-var: red; }
+    ${DEFEAT_INLINING}
+    .own { --my-var: blue; color: var(--my-var); }
+  `);
+
+  render(<View testID={testID} className="own" />);
+
+  expect(screen.getByTestId(testID).props.style).toStrictEqual({
+    color: "blue",
+  });
+});
+
+test("a changed inherited value does not displace the element's own declaration", () => {
+  registerCSS(`
+    ${DEFEAT_INLINING}
+    .own { --my-var: blue; color: var(--my-var); }
+  `);
+
+  const tree = (inherited: string) => (
+    <VariableContextProvider value={{ "--my-var": inherited }}>
+      <View testID={testID} className="own" />
+    </VariableContextProvider>
+  );
+
+  render(tree("red"));
+  const component = screen.getByTestId(testID);
+  expect(component.props.style).toStrictEqual({ color: "blue" });
+
+  screen.rerender(tree("green"));
+  expect(component.props.style).toStrictEqual({ color: "blue" });
+});
+
+test("a declaring element's value still reaches its descendants", () => {
+  registerCSS(`
+    ${DEFEAT_INLINING}
+    .own { --my-var: blue; color: var(--my-var); }
+    .reader { color: var(--my-var); }
+  `);
+
+  render(
+    <View testID="parent" className="own">
+      <View testID="child" className="reader" />
+    </View>,
+  );
+
+  expect(screen.getByTestId("parent").props.style).toStrictEqual({
+    color: "blue",
+  });
+  expect(screen.getByTestId("child").props.style).toStrictEqual({
+    color: "blue",
+  });
+});
+
+test("a universal variable applies where nothing above declares the name", () => {
+  registerCSS(`
+    * { --universal: 7px; }
+    .elsewhere { --universal: 99px; }
+    .uses-universal { width: var(--universal); }
+  `);
+
+  render(<View testID={testID} className="uses-universal" />);
+
+  expect(screen.getByTestId(testID).props.style).toStrictEqual({ width: 7 });
+});
+
+test("a universal declaration outranks an inherited one", () => {
+  registerCSS(`
+    * { --universal: 7px; }
+    .defines { --universal: 11px; }
+    .uses-universal { width: var(--universal); }
+  `);
+
+  render(
+    <View className="defines">
+      <View testID={testID} className="uses-universal" />
+    </View>,
+  );
+
+  expect(screen.getByTestId(testID).props.style).toStrictEqual({ width: 7 });
+});
