@@ -38,8 +38,8 @@ export function shorthandHandler(
         ? resolve(value[2])
         : value;
 
-    if (args === null) {
-      return clearedLonghands(mappings, defaults, returnType);
+    if (args === null && returnType === "shorthandObject") {
+      return clearedLonghands(mappings, defaults);
     }
 
     if (!Array.isArray(args)) {
@@ -142,23 +142,14 @@ export function shorthandHandler(
 function clearedLonghands(
   mappings: ShorthandRequiredValue[][],
   defaults: ShorthandDefaultValue[],
-  returnType: "shorthandObject" | "tuples" | "object",
 ) {
-  const longhands = new Set(
-    [...mappings.flat(), ...defaults].flatMap(([prop]) =>
-      typeof prop === "string" ? [prop] : prop.slice(0, 1),
-    ),
+  const target: Record<string, unknown> = { [ShortHandSymbol]: true };
+  const longhands = [...mappings.flat(), ...defaults].flatMap(([prop]) =>
+    typeof prop === "string" ? [prop] : prop.slice(0, 1),
   );
 
-  if (returnType === "tuples") {
-    return Array.from(longhands, (prop) => [undefined, prop]);
-  }
-
-  const target: Record<string, unknown> =
-    returnType === "shorthandObject" ? { [ShortHandSymbol]: true } : {};
-
-  for (const prop of longhands) {
-    target[prop] = undefined;
+  for (const longhand of longhands) {
+    target[longhand] = undefined;
   }
 
   return target;
