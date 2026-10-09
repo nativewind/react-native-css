@@ -634,6 +634,12 @@ describe("CSS-wide keywords", () => {
       "calc(env(safe-area-inset-top) + 1px)",
       "initial",
     ],
+    [
+      "transform",
+      "translateY(env(safe-area-inset-top, initial))",
+      "translateY(env(safe-area-inset-top))",
+      "initial",
+    ],
   ])(
     "%s: %s drops the fallback, as a CSS-wide keyword leaves it invalid there",
     (property, value, withoutFallback, keyword) => {
