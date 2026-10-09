@@ -154,3 +154,63 @@ describe("transform", () => {
     });
   });
 });
+
+function renderStyle(css: string): unknown {
+  registerCSS(css);
+
+  return render(
+    <View testID={testID} className="earlier my-class" />,
+  ).getByTestId(testID).props.style;
+}
+
+// A second definition keeps each variable from being inlined, so it resolves at runtime
+const decoy = `.decoy { --sx: 9; --sy: 9; --t: 9px; }`;
+
+// React Native requires exactly one property per transform object, and its validator throws otherwise
+describe("one property per entry", () => {
+  // Chromium 153, Firefox 155 and WebKit 26.6 scale each axis by its own operand
+  test.each([
+    ["75%", "50%", [{ scaleX: 0.75 }, { scaleY: 0.5 }]],
+    ["2", "3", [{ scaleX: 2 }, { scaleY: 3 }]],
+  ])(
+    "transform: scale(var(--sx), var(--sy)) with %s and %s renders an entry per axis",
+    (sx, sy, transform) => {
+      expect(
+        renderStyle(
+          `${decoy} .my-class { --sx: ${sx}; --sy: ${sy}; transform: scale(var(--sx), var(--sy)); }`,
+        ),
+      ).toStrictEqual({ transform });
+    },
+  );
+
+  test("a two-operand translate() renders an entry per axis, beside a sibling", () => {
+    expect(
+      renderStyle(
+        `${decoy} .my-class { --t: 10px; transform: translate(var(--t), var(--t)) rotate(45deg); }`,
+      ),
+    ).toStrictEqual({
+      transform: [{ translateX: 10 }, { translateY: 10 }, { rotate: "45deg" }],
+    });
+  });
+
+  test.each([
+    "transform: scale3d(1, 2, 3);",
+    "transform: scaleZ(2);",
+    "transform: matrix(1, 0, 0, 1, 0, 0);",
+  ])(
+    "%s, which React Native has no form for, renders no entry",
+    (declaration) => {
+      expect(renderStyle(`.my-class { ${declaration} }`)).toStrictEqual({
+        transform: [],
+      });
+    },
+  );
+
+  test("a function React Native has no form for leaves its neighbour", () => {
+    expect(
+      renderStyle(
+        `.my-class { transform: translateX(10px) scale3d(1, 2, 3); }`,
+      ),
+    ).toStrictEqual({ transform: [{ translateX: 10 }] });
+  });
+});
