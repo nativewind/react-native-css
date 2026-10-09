@@ -9,9 +9,7 @@ test("the module's exports are the registries published on globalThis", () => {
 });
 
 test("a second copy of the module shares the registries and does not re-seed", () => {
-  // jest.resetModules() gives a fresh module registry against the same globalThis, which
-  // is exactly the dual-package case: the exports map splits import and require onto
-  // different builds, so two copies of this file evaluate in one bundle
+  // resetModules evaluates the module again against the same globalThis, as a second build in one bundle does
   const firstCopy = jest.requireActual<
     typeof import("../../native-internal/root")
   >("../../native-internal/root");

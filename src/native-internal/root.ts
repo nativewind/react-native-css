@@ -40,9 +40,7 @@ declare global {
     | undefined;
 }
 
-// Creating and seeding are one step. Guarding only the creation leaves the seeds running
-// unconditionally, so a copy initialising after the stylesheet inject clobbers a project's
-// `:root { font-size: 16px }` back to 14
+// Seeded with the registries, so a copy that loads after the stylesheet inject keeps the project's rem
 function createRootVariableRegistries(): RootVariableRegistries {
   const registries: RootVariableRegistries = {
     root: rootVariableFamily(),
@@ -63,9 +61,7 @@ function createRootVariableRegistries(): RootVariableRegistries {
   return registries;
 }
 
-// Global, like style-collection.ts and variables.tsx: the exports map splits import and
-// require onto different builds and Metro resolves that per requesting module, so a
-// compiled-CommonJS dependency and first-party source bind different copies of this file
+// The exports map gives import and require different builds, and Metro resolves each per requesting module
 globalThis.__react_native_css_root_variable_registries ??=
   createRootVariableRegistries();
 
