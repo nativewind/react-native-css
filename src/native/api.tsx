@@ -2,11 +2,11 @@
 import { useContext, useEffect, useState, type ComponentType } from "react";
 import { Appearance, type ViewStyle } from "react-native";
 
-import type { StyleDescriptor } from "react-native-css/compiler";
 import { VariableContext } from "react-native-css/native-internal";
 
 import type {
   ColorScheme,
+  CustomPropertyValue,
   Props,
   ReactComponent,
   Styled,
@@ -120,7 +120,7 @@ export function useNativeVariable(name: string) {
 /**
  * @deprecated Use `<VariableContextProvider />` instead.
  */
-export function vars(variables: Record<string, StyleDescriptor>): ViewStyle {
+export function vars(variables: Record<string, CustomPropertyValue>): ViewStyle {
   return Object.assign(
     { [VAR_SYMBOL]: "inline" },
     Object.fromEntries(

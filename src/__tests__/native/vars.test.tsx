@@ -36,3 +36,40 @@ test("vars", () => {
     color: "blue",
   });
 });
+
+test("vars: an array is a list the declaration consumes", () => {
+  registerCSS(`.my-class { font-variant-caps: var(--font-variant); }`);
+
+  render(
+    <View
+      testID={testID}
+      className="my-class"
+      style={vars({ "--font-variant": ["small-caps"] })}
+    />,
+  );
+
+  // fontVariant takes an array, so the list must survive the variable pipeline as a list
+  expect(screen.getByTestId(testID).props.style).toStrictEqual({
+    fontVariant: ["small-caps"],
+  });
+});
+
+test("vars: undefined leaves the property unset", () => {
+  registerCSS(`
+    .my-class { color: var(--color); }
+    .green { --color: green; }
+  `);
+
+  render(
+    <View
+      testID={testID}
+      className="my-class green"
+      style={vars({ color: undefined })}
+    />,
+  );
+
+  // An unset inline value lets the class's --color through
+  expect(screen.getByTestId(testID).props.style).toStrictEqual({
+    color: "#008000",
+  });
+});
