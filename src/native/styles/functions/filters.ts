@@ -108,6 +108,6 @@ export const filter: StyleFunctionResolver = (resolveValue, descriptor) => {
     );
   }
   if (value === undefined || value === "initial") return;
-  if (value === "none") return null;
+  if (value === null || value === "none") return null;
   return typeof value === "string" ? value : [value];
 };

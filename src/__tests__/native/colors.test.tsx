@@ -283,19 +283,23 @@ describe("inherit", () => {
     },
   );
 
-  test("color: INITIAL is case-folded into the drop, not into the lookup", () => {
+  test("color: INITIAL clears an earlier rule's color", () => {
+    // React Native's default text color stands in for the initial value
     registerCSS(`
       .parent { color: red; }
+      .earlier { color: green; }
       .child { color: INITIAL; }
     `);
 
     render(
       <View className="parent">
-        <View testID="child" className="child" />
+        <View testID="child" className="earlier child" />
       </View>,
     );
 
-    expect(screen.getByTestId("child").props.style).toBeUndefined();
+    expect(screen.getByTestId("child").props.style).toStrictEqual({
+      color: undefined,
+    });
   });
 
   test("a descendant override restarts the chain", () => {
@@ -424,45 +428,6 @@ describe("inherit", () => {
       });
     },
   );
-
-  test.each(["border-color", "background-color"])(
-    "%s: inherit is dropped",
-    (property) => {
-      registerCSS(`
-        .parent { color: red; }
-        .child { ${property}: inherit; }
-      `);
-
-      render(
-        <View className="parent">
-          <View testID="child" className="child" />
-        </View>,
-      );
-
-      expect(screen.getByTestId("child").props.style).toBeUndefined();
-    },
-  );
-
-  test("background-color: unset clears an earlier rule's color", () => {
-    registerCSS(`
-      .filled { background-color: red; }
-      .cleared { background-color: unset; }
-    `);
-
-    render(
-      <>
-        <View testID="filled" className="filled" />
-        <View testID="cleared" className="filled cleared" />
-      </>,
-    );
-
-    expect(screen.getByTestId("filled").props.style).toStrictEqual({
-      backgroundColor: "#f00",
-    });
-    expect(screen.getByTestId("cleared").props.style).toStrictEqual({
-      backgroundColor: undefined,
-    });
-  });
 
   test("color: inherit with no colored ancestor reads the root's label color", () => {
     registerCSS(`.child { color: inherit; }`);
@@ -634,27 +599,102 @@ describe("inherit", () => {
     });
   });
 
-  test.each(["revert", "revert-layer"])(
-    "color: %s publishes nothing to descendants",
+  test.each(["inherit", "unset", "currentcolor", "revert", "revert-layer"])(
+    "color: %s over an earlier rule hands its subtree the parent's color",
     (keyword) => {
-      // React Native has no cascade origins, so `revert` has no value to roll back to
+      // With no user-agent or user origin, `revert` is `unset` (css-cascade-5 §7.3.4)
       registerCSS(`
         .parent { color: red; }
-        .mid { color: ${keyword}; }
+        .earlier { color: green; }
+        .mid { color: ${keyword}; border-color: currentcolor; }
         .child { color: inherit; }
       `);
 
       render(
         <View className="parent">
-          <View testID="mid" className="mid">
+          <View testID="mid" className="earlier mid">
             <View testID="child" className="child" />
           </View>
         </View>,
       );
 
-      expect(screen.getByTestId("mid").props.style).toBeUndefined();
+      expect(screen.getByTestId("mid").props.style).toStrictEqual({
+        color: "#f00",
+        borderColor: "#f00",
+      });
       expect(screen.getByTestId("child").props.style).toStrictEqual({
         color: "#f00",
+      });
+    },
+  );
+
+  test("a ::placeholder color leaves the element's own color", () => {
+    registerCSS(`
+      .parent { color: blue; }
+      .child { border-color: currentcolor; }
+      .child::placeholder { color: red; }
+      .grandchild { color: inherit; }
+    `);
+
+    render(
+      <View className="parent">
+        <View testID="child" className="child">
+          <View testID="grandchild" className="grandchild" />
+        </View>
+      </View>,
+    );
+
+    const child = screen.getByTestId("child");
+
+    expect(child.props.placeholderTextColor).toBe("#f00");
+    expect(child.props.style).toStrictEqual({ borderColor: "#00f" });
+    expect(screen.getByTestId("grandchild").props.style).toStrictEqual({
+      color: "#00f",
+    });
+  });
+
+  test.each(["color-mix(in srgb, inherit, blue)", "light-dark(inherit, blue)"])(
+    "color: %s leaves an earlier rule's color",
+    (value) => {
+      // A CSS-wide keyword is only ever a whole value, so this declaration is invalid (css-values-4 §2.1)
+      registerCSS(`
+        .parent { color: red; }
+        .earlier { color: green; }
+        .child { color: ${value}; }
+      `);
+
+      render(
+        <View className="parent">
+          <View testID="child" className="earlier child" />
+        </View>,
+      );
+
+      expect(screen.getByTestId("child").props.style).toStrictEqual({
+        color: "#008000",
+      });
+    },
+  );
+
+  test.each([
+    ["inherit", "#f00"],
+    ["initial", undefined],
+  ] as const)(
+    "color: var(--missing, %s) applies the keyword over an earlier rule",
+    (keyword, expectedColor) => {
+      registerCSS(`
+        .parent { color: red; }
+        .earlier { color: green; }
+        .child { color: var(--missing, ${keyword}); }
+      `);
+
+      render(
+        <View className="parent">
+          <View testID="child" className="earlier child" />
+        </View>,
+      );
+
+      expect(screen.getByTestId("child").props.style).toStrictEqual({
+        color: expectedColor,
       });
     },
   );
@@ -689,7 +729,6 @@ const colorsThatReadTheInheritedColor: [css: string, midColor: string][] = [
   ["var(--missing, currentcolor)", "#f00"],
   ["light-dark(currentcolor, blue)", "#f00"],
   ["color-mix(in srgb, currentcolor, blue)", "rgba(127.5, 0, 127.5, 1)"],
-  ["color-mix(in srgb, inherit, blue)", "rgba(127.5, 0, 127.5, 1)"],
 ];
 
 describe("a color that reads the inherited color", () => {

@@ -2,9 +2,14 @@
 import type {
   InlineVariable,
   StyleDeclaration,
+  StyleDescriptor,
   StyleRule,
 } from "react-native-css/compiler";
-import { Specificity as S } from "react-native-css/utilities";
+import {
+  assignPublishedColor,
+  assignRuleVariables,
+  Specificity as S,
+} from "react-native-css/utilities";
 
 import type { RenderGuard } from "../conditions/guards";
 import { applyValue, getDeepPath } from "../objects";
@@ -32,6 +37,7 @@ export function calculateProps(
 
   const delayedStyles: (() => void)[] = [];
   const transformStyles: (() => void)[] = [];
+  let publishedColor: StyleDescriptor | undefined;
 
   for (const rule of rules) {
     if (VAR_SYMBOL in rule) {
@@ -44,9 +50,8 @@ export function calculateProps(
     }
 
     if (rule.v) {
-      for (const variable of rule.v) {
-        inlineVariables[variable[0]] = variable[1];
-      }
+      publishedColor =
+        assignRuleVariables(inlineVariables, rule.v) ?? publishedColor;
     }
 
     if (rule.d) {
@@ -78,6 +83,8 @@ export function calculateProps(
       );
     }
   }
+
+  assignPublishedColor(inlineVariables, publishedColor);
 
   for (const delayedStyle of delayedStyles) {
     delayedStyle();

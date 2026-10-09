@@ -1,6 +1,14 @@
 /* eslint-disable */
-import type { InlineVariable, StyleRule } from "react-native-css/compiler";
+import type {
+  InlineVariable,
+  StyleDescriptor,
+  StyleRule,
+} from "react-native-css/compiler";
 import { StyleCollection } from "react-native-css/native-internal";
+import {
+  assignPublishedColor,
+  assignRuleVariables,
+} from "react-native-css/utilities";
 
 import { testRule } from "../conditions";
 import { DEFAULT_CONTAINER_NAME } from "../conditions/container-query";
@@ -41,6 +49,7 @@ export function updateRules(
   let usesVariables = false;
 
   let variables: VariableContextValue | undefined;
+  let publishedColor: StyleDescriptor | undefined;
   let containers: ContainerContextValue | undefined;
   const inlineVariables = new Set<InlineVariable>();
 
@@ -131,13 +140,12 @@ export function updateRules(
       }
 
       if (rule.v) {
-        if (variables === inheritedVariables) {
+        if (variables === undefined || variables === inheritedVariables) {
           variables = { ...inheritedVariables };
         }
 
-        for (const v of rule.v) {
-          variables![v[0]] = v[1];
-        }
+        publishedColor =
+          assignRuleVariables(variables, rule.v) ?? publishedColor;
       }
 
       if (rule.c) {
@@ -204,6 +212,10 @@ export function updateRules(
         }
       }
     }
+  }
+
+  if (variables !== undefined && variables !== inheritedVariables) {
+    assignPublishedColor(variables, publishedColor);
   }
 
   pressable = activeFamily.has(state.ruleEffectGetter);

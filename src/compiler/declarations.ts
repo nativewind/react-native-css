@@ -987,17 +987,23 @@ export function parseUnparsedDeclaration(
    */
   builder.descriptorProperty = property;
 
-  if (unparsedRuntimeParsing.has(property)) {
-    const args = parseUnparsed(declaration.value.value, builder, property);
+  const keyword = soleCSSWideKeyword(declaration.value.value);
+  const value =
+    keyword === undefined
+      ? parseUnparsed(declaration.value.value, builder, property)
+      : parseCSSWideKeyword(keyword, property, builder);
 
+  if (keyword !== undefined && value === undefined) {
+    return;
+  }
+
+  if (unparsedRuntimeParsing.has(property)) {
     if (property === "animation") {
-      builder.addDescriptor("animation", [{}, property, args]);
+      builder.addDescriptor("animation", [{}, property, value]);
     } else {
-      builder.addDescriptor(property, [{}, toRNProperty(property), args, 1]);
+      builder.addDescriptor(property, [{}, toRNProperty(property), value, 1]);
     }
   } else {
-    const value = parseUnparsed(declaration.value.value, builder, property);
-
     builder.addDescriptor(property, value);
 
     if (property === "font-size") {
@@ -1015,16 +1021,115 @@ function inheritedColorLookup() {
   return [{}, "var", INHERITED_COLOR_VARIABLE] as const satisfies StyleFunction;
 }
 
-// A descendant resolves a published colour lazily, so one that reads the channel it is published under would resolve into itself
+const CSS_WIDE_KEYWORDS = [
+  "inherit",
+  "initial",
+  "unset",
+  "revert",
+  "revert-layer",
+] as const;
+
+type CSSWideKeyword = (typeof CSS_WIDE_KEYWORDS)[number];
+
+function isCSSWideKeyword(keyword: string): keyword is CSSWideKeyword {
+  return (CSS_WIDE_KEYWORDS as readonly string[]).includes(keyword);
+}
+
+// A CSS-wide keyword is a value only on its own (css-values-4 §2.1)
+function soleCSSWideKeyword(
+  tokens: TokenOrValue[] | null | undefined,
+): CSSWideKeyword | undefined {
+  const [token, ...rest] = (tokens ?? []).filter(
+    (candidate) =>
+      candidate.type !== "token" || candidate.value.type !== "white-space",
+  );
+
+  if (
+    token === undefined ||
+    rest.length > 0 ||
+    token.type !== "token" ||
+    token.value.type !== "ident"
+  ) {
+    return;
+  }
+
+  const keyword = token.value.value.toLowerCase();
+
+  return isCSSWideKeyword(keyword) ? keyword : undefined;
+}
+
+function parseCSSWideKeyword(
+  keyword: CSSWideKeyword,
+  property: string,
+  builder: StylesheetBuilder,
+): StyleDescriptor {
+  const isCustomProperty = property.startsWith("--");
+  // Only `color` and custom properties reach descendants here, so only they inherit where `unset` would (css-cascade-5 §7.3.3)
+  const inherits = isCustomProperty || property === "color";
+  // React Native has no user-agent or user origin, so `revert` and `revert-layer` roll back to `unset` (css-cascade-5 §7.3.4, §7.3.5)
+  const resolved =
+    keyword === "inherit" || keyword === "initial"
+      ? keyword
+      : inherits
+        ? "inherit"
+        : "initial";
+
+  if (resolved === "inherit" && property === "color") {
+    return inheritedColorLookup();
+  } else if (resolved === "inherit" && isCustomProperty) {
+    // An undeclared custom property already reads its ancestor's value
+    return;
+  } else if (resolved === "initial" && !isCustomProperty) {
+    // The literal the runtime clears with, which leaves React Native's default to stand in for the initial value
+    return "unset";
+  }
+
+  builder.addWarning("value", keyword);
+  return;
+}
+
+function parseDeclarationValue(
+  tokens: TokenOrValue[] | null | undefined,
+  builder: StylesheetBuilder,
+  property: string,
+  allowAuto?: boolean,
+): StyleDescriptor {
+  const keyword = soleCSSWideKeyword(tokens);
+
+  return keyword === undefined
+    ? parseUnparsed(tokens, builder, property, allowAuto)
+    : parseCSSWideKeyword(keyword, property, builder);
+}
+
+function addCSSWideKeyword(
+  tokens: TokenOrValue[],
+  property: string,
+  builder: StylesheetBuilder,
+  nativeProperty = property,
+): boolean {
+  const keyword = soleCSSWideKeyword(tokens);
+
+  if (keyword === undefined) {
+    return false;
+  }
+
+  builder.addDescriptor(
+    nativeProperty,
+    parseCSSWideKeyword(keyword, property, builder),
+  );
+
+  return true;
+}
+
+// A descendant resolves a published colour lazily, so one that reads the inherited colour publishes the bare lookup, which the runtime answers with what the element inherited
 function publishInheritedColor(
   value: StyleDescriptor,
   builder: StylesheetBuilder,
 ) {
-  if (readsInheritedColor(value)) {
-    return;
-  }
-
-  builder.addDescriptor(`--${INHERITED_COLOR_VARIABLE}`, value);
+  builder.addDescriptor(
+    `--${INHERITED_COLOR_VARIABLE}`,
+    readsInheritedColor(value) ? inheritedColorLookup() : value,
+  );
 }
 
 // A fallback, a function argument or a light-dark() arm can hold the read, so the whole tree is walked
@@ -1046,13 +1151,15 @@ export function parseCustomDeclaration(
 ) {
   const property = declaration.value.name;
 
+  builder.setWarningProperty(property);
+
   if (isMappingProperty(property)) {
     // Consumed before declarations so property order cannot affect mapping.
     return;
   } else if (property === "-webkit-line-clamp") {
     builder.addDescriptor(
       property,
-      parseUnparsed(declaration.value.value, builder, property),
+      parseDeclarationValue(declaration.value.value, builder, property),
     );
   } else if (property === "-rn-ripple-style") {
     if (
@@ -1076,11 +1183,15 @@ export function parseCustomDeclaration(
     // https://github.com/parcel-bundler/lightningcss/issues/1048
     builder.addDescriptor(
       property,
-      parseUnparsed(declaration.value.value, builder, property),
+      parseDeclarationValue(declaration.value.value, builder, property),
     );
   } else if (property === "corner-shape") {
     parseCornerShape(declaration.value, builder);
   } else if (property === "font-variant") {
+    if (addCSSWideKeyword(declaration.value.value, property, builder)) {
+      return;
+    }
+
     const parsedFontVariant = parseFontVariantCaps(
       parseUnparsed(
         declaration.value.value,
@@ -1099,7 +1210,7 @@ export function parseCustomDeclaration(
   ) {
     builder.addDescriptor(
       property,
-      parseUnparsed(declaration.value.value, builder, property),
+      parseDeclarationValue(declaration.value.value, builder, property),
     );
   } else {
     builder.addWarning("property", declaration.value.name);
@@ -1228,7 +1339,8 @@ export function parseUnparsed(
     }
     case "var": {
       let args: StyleDescriptor = tokenOrValue.value.name.ident.slice(2);
-      const fallback = parseUnparsed(
+      // Substituted, a fallback is the declaration's whole value, so it can be a CSS-wide keyword (css-variables-1 §3)
+      const fallback = parseDeclarationValue(
         tokenOrValue.value.fallback,
         builder,
         property,
@@ -1326,22 +1438,12 @@ export function parseUnparsed(
           // Keywords are ASCII case-insensitive (css-values-4 §4.1), and lightningcss hands an unparsed one through unfolded
           const keyword = value.toLowerCase();
 
-          // currentcolor is the inherited colour on `color` (css-color-3 §4.4), and `unset` on an inherited property is `inherit` (css-cascade-5 §7.3.3)
-          if (
-            keyword === "currentcolor" ||
-            ((keyword === "inherit" || keyword === "unset") &&
-              property === "color")
-          ) {
+          if (keyword === "currentcolor") {
             return inheritedColorLookup();
           }
 
-          // React Native has no inheritance context, initial value or cascade origin for these; `unset` stays, as the literal the runtime clears with
-          if (
-            keyword === "inherit" ||
-            keyword === "initial" ||
-            keyword === "revert" ||
-            keyword === "revert-layer"
-          ) {
+          // Inside a longer value a CSS-wide keyword is invalid (css-values-4 §2.1)
+          if (isCSSWideKeyword(keyword)) {
             builder.addWarning("value", value);
             return;
           }
@@ -3293,7 +3395,7 @@ function parseObjectFit(
   });
   builder.addDescriptor(
     "object-fit",
-    parseUnparsed(declaration.value, builder, "object-fit"),
+    parseDeclarationValue(declaration.value, builder, "object-fit"),
   );
 }
 
@@ -3304,6 +3406,11 @@ function parseObjectPosition(
   builder.addMapping({
     "object-position": ["contentPosition"],
   });
+
+  if (addCSSWideKeyword(declaration.value, "object-position", builder)) {
+    return;
+  }
+
   builder.addDescriptor("object-position", [
     {},
     "join",
@@ -3315,6 +3422,12 @@ function parseCornerShape(
   declaration: CustomProperty,
   builder: StylesheetBuilder,
 ) {
+  if (
+    addCSSWideKeyword(declaration.value, "corner-shape", builder, "borderCurve")
+  ) {
+    return;
+  }
+
   const shape = parseUnparsed(declaration.value, builder, "corner-shape");
 
   if (shape === "round") {
