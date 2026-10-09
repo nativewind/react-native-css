@@ -98,8 +98,27 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
     options.inlineRem = effectiveRem;
   }
 
+  const pseudoElementVariables = new Set<string>();
+
   const firstPassVisitor: Visitor<CustomAtRules> = {
     Rule(rule) {
+      // A pseudo-element's custom properties are its own, so no other use may inline them
+      if (
+        rule.type === "style" &&
+        rule.value.selectors.some((selector) =>
+          selector.some((part) => part.type === "pseudo-element"),
+        )
+      ) {
+        const { declarations = [], importantDeclarations = [] } =
+          rule.value.declarations ?? {};
+
+        for (const declaration of [...declarations, ...importantDeclarations]) {
+          if (declaration.property === "custom") {
+            pseudoElementVariables.add(declaration.value.name);
+          }
+        }
+      }
+
       if (
         rule.type === "unknown" &&
         ["cssInterop", "react-native"].includes(rule.value.name)
@@ -166,6 +185,10 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
       }
     };
     firstPassVisitor.StyleSheetExit = (sheet) => {
+      for (const name of pseudoElementVariables) {
+        vars.delete(name);
+      }
+
       return inlineVariables(sheet, vars);
     };
   }

@@ -11,6 +11,7 @@ import type {
   CompilerOptions,
   ContainerQuery,
   MediaCondition,
+  PseudoElement,
   ReactNativeCssStyleSheet,
   StyleDeclaration,
   StyleDescriptor,
@@ -21,10 +22,7 @@ import type {
   VariableRecord,
   VariableValue,
 } from "./compiler.types";
-import {
-  scopeRuleToPseudoElement,
-  type PseudoElement,
-} from "./pseudo-elements";
+import { scopeRuleToPseudoElement } from "./pseudo-elements";
 import { getClassNameSelectors, toRNProperty } from "./selector-builder";
 
 type BuilderMode = "style" | "media" | "container" | "keyframes";
@@ -452,15 +450,13 @@ export class StylesheetBuilder {
     for (const selector of normalizedSelectors) {
       // We are going to be apply the current rule to n selectors, so we clone the rule
       let rule: StyleRule | undefined = this.cloneRule(this.rule);
+      const pseudoElement =
+        selector.type === "className" ? selector.pseudoElement : undefined;
 
-      if (selector.type === "className" && selector.pseudoElement) {
-        const pseudoElement = selector.pseudoElement;
+      if (pseudoElement) {
         const scoped = scopeRuleToPseudoElement(rule, pseudoElement);
 
-        // A supported property dropped for being in the wrong scope warns like an
-        // unsupported one, keyed by the pseudo-element it was scoped out of. Every
-        // selector scopes the same clone, so one authored rule reports once however
-        // many selectors it expands to
+        // One authored rule reports once, however many selectors it expands to
         if (!warnedPseudoElements.has(pseudoElement)) {
           warnedPseudoElements.add(pseudoElement);
 
@@ -553,10 +549,15 @@ export class StylesheetBuilder {
         const extraRulesArray = extraRules.get(this.rule);
         if (extraRulesArray) {
           for (const extraRule of extraRulesArray) {
-            this.addRuleToRuleSet(
-              className,
-              this.createRuleFromPartial(rule, extraRule),
-            );
+            const merged = this.createRuleFromPartial(rule, extraRule);
+            // An extra rule brings its own declarations, so they are scoped as well
+            const scopedExtraRule = pseudoElement
+              ? scopeRuleToPseudoElement(merged, pseudoElement).rule
+              : merged;
+
+            if (scopedExtraRule) {
+              this.addRuleToRuleSet(className, scopedExtraRule);
+            }
           }
         }
       } else {

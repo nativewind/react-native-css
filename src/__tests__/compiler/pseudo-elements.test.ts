@@ -8,13 +8,6 @@ interface CompiledClass {
   warnings: ReturnType<ReturnType<typeof compile>["warnings"]>;
 }
 
-/**
- * Reads the whole rule, not just `d`. A pseudo-element declaration reaches the element through
- * any field a declaration can set — `v` carries authored custom properties alongside the
- * --__rn-css-color / --__rn-css-em mirrors declarations.ts writes beside `color` and
- * `font-size`, `c` registers a named container, and `a` / `dv` make the host animated or
- * variable-driven
- */
 const compileFor = (
   css: string,
   className = "a",
@@ -40,26 +33,21 @@ describe("::selection", () => {
     expect(
       compileFor(`.a::selection { background-color: #ff0000; }`),
     ).toStrictEqual({
-      rules: [{ d: [["#f00", ["selectionColor"]]] }],
+      rules: [{ pe: "selection", d: [["#f00", ["selectionColor"]]] }],
       warnings: {},
     });
   });
 
-  test("color paints neither the element nor its subtree", () => {
-    // `color` in ::selection is the selected TEXT colour, which React Native cannot express.
-    // declarations.ts mirrors every `color` into --__rn-css-color, which every descendant reads
-    // as currentColor, so dropping it from `d` alone leaves the subtree painted
+  test("color is dropped and stays the pseudo-element's currentcolor", () => {
     expect(compileFor(`.a::selection { color: #ff0000; }`)).toStrictEqual({
-      rules: [],
+      rules: [{ pe: "selection", v: [["__rn-css-color", "#f00"]] }],
       warnings: { values: { "::selection": ["color"] } },
     });
   });
 
-  test("font-size does not become the element's em base", () => {
-    // declarations.ts mirrors every `font-size` into --__rn-css-em, which every em unit on the
-    // element resolves against
+  test("font-size is dropped and its em stays with the pseudo-element", () => {
     expect(compileFor(`.a::selection { font-size: 40px; }`)).toStrictEqual({
-      rules: [],
+      rules: [{ pe: "selection", v: [["__rn-css-em", 40]] }],
       warnings: { values: { "::selection": ["fontSize"] } },
     });
   });
@@ -74,8 +62,6 @@ describe("::selection", () => {
   });
 
   test("an unmapped var() declaration is dropped", () => {
-    // A var() compiles to a style-function tuple rather than the static object every other
-    // "unmapped is dropped" case takes, so it exercises the other branch of the scoping
     expect(compileFor(`.a::selection { width: var(--x); }`)).toStrictEqual({
       rules: [],
       warnings: { values: { "::selection": ["width"] } },
@@ -95,14 +81,12 @@ describe("::selection", () => {
     expect(
       compileFor(`.a::selection { background-color: #ff0000; width: 10px; }`),
     ).toStrictEqual({
-      rules: [{ d: [["#f00", ["selectionColor"]]] }],
+      rules: [{ pe: "selection", d: [["#f00", ["selectionColor"]]] }],
       warnings: { values: { "::selection": ["width"] } },
     });
   });
 
   test("an animation leaves no animated rule behind", () => {
-    // `a` makes the host render through an animated component. With every animation
-    // declaration scoped away there is nothing left for it to animate
     const { rules, warnings } = compileFor(
       `.a::selection { animation: spin 1s; }`,
     );
@@ -116,7 +100,9 @@ describe("::selection", () => {
       `.a::selection { background-color: #ff0000; transition: background-color 1s; }`,
     );
 
-    expect(rules).toStrictEqual([{ d: [["#f00", ["selectionColor"]]] }]);
+    expect(rules).toStrictEqual([
+      { pe: "selection", d: [["#f00", ["selectionColor"]]] },
+    ]);
     expect(warnings.values?.["::selection"]).toContain("transitionProperty");
   });
 
@@ -125,101 +111,40 @@ describe("::selection", () => {
     "container-type: inline-size",
     "container: foo / inline-size",
   ])("`%s` does not make the element a container", (declaration) => {
-    // All three reach `c` without passing through `d`, and `c` records only the name, so the
-    // report names the family rather than claiming the user wrote one of the three
     expect(
       compileFor(
         `.a::selection { background-color: #ff0000; ${declaration}; }`,
       ),
     ).toStrictEqual({
-      rules: [{ d: [["#f00", ["selectionColor"]]] }],
+      rules: [{ pe: "selection", d: [["#f00", ["selectionColor"]]] }],
       warnings: { values: { "::selection": ["container"] } },
     });
   });
 
-  test("an authored custom property is dropped and reported", () => {
-    // A custom property is the one authored declaration that lands in `v` rather than `d`, so
-    // it is scoped out by the field policy rather than by the declaration loop, and the report
-    // has to reach it there. `inlineVariables: false` is the configuration the VariableContext
-    // section of the README asks for, which is where a dropped custom property costs the most
-    expect(
-      compileFor(
-        `.a::selection { background-color: #ff0000; --brand: blue; }`,
-        "a",
-        { inlineVariables: false },
-      ),
-    ).toStrictEqual({
-      rules: [{ d: [["#f00", ["selectionColor"]]] }],
-      warnings: { values: { "::selection": ["--brand"] } },
-    });
-  });
-
-  test("an authored custom property is dropped with the optimization left on", () => {
-    // Declared twice, so the inline-variables optimization keeps it rather than folding it
-    // into its single use. The drop is the pseudo-element's, not the optimization's
-    expect(
-      compileFor(
-        `.a::selection { background-color: #ff0000; --brand: blue; } .b { --brand: green; }`,
-      ),
-    ).toStrictEqual({
-      rules: [{ d: [["#f00", ["selectionColor"]]] }],
-      warnings: { values: { "::selection": ["--brand"] } },
-    });
-  });
-
-  test("a custom property the optimization inlines away is not reported", () => {
-    // Declared once, so inlining folds it into its uses and deletes the declaration before any
-    // rule is built. Nothing reached the pseudo-element, so nothing was dropped by it — the
-    // same thing happens to a custom property on a plain rule
-    expect(
-      compileFor(`.a::selection { background-color: #ff0000; --brand: blue; }`),
-    ).toStrictEqual({
-      rules: [{ d: [["#f00", ["selectionColor"]]] }],
-      warnings: {},
-    });
-  });
-
-  test("an authored custom property alone leaves no rule and still reports", () => {
-    expect(
-      compileFor(`.a::selection { --brand: blue; }`, "a", {
-        inlineVariables: false,
-      }),
-    ).toStrictEqual({
-      rules: [],
-      warnings: { values: { "::selection": ["--brand"] } },
-    });
-  });
-
   test("container-name: none registers no container and reports no drop", () => {
-    // `none` empties `c` rather than leaving it absent, so a report guarded on the field
-    // rather than on its entries would warn about a container that was never registered
+    // `none` empties `c` rather than leaving it absent
     expect(
       compileFor(
         `.a::selection { background-color: #ff0000; container-name: none; }`,
       ),
     ).toStrictEqual({
-      rules: [{ d: [["#f00", ["selectionColor"]]] }],
+      rules: [{ pe: "selection", d: [["#f00", ["selectionColor"]]] }],
       warnings: {},
     });
   });
 
   test("every declaration is scoped, not only the first", () => {
-    // A static object and a style-function tuple are separate `d` entries. Every other case
-    // here has one entry, so this is the shape where scoping the first and stopping is
-    // invisible: `background-color` survives either way and only `transform` says otherwise
     expect(
       compileFor(
         `.a::selection { background-color: #ff0000; transform: translateX(1px); }`,
       ),
     ).toStrictEqual({
-      rules: [{ d: [["#f00", ["selectionColor"]]] }],
+      rules: [{ pe: "selection", d: [["#f00", ["selectionColor"]]] }],
       warnings: { values: { "::selection": ["transform"] } },
     });
   });
 
   test("a nested property path is reported the way the runtime reads it", () => {
-    // `&` routes a path to the top level instead of nesting it under its first segment, and
-    // `[n]` is an index. Neither is part of the property, and a user cannot act on either
     expect(
       compileFor(`.a::selection { text-shadow: 1px 2px 3px red; }`).warnings,
     ).toStrictEqual({
@@ -249,14 +174,13 @@ describe("::selection", () => {
   });
 
   test("a delayed declaration that reads no variable does not set dv", () => {
-    // `em` makes a declaration delayed without making it variable-driven. `dv` is the
-    // variable subscription, so rebuilding it from the delay flag would have the runtime
-    // resolve variables this declaration never reads
+    // `em` delays a declaration without making it read a variable
     expect(
       compileFor(`.a::selection { background-color: hsl(calc(1em) 50% 50%); }`),
     ).toStrictEqual({
       rules: [
         {
+          pe: "selection",
           d: [
             [
               [{}, "hsl", [[{}, "calc", [[{}, "em", 1, 1]]], "50%", "50%"]],
@@ -271,12 +195,34 @@ describe("::selection", () => {
   });
 
   test("a mapped var() declaration keeps its variable subscription", () => {
-    // The counterpart of the drops above: `dv` is rebuilt, not blanket-cleared, or the
-    // runtime stops resolving the variable the surviving declaration reads
     expect(
       compileFor(`.a::selection { background-color: var(--x); }`),
     ).toStrictEqual({
-      rules: [{ d: [[[{}, "var", "x", 1], ["selectionColor"], 1]], dv: 1 }],
+      rules: [
+        {
+          pe: "selection",
+          d: [[[{}, "var", "x", 1], ["selectionColor"], 1]],
+          dv: 1,
+        },
+      ],
+      warnings: {},
+    });
+  });
+
+  test("light-dark() scopes the dark value as well", () => {
+    expect(
+      compileFor(
+        `.a::selection { background-color: light-dark(#123456, #654321); }`,
+      ),
+    ).toStrictEqual({
+      rules: [
+        { pe: "selection", d: [["#123456", ["selectionColor"]]] },
+        {
+          pe: "selection",
+          d: [["#654321", ["selectionColor"]]],
+          m: [["=", "prefers-color-scheme", "dark"]],
+        },
+      ],
       warnings: {},
     });
   });
@@ -289,6 +235,7 @@ describe("::selection", () => {
     ).toStrictEqual({
       rules: [
         {
+          pe: "selection",
           d: [["#f00", ["selectionColor"]]],
           m: [[">=", "width", 100]],
           p: { h: 1 },
@@ -307,6 +254,7 @@ describe("::selection", () => {
     ).toStrictEqual({
       rules: [
         {
+          pe: "selection",
           d: [["#f00", ["selectionColor"]]],
           cq: [{ m: [">=", "width", 100] }],
         },
@@ -324,8 +272,6 @@ describe("::selection", () => {
   });
 
   test("each pseudo-element in one authored rule reports its own drops", () => {
-    // The counterpart of the dedupe above: it is keyed by pseudo-element, so one authored
-    // rule that expands to two DIFFERENT pseudo-elements reports under both
     const { warnings } = compileFor(
       `.a::selection, .b::placeholder { width: 10px; }`,
     );
@@ -346,11 +292,15 @@ describe("::selection", () => {
 });
 
 describe("::placeholder", () => {
-  test("color maps to placeholderTextColor and sets nothing else", () => {
-    // The --__rn-css-color mirror leaks here too, even though the declaration IS mapped:
-    // placeholderTextColor is the placeholder's colour, never the element's currentColor
+  test("color maps to placeholderTextColor and stays its currentcolor", () => {
     expect(compileFor(`.a::placeholder { color: #ff0000; }`)).toStrictEqual({
-      rules: [{ d: [["#f00", ["placeholderTextColor"]]] }],
+      rules: [
+        {
+          pe: "placeholder",
+          d: [["#f00", ["placeholderTextColor"]]],
+          v: [["__rn-css-color", "#f00"]],
+        },
+      ],
       warnings: {},
     });
   });
@@ -372,55 +322,123 @@ describe("::placeholder", () => {
       warnings: { values: { "::placeholder": ["backgroundColor"] } },
     });
   });
-
-  test("an authored custom property is dropped and reported", () => {
-    expect(
-      compileFor(`.a::placeholder { color: #ff0000; --brand: blue; }`, "a", {
-        inlineVariables: false,
-      }),
-    ).toStrictEqual({
-      rules: [{ d: [["#f00", ["placeholderTextColor"]]] }],
-      warnings: { values: { "::placeholder": ["--brand"] } },
-    });
-  });
 });
 
-describe("the compiler's own custom properties", () => {
-  test("a mirror stays silent and the authored property beside it is reported", () => {
-    // `color` writes both: a `d` entry, reported as `color`, and a --__rn-css-color mirror the
-    // compiler minted itself. `--brand` is the only custom property the user wrote, so it is
-    // the only one worth naming — reporting the mirror too would add noise to every rule
+// CSS Pseudo-Elements 4 §3.5: the custom properties a pseudo-element sets are its own
+describe("a pseudo-element's custom properties", () => {
+  test("stay with the pseudo-element and are not reported", () => {
     expect(
-      compileFor(`.a::selection { color: #ff0000; --brand: blue; }`, "a", {
+      compileFor(`.a::selection { color: #ff0000; --brand: #123456; }`, "a", {
         inlineVariables: false,
       }),
     ).toStrictEqual({
-      rules: [],
-      warnings: { values: { "::selection": ["color", "--brand"] } },
+      rules: [
+        {
+          pe: "selection",
+          v: [
+            ["__rn-css-color", "#f00"],
+            ["brand", "#123456"],
+          ],
+        },
+      ],
+      warnings: { values: { "::selection": ["color"] } },
     });
+  });
+
+  test("keep a rule that declares nothing else", () => {
+    expect(
+      compileFor(`.a::placeholder { --x: #123456; }`, "a", {
+        inlineVariables: false,
+      }),
+    ).toStrictEqual({
+      rules: [{ pe: "placeholder", v: [["x", "#123456"]] }],
+      warnings: {},
+    });
+  });
+
+  test("are not inlined into the pseudo-element's own declaration", () => {
+    const css = `.a::selection { --x: #123456; background-color: var(--x); }`;
+
+    expect(compileFor(css)).toStrictEqual({
+      rules: [
+        {
+          pe: "selection",
+          d: [[[{}, "var", "x", 1], ["selectionColor"], 1]],
+          v: [["x", "#123456"]],
+          dv: 1,
+        },
+      ],
+      warnings: {},
+    });
+    expect(compileFor(css)).toStrictEqual(
+      compileFor(css, "a", { inlineVariables: false }),
+    );
+  });
+
+  test.each([
+    ["declared", `.a::selection { --x: #123456; } .b { color: var(--x); }`],
+    [
+      "declared !important",
+      `.a::selection { --x: #123456 !important; } .b { color: var(--x); }`,
+    ],
+    [
+      "declared through nesting",
+      `.a { &::selection { --x: #123456; } } .b { color: var(--x); }`,
+    ],
+  ])("are not inlined into an element when %s", (_name, css) => {
+    const { rules } = compileFor(css, "b");
+
+    expect(rules).toStrictEqual(
+      compileFor(css, "b", { inlineVariables: false }).rules,
+    );
+    expect(rules[0]?.d).toStrictEqual([[[{}, "var", "x", 1], "color", 1]]);
+  });
+
+  test("leave an element's custom property to the optimization", () => {
+    expect(
+      compileFor(
+        `.p { --x: #123456; } .a::selection { background-color: var(--x); }`,
+      ).rules,
+    ).toStrictEqual([
+      { pe: "selection", d: [["#123456", ["selectionColor"]]] },
+    ]);
   });
 });
 
 describe("rules without a pseudo-element", () => {
   test("a plain rule on the same class keeps every field", () => {
-    // Control for an over-broad fix: scoping runs per selector, so a rule that reaches the
-    // element directly keeps its static object AND the --__rn-css-color mirror
     expect(compileFor(`.a { color: #ff0000; }`)).toStrictEqual({
       rules: [{ d: [{ color: "#f00" }], v: [["__rn-css-color", "#f00"]] }],
       warnings: {},
     });
   });
 
-  test("the unscoped half of a grouped selector is untouched", () => {
-    // Both selectors share one rule object, so scoping the pseudo-element half by mutation
-    // rather than by rebuilding would strip the plain half too
-    const css = `.a::selection, .b { background-color: #ff0000; }`;
-
-    expect(compileFor(css, "a").rules).toStrictEqual([
-      { d: [["#f00", ["selectionColor"]]] },
+  test("a plain rule's light-dark() keeps its dark rule as it is", () => {
+    expect(
+      compileFor(`.a { background-color: light-dark(#123456, #654321); }`)
+        .rules,
+    ).toStrictEqual([
+      { d: [{ backgroundColor: "#123456" }] },
+      {
+        d: [{ backgroundColor: "#654321" }],
+        m: [["=", "prefers-color-scheme", "dark"]],
+      },
     ]);
-    expect(compileFor(css, "b").rules).toStrictEqual([
-      { d: [{ backgroundColor: "#f00" }] },
+  });
+
+  test("the unscoped half of a grouped selector is untouched", () => {
+    const css = `.a::selection, .b { background-color: #ff0000; --x: #123456; }`;
+    const options = { inlineVariables: false } as const;
+
+    expect(compileFor(css, "a", options).rules).toStrictEqual([
+      {
+        pe: "selection",
+        d: [["#f00", ["selectionColor"]]],
+        v: [["x", "#123456"]],
+      },
+    ]);
+    expect(compileFor(css, "b", options).rules).toStrictEqual([
+      { d: [{ backgroundColor: "#f00" }], v: [["x", "#123456"]] },
     ]);
   });
 });

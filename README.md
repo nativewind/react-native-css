@@ -237,48 +237,25 @@ This API only allows for setting CSS variables as primitive values. For more com
 
 ## Pseudo-elements
 
-React Native has no pseudo-elements. It has two props that stand in for one declaration each, and `::selection` / `::placeholder` compile to those props:
+React Native has no pseudo-elements. A `TextInput` has one prop for each of `::selection` and `::placeholder`:
 
-| CSS                                | React Native prop      | On a        |
-| ---------------------------------- | ---------------------- | ----------- |
-| `::selection { background-color }` | `selectionColor`       | `TextInput` |
-| `::placeholder { color }`          | `placeholderTextColor` | `TextInput` |
+| CSS                                | React Native prop      |
+| ---------------------------------- | ---------------------- |
+| `::selection { background-color }` | `selectionColor`       |
+| `::placeholder { color }`          | `placeholderTextColor` |
 
-`::selection { background-color }`, not `::selection { color }`. In CSS `color` inside `::selection` is the colour of the selected text and `background-color` is the band painted behind it; React Native's `selectionColor` is that band.
+`selectionColor` is the band behind the selected text, which CSS styles with `background-color`; `::selection { color }` is the selected text itself, which React Native cannot style. With Tailwind, use `selection:bg-*` on the input.
 
-Every other declaration inside a pseudo-element is dropped:
-
-```css
-.input::selection {
-  background-color: red; /* → selectionColor */
-  color: white; /* dropped */
-  width: 10px; /* dropped */
-}
-```
-
-The compiler records each drop, but nothing in the Metro pipeline reads that record — an `expo start` build prints nothing, and the only thing you observe is that the declaration has no effect on native. Two places do read it: `compile()`, and a jest test through `registerCSS(css, { debug: true })`.
+The custom properties a pseudo-element declares are its own, and `currentcolor` inside it is its own `color`, as CSS specifies. Every other declaration is dropped rather than applied to the element, and `compile()` lists what it dropped. A Metro build does not print this list.
 
 ```js
-compile(css).warnings();
+compile(
+  `.input::selection { background-color: red; color: white; width: 10px; }`,
+).warnings();
 // { values: { "::selection": ["color", "width"] } }
 ```
 
-They are dropped rather than applied because a pseudo-element's declarations belong to the pseudo-element. Applying them to the host would paint the element itself — a `::selection { color }` would set the element's text colour, and through `currentColor` its whole subtree.
-
-A custom property is dropped the same way, and for the same reason: it would land on the host as a variable and every descendant would read it.
-
-```css
-.input::selection {
-  --brand: blue; /* dropped, reported as "--brand" */
-}
-```
-
-With `inlineVariables` left on, a custom property declared once is substituted into its uses and its declaration removed before the pseudo-element is scoped at all — nothing reaches the pseudo-element, so nothing is dropped and nothing is reported. `inlineVariables: false`, the setting the `VariableContext` section above asks for, keeps every declaration, and that is where this drop costs the most.
-
-> [!IMPORTANT]
-> This is native only. On web the CSS file is served to the browser unchanged, so `::selection` and `::placeholder` behave exactly as CSS specifies and no declaration is dropped. A rule that is meaningful on both platforms should say so in `background-color` for `::selection` and `color` for `::placeholder`; anything else styles the browser and nothing else.
-
-With Tailwind, the native prop comes from `selection:bg-*`. `selection:text-*` is `color` and is dropped on native, though it still works in a browser.
+On web the stylesheet reaches the browser unchanged, so both pseudo-elements behave as CSS specifies.
 
 ## Optimizations
 

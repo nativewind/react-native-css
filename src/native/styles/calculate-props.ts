@@ -1,6 +1,7 @@
 /* eslint-disable */
 import type {
   InlineVariable,
+  PseudoElement,
   StyleDeclaration,
   StyleRule,
 } from "react-native-css/compiler";
@@ -32,6 +33,8 @@ export function calculateProps(
 
   const delayedStyles: (() => void)[] = [];
   const transformStyles: (() => void)[] = [];
+  const pseudoElementVariables: Partial<Record<PseudoElement, InlineVariable>> =
+    {};
 
   for (const rule of rules) {
     if (VAR_SYMBOL in rule) {
@@ -43,9 +46,14 @@ export function calculateProps(
       continue;
     }
 
+    // A pseudo-element's own variables shadow the element's, which it otherwise inherits
+    const variables: InlineVariable = rule.pe
+      ? (pseudoElementVariables[rule.pe] ??= Object.create(inlineVariables))
+      : inlineVariables;
+
     if (rule.v) {
       for (const variable of rule.v) {
-        inlineVariables[variable[0]] = variable[1];
+        variables[variable[0]] = variable[1];
       }
     }
 
@@ -68,7 +76,7 @@ export function calculateProps(
       applyDeclarations(
         get,
         rule.d,
-        inlineVariables,
+        variables,
         inheritedVariables,
         delayedStyles,
         transformStyles,

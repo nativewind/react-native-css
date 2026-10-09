@@ -65,8 +65,7 @@ test("mixed", async () => {
   expect(component).toHaveStyle({ color: "#fff" });
 });
 
-// selection:bg-*, not selection:text-*. selectionColor is the band behind the selected
-// text, which is background-color in CSS; color there has no React Native prop
+// selectionColor is the band behind the selected text, which CSS styles with background-color
 test("selection", async () => {
   await render(<TextInput testID={testID} className="selection:bg-black" />);
 
@@ -79,9 +78,7 @@ test("selection", async () => {
   });
 });
 
-test("selection: an unmappable declaration does not reach the element", async () => {
-  // selection:text-* is `color` inside ::selection — the selected TEXT colour, which has no
-  // React Native prop. Nothing reaches the element and the compiler says what it dropped
+test("selection: the selected text color does not reach the element", async () => {
   const { warnings } = await render(
     <TextInput testID={testID} className="selection:text-black" />,
   );
@@ -94,6 +91,26 @@ test("selection: an unmappable declaration does not reach the element", async ()
   expect(warnings()).toStrictEqual({
     values: { "::selection": ["color"] },
   });
+});
+
+test.each([
+  [
+    "its own custom property",
+    "selection:[--brand:#123456] selection:bg-(--brand)",
+  ],
+  ["the element's custom property", "[--brand:#123456] selection:bg-(--brand)"],
+  [
+    "its own color as currentcolor",
+    "selection:text-[#123456] selection:bg-current",
+  ],
+  [
+    "the element's color as currentcolor",
+    "text-[#123456] selection:bg-current",
+  ],
+])("selection: reads %s", async (_name, className) => {
+  await render(<TextInput testID={testID} className={className} />);
+
+  expect(screen.getByTestId(testID).props.selectionColor).toBe("#123456");
 });
 
 test("ltr:", async () => {

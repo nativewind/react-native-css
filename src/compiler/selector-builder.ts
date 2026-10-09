@@ -8,9 +8,9 @@ import type {
   ContainerQuery,
   MediaCondition,
   PseudoClassesQuery,
+  PseudoElement,
   SpecificityArray,
 } from "./compiler.types";
-import type { PseudoElement } from "./pseudo-elements";
 
 interface ReactNativeClassNameSelector {
   type: "className";

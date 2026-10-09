@@ -1,64 +1,51 @@
 import { postProcessStyleFunction } from "../utilities";
-import type { StyleDeclaration, StyleRule } from "./compiler.types";
+import type {
+  PseudoElement,
+  StyleDeclaration,
+  StyleRule,
+} from "./compiler.types";
 
 /**
- * The one declaration each pseudo-element can express on the host component, and the
- * React Native prop it becomes.
- *
- * ::selection maps background-color, not color: in CSS `::selection { color }` is the
- * selected TEXT, while selectionColor is the band painted behind it
+ * The one declaration each pseudo-element can express on the host component, and the React
+ * Native prop it becomes. `::selection { color }` is the selected text, while selectionColor
+ * is the band behind it, so ::selection maps background-color
  */
 const pseudoElementProp = {
   selection: ["backgroundColor", "selectionColor"],
   placeholder: ["color", "placeholderTextColor"],
-} as const satisfies Record<string, readonly [string, string]>;
-
-export type PseudoElement = keyof typeof pseudoElementProp;
+} as const satisfies Record<PseudoElement, readonly [string, string]>;
 
 /**
- * The namespace the compiler mints its own custom properties in. `color` and `font-size`
- * mirror into `--__rn-css-color` / `--__rn-css-em` so the runtime can resolve currentColor and
- * em, and `direction` into `--__rn-css-direction`
- */
-export const compilerVariablePrefix = "__rn-css-";
-
-/**
- * What scoping does with each StyleRule field. A `selector` field describes which elements
- * the rule matches and is carried over; a `rebuilt` field is recomputed from the declarations
- * that survive; a `dropped` field belongs to the pseudo-element and never reaches the host.
- *
- * `satisfies` makes this total over StyleRule, so a new field fails to compile until it is
- * classified. That is what stops the next declaration-derived field escaping the
- * pseudo-element the way `v`, `c`, `dv` and `a` did while only `d` was rewritten
+ * What scoping does with each StyleRule field: a `carried` field is kept as it is, a `rebuilt`
+ * field is recomputed for the pseudo-element, and a `dropped` field never reaches the host.
+ * Typed over every StyleRule field, so a new one fails to compile until it is classified
  */
 export const pseudoElementFieldPolicy = {
-  s: "selector",
-  m: "selector",
-  p: "selector",
-  cq: "selector",
-  aq: "selector",
+  s: "carried",
+  m: "carried",
+  p: "carried",
+  cq: "carried",
+  aq: "carried",
+  v: "carried",
   d: "rebuilt",
   dv: "rebuilt",
-  v: "dropped",
+  pe: "rebuilt",
   c: "dropped",
   a: "dropped",
   target: "dropped",
-} as const satisfies Record<
-  keyof StyleRule,
-  "selector" | "rebuilt" | "dropped"
->;
+} as const satisfies Record<keyof StyleRule, "carried" | "rebuilt" | "dropped">;
 
 export interface ScopedRule {
-  /** The rule to register, or undefined when no declaration survived the scoping */
+  /** The rule to register, or undefined when the pseudo-element is left with nothing */
   rule: StyleRule | undefined;
   /** What the pseudo-element cannot express, in declaration order */
   dropped: string[];
 }
 
 /**
- * Rebuild a rule so it carries only what the pseudo-element can express: the one mapped
- * declaration, under the selector's own conditions. Every other declaration is the
- * pseudo-element's own and would paint the host element if it were carried over
+ * Rebuild a rule as the pseudo-element's own: the one declaration it can express and the
+ * variables it declares, under the selector's own conditions. Anything else would style the
+ * host element
  */
 export function scopeRuleToPseudoElement(
   rule: StyleRule,
@@ -73,29 +60,19 @@ export function scopeRuleToPseudoElement(
     scopeDeclaration(declaration, from, to, declarations, dropped);
   }
 
-  // `v` and `c` are the fields an authored declaration reaches without passing through `d`.
-  // A `v` entry is reported under the name it was written with, minus the compiler's own
-  // mirrors: each of those sits beside a `d` declaration the loop above already reported, so
-  // naming them would add a variable the user never wrote to every rule that sets a colour or
-  // a font size. Every `c` entry comes from container-name, container-type or the container
-  // shorthand, so the report names the family rather than picking one of the three. `a` is
-  // only ever set beside the `d` entry that set it, so it is already reported through that
-  for (const [name] of rule.v ?? []) {
-    if (!name.startsWith(compilerVariablePrefix)) {
-      dropped.push(`--${name}`);
-    }
-  }
-
+  // container-name, container-type and the container shorthand all record only the name
   if (rule.c?.length) {
     dropped.push("container");
   }
 
-  if (!declarations.length) {
+  if (!declarations.length && !rule.v?.length) {
     return { rule: undefined, dropped };
   }
 
-  const scoped: StyleRule = { s: rule.s, d: declarations };
+  const scoped: StyleRule = { s: rule.s, pe: pseudoElement };
 
+  if (declarations.length) scoped.d = declarations;
+  if (rule.v?.length) scoped.v = rule.v;
   if (rule.m) scoped.m = rule.m;
   if (rule.p) scoped.p = rule.p;
   if (rule.cq) scoped.cq = rule.cq;
@@ -142,9 +119,8 @@ function scopeDeclaration(
 }
 
 /**
- * The React Native property a declaration writes, spelled the way the runtime reads it. A
- * leading `&` marks a path written at the top level rather than nested under its first
- * segment, so it is routing rather than part of the name, and a `[n]` segment is an index
+ * The React Native property a declaration writes, spelled the way the runtime reads it: a
+ * leading `&` routes the path to the top level and `[n]` is an index
  */
 function toPropertyName(path: string | string[]): string {
   if (!Array.isArray(path)) {
