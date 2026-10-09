@@ -536,6 +536,7 @@ describe("CSS-wide keywords", () => {
     ["object-position", "left inherit"],
     ["corner-shape", "round inherit"],
     ["font-variant", "small-caps inherit"],
+    ["box-shadow", "1px 1px light-dark(blue, inherit)"],
     ["box-shadow", "1px 1px INHERIT"],
   ])(
     "%s: %s is dropped, as a CSS-wide keyword is only ever a whole value",
