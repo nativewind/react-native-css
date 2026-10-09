@@ -36,7 +36,11 @@ import type {
   UnresolvedColor,
 } from "lightningcss";
 
-import { INHERITED_COLOR_VARIABLE, isStyleFunction } from "../utilities";
+import {
+  INHERITED_COLOR_VARIABLE,
+  isInheritedColorLookup,
+  isStyleFunction,
+} from "../utilities";
 import { isMappingProperty } from "./atRules";
 import type {
   StyleDescriptor,
@@ -1030,17 +1034,7 @@ function readsInheritedColor(value: StyleDescriptor): boolean {
   }
 
   if (isStyleFunction(value)) {
-    const args = value[2];
-
-    if (value[1] === "var") {
-      const name = Array.isArray(args) ? args[0] : args;
-
-      if (name === INHERITED_COLOR_VARIABLE) {
-        return true;
-      }
-    }
-
-    return readsInheritedColor(args);
+    return isInheritedColorLookup(value) || readsInheritedColor(value[2]);
   }
 
   return value.some((entry) => readsInheritedColor(entry));
@@ -1351,21 +1345,10 @@ export function parseUnparsed(
             return;
           }
 
-          // CSS-wide keywords and `currentcolor` are case-insensitive, and
-          // lightningcss hands them through unfolded.
+          // Keywords are ASCII case-insensitive (css-values-4 §4.1), and lightningcss hands an unparsed one through unfolded
           const keyword = value.toLowerCase();
 
-          // Per CSS Color, `currentcolor` as the value of `color` is defined as
-          // `inherit`; and per CSS Cascade, `unset` on an inherited property
-          // (`color` is inherited) computes to `inherit` too. So `currentcolor`
-          // (valid on any property) and `inherit` / `unset` on `color` all
-          // resolve to the inherited-color variable every color rule publishes
-          // to its subtree (see publishInheritedColor).
-          //
-          // `color: currentcolor` does not arrive here — lightningcss parses it
-          // into a CssColor, so parseColor handles it. This clause serves the
-          // UNPARSED properties: box-shadow, filter: drop-shadow(), and custom
-          // properties, whose values reach the compiler as raw tokens.
+          // currentcolor is the inherited colour on `color` (css-color-3 §4.4), and `unset` on an inherited property is `inherit` (css-cascade-5 §7.3.3)
           if (
             keyword === "currentcolor" ||
             ((keyword === "inherit" || keyword === "unset") &&
@@ -1374,15 +1357,7 @@ export function parseUnparsed(
             return inheritedColorLookup();
           }
 
-          // `inherit` on any other property has no per-property inheritance
-          // context here, `initial` has no per-property initial value, and
-          // React Native has no cascade origins for `revert` / `revert-layer`
-          // to roll back to. None of them has a value to compile to, so they
-          // drop with a warning rather than reaching the style as a literal.
-          //
-          // `unset` on a non-color property is the exception: it means
-          // `initial` there, and the runtime already turns the literal into
-          // `null`, which is how `background-color: unset` clears a color.
+          // React Native has no inheritance context, initial value or cascade origin for these; `unset` stays, as the literal the runtime clears with
           if (
             keyword === "inherit" ||
             keyword === "initial" ||
@@ -1712,9 +1687,7 @@ export function parseFontColorDeclaration(
   declaration: Extract<Declaration, { value: CssColor }>,
   builder: StylesheetBuilder,
 ) {
-  // Parsed once, for the declaration and the published variable both:
-  // `light-dark()` pushes an extra `prefers-color-scheme: dark` rule as a side
-  // effect, so a second parse emits a second copy of that rule.
+  // Parsed once: light-dark() adds its dark rule as a side effect, so a second parse adds it twice
   const value = parseColor(declaration.value, builder);
 
   builder.addDescriptor(declaration.property, value);

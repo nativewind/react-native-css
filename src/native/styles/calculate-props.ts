@@ -106,14 +106,7 @@ export function applyDeclarations(
   topLevelTarget = target,
 ) {
   for (const declaration of declarations) {
-    /**
-     * Scoped to THIS declaration. The delayed and transform closures below
-     * capture it, and they run after every declaration has been walked — so a
-     * binding shared across iterations hands them whatever nested object the
-     * LAST declaration ended on (a shadow, a transform entry) instead of the
-     * target this declaration resolved. The placeholder then never matches, and
-     * `{ [prop]: true }` is left in the style.
-     */
+    // The delayed and transform closures below run after the walk, so each must capture its own declaration's target
     let declarationTarget = target;
 
     if (!Array.isArray(declaration)) {
