@@ -1,5 +1,3 @@
-import { Platform, PlatformColor } from "react-native";
-
 import type { StyleDescriptor, VariableValue } from "react-native-css/compiler";
 
 import { testMediaQuery } from "../native/conditions/media-query";
@@ -33,12 +31,14 @@ export const rootVariables = rootVariableFamily();
 export const universalVariables = rootVariableFamily();
 
 rootVariables("__rn-css-rem").set([[14]]);
-// eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+
+/**
+ * `color`'s initial value, `CanvasText` (CSS Color 4): black, or white in a dark scheme.
+ * Concrete rather than `PlatformColor`, because Android's border, ring and shadow paths
+ * and iOS's border, outline and shadow paths never resolve a semantic color
+ * (facebook/react-native#57836), so a semantic fallback paints nothing.
+ */
 rootVariables("__rn-css-color").set([
-  [
-    Platform.OS === "ios"
-      ? PlatformColor("label", "labelColor")
-      : PlatformColor("?attr/textColorPrimary", "SystemBaseHighColor"),
-  ],
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-] as any);
+  ["#FFFFFF", [["=", "prefers-color-scheme", "dark"]]],
+  ["#000000"],
+]);
