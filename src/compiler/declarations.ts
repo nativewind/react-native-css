@@ -1037,10 +1037,15 @@ function isCSSWideKeyword(keyword: string): keyword is CSSWideKeyword {
   return (CSS_WIDE_KEYWORDS as readonly string[]).includes(keyword);
 }
 
+interface SoleCSSWideKeyword {
+  keyword: CSSWideKeyword;
+  written: string;
+}
+
 // A CSS-wide keyword is a value only on its own (css-values-4 §2.1)
 function soleCSSWideKeyword(
   tokens: TokenOrValue[] | null | undefined,
-): CSSWideKeyword | undefined {
+): SoleCSSWideKeyword | undefined {
   const [token, ...rest] = tokens ?? [];
 
   if (
@@ -1052,13 +1057,14 @@ function soleCSSWideKeyword(
     return;
   }
 
-  const keyword = token.value.value.toLowerCase();
+  const written = token.value.value;
+  const keyword = written.toLowerCase();
 
-  return isCSSWideKeyword(keyword) ? keyword : undefined;
+  return isCSSWideKeyword(keyword) ? { keyword, written } : undefined;
 }
 
 function parseCSSWideKeyword(
-  keyword: CSSWideKeyword,
+  { keyword, written }: SoleCSSWideKeyword,
   builder: StylesheetBuilder,
   property: string,
 ): StyleDescriptor {
@@ -1083,7 +1089,7 @@ function parseCSSWideKeyword(
     return "unset";
   }
 
-  builder.addWarning("value", keyword);
+  builder.addWarning("value", written);
   return;
 }
 
@@ -1093,10 +1099,10 @@ function parseCSSWideKeywordValue(
   builder: StylesheetBuilder,
   property: string,
 ): { readonly value: StyleDescriptor } | undefined {
-  const keyword = soleCSSWideKeyword(tokens);
+  const sole = soleCSSWideKeyword(tokens);
 
-  if (keyword !== undefined) {
-    return { value: parseCSSWideKeyword(keyword, builder, property) };
+  if (sole !== undefined) {
+    return { value: parseCSSWideKeyword(sole, builder, property) };
   }
 
   // A CSS-wide keyword inside a property's longer value makes the declaration invalid (css-values-4 §2.1); a custom property's value is any tokens

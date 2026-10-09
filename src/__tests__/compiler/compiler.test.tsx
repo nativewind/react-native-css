@@ -526,6 +526,15 @@ describe("CSS-wide keywords", () => {
     },
   );
 
+  test.each(["INHERIT", "1px 1px INHERIT"])(
+    "box-shadow: %s is reported as written",
+    (value) => {
+      expect(
+        compile(`.child { box-shadow: ${value}; }`).warnings(),
+      ).toStrictEqual({ values: { "box-shadow": ["INHERIT"] } });
+    },
+  );
+
   test.each([
     ["color", "color-mix(in srgb, inherit, blue)"],
     ["color", "light-dark(inherit, blue)"],
