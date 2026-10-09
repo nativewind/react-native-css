@@ -188,13 +188,13 @@ describe("one property per entry", () => {
       renderStyle(
         `${decoy} .my-class { --sx: 75%; transform: scale(var(--sx)); }`,
       ),
-    ).toStrictEqual({ transform: [{ scale: 0.75 }] });
+    ).toStrictEqual({ transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] });
   });
 
   test("scale: var(--sx) scales both axes by its one value", () => {
     expect(
       renderStyle(`${decoy} .my-class { --sx: 75%; scale: var(--sx); }`),
-    ).toStrictEqual({ transform: [{ scale: 0.75 }] });
+    ).toStrictEqual({ transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] });
   });
 
   // Chromium 153, Firefox 155 and WebKit 26.6 translate a one-operand translate() along x only
