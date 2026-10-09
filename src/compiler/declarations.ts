@@ -1039,10 +1039,7 @@ function isCSSWideKeyword(keyword: string): keyword is CSSWideKeyword {
 function soleCSSWideKeyword(
   tokens: TokenOrValue[] | null | undefined,
 ): CSSWideKeyword | undefined {
-  const [token, ...rest] = (tokens ?? []).filter(
-    (candidate) =>
-      candidate.type !== "token" || candidate.value.type !== "white-space",
-  );
+  const [token, ...rest] = tokens ?? [];
 
   if (
     token === undefined ||

@@ -570,6 +570,25 @@ describe("CSS-wide keywords", () => {
     });
   });
 
+  test("a comment beside a keyword leaves the keyword the whole value", () => {
+    expect(stylesheetFor("/* reset */ inherit")).toStrictEqual(
+      stylesheetFor("inherit"),
+    );
+    expect(
+      declarationsFor(
+        `.child { color: var(--missing, /* reset */ inherit /* here */); }`,
+      ),
+    ).toStrictEqual(
+      declarationsFor(`.child { color: var(--missing, inherit); }`),
+    );
+    expect(
+      publishedVariable(
+        uninlinedCustomProperty("/* reset */ inherit"),
+        "brand",
+      ),
+    ).toEqual([]);
+  });
+
   test.each(["currentcolor", "currentColor"])(
     "--brand: %s compiles to the inherited-color lookup",
     (spelling) => {
