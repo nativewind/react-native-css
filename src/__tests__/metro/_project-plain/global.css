@@ -1,0 +1,2 @@
+.plain { color: red; }
+.plain:where(:dir(rtl), [dir="rtl"], [dir="rtl"] *) { color: blue; }
