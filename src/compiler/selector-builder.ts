@@ -10,6 +10,7 @@ import type {
   PseudoClassesQuery,
   SpecificityArray,
 } from "./compiler.types";
+import type { PseudoElement } from "./pseudo-elements";
 
 interface ReactNativeClassNameSelector {
   type: "className";
@@ -19,7 +20,7 @@ interface ReactNativeClassNameSelector {
   containerQuery?: ContainerQuery[];
   pseudoClassesQuery?: PseudoClassesQuery;
   attributeQuery?: AttributeQuery[];
-  pseudoElementQuery?: string[];
+  pseudoElement?: PseudoElement;
 }
 
 interface ReactNativeGlobalSelector {
@@ -133,8 +134,7 @@ function parseComponents(
         case "placeholder": {
           specificity[Specificity.PseudoElements] =
             (specificity[Specificity.PseudoElements] ?? 0) + 1;
-          root.pseudoElementQuery ??= [];
-          root.pseudoElementQuery.push(component.kind);
+          root.pseudoElement = component.kind;
           return parseComponents(rest, options, root, ref, specificity);
         }
         default: {
