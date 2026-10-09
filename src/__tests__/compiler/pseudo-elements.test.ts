@@ -394,12 +394,17 @@ describe("a pseudo-element's custom properties", () => {
     expect(rules[0]?.d).toStrictEqual([[[{}, "var", "x", 1], "color", 1]]);
   });
 
-  test("leave an element's custom property to the optimization", () => {
-    expect(
-      compileFor(
-        `.p { --x: #123456; } .a::selection { background-color: var(--x); }`,
-      ).rules,
-    ).toStrictEqual([
+  test.each([
+    [
+      "an element's",
+      `.p { --x: #123456; } .a::selection { background-color: var(--x); }`,
+    ],
+    [
+      "one elements and pseudo-elements share",
+      `*, ::before, ::after { --x: #123456; } .a::selection { background-color: var(--x); }`,
+    ],
+  ])("leave %s custom property to the optimization", (_name, css) => {
+    expect(compileFor(css).rules).toStrictEqual([
       { pe: "selection", d: [["#123456", ["selectionColor"]]] },
     ]);
   });

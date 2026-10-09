@@ -102,10 +102,10 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
 
   const firstPassVisitor: Visitor<CustomAtRules> = {
     Rule(rule) {
-      // A pseudo-element's custom properties are its own, so no other use may inline them
+      // Custom properties only pseudo-elements declare are theirs alone, so no other use may inline them
       if (
         rule.type === "style" &&
-        rule.value.selectors.some((selector) =>
+        rule.value.selectors.every((selector) =>
           selector.some((part) => part.type === "pseudo-element"),
         )
       ) {
