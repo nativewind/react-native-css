@@ -164,7 +164,7 @@ function renderStyle(css: string): unknown {
 }
 
 // A second definition keeps each variable from being inlined, so it resolves at runtime
-const decoy = `.decoy { --sx: 9; --sy: 9; --t: 9px; --offset: 1px; --s: 1; --x: 9px; --y: 9px; }`;
+const decoy = `.decoy { --sx: 9; --sy: 9; --t: 9px; --offset: 1px; --s: 1; --x: 9px; --y: 9px; --r: 9deg; }`;
 
 // React Native requires exactly one property per transform object, and its validator throws otherwise
 describe("one property per entry", () => {
@@ -274,6 +274,9 @@ test.each(
       ["--offset: 10px 20px; ", "var(--offset)"],
       ["--sx: none; ", "scaleX(var(--sx))"],
       ["--sx: none; ", "scale(var(--sx))"],
+      ["--t: 1px, 2px, 3px; ", "translate(var(--t))"],
+      ["--s: 1, 2, 3; ", "scale(var(--s))"],
+      ["--r: 10deg, 20deg; ", "rotate(var(--r))"],
     ] as const
   ).flatMap(([customProperties, transform]) => [
     `${customProperties}transform: ${transform};`,
@@ -292,7 +295,6 @@ test.each([
   "scale: var(--missing);",
   "scale: var(--missing) var(--missing);",
   "translate: var(--missing) var(--missing);",
-  "--sx: none; scale: var(--sx);",
   "--sx: none; --sy: 2; scale: var(--sx) var(--sy);",
   "scale: unset;",
   "scale: initial;",
@@ -391,6 +393,106 @@ test.each([
     expect(renderStyle(css)).toStrictEqual({ fontSize: 20, transform });
   },
 );
+
+// Chromium 153 and Firefox 155 rotate about the axis a vector names, reversing the angle about a negative axis, and rotate by none about the zero vector; WebKit 26.6 ignores the direction of a z axis
+test.each([
+  ["rotate: 0 0 -1 45deg;", [{ rotateZ: "-45deg" }]],
+  ["--r: 0 0 -1 45deg; rotate: var(--r);", [{ rotateZ: "-45deg" }]],
+  ["rotate: -1 0 0 45deg;", [{ rotateX: "-45deg" }]],
+  ["--r: -1 0 0 45deg; rotate: var(--r);", [{ rotateX: "-45deg" }]],
+  ["rotate: 0 0 2 45deg;", [{ rotateZ: "45deg" }]],
+  ["--r: 0 0 2 45deg; rotate: var(--r);", [{ rotateZ: "45deg" }]],
+  ["rotate: x 45deg;", [{ rotateX: "45deg" }]],
+  ["--r: x 45deg; rotate: var(--r);", [{ rotateX: "45deg" }]],
+  ["rotate: 45deg y;", [{ rotateY: "45deg" }]],
+  ["--r: 45deg y; rotate: var(--r);", [{ rotateY: "45deg" }]],
+  ["--r: 20deg; rotate: var(--r);", [{ rotateZ: "20deg" }]],
+  ["--r: x; rotate: var(--r) 45deg;", [{ rotateX: "45deg" }]],
+  ["--r: 0 0 -1; rotate: var(--r) 45deg;", [{ rotateZ: "-45deg" }]],
+  ["rotate: 0 0 0 45deg;", [{ rotateZ: "0deg" }]],
+  ["--r: 0 0 0 45deg; rotate: var(--r);", [{ rotateZ: "0deg" }]],
+  ["--r: none; rotate: var(--r);", [{ rotateZ: "0deg" }]],
+] as const)("%s rotates about the axis it names", (declarations, transform) => {
+  expect(
+    renderStyle(
+      `${decoy} .earlier { rotate: 10deg; } .my-class { ${declarations} }`,
+    ),
+  ).toStrictEqual({ transform });
+});
+
+// Chromium 153, Firefox 155 and WebKit 26.6 read the third value of translate and scale as its z, which React Native has no axis for
+test.each([
+  ["translate: 10px 20px 30px;", [{ translateX: 10 }, { translateY: 20 }]],
+  [
+    "--t: 10px 20px 30px; translate: var(--t);",
+    [{ translateX: 10 }, { translateY: 20 }],
+  ],
+  [
+    "--t: 20px 30px; translate: 10px var(--t);",
+    [{ translateX: 10 }, { translateY: 20 }],
+  ],
+  ["--t: none; translate: var(--t);", [{ translateX: 0 }, { translateY: 0 }]],
+  ["--t: NONE; translate: var(--t);", [{ translateX: 0 }, { translateY: 0 }]],
+  ["scale: 2 3 4;", [{ scaleX: 2 }, { scaleY: 3 }]],
+  ["--s: 2 3 4; scale: var(--s);", [{ scaleX: 2 }, { scaleY: 3 }]],
+  ["--s: 3 4; scale: 2 var(--s);", [{ scaleX: 2 }, { scaleY: 3 }]],
+  ["--s: none; scale: var(--s);", [{ scaleX: 1 }, { scaleY: 1 }]],
+] as const)("%s renders its x and y", (declarations, transform) => {
+  expect(
+    renderStyle(
+      `${decoy} .earlier { translate: 1px 2px; scale: 5; } .my-class { translate: none; scale: none; ${declarations} }`,
+    ),
+  ).toStrictEqual({
+    transform: [
+      ...(declarations.includes("translate")
+        ? transform
+        : [{ translateX: 0 }, { translateY: 0 }]),
+      ...(declarations.includes("scale")
+        ? transform
+        : [{ scaleX: 1 }, { scaleY: 1 }]),
+    ],
+  });
+});
+
+// Chromium 153, Firefox 155 and WebKit 26.6: a value the property's grammar does not take is invalid at computed-value time, so the property is none (css-variables-1 §3.1)
+test.each([
+  "--r: x y 45deg; rotate: var(--r);",
+  "--r: 0 45deg 0 1; rotate: var(--r);",
+  "--t: 10px 20px 30%; translate: var(--t);",
+  "--t: 1px 2px 3px 4px; translate: var(--t);",
+  "--s: 2 3 4 5; scale: var(--s);",
+  "--s: 2 3 red; scale: var(--s);",
+  "--s: none 2; scale: var(--s);",
+])("%s leaves the property none", (declarations) => {
+  expect(
+    renderStyle(
+      `${decoy} .earlier { translate: 1px 2px; rotate: 10deg; scale: 5; transform: translateX(5px); } .my-class { ${declarations} }`,
+    ),
+  ).toStrictEqual({
+    transform: [
+      ...(declarations.includes("translate:")
+        ? []
+        : [{ translateX: 1 }, { translateY: 2 }]),
+      ...(declarations.includes("rotate:") ? [] : [{ rotateZ: "10deg" }]),
+      ...(declarations.includes("scale:")
+        ? []
+        : [{ scaleX: 5 }, { scaleY: 5 }]),
+      { translateX: 5 },
+    ],
+  });
+});
+
+// React Native's rotate keys turn only about an axis, so a rotate about a vector off every axis is ignored when written and none when substituted
+test.each([
+  ["rotate: 1 1 0 45deg;", [{ rotateZ: "10deg" }]],
+  ["--r: 1 1 0 45deg; rotate: var(--r);", []],
+] as const)("%s rotates by none", (declarations, transform) => {
+  expect(
+    renderStyle(
+      `${decoy} .earlier { rotate: 10deg; } .my-class { ${declarations} }`,
+    ),
+  ).toStrictEqual(transform.length === 0 ? {} : { transform });
+});
 
 // Chromium 153, Firefox 155 and WebKit 26.6: a later transform without a value replaces an earlier one, and is none (css-variables-1 §3.1)
 test("transform: var(--missing) replaces an earlier rule's transform", () => {

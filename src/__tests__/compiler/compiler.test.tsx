@@ -373,6 +373,73 @@ test("a transform value the compiler cannot convert is ignored, with a warning",
   });
 });
 
+test("a scale along z or a rotate about an oblique axis warns", () => {
+  const compiled = compile(`
+.my-class {
+    scale: 2 3 400%;
+    rotate: 1 1 0 45deg;
+}
+.unwarned {
+    scale: 2 3 100%;
+    translate: 10px 20px 30px;
+    rotate: 0 0 0 45deg;
+}`);
+
+  expect(compiled.stylesheet()).toStrictEqual({
+    s: [
+      [
+        "my-class",
+        [
+          {
+            d: [
+              [
+                [
+                  [{}, "scaleX", 2],
+                  [{}, "scaleY", 3],
+                ],
+                "scale",
+              ],
+            ],
+            s: [1, 1],
+          },
+        ],
+      ],
+      [
+        "unwarned",
+        [
+          {
+            d: [
+              [
+                [
+                  [{}, "scaleX", 2],
+                  [{}, "scaleY", 3],
+                ],
+                "scale",
+              ],
+              [
+                [
+                  [{}, "translateX", 10],
+                  [{}, "translateY", 20],
+                ],
+                "translate",
+              ],
+              [[{}, "rotateZ", "0deg"], "rotate"],
+            ],
+            s: [2, 1],
+          },
+        ],
+      ],
+    ],
+  });
+
+  expect(compiled.warnings()).toStrictEqual({
+    values: {
+      scale: ["400%"],
+      rotate: ["1 1 0 45deg"],
+    },
+  });
+});
+
 test("simplifies rem", () => {
   const compiled = compile(`.test {
     border-width: calc(10rem + 2px);
