@@ -297,48 +297,24 @@ const hashKeyFamily = weakFamily(() => hashKeyCount++);
 
 export function generateStateHash(
   state: ComponentState,
-  iterableKeys?: Iterable<WeakKey>,
-  variables?: WeakKey,
-  inlineVars?: Set<WeakKey>,
+  iterableKeys: Iterable<WeakKey>,
 ): string {
-  if (!iterableKeys) {
-    return "";
-  }
-
-  const keys = [state.configs, ...iterableKeys];
-
-  if (variables) {
-    keys.push(variables);
-  }
-
-  if (inlineVars) {
-    keys.push(...inlineVars);
-  }
-
-  return generateHash(keys);
+  return generateHash([state.configs, ...iterableKeys]);
 }
 
-/**
- * Quickly generate a unique hash for a set of numbers.
- * This is not a cryptographic hash, but it is fast and has a low chance of collision.
- */
-const MOD = 9007199254740871; // Largest prime within safe integer range 2^53
-const PRIME = 31; // A smaller prime for mixing
+// An exact encoding rather than a digest, since a collision would hand one element another element's styles
 export function generateHash(keys: WeakKey[]): string {
-  let hash = 0;
-  let product = 1; // Used for mixing to enhance uniqueness
+  // A typed array sorts numerically without a comparator, and Float64 holds the unbounded key counter where Int32 wraps
+  const numbers = new Float64Array(keys.length);
+  let index = 0;
 
   for (const key of keys) {
-    if (!key) continue; // Skip if key is undefined
-
-    const num = hashKeyFamily(key);
-    hash = (hash ^ num) % MOD; // XOR and modular arithmetic
-    product = (product * (num + PRIME)) % MOD; // Mix with multiplication
+    numbers[index] = hashKeyFamily(key);
+    index += 1;
   }
 
-  // Combine hash and product to form the final hash
-  hash = (hash + product) % MOD;
+  // Sorted, so a key set encodes the same in any order
+  numbers.sort();
 
-  // Return the hash as a string
-  return hash.toString(36);
+  return numbers.join(",");
 }
