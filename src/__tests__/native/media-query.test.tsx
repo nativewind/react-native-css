@@ -436,3 +436,70 @@ describe("prefers-reduced-motion", () => {
     expect(component.props.style).toStrictEqual({ color: "#00f" });
   });
 });
+
+// Chromium 153, Firefox 155 and WebKit 26.6 agree on every row: [query, reduce/light, reduce/dark, no-preference/light, no-preference/dark]
+const BROWSER_MEDIA_ROWS = [
+  ["(prefers-reduced-motion: reduce)", true, true, false, false],
+  ["(prefers-reduced-motion: no-preference)", false, false, true, true],
+  ["(prefers-reduced-motion)", true, true, false, false],
+  ["not (prefers-reduced-motion)", false, false, true, true],
+  ["(prefers-reduced-motion: bogus)", false, false, false, false],
+  ["not all and (prefers-reduced-motion: reduce)", false, false, true, true],
+  [
+    "(prefers-reduced-motion: reduce) and (min-width: 1px)",
+    true,
+    true,
+    false,
+    false,
+  ],
+  [
+    "(prefers-reduced-motion: reduce), (prefers-color-scheme: dark)",
+    true,
+    true,
+    false,
+    true,
+  ],
+  ["not (prefers-reduced-motion: reduce)", false, false, true, true],
+  ["(prefers-reduced-motion: REDUCE)", true, true, false, false],
+  ["(prefers-color-scheme: DARK)", false, true, false, true],
+  ["(prefers-color-scheme: dark)", false, true, false, true],
+] as const;
+
+const MEDIA_STATES = [
+  ["reduce", "light"],
+  ["reduce", "dark"],
+  ["no-preference", "light"],
+  ["no-preference", "dark"],
+] as const;
+
+describe.each(BROWSER_MEDIA_ROWS)(
+  "@media %s matches as browsers match it",
+  (query, ...matches) => {
+    afterEach(() => {
+      act(() => {
+        reduceMotion.set(false);
+        colorScheme.set("light");
+      });
+    });
+
+    test.each(
+      MEDIA_STATES.map(
+        ([motion, scheme], index) => [motion, scheme, matches[index]] as const,
+      ),
+    )("under %s motion in the %s scheme: %s", (motion, scheme, expected) => {
+      act(() => {
+        reduceMotion.set(motion === "reduce");
+        colorScheme.set(scheme);
+      });
+      registerCSS(
+        `.my-class { color: #000000; } @media ${query} { .my-class { color: #010101; } }`,
+      );
+
+      render(<View testID={testID} className="my-class" />);
+
+      expect(screen.getByTestId(testID).props.style).toStrictEqual({
+        color: expected ? "#010101" : "#000",
+      });
+    });
+  },
+);
