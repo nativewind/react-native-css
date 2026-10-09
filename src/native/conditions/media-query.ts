@@ -14,10 +14,7 @@ function test(mediaQuery: MediaCondition, get: Getter): Boolean {
     case "[]":
       return false;
     case "!!":
-      // MQ5: a feature in a boolean context is true unless its value is `no-preference`
-      return mediaQuery[1] === "prefers-reduced-motion"
-        ? get(reduceMotion)
-        : false;
+      return testBooleanContext(mediaQuery[1], get);
     case "!":
       return !test(mediaQuery[1], get);
     case "&":
@@ -35,6 +32,25 @@ function test(mediaQuery: MediaCondition, get: Getter): Boolean {
     case "=": {
       return testComparison(mediaQuery, get);
     }
+  }
+}
+
+// MQ4 §2.4.2: a feature in a boolean context is true unless its value is zero, `none` or one the feature defines as false
+function testBooleanContext(feature: string, get: Getter): boolean {
+  switch (feature) {
+    case "prefers-reduced-motion":
+      return get(reduceMotion);
+    case "width":
+      return get(vw) !== 0;
+    case "height":
+      return get(vh) !== 0;
+    case "prefers-color-scheme":
+    case "orientation":
+    case "resolution":
+    case "display-mode":
+      return true;
+    default:
+      return false;
   }
 }
 

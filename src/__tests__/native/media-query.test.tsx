@@ -463,6 +463,14 @@ const BROWSER_MEDIA_ROWS = [
   ["(prefers-reduced-motion: REDUCE)", true, true, false, false],
   ["(prefers-color-scheme: DARK)", false, true, false, true],
   ["(prefers-color-scheme: dark)", false, true, false, true],
+  ["(prefers-color-scheme)", true, true, true, true],
+  ["not (prefers-color-scheme)", false, false, false, false],
+  ["(orientation)", true, true, true, true],
+  ["(width)", true, true, true, true],
+  ["(height)", true, true, true, true],
+  ["(resolution)", true, true, true, true],
+  ["(display-mode)", true, true, true, true],
+  ["(unknown-feature)", false, false, false, false],
 ] as const;
 
 const MEDIA_STATES = [
