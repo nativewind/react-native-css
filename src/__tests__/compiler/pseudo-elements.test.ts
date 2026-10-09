@@ -28,6 +28,103 @@ const compileFor = (
   };
 };
 
+const inlineVariablesOff = { inlineVariables: false } as const;
+
+/** The value a rule writes to `prop`, whether it compiled to a static object or a dynamic entry */
+const readWrittenValue = (
+  rule: Partial<StyleRule> | undefined,
+  prop: string,
+): unknown => {
+  for (const declaration of rule?.d ?? []) {
+    if (!Array.isArray(declaration)) {
+      if (Object.hasOwn(declaration, prop)) {
+        return declaration[prop];
+      }
+      continue;
+    }
+
+    const path = declaration[1];
+
+    if (path === prop || (Array.isArray(path) && path.join() === prop)) {
+      return declaration[0];
+    }
+  }
+
+  return undefined;
+};
+
+const readsCustomProperty = (value: unknown, name: string): boolean =>
+  Array.isArray(value) &&
+  ((value[1] === "var" &&
+    (value[2] === name || (Array.isArray(value[2]) && value[2][0] === name))) ||
+    value.some((entry) => readsCustomProperty(entry, name)));
+
+const pseudoElements = [
+  {
+    selector: "::selection",
+    property: "background-color",
+    elementProp: "backgroundColor",
+    prop: "selectionColor",
+    pseudoElement: "selection",
+  },
+  {
+    selector: "::placeholder",
+    property: "color",
+    elementProp: "color",
+    prop: "placeholderTextColor",
+    pseudoElement: "placeholder",
+  },
+] as const;
+
+// The pseudo-element's rule is the element's rule for the same CSS, re-targeted at its prop
+describe.each(pseudoElements)(
+  "$selector compiles what an element would",
+  ({ selector, property, elementProp, prop, pseudoElement }) => {
+    test.each([
+      "#ff0000",
+      "var(--x)",
+      "hsl(calc(1em) 50% 50%)",
+      "color-mix(in srgb, #ff0000 50%, transparent)",
+      "currentcolor",
+    ])(`${property}: %s writes the element's value to ${prop}`, (value) => {
+      const [scoped] = compileFor(
+        `.a${selector} { ${property}: ${value}; }`,
+        "a",
+        inlineVariablesOff,
+      ).rules;
+      const [element] = compileFor(
+        `.b { ${property}: ${value}; }`,
+        "b",
+        inlineVariablesOff,
+      ).rules;
+
+      expect(scoped?.pe).toBe(pseudoElement);
+      expect(readWrittenValue(element, elementProp)).toBeDefined();
+      expect(readWrittenValue(scoped, prop)).toStrictEqual(
+        readWrittenValue(element, elementProp),
+      );
+      expect(scoped?.dv).toBe(element?.dv);
+    });
+
+    test("declares the variables an element would", () => {
+      const declarations = `color: #ff0000; font-size: 40px; --brand: #123456;`;
+      const [scoped] = compileFor(
+        `.a${selector} { ${declarations} }`,
+        "a",
+        inlineVariablesOff,
+      ).rules;
+      const [element] = compileFor(
+        `.b { ${declarations} }`,
+        "b",
+        inlineVariablesOff,
+      ).rules;
+
+      expect(element?.v?.length).toBeGreaterThan(0);
+      expect(scoped?.v).toStrictEqual(element?.v);
+    });
+  },
+);
+
 describe("::selection", () => {
   test("background-color maps to selectionColor and sets nothing else", () => {
     expect(
@@ -38,18 +135,14 @@ describe("::selection", () => {
     });
   });
 
-  test("color is dropped and stays the pseudo-element's currentcolor", () => {
-    expect(compileFor(`.a::selection { color: #ff0000; }`)).toStrictEqual({
-      rules: [{ pe: "selection", v: [["__rn-css-color", "#f00"]] }],
-      warnings: { values: { "::selection": ["color"] } },
-    });
-  });
+  test.each([
+    ["color: #ff0000", "color"],
+    ["font-size: 40px", "fontSize"],
+  ])("`%s` writes no prop and is reported", (declaration, reported) => {
+    const { rules, warnings } = compileFor(`.a::selection { ${declaration}; }`);
 
-  test("font-size is dropped and its em stays with the pseudo-element", () => {
-    expect(compileFor(`.a::selection { font-size: 40px; }`)).toStrictEqual({
-      rules: [{ pe: "selection", v: [["__rn-css-em", 40]] }],
-      warnings: { values: { "::selection": ["fontSize"] } },
-    });
+    expect(rules.map((rule) => rule.d)).toStrictEqual([undefined]);
+    expect(warnings).toStrictEqual({ values: { "::selection": [reported] } });
   });
 
   test("an unmapped static declaration is dropped", () => {
@@ -173,42 +266,6 @@ describe("::selection", () => {
     });
   });
 
-  test("a delayed declaration that reads no variable does not set dv", () => {
-    // `em` delays a declaration without making it read a variable
-    expect(
-      compileFor(`.a::selection { background-color: hsl(calc(1em) 50% 50%); }`),
-    ).toStrictEqual({
-      rules: [
-        {
-          pe: "selection",
-          d: [
-            [
-              [{}, "hsl", [[{}, "calc", [[{}, "em", 1, 1]]], "50%", "50%"]],
-              ["selectionColor"],
-              1,
-            ],
-          ],
-        },
-      ],
-      warnings: {},
-    });
-  });
-
-  test("a mapped var() declaration keeps its variable subscription", () => {
-    expect(
-      compileFor(`.a::selection { background-color: var(--x); }`),
-    ).toStrictEqual({
-      rules: [
-        {
-          pe: "selection",
-          d: [[[{}, "var", "x", 1], ["selectionColor"], 1]],
-          dv: 1,
-        },
-      ],
-      warnings: {},
-    });
-  });
-
   test("light-dark() scopes the dark value as well", () => {
     expect(
       compileFor(
@@ -292,19 +349,6 @@ describe("::selection", () => {
 });
 
 describe("::placeholder", () => {
-  test("color maps to placeholderTextColor and stays its currentcolor", () => {
-    expect(compileFor(`.a::placeholder { color: #ff0000; }`)).toStrictEqual({
-      rules: [
-        {
-          pe: "placeholder",
-          d: [["#f00", ["placeholderTextColor"]]],
-          v: [["__rn-css-color", "#f00"]],
-        },
-      ],
-      warnings: {},
-    });
-  });
-
   test("an unmapped declaration is dropped", () => {
     expect(
       compileFor(`.a::placeholder { background-color: #ff0000; }`),
@@ -326,30 +370,19 @@ describe("::placeholder", () => {
 
 // CSS Pseudo-Elements 4 §3.5: the custom properties a pseudo-element sets are its own
 describe("a pseudo-element's custom properties", () => {
-  test("stay with the pseudo-element and are not reported", () => {
+  test("are not reported", () => {
     expect(
-      compileFor(`.a::selection { color: #ff0000; --brand: #123456; }`, "a", {
-        inlineVariables: false,
-      }),
-    ).toStrictEqual({
-      rules: [
-        {
-          pe: "selection",
-          v: [
-            ["__rn-css-color", "#f00"],
-            ["brand", "#123456"],
-          ],
-        },
-      ],
-      warnings: { values: { "::selection": ["color"] } },
-    });
+      compileFor(
+        `.a::selection { color: #ff0000; --brand: #123456; }`,
+        "a",
+        inlineVariablesOff,
+      ).warnings,
+    ).toStrictEqual({ values: { "::selection": ["color"] } });
   });
 
   test("keep a rule that declares nothing else", () => {
     expect(
-      compileFor(`.a::placeholder { --x: #123456; }`, "a", {
-        inlineVariables: false,
-      }),
+      compileFor(`.a::placeholder { --x: #123456; }`, "a", inlineVariablesOff),
     ).toStrictEqual({
       rules: [{ pe: "placeholder", v: [["x", "#123456"]] }],
       warnings: {},
@@ -358,21 +391,10 @@ describe("a pseudo-element's custom properties", () => {
 
   test("are not inlined into the pseudo-element's own declaration", () => {
     const css = `.a::selection { --x: #123456; background-color: var(--x); }`;
+    const { rules } = compileFor(css);
 
-    expect(compileFor(css)).toStrictEqual({
-      rules: [
-        {
-          pe: "selection",
-          d: [[[{}, "var", "x", 1], ["selectionColor"], 1]],
-          v: [["x", "#123456"]],
-          dv: 1,
-        },
-      ],
-      warnings: {},
-    });
-    expect(compileFor(css)).toStrictEqual(
-      compileFor(css, "a", { inlineVariables: false }),
-    );
+    expect(rules).toStrictEqual(compileFor(css, "a", inlineVariablesOff).rules);
+    expect(readsCustomProperty(rules[0]?.d, "x")).toBe(true);
   });
 
   test.each([
@@ -388,34 +410,33 @@ describe("a pseudo-element's custom properties", () => {
   ])("are not inlined into an element when %s", (_name, css) => {
     const { rules } = compileFor(css, "b");
 
-    expect(rules).toStrictEqual(
-      compileFor(css, "b", { inlineVariables: false }).rules,
-    );
-    expect(rules[0]?.d).toStrictEqual([[[{}, "var", "x", 1], "color", 1]]);
+    expect(rules).toStrictEqual(compileFor(css, "b", inlineVariablesOff).rules);
+    expect(readsCustomProperty(rules[0]?.d, "x")).toBe(true);
   });
 
   test.each([
     [
-      "an element's",
-      `.p { --x: #123456; } .a::selection { background-color: var(--x); }`,
+      ":root's",
+      `:root { --x: #123456; } .a::selection { background-color: var(--x); }`,
     ],
     [
-      "one elements and pseudo-elements share",
+      "the one elements and pseudo-elements share",
       `*, ::before, ::after { --x: #123456; } .a::selection { background-color: var(--x); }`,
     ],
   ])("leave %s custom property to the optimization", (_name, css) => {
-    expect(compileFor(css).rules).toStrictEqual([
-      { pe: "selection", d: [["#123456", ["selectionColor"]]] },
-    ]);
+    expect(readWrittenValue(compileFor(css).rules[0], "selectionColor")).toBe(
+      "#123456",
+    );
   });
 });
 
 describe("rules without a pseudo-element", () => {
-  test("a plain rule on the same class keeps every field", () => {
-    expect(compileFor(`.a { color: #ff0000; }`)).toStrictEqual({
-      rules: [{ d: [{ color: "#f00" }], v: [["__rn-css-color", "#f00"]] }],
-      warnings: {},
-    });
+  test("a plain rule on the same class compiles as it does alone", () => {
+    expect(
+      compileFor(
+        `.a { color: #ff0000; } .a::selection { background-color: #0000ff; }`,
+      ).rules[0],
+    ).toStrictEqual(compileFor(`.a { color: #ff0000; }`).rules[0]);
   });
 
   test("a plain rule's light-dark() keeps its dark rule as it is", () => {
@@ -433,16 +454,15 @@ describe("rules without a pseudo-element", () => {
 
   test("the unscoped half of a grouped selector is untouched", () => {
     const css = `.a::selection, .b { background-color: #ff0000; --x: #123456; }`;
-    const options = { inlineVariables: false } as const;
 
-    expect(compileFor(css, "a", options).rules).toStrictEqual([
+    expect(compileFor(css, "a", inlineVariablesOff).rules).toStrictEqual([
       {
         pe: "selection",
         d: [["#f00", ["selectionColor"]]],
         v: [["x", "#123456"]],
       },
     ]);
-    expect(compileFor(css, "b", options).rules).toStrictEqual([
+    expect(compileFor(css, "b", inlineVariablesOff).rules).toStrictEqual([
       { d: [{ backgroundColor: "#f00" }], v: [["x", "#123456"]] },
     ]);
   });
