@@ -993,7 +993,8 @@ export function parseUnparsedDeclaration(
       ? parseUnparsed(declaration.value.value, builder, property)
       : parseCSSWideKeyword(keyword, property, builder);
 
-  if (keyword !== undefined && value === undefined) {
+  // A value the compiler cannot parse leaves the declaration invalid, so an earlier rule's value stands
+  if (value === undefined) {
     return;
   }
 
