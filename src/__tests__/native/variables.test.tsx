@@ -2,9 +2,12 @@ import { memo, useEffect } from "react";
 import type { ViewProps } from "react-native";
 
 import { render, screen } from "@testing-library/react-native";
-import { styled, VariableContextProvider } from "react-native-css";
+import { styled } from "react-native-css";
 import { View } from "react-native-css/components/View";
 import { registerCSS, testID } from "react-native-css/jest";
+// `react-native-css` is the web surface to TypeScript, so the native
+// `VariableContextProvider` signature is reached through `/native`.
+import { VariableContextProvider } from "react-native-css/native";
 
 test("inline variable", () => {
   registerCSS(`.my-class { width: var(--my-var); --my-var: 10px; }`);
@@ -240,6 +243,83 @@ test("VariableContextProvider", () => {
 
   const component = screen.getByTestId(testID);
   expect(component.props.style).toStrictEqual({ color: "red" });
+});
+
+test("VariableContextProvider ignores an undefined value", () => {
+  // Two definitions, so the compiler cannot inline `--my-var` and the value is
+  // read at runtime. A single definition is folded into the declaration and
+  // never reaches the variable record this test is about.
+  registerCSS(`
+    .other { --my-var: blue; }
+    .other-2 { --my-var: purple; }
+    .test { color: var(--my-var); }
+  `);
+
+  render(
+    <VariableContextProvider value={{ "--my-var": "red" }}>
+      <VariableContextProvider value={{ "--my-var": undefined }}>
+        <View testID={testID} className="test" />
+      </VariableContextProvider>
+    </VariableContextProvider>,
+  );
+
+  const component = screen.getByTestId(testID);
+  expect(component.props.style).toStrictEqual({ color: "red" });
+});
+
+test("VariableContextProvider with an undefined value falls through to :root", () => {
+  registerCSS(`
+    :root { --my-var: green; }
+    .other { --my-var: blue; }
+    .test { color: var(--my-var); }
+  `);
+
+  render(
+    <VariableContextProvider value={{ "--my-var": undefined }}>
+      <View testID={testID} className="test" />
+    </VariableContextProvider>,
+  );
+
+  const component = screen.getByTestId(testID);
+  expect(component.props.style).toStrictEqual({ color: "green" });
+});
+
+test("VariableContextProvider with an undefined value leaves the var() fallback reachable", () => {
+  // Nothing sets `--my-var` on the ancestor chain, so the fallback is the only
+  // value `.test` can reach.
+  registerCSS(`
+    .other { --my-var: blue; }
+    .other-2 { --my-var: purple; }
+    .test { color: var(--my-var, green); }
+  `);
+
+  render(
+    <VariableContextProvider value={{ "--my-var": undefined }}>
+      <View testID={testID} className="test" />
+    </VariableContextProvider>,
+  );
+
+  const component = screen.getByTestId(testID);
+  expect(component.props.style).toStrictEqual({ color: "green" });
+});
+
+test("VariableContextProvider clears a variable with unset", () => {
+  registerCSS(`
+    :root { --my-var: green; }
+    .other { --my-var: blue; }
+    .test { color: var(--my-var); }
+  `);
+
+  render(
+    <VariableContextProvider value={{ "--my-var": "red" }}>
+      <VariableContextProvider value={{ "--my-var": "unset" }}>
+        <View testID={testID} className="test" />
+      </VariableContextProvider>
+    </VariableContextProvider>,
+  );
+
+  const component = screen.getByTestId(testID);
+  expect(component.props.style).toStrictEqual({ color: undefined });
 });
 
 test("variable overriding with classes", () => {
