@@ -738,6 +738,16 @@ describe("CSS-wide keywords", () => {
       [[{}, "var", "__rn-css-color"], ["placeholderTextColor"], 1],
     ]);
   });
+
+  test.each(["placeholder", "selection"])(
+    "a ::%s rule publishes no colour, and keeps its other custom properties",
+    (pseudoElement) => {
+      const css = `.child::${pseudoElement} { --brand: red; color: var(--brand); } .other { --brand: blue; }`;
+
+      expect(publishedInheritedColors(css)).toEqual([]);
+      expect(publishedVariable(css, "brand")).toEqual(["red", "blue"]);
+    },
+  );
 });
 
 function declarationsFor(css: string): StyleDeclaration[] {
