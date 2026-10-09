@@ -582,12 +582,12 @@ describe("CSS-wide keywords", () => {
   });
 
   test.each([
-    ["padding-top", "paddingTop", "initial", "unset"],
-    ["padding-top", "paddingTop", "4px", 4],
-    ["color", "color", "inherit", [{}, "var", "__rn-css-color"]],
+    ["padding-top", "initial", "paddingTop", "unset"],
+    ["padding-top", "4px", "paddingTop", 4],
+    ["color", "inherit", "color", [{}, "var", "__rn-css-color"]],
   ] as const)(
     "%s: env(safe-area-inset-top, %s) falls back to what the value resolves to there",
-    (property, nativeProperty, value, fallback) => {
+    (property, value, nativeProperty, fallback) => {
       expect(
         declarationsFor(
           `.child { ${property}: env(safe-area-inset-top, ${value}); }`,
