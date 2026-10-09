@@ -1,14 +1,17 @@
 import type { StyleDescriptor } from "react-native-css/compiler";
-import { isStyleDescriptorArray } from "react-native-css/utilities";
+import {
+  commaListItems,
+  isStyleDescriptorArray,
+} from "react-native-css/utilities";
 
 import type { SimpleResolveValue, StyleFunctionResolver } from "../resolve";
 import { scaleFactor } from "../scale-factor";
 
 // A component left without a valid value makes the declaration invalid at computed-value time (css-variables-1 §3.1), which null carries
 export const scale: StyleFunctionResolver = (resolveValue, descriptor) => {
-  const [first, second] = operands(descriptor[2]);
-  const x = scaleFactor(argument(resolveValue, first));
-  const y = second === undefined ? x : scaleFactor(argument(resolveValue, second));
+  const operands = resolveOperands(resolveValue, descriptor[2]);
+  const x = scaleFactor(operands[0]);
+  const y = operands.length > 1 ? scaleFactor(operands[1]) : x;
 
   if (x === null || y === null) {
     return null;
@@ -55,9 +58,9 @@ export const rotate: StyleFunctionResolver = (resolveValue, descriptor) => {
 
 // `translate(x)` is `translate(x, 0)` (css-transforms-1 §9)
 export const translate: StyleFunctionResolver = (resolveValue, descriptor) => {
-  const [first, second] = operands(descriptor[2]);
-  const x = argument(resolveValue, first);
-  const y = second === undefined ? 0 : argument(resolveValue, second);
+  const operands = resolveOperands(resolveValue, descriptor[2]);
+  const x = operands[0];
+  const y = operands.length > 1 ? operands[1] : 0;
 
   if (!isTransformComponent(x) || !isTransformComponent(y)) {
     return null;
@@ -79,8 +82,19 @@ function argument(resolveValue: SimpleResolveValue, arg: StyleDescriptor) {
   );
 }
 
-function operands(args: StyleDescriptor): StyleDescriptor[] {
-  return isStyleDescriptorArray(args) ? args : [args];
+// A var() can supply the whole operand list, which resolves to an array in place of one operand
+function resolveOperands(
+  resolveValue: SimpleResolveValue,
+  args: StyleDescriptor,
+): unknown[] {
+  if (isStyleDescriptorArray(args)) {
+    return args.map((arg) => argument(resolveValue, arg));
+  }
+
+  // A comma-separated list's items are the operands
+  const value = commaListItems(resolveValue(args));
+
+  return Array.isArray(value) ? value : [value];
 }
 
 function isTransformComponent(value: unknown): value is string | number {
