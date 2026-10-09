@@ -233,11 +233,12 @@ describe("Transforms - Mixed", () => {
     ).toStrictEqual({
       props: {
         style: {
+          // css-transforms-2 §6: translate, then rotate, then the transform list
           transform: [
-            { skewY: "1deg" },
             { translateX: 3.5 },
             { translateY: 0 },
             { rotateZ: "90deg" },
+            { skewY: "1deg" },
           ],
         },
       },

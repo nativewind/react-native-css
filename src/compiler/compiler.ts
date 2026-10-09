@@ -34,6 +34,7 @@ import {
   reduceParseUnparsed,
   round,
 } from "./declarations";
+import { unparseIndividualTransform } from "./individual-transforms";
 import { inlineVariables } from "./inline-variables";
 import { extractKeyFrames } from "./keyframes";
 import { lightningcssLoader } from "./lightningcss-loader";
@@ -190,27 +191,31 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
     };
   }
 
-  if (options.inlineVariables !== false) {
-    const exclusionList: string[] = options.inlineVariables?.exclude ?? [];
+  const exclusionList: string[] =
+    options.inlineVariables === false
+      ? []
+      : (options.inlineVariables?.exclude ?? []);
 
-    firstPassVisitor.Declaration = (decl) => {
-      if (
-        decl.property === "custom" &&
-        decl.value.name.startsWith("--") &&
-        !exclusionList.includes(decl.value.name)
-      ) {
-        const entry = vars.get(decl.value.name) ?? {
-          count: 0,
-          value: [
-            ...decl.value.value,
-            { type: "token", value: { type: "white-space", value: " " } },
-          ],
-        };
-        entry.count++;
-        vars.set(decl.value.name, entry);
-      }
-    };
-  }
+  firstPassVisitor.Declaration = (decl) => {
+    if (
+      options.inlineVariables !== false &&
+      decl.property === "custom" &&
+      decl.value.name.startsWith("--") &&
+      !exclusionList.includes(decl.value.name)
+    ) {
+      const entry = vars.get(decl.value.name) ?? {
+        count: 0,
+        value: [
+          ...decl.value.value,
+          { type: "token", value: { type: "white-space", value: " " } },
+        ],
+      };
+      entry.count++;
+      vars.set(decl.value.name, entry);
+    }
+
+    return unparseIndividualTransform(decl);
+  };
 
   const { code: firstPass, warnings: firstPassWarnings } = lightningcss({
     code: typeof code === "string" ? new TextEncoder().encode(code) : code,
