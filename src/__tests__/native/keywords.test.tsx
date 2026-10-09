@@ -71,6 +71,15 @@ test.each(resettingKeywords)(
   },
 );
 
+// Chromium 153, Firefox 155 and WebKit 26.6 apply a keyword fallback of an undefined env() as the whole value
+test("padding-top: env(safe-area-inset-top, initial) clears an earlier rule's value when no inset is defined", () => {
+  expect(
+    renderStyle(
+      `.earlier { padding-top: 10px; } .child { padding-top: env(safe-area-inset-top, initial); }`,
+    ),
+  ).toStrictEqual({ paddingTop: undefined });
+});
+
 // Chromium 153, Firefox 155 and WebKit 26.6 read the ancestor's value for each, as a custom property inherits (css-variables-1 §2)
 test.each(["inherit", "unset", "revert", "revert-layer"])(
   "--brand: %s reads the ancestor's --brand",

@@ -676,15 +676,16 @@ describe("inherit", () => {
   );
 
   test.each([
-    ["inherit", "#f00"],
-    ["initial", undefined],
+    ["var(--missing, inherit)", "#f00"],
+    ["var(--missing, initial)", undefined],
+    ["var(--missing, var(--also-missing, inherit))", "#f00"],
   ] as const)(
-    "color: var(--missing, %s) applies the keyword over an earlier rule",
-    (keyword, expectedColor) => {
+    "color: %s applies the keyword over an earlier rule",
+    (value, expectedColor) => {
       registerCSS(`
         .parent { color: red; }
         .earlier { color: green; }
-        .child { color: var(--missing, ${keyword}); }
+        .child { color: ${value}; }
       `);
 
       render(

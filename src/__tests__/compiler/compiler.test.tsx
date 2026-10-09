@@ -564,6 +564,91 @@ describe("CSS-wide keywords", () => {
     },
   );
 
+  test("a whole-value var() fallback that is a var() passes its keyword fallback through", () => {
+    expect(
+      declarationsFor(`.child { color: var(--a, var(--b, inherit)); }`),
+    ).toStrictEqual([
+      [
+        [
+          {},
+          "var",
+          ["a", [{}, "var", ["b", [{}, "var", "__rn-css-color"]], 1]],
+          1,
+        ],
+        "color",
+        1,
+      ],
+    ]);
+  });
+
+  test.each([
+    ["padding-top", "paddingTop", "initial", "unset"],
+    ["padding-top", "paddingTop", "4px", 4],
+    ["color", "color", "inherit", [{}, "var", "__rn-css-color"]],
+  ] as const)(
+    "%s: env(safe-area-inset-top, %s) falls back to what the value resolves to there",
+    (property, nativeProperty, value, fallback) => {
+      expect(
+        declarationsFor(
+          `.child { ${property}: env(safe-area-inset-top, ${value}); }`,
+        ),
+      ).toStrictEqual([
+        [
+          [{}, "var", ["react-native-css-safe-area-inset-top", fallback], 1],
+          nativeProperty,
+          1,
+        ],
+      ]);
+    },
+  );
+
+  test.each([
+    [
+      "width",
+      "calc(var(--missing, initial) + 1px)",
+      "calc(var(--missing) + 1px)",
+      "initial",
+    ],
+    [
+      "color",
+      "color-mix(in srgb, var(--missing, inherit), blue)",
+      "color-mix(in srgb, var(--missing), blue)",
+      "inherit",
+    ],
+    [
+      "transform",
+      "translateX(var(--missing, initial))",
+      "translateX(var(--missing))",
+      "initial",
+    ],
+    [
+      "box-shadow",
+      "1px 1px var(--missing, INHERIT)",
+      "1px 1px var(--missing)",
+      "INHERIT",
+    ],
+    ["width", "var(--missing, 10px inherit)", "var(--missing)", "inherit"],
+    [
+      "padding-top",
+      "calc(env(safe-area-inset-top, initial) + 1px)",
+      "calc(env(safe-area-inset-top) + 1px)",
+      "initial",
+    ],
+  ])(
+    "%s: %s drops the fallback, as a CSS-wide keyword leaves it invalid there",
+    (property, value, withoutFallback, keyword) => {
+      // Substituted inside a longer value, a CSS-wide keyword is invalid (css-values-4 §2.1)
+      const compiled = compile(`.child { ${property}: ${value}; }`);
+
+      expect(compiled.stylesheet()).toStrictEqual(
+        compile(`.child { ${property}: ${withoutFallback}; }`).stylesheet(),
+      );
+      expect(compiled.warnings()).toStrictEqual({
+        values: { [property]: [keyword] },
+      });
+    },
+  );
+
   // A second declaration keeps `--brand` from being inlined, so the keyword reaches the compiler on the custom property
   const uninlinedCustomProperty = (value: string) =>
     `.child { --brand: ${value}; color: var(--brand); }

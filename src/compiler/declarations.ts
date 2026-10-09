@@ -34,6 +34,7 @@ import type {
   TokenOrValue,
   Translate,
   UnresolvedColor,
+  Variable,
 } from "lightningcss";
 
 import {
@@ -1119,9 +1120,91 @@ function parseDeclarationValue(
 ): StyleDescriptor {
   const keywordValue = parseCSSWideKeywordValue(tokens, builder, property);
 
-  return keywordValue === undefined
-    ? parseUnparsed(tokens, builder, property, allowAuto)
-    : keywordValue.value;
+  if (keywordValue !== undefined) {
+    return keywordValue.value;
+  }
+
+  const [token, ...rest] = tokens ?? [];
+
+  if (token === undefined || rest.length > 0) {
+    return parseUnparsed(tokens, builder, property, allowAuto);
+  }
+
+  switch (token.type) {
+    case "var":
+      return listSoleFunction(
+        parseVariable(token.value, builder, property, "whole-value", allowAuto),
+        property,
+      );
+    case "env":
+      return listSoleFunction(
+        parseEnv(token.value, builder, property, "whole-value"),
+        property,
+      );
+    default:
+      return parseUnparsed(tokens, builder, property, allowAuto);
+  }
+}
+
+// A filter or transform value is a list of functions, so one function alone is a list of one
+function listSoleFunction(
+  value: StyleDescriptor,
+  property: string,
+): StyleDescriptor {
+  return (property === "filter" || property === "transform") &&
+    isStyleFunction(value)
+    ? [value]
+    : value;
+}
+
+// Substituted, a fallback replaces its var() or env(), so it is the declaration's whole value only when the function is (css-variables-1 §3)
+type SubstitutionPosition = "whole-value" | "inside-value";
+
+function parseSubstitutionFallback(
+  tokens: TokenOrValue[] | null | undefined,
+  builder: StylesheetBuilder,
+  property: string,
+  position: SubstitutionPosition,
+  allowAuto?: boolean,
+): StyleDescriptor {
+  switch (position) {
+    case "whole-value":
+      return parseDeclarationValue(tokens, builder, property, allowAuto);
+    case "inside-value": {
+      // Inside a longer value a CSS-wide keyword is invalid (css-values-4 §2.1)
+      const keyword = nestedCSSWideKeyword(tokens ?? []);
+
+      if (keyword !== undefined) {
+        builder.addWarning("value", keyword);
+        return;
+      }
+
+      return parseUnparsed(tokens, builder, property, allowAuto);
+    }
+    default: {
+      position satisfies never;
+      return;
+    }
+  }
+}
+
+function parseVariable(
+  variable: Variable,
+  builder: StylesheetBuilder,
+  property: string,
+  position: SubstitutionPosition,
+  allowAuto?: boolean,
+): StyleFunction {
+  const name = variable.name.ident.slice(2);
+  const fallback = parseSubstitutionFallback(
+    variable.fallback,
+    builder,
+    property,
+    position,
+    allowAuto,
+  );
+
+  return [{}, "var", fallback === undefined ? name : [name, fallback], 1];
 }
 
 // A var() or env() defers its value to computed-value time, so a keyword behind one is not looked for
@@ -1398,14 +1481,9 @@ export function parseUnparsed(
     if (!args) return;
     if (Array.isArray(args) && args.length === 1) {
       return args[0];
-    } else if (
-      (property === "filter" || property === "transform") &&
-      isStyleFunction(args)
-    ) {
-      return [args];
-    } else {
-      return args;
     }
+
+    return listSoleFunction(args, property);
   }
 
   switch (tokenOrValue.type) {
@@ -1417,21 +1495,14 @@ export function parseUnparsed(
         allowAuto,
       );
     }
-    case "var": {
-      let args: StyleDescriptor = tokenOrValue.value.name.ident.slice(2);
-      // Substituted, a fallback is the declaration's whole value, so it can be a CSS-wide keyword (css-variables-1 §3)
-      const fallback = parseDeclarationValue(
-        tokenOrValue.value.fallback,
+    case "var":
+      return parseVariable(
+        tokenOrValue.value,
         builder,
         property,
+        "inside-value",
         allowAuto,
       );
-      if (fallback !== undefined) {
-        args = [args, fallback];
-      }
-
-      return [{}, "var", args, 1];
-    }
     case "function": {
       switch (tokenOrValue.value.name) {
         case "blur":
@@ -1588,7 +1659,7 @@ export function parseUnparsed(
     case "color":
       return parseColor(tokenOrValue.value, builder);
     case "env":
-      return parseEnv(tokenOrValue.value, builder);
+      return parseEnv(tokenOrValue.value, builder, property, "inside-value");
     case "time":
       return parseTime(tokenOrValue.value);
     case "url":
@@ -2871,6 +2942,8 @@ const allowAutoProperties = new Set(["pointer-events"]);
 export function parseEnv(
   value: EnvironmentVariable,
   builder: StylesheetBuilder,
+  property: string,
+  position: SubstitutionPosition,
 ): StyleFunction | undefined {
   switch (value.name.type) {
     case "ua":
@@ -2879,15 +2952,20 @@ export function parseEnv(
         case "safe-area-inset-right":
         case "safe-area-inset-bottom":
         case "safe-area-inset-left": {
-          const fallback = parseUnparsed(
+          const name = `react-native-css-${value.name.value}`;
+          const fallback = parseSubstitutionFallback(
             value.fallback,
             builder,
-            value.name.value,
+            property,
+            position,
           );
 
-          return fallback
-            ? [{}, "var", [`react-native-css-${value.name.value}`, fallback], 1]
-            : [{}, "var", [`react-native-css-${value.name.value}`], 1];
+          return [
+            {},
+            "var",
+            fallback === undefined ? [name] : [name, fallback],
+            1,
+          ];
         }
         case "viewport-segment-width":
         case "viewport-segment-height":
@@ -3022,7 +3100,7 @@ export function parseCalcArguments(
   for (const arg of args) {
     switch (arg.type) {
       case "env": {
-        parsed.push(parseEnv(arg.value, builder));
+        parsed.push(parseEnv(arg.value, builder, property, "inside-value"));
         break;
       }
       case "var":
