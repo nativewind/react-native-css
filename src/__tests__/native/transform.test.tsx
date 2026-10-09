@@ -202,3 +202,19 @@ describe("a transform's target survives a later nested declaration", () => {
     });
   });
 });
+
+// Chromium 153, Firefox 155 and WebKit 26.6 leave no transform for each
+test.each([
+  ["transform: var(--t)", "none"],
+  ["transform: translateX(10px) var(--t)", "none"],
+])("%s with --t: %s leaves no transform", (declaration, keyword) => {
+  registerCSS(
+    `.my-class { --t: rotate(1deg); ${declaration}; } .keyword { --t: ${keyword}; }`,
+  );
+
+  const component = render(
+    <View testID={testID} className="my-class keyword" />,
+  ).getByTestId(testID);
+
+  expect(component.props.style).toStrictEqual({});
+});
