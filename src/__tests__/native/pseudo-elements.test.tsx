@@ -134,7 +134,7 @@ describe("the declaration a pseudo-element can express reaches its prop", () => 
 
   test("light-dark() reaches selectionColor in either scheme, never the host", () => {
     registerCSS(
-      `.a::selection { background-color: light-dark(#123456, #654321); }`,
+      `:root { color-scheme: light dark; } .a::selection { background-color: light-dark(#123456, #654321); }`,
     );
 
     render(<TextInput testID={testID} className="a" />);
