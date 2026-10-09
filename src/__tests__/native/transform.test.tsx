@@ -156,11 +156,7 @@ describe("transform", () => {
 });
 
 describe("a transform's target survives a later nested declaration", () => {
-  // A transform key resolves through a closure that runs after every
-  // declaration in the rule has been walked. A later declaration that walks
-  // into a NESTED target — a box-shadow entry is the one that reaches here —
-  // must not move the object those closures write into.
-  test("translate before a box-shadow still lands in transform", () => {
+  test("translate before a box-shadow lands in transform", () => {
     registerCSS(
       `.my-class { translate: 10px 20px; box-shadow: 1px 1px blue; }`,
     );
