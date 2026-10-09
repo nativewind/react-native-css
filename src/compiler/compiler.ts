@@ -49,7 +49,10 @@ const defaultLogger = debug("react-native-css:compiler");
  * @param options - Compiler options
  * @returns A `ReactNativeCssStyleSheet` that can be passed to `StyleSheet.register` or used with a custom runtime
  */
-export function compile(code: Buffer | string, options: CompilerOptions = {}) {
+export function compile(
+  code: Uint8Array | string,
+  options: CompilerOptions = {},
+) {
   const { logger = defaultLogger } = options;
 
   const isLoggerEnabled =
@@ -63,9 +66,13 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
 
   logger(`Features ${JSON.stringify(features)}`);
 
+  // Decoded once: a `Uint8Array` that is not a `Buffer` stringifies to its bytes, not its text.
+  const source =
+    typeof code === "string" ? code : new TextDecoder().decode(code);
+
   if (process.env.NODE_ENV !== "production") {
     if (defaultLogger.enabled) {
-      defaultLogger(code.toString());
+      defaultLogger(source);
     }
   }
 
@@ -92,8 +99,7 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
   // :root { font-size: Npx } in the CSS to allow CSS-based configuration.
   let effectiveRem: number | false = options.inlineRem ?? undefined!;
   if (effectiveRem === undefined) {
-    const css = typeof code === "string" ? code : code.toString();
-    const match = css.match(/:root\s*\{[^}]*font-size:\s*([\d.]+)px/);
+    const match = source.match(/:root\s*\{[^}]*font-size:\s*([\d.]+)px/);
     effectiveRem = match?.[1] ? parseFloat(match[1]) : 14;
     options.inlineRem = effectiveRem;
   }
