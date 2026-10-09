@@ -1,18 +1,9 @@
 import type {
   ReactNativeCssStyleSheet,
+  StyleDescriptor,
   StyleRule,
 } from "react-native-css/compiler";
 import { compile } from "react-native-css/compiler";
-
-/**
- * Folding a single-definition custom property into its use sites asserts that
- * every element the consuming rule matches holds that value. These tests pin
- * where that assertion is provable and where it is not.
- *
- * Compiler plane. `../native/variable-inlining.test.tsx` renders the same
- * stylesheets, because a fold is a compiler decision whose only observable is
- * what the runtime paints.
- */
 
 function rulesFor(
   sheet: ReactNativeCssStyleSheet,
@@ -21,7 +12,6 @@ function rulesFor(
   return sheet.s?.find(([name]) => name === className)?.[1] ?? [];
 }
 
-/** The value folded into `property`, or undefined if nothing was folded. */
 function foldedValue(
   sheet: ReactNativeCssStyleSheet,
   className: string,
@@ -37,12 +27,25 @@ function foldedValue(
   return undefined;
 }
 
-/** Whether the class resolves at least one `var()` at runtime. */
+function runtimeValue(
+  sheet: ReactNativeCssStyleSheet,
+  className: string,
+  property: string,
+): StyleDescriptor {
+  for (const rule of rulesFor(sheet, className)) {
+    for (const declaration of rule.d ?? []) {
+      if (Array.isArray(declaration) && declaration[1] === property) {
+        return declaration[0];
+      }
+    }
+  }
+  return undefined;
+}
+
 function readsAtRuntime(sheet: ReactNativeCssStyleSheet, className: string) {
   return rulesFor(sheet, className).some((rule) => rule.dv === 1);
 }
 
-/** The value the class declares for `--<name>`, or undefined if it declares none. */
 function declaredValue(
   sheet: ReactNativeCssStyleSheet,
   className: string,
@@ -62,11 +65,9 @@ describe("a variable is folded only where its value is provable", () => {
       `.parent { --x: 10px; } .child { width: var(--x); }`,
     ).stylesheet();
 
-    // An element carrying only `.child` never matched `.parent`, so it has no
-    // `--x` and `width: 10` would be an invention.
+    // An element carrying only `.child` never matched `.parent`, so it has no `--x`
     expect(foldedValue(sheet, "child", "width")).toBeUndefined();
     expect(readsAtRuntime(sheet, "child")).toBe(true);
-    // ...and the declaration has to survive for the runtime to find it.
     expect(declaredValue(sheet, "parent", "x")).toBe(10);
   });
 
@@ -75,15 +76,6 @@ describe("a variable is folded only where its value is provable", () => {
 
     expect(foldedValue(sheet, "a", "width")).toBe(10);
     expect(readsAtRuntime(sheet, "a")).toBe(false);
-  });
-
-  test("a block-scoped declaration survives its own fold", () => {
-    // The fold reached this block's references and no others. A descendant
-    // inherits `--x` at runtime — including one styled by a stylesheet compiled
-    // separately, which this pass cannot see and must not assume away.
-    const sheet = compile(`.a { --x: 10px; width: var(--x); }`).stylesheet();
-
-    expect(declaredValue(sheet, "a", "x")).toBe(10);
   });
 
   test.each([":root", ":host", "*", "html"])(
@@ -102,7 +94,7 @@ describe("a variable is folded only where its value is provable", () => {
     ["div", "every element descends from html, from no other element name"],
     [":hover", "a state is not a scope"],
     [".theme", "a class is the case this whole rule exists for"],
-  ])("%s is not universal — %s", (selector) => {
+  ])("%s is not universal: %s", (selector) => {
     const sheet = compile(
       `${selector} { --x: 10px; } .child { width: var(--x); }`,
     ).stylesheet();
@@ -115,8 +107,6 @@ describe("a variable is folded only where its value is provable", () => {
     [":root", 10],
     [".theme", undefined],
   ])("a nested `&` under %s takes its parent's answer", (parent, expected) => {
-    // `&` adds no constraint of its own, so the scope is whatever the rule it
-    // is nested in already was.
     const sheet = compile(
       `${parent} { & { --x: 10px; } } .child { width: var(--x); }`,
     ).stylesheet();
@@ -124,8 +114,15 @@ describe("a variable is folded only where its value is provable", () => {
     expect(foldedValue(sheet, "child", "width")).toBe(expected);
   });
 
+  test("a nested selector under :root names its descendants, not every element", () => {
+    const sheet = compile(
+      `:root { * { --x: 10px; } } .child { width: var(--x); }`,
+    ).stylesheet();
+
+    expect(foldedValue(sheet, "child", "width")).toBeUndefined();
+  });
+
   test("@layer does not narrow a universal scope", () => {
-    // The shape Tailwind emits for its theme.
     const sheet = compile(
       `@layer theme { :root, :host { --x: 10px; } } .child { width: var(--x); }`,
     ).stylesheet();
@@ -134,25 +131,88 @@ describe("a variable is folded only where its value is provable", () => {
   });
 });
 
+describe("a folded declaration is removed once nothing reads it", () => {
+  test("a declaration whose every reference folded is removed", () => {
+    const sheet = compile(`.a { --x: 10px; width: var(--x); }`).stylesheet();
+
+    expect(foldedValue(sheet, "a", "width")).toBe(10);
+    expect(declaredValue(sheet, "a", "x")).toBeUndefined();
+  });
+
+  test("a declaration another rule reads at runtime is kept", () => {
+    const sheet = compile(
+      `.a { --x: 10px; width: var(--x); } .b { height: var(--x); }`,
+    ).stylesheet();
+
+    expect(foldedValue(sheet, "a", "width")).toBe(10);
+    expect(readsAtRuntime(sheet, "b")).toBe(true);
+    expect(declaredValue(sheet, "a", "x")).toBe(10);
+  });
+
+  test.each([
+    ["an rgb() alpha", `.a { --c: 0.5; color: rgb(255 0 0 / var(--c)); }`],
+    [
+      "a light-dark() branch",
+      `.a { --c: 0.5; color: light-dark(rgb(255 0 0 / var(--c)), #00f); }`,
+    ],
+  ])("a reference inside %s keeps its declaration", (_name, css) => {
+    const sheet = compile(css).stylesheet();
+
+    expect(declaredValue(sheet, "a", "c")).toBe(0.5);
+  });
+
+  test("a variable declared initial folds to the reference's fallback", () => {
+    const sheet = compile(
+      `.a { --x: initial; width: var(--x, 10px); }`,
+    ).stylesheet();
+
+    expect(foldedValue(sheet, "a", "width")).toBe(10);
+  });
+
+  test("every declaration of a fully folded chain is removed", () => {
+    const sheet = compile(
+      `.a { --y: 10px; --x: var(--y); width: var(--x); }`,
+    ).stylesheet();
+
+    expect(foldedValue(sheet, "a", "width")).toBe(10);
+    expect(declaredValue(sheet, "a", "x")).toBeUndefined();
+    expect(declaredValue(sheet, "a", "y")).toBeUndefined();
+  });
+
+  test("a declaration read only by a removed declaration is removed", () => {
+    const sheet = compile(
+      `.a { --x: var(--y); height: 1px; } .b { --y: 10px; height: 2px; }`,
+    ).stylesheet();
+
+    expect(declaredValue(sheet, "a", "x")).toBeUndefined();
+    expect(declaredValue(sheet, "b", "y")).toBeUndefined();
+  });
+
+  test("a declaration read by a kept declaration is kept", () => {
+    const sheet = compile(
+      `.a { --x: var(--y); height: 1px; } .b { --y: 10px; height: 2px; } .c { width: var(--x); }`,
+    ).stylesheet();
+
+    expect(declaredValue(sheet, "a", "x")).toStrictEqual([{}, "var", "y", 1]);
+    expect(declaredValue(sheet, "b", "y")).toBe(10);
+  });
+});
+
 describe("a conditional scope is not a universal one", () => {
   test.each([
     ["@media (min-width: 1px)", "media"],
-    ["@supports (display: flex)", "supports"],
     ["@container (min-width: 1px)", "container"],
   ])("%s wrapping :root", (atRule) => {
     const sheet = compile(
       `${atRule} { :root { --x: 10px; } } .child { width: var(--x); }`,
     ).stylesheet();
 
-    // Whether the declaration applies is decided somewhere this pass cannot
-    // see, so `.child` cannot be told it holds the value.
     expect(foldedValue(sheet, "child", "width")).toBeUndefined();
     expect(readsAtRuntime(sheet, "child")).toBe(true);
   });
 
   test("a conditional block still folds into itself", () => {
-    // A query that switches the declaration off switches the reference off with
-    // it, so the two cannot disagree.
+    // A query that switches the declaration off switches the reference off with it
     const sheet = compile(
       `@media (min-width: 1px) { .a { --x: 10px; width: var(--x); } }`,
     ).stylesheet();
@@ -161,10 +221,39 @@ describe("a conditional scope is not a universal one", () => {
   });
 });
 
-describe("a registered property is a second definition", () => {
-  test("inherits: false makes a universal declaration non-universal", () => {
-    // `--x` does not inherit, so an element that is not the root holds the
-    // REGISTERED initial value, not the one `:root` declares.
+describe("@supports is decided when the stylesheet compiles", () => {
+  test("a kept block's declarations apply unconditionally", () => {
+    const sheet = compile(
+      `@supports (color: color-mix(in lab, red, red)) { :root { --x: 10px; } }
+       .child { width: var(--x); }`,
+    ).stylesheet();
+
+    expect(foldedValue(sheet, "child", "width")).toBe(10);
+  });
+
+  test("a dropped block's declarations do not apply", () => {
+    const sheet = compile(
+      `@supports (display: grid) { :root { --x: 10px; } }
+       .child { width: var(--x); }`,
+    ).stylesheet();
+
+    expect(foldedValue(sheet, "child", "width")).toBeUndefined();
+  });
+
+  test("a dropped block's declaration is not a second definition", () => {
+    const sheet = compile(
+      `@supports (display: grid) { :root { --x: 20px; } }
+       :root { --x: 10px; }
+       .child { width: var(--x); }`,
+    ).stylesheet();
+
+    expect(foldedValue(sheet, "child", "width")).toBe(10);
+  });
+});
+
+describe("a registered property", () => {
+  test("inherits: false keeps a :root declaration from reaching other elements", () => {
+    // An element other than the root holds the registered initial value, not the one `:root` declares
     const sheet = compile(
       `@property --x { syntax: "<length>"; inherits: false; initial-value: 10px; }
        :root { --x: 20px; }
@@ -184,6 +273,59 @@ describe("a registered property is a second definition", () => {
 
     expect(foldedValue(sheet, "b", "width")).toBe(20);
   });
+
+  test("inherits: false does not narrow a declaration on every element", () => {
+    const sheet = compile(
+      `@property --x { syntax: "<length>"; inherits: false; initial-value: 10px; }
+       * { --x: 20px; }
+       .b { width: var(--x); }`,
+    ).stylesheet();
+
+    expect(foldedValue(sheet, "b", "width")).toBe(20);
+  });
+
+  test("an undeclared property folds to its initial value", () => {
+    const sheet = compile(
+      `@property --x { syntax: "*"; inherits: false; initial-value: 10px; }
+       .b { width: var(--x); }`,
+    ).stylesheet();
+
+    expect(foldedValue(sheet, "b", "width")).toBe(10);
+  });
+
+  test("the initial value wins over a fallback block the compiler drops", () => {
+    // Tailwind's shape: the fallback serves browsers without @property, and the compiler drops it
+    const sheet = compile(
+      `@property --x { syntax: "*"; inherits: false; initial-value: 10px; }
+       @supports ((-webkit-hyphens: none) and (not (margin-trim: inline))) {
+         *, ::before, ::after, ::backdrop { --x: 20px; }
+       }
+       .b { width: var(--x); }`,
+    ).stylesheet();
+
+    expect(foldedValue(sheet, "b", "width")).toBe(10);
+  });
+
+  test("a typed initial value is left to the runtime", () => {
+    const sheet = compile(
+      `@property --x { syntax: "<length>"; inherits: false; initial-value: 10px; }
+       .b { width: var(--x); }`,
+    ).stylesheet();
+
+    expect(foldedValue(sheet, "b", "width")).toBeUndefined();
+    expect(readsAtRuntime(sheet, "b")).toBe(true);
+  });
+
+  test("a declared property does not fold its initial value across rules", () => {
+    const sheet = compile(
+      `@property --x { syntax: "*"; inherits: false; initial-value: 10px; }
+       .a { --x: 20px; }
+       .b { width: var(--x); }`,
+    ).stylesheet();
+
+    expect(foldedValue(sheet, "b", "width")).toBeUndefined();
+    expect(readsAtRuntime(sheet, "b")).toBe(true);
+  });
 });
 
 describe("a variable's own value is held to the same terms", () => {
@@ -192,12 +334,15 @@ describe("a variable's own value is held to the same terms", () => {
       `.a { --x: var(--y); width: var(--x); } .b { --y: 10px; }`,
     ).stylesheet();
 
-    // `--y` belongs to `.b`. Folding it into `.a`'s value carries it to every
-    // element matching `.a`, none of which need ever have matched `.b` — and
-    // `.a`'s own `width` is where that lands, because `--x` IS foldable there.
+    // `--y` belongs to `.b`, and folding it into `.a` would carry it to elements that never matched `.b`
     expect(foldedValue(sheet, "a", "width")).toBeUndefined();
-    expect(readsAtRuntime(sheet, "a")).toBe(true);
-    expect(declaredValue(sheet, "a", "x")).toStrictEqual([{}, "var", "y", 1]);
+    expect(runtimeValue(sheet, "a", "width")).toStrictEqual([
+      {},
+      "var",
+      "y",
+      1,
+    ]);
+    expect(declaredValue(sheet, "b", "y")).toBe(10);
   });
 
   test("a nested reference in the same block folds", () => {
@@ -205,13 +350,12 @@ describe("a variable's own value is held to the same terms", () => {
       `.a { --y: 10px; --x: var(--y); width: var(--x); }`,
     ).stylesheet();
 
-    expect(declaredValue(sheet, "a", "x")).toBe(10);
     expect(foldedValue(sheet, "a", "width")).toBe(10);
   });
 
-  test("a universal nested reference folds anywhere", () => {
+  test("a universal nested reference folds into a kept declaration", () => {
     const sheet = compile(
-      `:root { --y: 10px; } .a { --x: var(--y); }`,
+      `:root { --y: 10px; } .a { --x: var(--y); } .b { width: var(--x); }`,
     ).stylesheet();
 
     expect(declaredValue(sheet, "a", "x")).toBe(10);
@@ -219,10 +363,7 @@ describe("a variable's own value is held to the same terms", () => {
 });
 
 test("the fold does not depend on the order the rules are written in", () => {
-  // `--y` has two declarations, so it is not a candidate at all, and `2px` is
-  // the one that wins. Pruning a candidate only when its own turn came round
-  // made that depend on whether `--x` was written above the declarations or
-  // below them — and above them, the LOSING `1px` was folded in.
+  // `--y` is declared twice, so it is not a candidate, and the winning `2px` is left to the runtime
   const declarations = `:root { --y: 1px; } :root { --y: 2px; }`;
   const reference = `.a { --x: var(--y); width: var(--x); }`;
 
@@ -231,7 +372,11 @@ test("the fold does not depend on the order the rules are written in", () => {
 
   for (const sheet of [varFirst, varLast]) {
     expect(foldedValue(sheet, "a", "width")).toBeUndefined();
-    expect(readsAtRuntime(sheet, "a")).toBe(true);
-    expect(declaredValue(sheet, "a", "x")).toStrictEqual([{}, "var", "y", 1]);
+    expect(runtimeValue(sheet, "a", "width")).toStrictEqual([
+      {},
+      "var",
+      "y",
+      1,
+    ]);
   }
 });

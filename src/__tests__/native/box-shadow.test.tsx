@@ -383,10 +383,7 @@ describe("shadow values from CSS variables", () => {
     });
   });
 
-  // Compile-time path: lightningcss inlines the variable and processes the
-  // value through its CSS parser. The shorthand handler converts to native
-  // format without filtering — transparent shadows pass through as-is.
-  test("transparent shadow is preserved", () => {
+  test("a transparent shadow is dropped when its variable folds, as when it does not", () => {
     registerCSS(`
       :root {
         --my-shadow: 0 0 0 0 #0000;
@@ -397,16 +394,36 @@ describe("shadow values from CSS variables", () => {
     render(<View testID={testID} className="test" />);
     const component = screen.getByTestId(testID);
 
-    expect(component.props.style).toStrictEqual({
+    expect(component.props.style).toStrictEqual({ boxShadow: [] });
+  });
+
+  test("only the transparent shadows of a list are dropped", () => {
+    registerCSS(`.test { box-shadow: 0 0 #0000, 0 4px 6px -1px #0000001a; }`);
+
+    render(<View testID={testID} className="test" />);
+
+    expect(screen.getByTestId(testID).props.style).toStrictEqual({
       boxShadow: [
         {
           offsetX: 0,
-          offsetY: 0,
-          blurRadius: 0,
-          spreadDistance: 0,
-          color: "#0000",
+          offsetY: 4,
+          blurRadius: 6,
+          spreadDistance: -1,
+          color: "#0000001a",
         },
       ],
+    });
+  });
+
+  test("a list of transparent shadows still replaces an earlier one", () => {
+    registerCSS(
+      `.shadow { box-shadow: 1px 1px #f00; } .test { box-shadow: 0 0 transparent; }`,
+    );
+
+    render(<View testID={testID} className="shadow test" />);
+
+    expect(screen.getByTestId(testID).props.style).toStrictEqual({
+      boxShadow: [],
     });
   });
 });
@@ -526,12 +543,7 @@ describe("shadow values from runtime variables", () => {
     ]);
   });
 
-  // Runtime path: variables resolve at runtime, so the shorthand handler
-  // processes the raw values. Transparent shadows (e.g., Tailwind v4's
-  // @property --tw-inset-shadow { initial-value: 0 0 0 0 #0000 }) are
-  // filtered out to avoid creating invisible native shadow objects that
-  // the renderer would still process. This is intentionally different
-  // from the compile-time path which preserves them.
+  // A transparent shadow paints nothing, so neither path hands React Native one to process
   test("transparent shadow is filtered", () => {
     registerCSS(
       `.test {

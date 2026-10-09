@@ -6,30 +6,13 @@ import { View } from "react-native-css/components/View";
 import { registerCSS, testID } from "react-native-css/jest";
 import { StyleCollection } from "react-native-css/native";
 
-/**
- * Whether the compiler folds a single-definition custom property into its use
- * sites is an OPTIMISATION. It must not be observable: the same stylesheet
- * compiled with the fold on and with the fold off has to render the same style.
- *
- * The census below is exhaustive over the value kinds lightningcss can put
- * inside a custom property, by construction — both records are keyed by the
- * lightningcss union itself, so a new member fails to compile until it is
- * censused here. An empty list is a kind that cannot be the whole value of a
- * custom property a React Native style consumes, and says why.
- */
+// Keyed by lightningcss's own unions, so a value kind it adds fails to compile until it is listed here
 type ValueKind = TokenOrValue["type"];
 type RawTokenKind = Extract<TokenOrValue, { type: "token" }>["value"]["type"];
 
 interface Shape {
-  /** The property that reads the variable. */
   readonly property: string;
-  /** The custom property's value. */
   readonly value: string;
-  /**
-   * A divergence this change does not close, with the reason it is out of
-   * reach. Pinned as an exact pair so it cannot drift silently in either
-   * direction: a NEW divergence fails, and so does one that quietly goes away.
-   */
   readonly knownDivergence?: {
     readonly folded: Record<string, unknown>;
     readonly unfolded: Record<string, unknown>;
@@ -37,15 +20,7 @@ interface Shape {
   };
 }
 
-/**
- * A named CSS colour reaches the second pass as a bare ident, because
- * lightningcss only promotes a custom property's value to a colour node when it
- * is not expressible as one. The folded path then parses it under the consuming
- * property and canonicalises it; the unfolded path stores it under no property
- * at all, so it cannot. Normalising the store instead would break the reverse
- * case — `font-family: var(--v)` over `--v: red` renders "red" on BOTH paths
- * today and would start rendering "#f00" on one of them.
- */
+// Normalising the variable store instead would turn `font-family: var(--v)` over `--v: red` into "#f00"
 const namedColour = (folded: string, unfolded: string) => ({
   folded: { color: folded },
   unfolded: { color: unfolded },
@@ -79,7 +54,19 @@ const TOKEN_CENSUS: Record<RawTokenKind, readonly Shape[]> = {
     { property: "opacity", value: "0" },
     { property: "z-index", value: "3" },
   ],
-  "percentage": [{ property: "width", value: "50%" }],
+  "percentage": [
+    { property: "width", value: "50%" },
+    {
+      property: "scale",
+      value: "50%",
+      knownDivergence: {
+        folded: { transform: [{ scaleX: 0.5 }, { scaleY: 0.5 }] },
+        unfolded: { transform: [{ scale: 0.5 }] },
+        because:
+          "the static parser writes a uniform scale as both axes and the runtime one as `scale`; fold-independent, and closing it is a runtime transform change",
+      },
+    },
+  ],
   "dimension": [
     {
       property: "transition-duration",
@@ -94,8 +81,7 @@ const TOKEN_CENSUS: Record<RawTokenKind, readonly Shape[]> = {
   ],
   "delim": [
     { property: "aspect-ratio", value: "16 / 9" },
-    // A square ratio has a second canonical form, and the property parser
-    // picks it.
+    // The property parser writes a square ratio as 1
     { property: "aspect-ratio", value: "3 / 3" },
   ],
   "hash": [{ property: "color", value: "#123456" }],
@@ -162,9 +148,7 @@ const VALUE_CENSUS: Record<ValueKind, readonly Shape[]> = {
       knownDivergence: namedColour("#008080", "teal"),
     },
   ],
-  // Both paths agree, and both are wrong about the red channel by a factor of
-  // 255. That is `parseUnresolvedColor`'s bug, not a fold one, and parity is
-  // all this census claims.
+  // Both paths share parseUnresolvedColor's channel scale, so only their agreement is claimed here
   "unresolved-color": [
     { property: "color", value: "rgb(255 0 0 / var(--alpha))" },
   ],
@@ -177,11 +161,7 @@ const VALUE_CENSUS: Record<ValueKind, readonly Shape[]> = {
   "animation-name": [],
 };
 
-/**
- * Shorthands are a second fold-independent class: the static parser expands
- * them into their longhands, the runtime one hands React Native the raw list.
- * Same shape as the `rotate` entry above, kept apart because it is a family.
- */
+// The static parser expands a shorthand into its longhands, and the runtime one hands React Native the list
 const SHORTHANDS: readonly Shape[] = (
   [
     [
@@ -220,17 +200,23 @@ const SHORTHANDS: readonly Shape[] = (
   },
 }));
 
+const SHADOW_LISTS: readonly Shape[] = [
+  { property: "box-shadow", value: "1px 2px 3px 4px #123456" },
+  { property: "box-shadow", value: "0 0 #0000, 1px 2px 3px 4px #123456" },
+  { property: "box-shadow", value: "0 0 transparent" },
+];
+
 const SHAPES: readonly Shape[] = [
   ...Object.values(VALUE_CENSUS).flat(),
   ...SHORTHANDS,
+  ...SHADOW_LISTS,
 ];
 
 function renderShape(
   shape: Shape,
   inlineVariables: boolean,
 ): Record<string, unknown> {
-  // `--inner` and `--alpha` back the two shapes whose value is itself a
-  // reference; every other shape ignores them.
+  // `--inner` and `--alpha` back the shapes whose value is itself a reference
   const css = `.a { --inner: teal; --alpha: 0.5; --v: ${shape.value}; ${shape.property}: var(--v); }`;
   StyleCollection.styles.clear();
   registerCSS(css, inlineVariables ? {} : { inlineVariables: false });
@@ -242,8 +228,6 @@ function renderShape(
 }
 
 test("the census covers something", () => {
-  // Deriving the table from a union buys a drift failure at the cost of a
-  // vacuity one: every list could be empty and every case below would vanish.
   expect(SHAPES.length).toBeGreaterThan(20);
 });
 
@@ -258,9 +242,64 @@ describe.each(SHAPES)("$property: var(--v) over $value", (shape) => {
       return;
     }
 
-    // A shape that renders nothing on both paths agrees vacuously, which is
-    // exactly how a typo in the census would pass.
+    // A shape that renders nothing on both paths would agree vacuously
     expect(folded).not.toStrictEqual({});
     expect(unfolded).toStrictEqual(folded);
   });
+});
+
+function renderStylesheet(
+  css: string,
+  className: string,
+  inlineVariables: boolean,
+): Record<string, unknown> {
+  StyleCollection.styles.clear();
+  registerCSS(css, inlineVariables ? {} : { inlineVariables: false });
+  const { style } = render(
+    <View testID={testID} className={className} />,
+  ).getByTestId(testID).props as {
+    style?: Record<string, unknown> | Record<string, unknown>[];
+  };
+
+  return StyleSheet.flatten<Record<string, unknown>>(style ?? {});
+}
+
+// Each case names its own properties, because root and universal variables outlive a test
+test.each([
+  [
+    "a declaration in a rule the element does not match",
+    `.p { --scope-a: 10px; } .a { width: var(--scope-a); height: 5px; }`,
+    "a",
+  ],
+  [
+    "a declaration another rule on the element also reads",
+    `.a { --scope-b: 10px; width: var(--scope-b); } .b { height: var(--scope-b); }`,
+    "a b",
+  ],
+  [
+    "a registered initial value beside a fallback block the compiler drops",
+    `@property --scope-c { syntax: "*"; inherits: false; initial-value: 10px; }
+     @supports (display: grid) { *, ::before { --scope-c: 20px; } }
+     .a { width: var(--scope-c); }`,
+    "a",
+  ],
+  [
+    "a declaration inside an @supports block the compiler keeps",
+    `@supports (color: color-mix(in lab, red, red)) { :root { --scope-d: 10px; } }
+     .a { width: var(--scope-d); }`,
+    "a",
+  ],
+  [
+    "a declaration on every element, registered inherits: false",
+    `@property --scope-e { syntax: "<length>"; inherits: false; initial-value: 0px; }
+     * { --scope-e: 10px; }
+     .a { width: var(--scope-e); }`,
+    "a",
+  ],
+])("%s renders the same whether or not it folds", (_name, css, className) => {
+  const folded = renderStylesheet(css, className, true);
+  const unfolded = renderStylesheet(css, className, false);
+
+  expect(folded).not.toStrictEqual({});
+  expect(unfolded).toStrictEqual(folded);
 });

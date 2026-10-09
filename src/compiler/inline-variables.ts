@@ -8,26 +8,55 @@ import type {
 } from "lightningcss";
 
 import type { UniqueVarInfo } from "./compiler.types";
+import { supportsConditionValid } from "./supports";
 
 // A custom property is scoped to the elements its rule matches (css-variables-1 §2), so a value folds only where every matching element provably holds it
 export function inlineVariables(
   stylesheet: StyleSheet,
-  vars: Map<string, UniqueVarInfo>,
+  exclude: readonly string[],
 ) {
-  // Which of two declarations wins depends on the element, and pruning before flattening keeps the fold independent of declaration order
-  for (const [name, info] of [...vars]) {
-    if (info.count !== 1) {
-      vars.delete(name);
-    }
+  const scope = collectVariableScope(stylesheet, exclude);
+
+  for (const name of [...scope.vars.keys()]) {
+    flattenVar(name, scope);
   }
 
-  const scope = collectVariableScope(stylesheet, vars);
+  forEachDeclarationBlock(stylesheet.rules, (block) => {
+    foldDeclarationBlock(block, scope);
+  });
 
-  for (const name of [...vars.keys()]) {
-    flattenVar(name, vars, scope);
-  }
+  const reads = collectRuntimeReads(stylesheet.rules, scope);
 
-  stylesheet.rules = stylesheet.rules.map(function checkRule(rule) {
+  forEachDeclarationBlock(stylesheet.rules, (block) => {
+    removeUnreadDeclarations(block, scope, reads);
+  });
+
+  return stylesheet;
+}
+
+interface VariableScope {
+  readonly vars: Map<string, UniqueVarInfo>;
+  readonly declaringBlocks: Map<string, DeclarationBlock>;
+  readonly universalNames: Set<string>;
+}
+
+// Every matching element holds the property when its declaration is universal and unconditional, or when the reference shares its block
+function canFold(
+  name: string,
+  block: DeclarationBlock | undefined,
+  scope: VariableScope,
+) {
+  return (
+    scope.universalNames.has(name) ||
+    (block !== undefined && scope.declaringBlocks.get(name) === block)
+  );
+}
+
+function forEachDeclarationBlock(
+  rules: Rule[],
+  visit: (block: DeclarationBlock) => void,
+): void {
+  for (const rule of rules) {
     switch (rule.type) {
       case "custom":
       case "font-face":
@@ -48,136 +77,162 @@ export function inlineVariables(
       case "custom-media":
       case "scope":
       case "starting-style":
-        return rule;
-
-      case "media":
-        rule.value.rules = rule.value.rules.map((rule) => checkRule(rule));
-        return rule;
+        break;
       case "keyframes":
-        rule.value.keyframes = rule.value.keyframes.map((keyframe) => {
-          keyframe.declarations =
-            replaceDeclarationBlock(keyframe.declarations, vars, scope) ??
-            keyframe.declarations;
-
-          return keyframe;
-        });
-        return rule;
+        for (const keyframe of rule.value.keyframes) {
+          visit(keyframe.declarations);
+        }
+        break;
       case "style":
-        rule.value.declarations = replaceDeclarationBlock(
-          rule.value.declarations,
-          vars,
-          scope,
-        );
-
-        rule.value.rules = rule.value.rules?.flatMap((rule) => checkRule(rule));
-
-        return rule;
+        if (rule.value.declarations) {
+          visit(rule.value.declarations);
+        }
+        forEachDeclarationBlock(rule.value.rules ?? [], visit);
+        break;
       case "nested-declarations":
-        rule.value.declarations =
-          replaceDeclarationBlock(rule.value.declarations, vars, scope) ?? {};
-        return rule;
+        visit(rule.value.declarations);
+        break;
+      case "media":
       case "supports":
-        rule.value.rules = rule.value.rules.flatMap((rule) => checkRule(rule));
-        return rule;
       case "layer-block":
-        rule.value.rules = rule.value.rules.flatMap((rule) => checkRule(rule));
-        return rule;
       case "container":
-        rule.value.rules = rule.value.rules.flatMap((rule) => checkRule(rule));
-        return rule;
+        forEachDeclarationBlock(rule.value.rules, visit);
+        break;
+    }
+  }
+}
+
+function declarationsOf(block: DeclarationBlock): Declaration[] {
+  return [
+    ...(block.declarations ?? []),
+    ...(block.importantDeclarations ?? []),
+  ];
+}
+
+function foldDeclarationBlock(block: DeclarationBlock, scope: VariableScope) {
+  for (const declaration of declarationsOf(block)) {
+    if (
+      declaration.property === "unparsed" ||
+      declaration.property === "custom"
+    ) {
+      declaration.value.value = declaration.value.value.flatMap((part) => {
+        return flattenPart(part, scope, block);
+      });
+    }
+  }
+}
+
+function collectRuntimeReads(rules: Rule[], scope: VariableScope) {
+  const reads = new Set<string>();
+  const readsOfCandidates = new Map<string, string[]>();
+  const pending: string[] = [];
+
+  const read = (name: string) => {
+    if (!reads.has(name)) {
+      reads.add(name);
+      pending.push(name);
+    }
+  };
+
+  forEachDeclarationBlock(rules, (block) => {
+    for (const declaration of declarationsOf(block)) {
+      if (declaration.property === "custom") {
+        const { name, value } = declaration.value;
+
+        // A candidate's own value is read only while something reads the candidate
+        if (scope.vars.has(name)) {
+          const names = readsOfCandidates.get(name) ?? [];
+          forEachReadName(value, (readName) => names.push(readName));
+          readsOfCandidates.set(name, names);
+        } else {
+          forEachReadName(value, read);
+        }
+      } else if (declaration.property === "unparsed") {
+        forEachReadName(declaration.value.value, read);
+      }
     }
   });
 
-  return stylesheet;
+  for (let name = pending.pop(); name !== undefined; name = pending.pop()) {
+    for (const readName of readsOfCandidates.get(name) ?? []) {
+      read(readName);
+    }
+  }
+
+  return reads;
 }
 
-interface VariableScope {
-  readonly declaringBlocks: Map<string, DeclarationBlock>;
-  readonly universalNames: Set<string>;
+function forEachReadName(
+  parts: TokenOrValue[],
+  visit: (name: string) => void,
+): void {
+  for (const part of parts) {
+    switch (part.type) {
+      case "var":
+        visit(part.value.name.ident);
+        forEachReadName(part.value.fallback ?? [], visit);
+        break;
+      case "env":
+        forEachReadName(part.value.fallback ?? [], visit);
+        break;
+      case "function":
+        forEachReadName(part.value.arguments, visit);
+        break;
+      case "unresolved-color":
+        switch (part.value.type) {
+          case "rgb":
+          case "hsl":
+            forEachReadName(part.value.alpha, visit);
+            break;
+          case "light-dark":
+            forEachReadName(part.value.light, visit);
+            forEachReadName(part.value.dark, visit);
+            break;
+          default:
+            part.value satisfies never;
+        }
+        break;
+      default:
+        break;
+    }
+  }
 }
 
-// Every matching element holds the property when its declaration is universal and unconditional, or when the reference shares its block
-function canFold(
-  name: string,
-  block: DeclarationBlock | undefined,
-  scope: VariableScope,
-) {
-  return (
-    scope.universalNames.has(name) ||
-    (block !== undefined && scope.declaringBlocks.get(name) === block)
-  );
-}
-
-function replaceDeclarationBlock(
-  block: DeclarationBlock | undefined,
-  vars: Map<string, UniqueVarInfo>,
-  scope: VariableScope,
-) {
-  if (!block) return;
-
-  block.declarations = block.declarations
-    ?.map((decl) => {
-      return replaceDeclaration(decl, vars, block, scope);
-    })
-    .filter((d) => !!d);
-
-  block.importantDeclarations = block.importantDeclarations
-    ?.map((decl) => {
-      return replaceDeclaration(decl, vars, block, scope);
-    })
-    .filter((d) => !!d);
-
-  return block;
-}
-
-function replaceDeclaration(
-  declaration: Declaration,
-  vars: Map<string, UniqueVarInfo>,
+function removeUnreadDeclarations(
   block: DeclarationBlock,
   scope: VariableScope,
+  reads: Set<string>,
 ) {
-  if (
-    declaration.property !== "unparsed" &&
-    declaration.property !== "custom"
-  ) {
-    return declaration;
-  }
+  const isKept = (declaration: Declaration) => {
+    return (
+      declaration.property !== "custom" ||
+      !scope.vars.has(declaration.value.name) ||
+      reads.has(declaration.value.name)
+    );
+  };
 
-  // A block-scoped declaration stays for descendants, including ones a separately compiled stylesheet styles
-  if (
-    declaration.property === "custom" &&
-    vars.has(declaration.value.name) &&
-    scope.universalNames.has(declaration.value.name)
-  ) {
-    return;
-  }
-
-  declaration.value.value = declaration.value.value.flatMap((part) => {
-    return flattenPart(part, vars, block, scope);
-  });
-
-  return declaration;
+  block.declarations = block.declarations?.filter(isKept);
+  block.importantDeclarations = block.importantDeclarations?.filter(isKept);
 }
 
 function flattenPart(
   part: TokenOrValue,
-  vars: Map<string, UniqueVarInfo>,
-  block: DeclarationBlock | undefined,
   scope: VariableScope,
+  block: DeclarationBlock | undefined,
 ): TokenOrValue | TokenOrValue[] {
   if (part.type === "var") {
     const name = part.value.name.ident;
-    const varInfo = vars.get(name);
+    const varInfo = scope.vars.get(name);
 
     if (!varInfo || !canFold(name, block, scope)) {
       part.value.fallback = part.value.fallback?.flatMap((arg) => {
-        return flattenPart(arg, vars, block, scope);
+        return flattenPart(arg, scope, block);
       });
 
       return part;
     } else if (varInfo.value === undefined) {
       const fallback = part.value.fallback?.flatMap((arg) => {
-        return flattenPart(arg, vars, block, scope);
+        return flattenPart(arg, scope, block);
       });
 
       return fallback ?? [];
@@ -186,7 +241,7 @@ function flattenPart(
     return varInfo.value;
   } else if (part.type === "function") {
     part.value.arguments = part.value.arguments.flatMap((arg) => {
-      return flattenPart(arg, vars, block, scope);
+      return flattenPart(arg, scope, block);
     });
   }
 
@@ -195,17 +250,16 @@ function flattenPart(
 
 function flattenVar(
   name: string,
-  vars: Map<string, UniqueVarInfo>,
   scope: VariableScope,
   seen = new Set<string>(),
 ) {
   if (seen.has(name)) {
-    vars.delete(name);
+    scope.vars.delete(name);
   }
 
   seen.add(name);
 
-  let varInfo = vars.get(name);
+  let varInfo = scope.vars.get(name);
 
   if (!varInfo || varInfo.flat) {
     return;
@@ -218,16 +272,16 @@ function flattenVar(
     if (part.type === "var") {
       const nestedName = part.value.name.ident;
 
-      flattenVar(nestedName, vars, scope, seen);
+      flattenVar(nestedName, scope, seen);
 
       if (canFold(nestedName, declaringBlock, scope)) {
-        const nestedVarInfo = vars.get(nestedName);
+        const nestedVarInfo = scope.vars.get(nestedName);
         if (nestedVarInfo?.value) {
           return nestedVarInfo.value;
         }
       }
     }
-    return flattenPart(part, vars, declaringBlock, scope);
+    return flattenPart(part, scope, declaringBlock);
   });
 
   // If the variable is shorthand for "initial", substitute it for undefined
@@ -243,61 +297,59 @@ function flattenVar(
   }
 
   varInfo = {
-    count: 1,
     flat: true,
     value: varInfoValue,
   };
 
-  vars.set(name, varInfo);
+  scope.vars.set(name, varInfo);
 }
 
+type Reach = "every-element" | "inherited-from-root" | "matched-elements";
+
 interface RuleScope {
-  /** Every element matches the enclosing selector. */
-  readonly universal: boolean;
-  /** Enclosed by a query whose result this pass does not know. */
+  readonly reach: Reach;
   readonly conditional: boolean;
 }
 
-const ROOT_SCOPE: RuleScope = { universal: false, conditional: false };
+interface CustomDeclaration {
+  readonly block: DeclarationBlock;
+  readonly reach: Reach;
+  readonly value: TokenOrValue[];
+}
+
+const DOCUMENT_SCOPE: RuleScope = {
+  reach: "matched-elements",
+  conditional: false,
+};
+
+// Separates a value spliced between tokens, as the source's own whitespace did
+const VALUE_SEPARATOR: TokenOrValue = {
+  type: "token",
+  value: { type: "white-space", value: " " },
+};
 
 function collectVariableScope(
   stylesheet: StyleSheet,
-  vars: Map<string, UniqueVarInfo>,
+  exclude: readonly string[],
 ): VariableScope {
-  const scope: VariableScope = {
-    declaringBlocks: new Map(),
-    universalNames: new Set(),
-  };
-
-  // A property registered with inherits: false reaches only the element that declares it (css-properties-values-api-1)
+  const declared = new Map<string, CustomDeclaration[]>();
   const notInherited = new Set<string>();
-  for (const rule of stylesheet.rules) {
-    if (rule.type === "property" && !rule.value.inherits) {
-      notInherited.add(rule.value.name);
-    }
-  }
+  const initialValues = new Map<string, TokenOrValue[]>();
 
-  const annotateBlock = (
-    block: DeclarationBlock | undefined,
-    ruleScope: RuleScope,
-  ) => {
-    if (!block) return;
-
-    const universal = ruleScope.universal && !ruleScope.conditional;
-
-    for (const declaration of [
-      ...(block.declarations ?? []),
-      ...(block.importantDeclarations ?? []),
-    ]) {
+  const annotateBlock = (block: DeclarationBlock, ruleScope: RuleScope) => {
+    for (const declaration of declarationsOf(block)) {
       if (declaration.property !== "custom") continue;
 
-      const { name } = declaration.value;
-      if (!vars.has(name)) continue;
+      const { name, value } = declaration.value;
+      if (!name.startsWith("--") || exclude.includes(name)) continue;
 
-      scope.declaringBlocks.set(name, block);
-      if (universal && !notInherited.has(name)) {
-        scope.universalNames.add(name);
-      }
+      const declarations = declared.get(name) ?? [];
+      declarations.push({
+        block,
+        reach: ruleScope.conditional ? "matched-elements" : ruleScope.reach,
+        value,
+      });
+      declared.set(name, declarations);
     }
   };
 
@@ -306,33 +358,42 @@ function collectVariableScope(
       case "style": {
         const nested: RuleScope = {
           ...ruleScope,
-          universal: isUniversalScope(rule.value.selectors, ruleScope),
+          reach: selectorReach(rule.value.selectors, ruleScope),
         };
-        annotateBlock(rule.value.declarations, nested);
+        if (rule.value.declarations) {
+          annotateBlock(rule.value.declarations, nested);
+        }
         for (const child of rule.value.rules ?? []) {
           annotateRule(child, nested);
         }
         return;
       }
       case "nested-declarations":
-        // The enclosing style rule's own declarations, so they carry its scope.
         annotateBlock(rule.value.declarations, ruleScope);
         return;
       case "keyframes":
-        // A keyframe's block folds only into itself; @keyframes never sits inside a style rule
         for (const keyframe of rule.value.keyframes) {
-          annotateBlock(keyframe.declarations, ruleScope);
+          annotateBlock(keyframe.declarations, {
+            ...ruleScope,
+            reach: "matched-elements",
+          });
         }
         return;
       case "media":
-      case "supports":
       case "container":
-        // A query decides elsewhere whether these rules apply, so nothing inside one is unconditional
         for (const child of rule.value.rules) {
           annotateRule(child, {
-            universal: false,
+            reach: "matched-elements",
             conditional: true,
           });
+        }
+        return;
+      case "supports":
+        // The compiler keeps or drops an @supports block at build time, so its declarations apply unconditionally or not at all
+        if (supportsConditionValid(rule.value.condition)) {
+          for (const child of rule.value.rules) {
+            annotateRule(child, ruleScope);
+          }
         }
         return;
       case "layer-block":
@@ -340,44 +401,93 @@ function collectVariableScope(
           annotateRule(child, ruleScope);
         }
         return;
+      case "property":
+        if (!rule.value.inherits) {
+          notInherited.add(rule.value.name);
+        }
+        if (
+          rule.value.initialValue?.type === "token-list" &&
+          !ruleScope.conditional
+        ) {
+          initialValues.set(rule.value.name, rule.value.initialValue.value);
+        }
+        return;
       default:
         return;
     }
   };
 
-  for (const rule of stylesheet.rules) annotateRule(rule, ROOT_SCOPE);
+  for (const rule of stylesheet.rules) annotateRule(rule, DOCUMENT_SCOPE);
+
+  const scope: VariableScope = {
+    vars: new Map(),
+    declaringBlocks: new Map(),
+    universalNames: new Set(),
+  };
+
+  for (const [name, declarations] of declared) {
+    // Which of two declarations wins depends on the element
+    const [declaration, ...others] = declarations;
+    if (!declaration || others.length > 0) continue;
+
+    scope.vars.set(name, { value: [...declaration.value, VALUE_SEPARATOR] });
+    scope.declaringBlocks.set(name, declaration.block);
+
+    if (
+      declaration.reach === "every-element" ||
+      (declaration.reach === "inherited-from-root" && !notInherited.has(name))
+    ) {
+      scope.universalNames.add(name);
+    }
+  }
+
+  // An element no declaration reaches holds the registered initial value (css-properties-values-api-1 §2.3)
+  for (const [name, initialValue] of initialValues) {
+    if (declared.has(name) || exclude.includes(name)) continue;
+
+    scope.vars.set(name, { value: [...initialValue, VALUE_SEPARATOR] });
+    scope.universalNames.add(name);
+  }
 
   return scope;
 }
 
-// One universal selector is enough (Tailwind emits `:root, :host`), and a nested rule is universal only where its parent is
-function isUniversalScope(selectors: Selector[], ruleScope: RuleScope) {
-  return selectors.some((selector) => {
+// A `*` in the list declares on every element, and a nested rule reaches only as far as its parent
+function selectorReach(selectors: Selector[], ruleScope: RuleScope): Reach {
+  const reaches = selectors.map((selector): Reach => {
     const meaningful = selector.filter(
       (component) => component.type !== "nesting",
     );
 
     if (meaningful.length === 0) {
-      return ruleScope.universal;
+      return ruleScope.reach;
     }
 
     if (meaningful.length !== 1) {
       // A compound or combined selector, such as `:root .theme`, matches less than the whole document
-      return false;
+      return "matched-elements";
     }
 
     const [component] = meaningful;
 
     switch (component?.type) {
       case "universal":
-        return true;
+        return "every-element";
       case "type":
         // Every element descends from html, and no other element name can be relied on
-        return component.name === "html";
+        return component.name === "html"
+          ? "inherited-from-root"
+          : "matched-elements";
       case "pseudo-class":
-        return component.kind === "root" || component.kind === "host";
+        return component.kind === "root" || component.kind === "host"
+          ? "inherited-from-root"
+          : "matched-elements";
       default:
-        return false;
+        return "matched-elements";
     }
   });
+
+  if (reaches.includes("every-element")) return "every-element";
+  if (reaches.includes("inherited-from-root")) return "inherited-from-root";
+  return "matched-elements";
 }

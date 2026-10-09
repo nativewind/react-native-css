@@ -36,7 +36,7 @@ import type {
   UnresolvedColor,
 } from "lightningcss";
 
-import { isStyleFunction } from "../utilities";
+import { isStyleFunction, isTransparentColor } from "../utilities";
 import { isMappingProperty } from "./atRules";
 import type {
   StyleDescriptor,
@@ -2471,11 +2471,18 @@ export function parseBoxShadow(
   { value }: DeclarationType<"box-shadow">,
   builder: StylesheetBuilder,
 ) {
-  for (const [index, shadow] of value.entries()) {
-    builder.addDescriptor(
-      `&.boxShadow.[${index}].color`,
-      parseColor(shadow.color, builder),
-    );
+  const shadows = value
+    .map((shadow) => ({ shadow, color: parseColor(shadow.color, builder) }))
+    .filter(({ color }) => !isTransparentColor(color));
+
+  // A transparent shadow paints nothing, so it is dropped as the runtime drops one it reads from a variable
+  if (shadows.length === 0 && value.length > 0) {
+    builder.addDescriptor("box-shadow", [{}, "boxShadow", [], 1]);
+    return;
+  }
+
+  for (const [index, { shadow, color }] of shadows.entries()) {
+    builder.addDescriptor(`&.boxShadow.[${index}].color`, color);
     builder.addDescriptor(
       `&.boxShadow.[${index}].offsetX`,
       parseLength(shadow.xOffset, builder),

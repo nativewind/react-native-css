@@ -5,15 +5,7 @@ import { registerCSS, testID } from "react-native-css/jest";
 
 import { dimensions } from "../../native/reactivity";
 
-/**
- * Every test names its own custom properties. `:root` variables live in a
- * store the jest `beforeEach` does not reset, so a shared name would let one
- * test decide another's result depending on the order they ran in.
- *
- * Native plane. `../compiler/inline-variables.test.ts` asserts the same folds
- * against the IR; these assert what the runtime paints, because an IR that is
- * scoped correctly and a screen that renders correctly are two claims.
- */
+// Each test names its own properties, because root variables outlive a test
 
 test("a class-scoped variable does not leak into an unrelated rule", () => {
   registerCSS(`.parent { --leak-a: 10px; } .child { width: var(--leak-a); }`);
@@ -86,14 +78,34 @@ test("a property registered with inherits: false resolves at runtime", () => {
 
   render(<View testID={testID} className="b" />);
 
-  // KNOWN LIMIT, pinned rather than claimed correct. CSS says `--registered`
-  // does not inherit, so `.b` holds the registered initial value 10, not `:root`'s
-  // 20. The compiler now refuses to fold it — the sibling compiler test pins
-  // that — but the runtime carries no notion of a non-inherited custom
-  // property, so it still resolves 20 from the root scope. Modelling
-  // `inherits: false` in the variable store is what closes this, and refusing
-  // the fold is the prerequisite rather than the fix.
+  // Known limit: CSS gives `.b` the initial 10, but the runtime has no non-inherited custom property and resolves :root's 20
   expect(screen.getByTestId(testID).props.style).toStrictEqual({ width: 20 });
+});
+
+test("a registered initial value applies where nothing declares the property", () => {
+  registerCSS(`
+    @property --initial-a { syntax: "*"; inherits: false; initial-value: 10px; }
+    @supports (display: grid) { *, ::before { --initial-a: 20px; } }
+    .a { width: var(--initial-a); }
+  `);
+
+  render(<View testID={testID} className="a" />);
+
+  expect(screen.getByTestId(testID).props.style).toStrictEqual({ width: 10 });
+});
+
+test("a declaration another rule reads survives its own fold", () => {
+  registerCSS(
+    `.a { --kept-a: 10px; width: var(--kept-a); } .b { height: var(--kept-a); }`,
+  );
+
+  render(
+    <View className="a">
+      <View testID={testID} className="b" />
+    </View>,
+  );
+
+  expect(screen.getByTestId(testID).props.style).toStrictEqual({ height: 10 });
 });
 
 test("a runtime write reaches a rule that reads the variable", () => {
@@ -109,8 +121,7 @@ test("a runtime write reaches a rule that reads the variable", () => {
     </View>,
   );
 
-  // An inline write outranks a class declaration, and folding the class value
-  // into `.child` would have made that unrepresentable.
+  // An inline write outranks a class declaration, which a value folded into `.child` could not express
   expect(screen.getByTestId(testID).props.style).toStrictEqual({
     color: "blue",
   });
@@ -128,11 +139,7 @@ test("a runtime write cannot reach a reference in the declaring block", () => {
     />,
   );
 
-  // KNOWN LIMIT, pinned rather than claimed correct. CSS says the inline write
-  // wins and this should be blue. The value was folded at build time, so no
-  // read remains for the write to affect. Closing it means not folding a
-  // same-block reference either, which is the whole optimisation; `blue`
-  // is recoverable today with `inlineVariables: { exclude: [...] }`.
+  // Known limit: CSS lets the inline write win, but the fold leaves no read for it; `exclude` restores it
   expect(screen.getByTestId(testID).props.style).toStrictEqual({
     color: "#f00",
   });
