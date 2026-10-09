@@ -69,6 +69,38 @@ test("an attribute-identified ancestor is withheld where no ancestor can answer 
   expect(screen.getByTestId("subject").props.style).toStrictEqual(undefined);
 });
 
+test.each([
+  [
+    '[data-state="on"]',
+    { dataSet: { state: "off" } },
+    { dataSet: { state: "on" } },
+  ],
+  [":disabled", { disabled: false }, { disabled: true }],
+] as const)(
+  "an ancestor identified by %s answers from the container's props",
+  (selector, unmatched, matched) => {
+    registerCSS(`
+      ${CONTAINER_CSS}
+      ${selector} .subject { color: red; }
+    `);
+
+    const tree = (props: Record<string, unknown>) => (
+      <View className="container" {...props}>
+        <View testID="subject" className="subject" />
+      </View>
+    );
+
+    render(tree(unmatched));
+    expect(screen.getByTestId("subject")).not.toHaveStyle(RED);
+
+    screen.rerender(tree(matched));
+    expect(screen.getByTestId("subject")).toHaveStyle(RED);
+
+    screen.rerender(tree(unmatched));
+    expect(screen.getByTestId("subject")).not.toHaveStyle(RED);
+  },
+);
+
 test("a named ancestor still answers from the element its class names", () => {
   registerCSS(`.group:hover .subject { color: red; }`);
 
