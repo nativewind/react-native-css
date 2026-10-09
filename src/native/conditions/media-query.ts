@@ -14,8 +14,7 @@ function test(mediaQuery: MediaCondition, get: Getter): Boolean {
     case "[]":
       return false;
     case "!!":
-      // A bare boolean media feature, e.g. `@media (prefers-reduced-motion)`.
-      // Per CSS, bare `(prefers-reduced-motion)` is equivalent to `reduce`.
+      // MQ5: a feature in a boolean context is true unless its value is `no-preference`
       return mediaQuery[1] === "prefers-reduced-motion"
         ? get(reduceMotion)
         : false;
@@ -53,10 +52,7 @@ function testComparison(mediaQuery: MediaCondition, get: Getter): Boolean {
       return value === get(colorScheme);
     }
     case "prefers-reduced-motion": {
-      // `motion-reduce:` compiles to `reduce`, `motion-safe:` to
-      // `no-preference`. An equality test rather than a two-way branch, so an
-      // unrecognised value is false as MQ5 requires, instead of aliasing to
-      // `reduce`.
+      // An unknown value matches nothing (MQ5), so this is an equality, not a two-way branch
       return value === (get(reduceMotion) ? "reduce" : "no-preference");
     }
     case "display-mode":

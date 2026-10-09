@@ -236,27 +236,16 @@ Appearance.addChangeListener((event) => colorScheme.set(event.colorScheme));
 
 /** Reduce Motion ************************************************************/
 
-// Mirror the Color Scheme wiring above — but AccessibilityInfo has no
-// synchronous getter (Appearance.getColorScheme() does), so this can't be
-// seeded synchronously. It starts `false` (motion enabled — the safe default),
-// flips when isReduceMotionEnabled() resolves (a brief, unavoidable cold-start
-// window), and stays live via reduceMotionChanged. iOS drives this directly; on
-// Android there is no distinct setting, so AccessibilityInfoModule reads
-// Settings.Global.TRANSITION_ANIMATION_SCALE and reports true when it is 0
-// (react-native #31221 — which is about that reading disagreeing with the
-// "Remove animations" toggle).
+// AccessibilityInfo answers asynchronously, so motion counts as enabled until it does; Android reports its animator scale (react-native#31221)
 export const reduceMotion = observable(false);
 
-// Guarded because this module is the root of every media feature. Without a
-// native AccessibilityInfo the getter is absent or rejects, and an unguarded
-// call throws at module scope — taking colorScheme, vw/vh and containers down
-// with it, none of which have anything to do with motion.
+// Every media feature imports this module, so a platform without AccessibilityInfo must not throw here
 try {
   AccessibilityInfo.isReduceMotionEnabled()
     .then((enabled) => reduceMotion.set(enabled))
     .catch(() => undefined);
 } catch {
-  // Leave the safe default in place.
+  // Motion stays enabled
 }
 
 try {
@@ -264,7 +253,7 @@ try {
     reduceMotion.set(enabled),
   );
 } catch {
-  // Without the listener the flag stays at whatever the seed resolved to.
+  // The flag keeps the value the seed resolved to
 }
 
 /** Containers ****************************************************************/
