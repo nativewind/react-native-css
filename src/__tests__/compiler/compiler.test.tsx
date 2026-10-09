@@ -526,10 +526,25 @@ describe("CSS-wide keywords", () => {
     },
   );
 
-  test.each(["color-mix(in srgb, inherit, blue)", "light-dark(inherit, blue)"])(
-    "color: %s is dropped, as a CSS-wide keyword is only ever a whole value",
-    (value) => {
-      expect(stylesheetFor(value)).toStrictEqual({});
+  test.each([
+    ["color", "color-mix(in srgb, inherit, blue)"],
+    ["color", "light-dark(inherit, blue)"],
+    ["color", "light-dark(blue, inherit)"],
+    ["color", "rgb(0 0 0 / inherit)"],
+    ["filter", "blur(inherit)"],
+    ["transform", "translateX(inherit)"],
+    ["box-shadow", "1px 1px INHERIT"],
+  ])(
+    "%s: %s is dropped, as a CSS-wide keyword is only ever a whole value",
+    (property, value) => {
+      const compiled = compile(`.child { ${property}: ${value}; }`);
+
+      expect(compiled.stylesheet()).toStrictEqual({});
+      expect(compiled.warnings()).toStrictEqual({
+        values: {
+          [property]: [value.includes("INHERIT") ? "INHERIT" : "inherit"],
+        },
+      });
     },
   );
 
@@ -567,6 +582,15 @@ describe("CSS-wide keywords", () => {
     expect(publishedVariable(css, "brand")).toEqual([]);
     expect(compile(css).warnings()).toStrictEqual({
       values: { "--brand": ["initial", "initial"] },
+    });
+  });
+
+  test("--brand keeps the tokens around a CSS-wide keyword inside its value", () => {
+    const css = uninlinedCustomProperty("1px INHERIT");
+
+    expect(publishedVariable(css, "brand")).toEqual([1, 1]);
+    expect(compile(css).warnings()).toStrictEqual({
+      values: { "--brand": ["INHERIT", "INHERIT"] },
     });
   });
 

@@ -987,11 +987,11 @@ export function parseUnparsedDeclaration(
    */
   builder.descriptorProperty = property;
 
-  const keyword = soleCSSWideKeyword(declaration.value.value);
-  const value =
-    keyword === undefined
-      ? parseUnparsed(declaration.value.value, builder, property)
-      : parseCSSWideKeyword(keyword, property, builder);
+  const value = parseDeclarationValue(
+    declaration.value.value,
+    builder,
+    property,
+  );
 
   // A value the compiler cannot parse leaves the declaration invalid, so an earlier rule's value stands
   if (value === undefined) {
@@ -1094,9 +1094,81 @@ function parseDeclarationValue(
 ): StyleDescriptor {
   const keyword = soleCSSWideKeyword(tokens);
 
-  return keyword === undefined
-    ? parseUnparsed(tokens, builder, property, allowAuto)
-    : parseCSSWideKeyword(keyword, property, builder);
+  if (keyword !== undefined) {
+    return parseCSSWideKeyword(keyword, property, builder);
+  }
+
+  // A CSS-wide keyword inside a property's longer value makes the declaration invalid (css-values-4 §2.1); a custom property's value is any tokens
+  const nested = property.startsWith("--")
+    ? undefined
+    : nestedCSSWideKeyword(tokens ?? []);
+
+  if (nested !== undefined) {
+    builder.addWarning("value", nested);
+    return;
+  }
+
+  return parseUnparsed(tokens, builder, property, allowAuto);
+}
+
+// A var() or env() defers its value to computed-value time, so a keyword behind one is not looked for
+function nestedCSSWideKeyword(
+  tokens: readonly TokenOrValue[],
+): string | undefined {
+  for (const tokenOrValue of tokens) {
+    const keyword = cssWideKeywordIn(tokenOrValue);
+
+    if (keyword !== undefined) {
+      return keyword;
+    }
+  }
+
+  return;
+}
+
+function cssWideKeywordIn(tokenOrValue: TokenOrValue): string | undefined {
+  switch (tokenOrValue.type) {
+    case "token":
+      return tokenOrValue.value.type === "ident" &&
+        isCSSWideKeyword(tokenOrValue.value.value.toLowerCase())
+        ? tokenOrValue.value.value
+        : undefined;
+    case "function":
+      return nestedCSSWideKeyword(tokenOrValue.value.arguments);
+    case "unresolved-color":
+      return cssWideKeywordInColor(tokenOrValue.value);
+    case "var":
+    case "env":
+    case "color":
+    case "url":
+    case "length":
+    case "angle":
+    case "time":
+    case "resolution":
+    case "dashed-ident":
+    case "animation-name":
+      return;
+    default: {
+      tokenOrValue satisfies never;
+      return;
+    }
+  }
+}
+
+function cssWideKeywordInColor(color: UnresolvedColor): string | undefined {
+  switch (color.type) {
+    case "rgb":
+    case "hsl":
+      return nestedCSSWideKeyword(color.alpha);
+    case "light-dark":
+      return (
+        nestedCSSWideKeyword(color.light) ?? nestedCSSWideKeyword(color.dark)
+      );
+    default: {
+      color satisfies never;
+      return;
+    }
+  }
 }
 
 function addCSSWideKeyword(

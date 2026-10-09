@@ -93,31 +93,35 @@ test.each(["inherit", "unset", "revert", "revert-layer"])(
   },
 );
 
-// Chromium 153, Firefox 155 and WebKit 26.6 ignore each invalid declaration and keep the earlier value
-test.each([
-  ["filter", "blur(2px)", { filter: [{ blur: 2 }] }],
-  [
-    "box-shadow",
-    "1px 1px red",
+const earlierShadow = {
+  boxShadow: [
     {
-      boxShadow: [
-        {
-          offsetX: 1,
-          offsetY: 1,
-          blurRadius: 0,
-          spreadDistance: 0,
-          color: "#f00",
-        },
-      ],
+      offsetX: 1,
+      offsetY: 1,
+      blurRadius: 0,
+      spreadDistance: 0,
+      color: "#f00",
     },
   ],
-  ["transform", "translateX(10px)", { transform: [{ translateX: 10 }] }],
+};
+
+// Chromium 153, Firefox 155 and WebKit 26.6 ignore each invalid declaration and keep the earlier value
+test.each([
+  ["filter", "foo(1)", "blur(2px)", { filter: [{ blur: 2 }] }],
+  ["box-shadow", "foo(1)", "1px 1px red", earlierShadow],
+  ["box-shadow", "1px 1px inherit", "1px 1px red", earlierShadow],
+  [
+    "transform",
+    "foo(1)",
+    "translateX(10px)",
+    { transform: [{ translateX: 10 }] },
+  ],
 ] as const)(
-  "%s: foo(1) leaves an earlier rule's value",
-  (property, earlier, kept) => {
+  "%s: %s leaves an earlier rule's value",
+  (property, invalid, earlier, kept) => {
     expect(
       renderStyle(
-        `.earlier { ${property}: ${earlier}; } .child { ${property}: foo(1); }`,
+        `.earlier { ${property}: ${earlier}; } .child { ${property}: ${invalid}; }`,
       ),
     ).toStrictEqual(kept);
   },
