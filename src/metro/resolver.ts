@@ -1,4 +1,4 @@
-import { basename, resolve, sep } from "node:path";
+import { basename, dirname, join, resolve, sep } from "node:path";
 
 import type {
   CustomResolutionContext,
@@ -8,8 +8,13 @@ import type {
 
 import { allowedModules } from "../babel/allowedModules";
 
-const thisModuleDist = resolve(__dirname, "../../../dist");
-const thisModuleSrc = resolve(__dirname, "../../../src");
+// Anchored on the layout segment, since this runs from src/metro under the source condition and from dist/<format>/metro once built
+const packageRoot = resolve(
+  __dirname,
+  basename(dirname(__dirname)) === "src" ? "../.." : "../../..",
+);
+const thisModuleDist = join(packageRoot, "dist");
+const thisModuleSrc = join(packageRoot, "src");
 
 function isFromThisModule(filename: string): boolean {
   return (
@@ -39,6 +44,12 @@ export function nativeResolver(
     return resolver(
       context,
       `react-native-css/components/react-native-safe-area-context`,
+      platform,
+    );
+  } else if (moduleName === "react-native-gesture-handler") {
+    return resolver(
+      context,
+      `react-native-css/components/react-native-gesture-handler`,
       platform,
     );
   } else if (
