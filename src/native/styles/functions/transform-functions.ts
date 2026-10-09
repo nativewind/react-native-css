@@ -153,7 +153,7 @@ function scalePair(operands: readonly unknown[]): unknown {
     return null;
   }
 
-  return x === y ? { scale: x } : [{ scaleX: x }, { scaleY: y }];
+  return [{ scaleX: x }, { scaleY: y }];
 }
 
 // `translate(x)` is `translate(x, 0)` (css-transforms-1 §9)
