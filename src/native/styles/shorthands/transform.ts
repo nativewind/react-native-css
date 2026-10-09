@@ -11,9 +11,12 @@ export const transform: StyleFunctionResolver = (
   const transforms = resolveValue(transformDescriptor[2]);
 
   if (Array.isArray(transforms)) {
-    return transforms.filter(
-      (transform) => transform !== undefined && transform !== "initial",
-    ) as unknown;
+    // React Native takes one property per transform object, so a resolver's group of entries is spread into the list
+    return transforms
+      .flat()
+      .filter(
+        (transform) => transform !== undefined && transform !== "initial",
+      ) as unknown;
   } else if (transforms) {
     // If it's a single transform, wrap it in an array
     return [transforms];
