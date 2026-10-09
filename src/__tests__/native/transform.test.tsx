@@ -266,17 +266,22 @@ describe("one property per entry", () => {
 });
 
 // Chromium 153, Firefox 155 and WebKit 26.6: a function left without a valid argument makes the declaration invalid at computed-value time, so the transform is none (css-variables-1 §3.1)
-test.each([
-  "transform: scaleX(var(--missing));",
-  "transform: translateX(10px) scaleX(var(--missing));",
-  "transform: translate(10px, var(--missing));",
-  "transform: rotate(var(--missing));",
-  "transform: scale(2, var(--missing));",
-  "--offset: 10px 20px; transform: var(--offset);",
-  "--offset: 10px 20px; transform: translateX(5px) var(--offset);",
-  "--sx: none; transform: scaleX(var(--sx));",
-  "--sx: none; transform: scale(var(--sx));",
-])("%s leaves no transform", (declarations) => {
+test.each(
+  (
+    [
+      ["", "scaleX(var(--missing))"],
+      ["", "translate(10px, var(--missing))"],
+      ["", "rotate(var(--missing))"],
+      ["", "scale(2, var(--missing))"],
+      ["--offset: 10px 20px; ", "var(--offset)"],
+      ["--sx: none; ", "scaleX(var(--sx))"],
+      ["--sx: none; ", "scale(var(--sx))"],
+    ] as const
+  ).flatMap(([customProperties, transform]) => [
+    `${customProperties}transform: ${transform};`,
+    `${customProperties}transform: translateX(5px) ${transform};`,
+  ]),
+)("%s leaves no transform", (declarations) => {
   expect(
     renderStyle(
       `${decoy} .earlier { transform: rotate(10deg); } .my-class { ${declarations} }`,
