@@ -192,23 +192,7 @@ test("passThrough - inline important existing", () => {
   });
 });
 
-test("a pseudo-element rule still outranks a plain one after the sheet is serialised", () => {
-  // The compiler leaves HOLES: a rule that sets `PseudoElements` (slot 4) never
-  // writes slots 2 and 3, so they sit empty *inside* the array's length. Metro
-  // writes the sheet with `JSON.stringify` (`metro/injection-code.ts`), and JSON
-  // has no holes — every one becomes `null`.
-  //
-  // The comparator branched on the RAW slot while returning a NORMALISED
-  // difference, so `undefined !== null` entered the branch and returned
-  // `0 - 0 = 0`, settling the comparison at a slot neither rule uses. A zero
-  // leaves the runtime sort with nothing to order by, so the `className`
-  // attribute's token order decided the cascade — `placeholder:` and
-  // `selection:` are the everyday Tailwind triggers.
-  //
-  // Asserted at the comparator rather than through a render on purpose. The
-  // rendered form depends on a non-`color` declaration leaking out of the
-  // pseudo-element rule, so it would go inert the moment that leak is fixed;
-  // this assertion does not.
+test("a pseudo-element rule still outranks a plain one after the sheet's JSON transport", () => {
   const rules = compile(
     `.inp { color: red; } .inp::placeholder { color: blue; }`,
   ).stylesheet().s?.[0]?.[1];
@@ -219,17 +203,15 @@ test("a pseudo-element rule still outranks a plain one after the sheet is serial
     );
   }
 
-  // The shape a device receives, not the shape the compiler holds.
+  // Metro injects the sheet as JSON, which writes each specificity hole as `null`.
   const [plain, placeholder] = JSON.parse(JSON.stringify(rules)) as StyleRule[];
 
   if (plain === undefined || placeholder === undefined) {
     throw new Error("expected two rules");
   }
 
+  expect(placeholder.s).toContain(null);
   expect(specificityCompareFn(plain, placeholder)).toBeLessThan(0);
   expect(specificityCompareFn(placeholder, plain)).toBeGreaterThan(0);
-
-  // An inline record carries no `s` at all, so it falls back to
-  // `inlineSpecificity` — itself a sparse array. It must still win.
   expect(specificityCompareFn({}, placeholder)).toBeGreaterThan(0);
 });
