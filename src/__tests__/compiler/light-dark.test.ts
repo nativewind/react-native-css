@@ -91,4 +91,16 @@ describe("light-dark() compiles to one value", () => {
       [[[{}, "lightDark", ["#123456", "#654321"]], ["placeholderTextColor"]]],
     ]);
   });
+
+  test.each([
+    "light-dark(canvastext, #654321)",
+    "light-dark(#123456, canvastext)",
+  ])("%s drops the declaration as the colour it cannot paint does", (value) => {
+    expect(
+      rulesFor(`.a { color: light-dark(#123456, #654321); }`),
+    ).not.toStrictEqual([]);
+    expect(rulesFor(`.a { color: ${value}; }`)).toStrictEqual(
+      rulesFor(`.a { color: canvastext; }`),
+    );
+  });
 });
