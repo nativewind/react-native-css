@@ -53,6 +53,11 @@ export function applyValue(
   prop: string,
   value: any,
 ) {
+  if (transformKeys.has(prop)) {
+    applyTransformValue(target, prop, value);
+    return;
+  }
+
   // This is confusing.
   // An undefined value means "don't set anything" (something failed while parsing)
   // While a null value means "remove this value", which in React Native means "set to undefined"
@@ -62,29 +67,34 @@ export function applyValue(
     value = undefined;
   }
 
-  if (transformKeys.has(prop)) {
-    if (!Array.isArray(target.transform)) {
-      target.transform = [];
-    }
-
-    const transformArray: Record<string, unknown>[] = target.transform;
-
-    // Remove any existing values
-    target.transform = transformArray.filter((t) => !(prop in t));
-
-    if (Array.isArray(value)) {
-      target.transform.push(...value);
-    } else {
-      target.transform.push(value);
-    }
-    return;
-  } else if (typeof value === "object" && value && ShortHandSymbol in value) {
+  if (typeof value === "object" && value && ShortHandSymbol in value) {
     delete value[ShortHandSymbol];
     Object.assign(target, value);
     return;
   }
 
   target[prop] = value;
+}
+
+// A transform longhand that resolves to no value is `none`, so its entries go and nothing takes their place
+function applyTransformValue(
+  target: Record<string, any>,
+  prop: string,
+  value: unknown,
+) {
+  const transforms: Record<string, unknown>[] = Array.isArray(target.transform)
+    ? target.transform
+    : [];
+
+  target.transform = transforms.filter((transform) => !(prop in transform));
+
+  if (value === undefined || value === null) {
+    return;
+  } else if (Array.isArray(value)) {
+    target.transform.push(...value);
+  } else {
+    target.transform.push(value);
+  }
 }
 
 export function setDeepPath(

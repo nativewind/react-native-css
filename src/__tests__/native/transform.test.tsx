@@ -183,6 +183,31 @@ describe("one property per entry", () => {
     },
   );
 
+  test("transform: scale(var(--sx)) scales both axes by its one operand", () => {
+    expect(
+      renderStyle(
+        `${decoy} .my-class { --sx: 75%; transform: scale(var(--sx)); }`,
+      ),
+    ).toStrictEqual({ transform: [{ scale: 0.75 }] });
+  });
+
+  test("scale: var(--sx) scales both axes by its one value", () => {
+    expect(
+      renderStyle(`${decoy} .my-class { --sx: 75%; scale: var(--sx); }`),
+    ).toStrictEqual({ transform: [{ scale: 0.75 }] });
+  });
+
+  // Chromium 153, Firefox 155 and WebKit 26.6 translate a one-operand translate() along x only
+  test.each([
+    "transform: translate(10px);",
+    "--t: 10px; transform: translate(var(--t));",
+    "--t: 10px; translate: var(--t);",
+  ])("%s translates along x only", (declarations) => {
+    expect(renderStyle(`${decoy} .my-class { ${declarations} }`)).toStrictEqual(
+      { transform: [{ translateX: 10 }, { translateY: 0 }] },
+    );
+  });
+
   test("a two-operand translate() renders an entry per axis, beside a sibling", () => {
     expect(
       renderStyle(
@@ -213,4 +238,38 @@ describe("one property per entry", () => {
       ),
     ).toStrictEqual({ transform: [{ translateX: 10 }] });
   });
+});
+
+// Chromium 153, Firefox 155 and WebKit 26.6: a function left without a valid argument makes the declaration invalid at computed-value time, so the transform is none (css-variables-1 §3.1)
+test.each([
+  "transform: scaleX(var(--missing));",
+  "transform: translateX(10px) scaleX(var(--missing));",
+  "transform: translate(10px, var(--missing));",
+  "transform: rotate(var(--missing));",
+  "--sx: none; transform: scaleX(var(--sx));",
+  "--sx: none; transform: scale(var(--sx));",
+])("%s leaves no transform", (declarations) => {
+  expect(
+    renderStyle(
+      `${decoy} .earlier { transform: rotate(10deg); } .my-class { ${declarations} }`,
+    ),
+  ).toStrictEqual({ transform: [] });
+});
+
+// Chromium 153, Firefox 155 and WebKit 26.6: a scale or translate longhand left without a value is none, and the transform property beside it stands
+test.each([
+  "scale: var(--missing);",
+  "scale: var(--missing) var(--missing);",
+  "translate: var(--missing) var(--missing);",
+  "--sx: none; scale: var(--sx);",
+  "--sx: none; --sy: 2; scale: var(--sx) var(--sy);",
+  "scale: unset;",
+  "scale: initial;",
+  "translate: initial;",
+])("%s leaves the transform property's entries", (declarations) => {
+  expect(
+    renderStyle(
+      `${decoy} .earlier { transform: rotate(10deg); } .my-class { ${declarations} }`,
+    ),
+  ).toStrictEqual({ transform: [{ rotate: "10deg" }] });
 });
