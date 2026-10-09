@@ -164,7 +164,7 @@ function renderStyle(css: string): unknown {
 }
 
 // A second definition keeps each variable from being inlined, so it resolves at runtime
-const decoy = `.decoy { --sx: 9; --sy: 9; --t: 9px; }`;
+const decoy = `.decoy { --sx: 9; --sy: 9; --t: 9px; --offset: 1px; }`;
 
 // React Native requires exactly one property per transform object, and its validator throws otherwise
 describe("one property per entry", () => {
@@ -231,6 +231,14 @@ describe("one property per entry", () => {
     },
   );
 
+  test("a translate() pair in a var() fallback renders an entry per axis", () => {
+    expect(
+      renderStyle(
+        `.my-class { transform: var(--missing, translate(10px, 20px)); }`,
+      ),
+    ).toStrictEqual({ transform: [{ translateX: 10 }, { translateY: 20 }] });
+  });
+
   test("a function React Native has no form for leaves its neighbour", () => {
     expect(
       renderStyle(
@@ -246,6 +254,8 @@ test.each([
   "transform: translateX(10px) scaleX(var(--missing));",
   "transform: translate(10px, var(--missing));",
   "transform: rotate(var(--missing));",
+  "--offset: 10px 20px; transform: var(--offset);",
+  "--offset: 10px 20px; transform: translateX(5px) var(--offset);",
   "--sx: none; transform: scaleX(var(--sx));",
   "--sx: none; transform: scale(var(--sx));",
 ])("%s leaves no transform", (declarations) => {
