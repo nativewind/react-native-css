@@ -18,6 +18,7 @@ import {
   cleanupEffect,
   ContainerContext,
   hasChangedDependencies,
+  weakFamily,
   type ContainerContextValue,
   type Effect,
   type Getter,
@@ -205,10 +206,10 @@ export function useNativeCss(
   return createElement(type, props);
 }
 
-/**
- * Convert the styled() mapping to a config array
- */
-export function mappingToConfig(mapping: StyledConfiguration<any>) {
+// Derived once per mapping, since the resolved-style cache keys on the config array's identity
+const configForMapping = weakFamily(function (
+  mapping: StyledConfiguration<any>,
+): Config[] {
   return Object.entries(mapping).flatMap(([key, value]): Config => {
     if (value === true) {
       return {
@@ -252,6 +253,17 @@ export function mappingToConfig(mapping: StyledConfiguration<any>) {
 
     throw new Error(`styled(): Invalid mapping for ${key}: ${value}`);
   });
+});
+
+// Refused by name, since a primitive would otherwise fail inside the WeakMap with a message naming neither styled() nor the argument
+export function mappingToConfig(mapping: StyledConfiguration<any>): Config[] {
+  if (typeof mapping !== "object" || mapping === null) {
+    throw new Error(
+      `styled(): mapping must be an object, received ${mapping === null ? "null" : typeof mapping}`,
+    );
+  }
+
+  return configForMapping(mapping);
 }
 
 // Apply native Image fitting before normal, inline, and important props merge.
