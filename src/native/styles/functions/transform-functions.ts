@@ -30,9 +30,9 @@ export const rotate: StyleFunctionResolver = (resolveValue, descriptor) => {
   const y = resolveValue(args[1]);
   const z = resolveValue(args[2]);
 
-  const isXValid = isTransformComponent(x);
-  const isYValid = isTransformComponent(y);
-  const isZValid = isTransformComponent(z);
+  const isXValid = typeof x === "string" || typeof x === "number";
+  const isYValid = typeof y === "string" || typeof y === "number";
+  const isZValid = typeof z === "string" || typeof z === "number";
 
   if (isXValid && isYValid && isZValid) {
     return [{ rotateX: x }, { rotateY: y }, { rotateZ: z }];
@@ -50,7 +50,7 @@ export const rotate: StyleFunctionResolver = (resolveValue, descriptor) => {
     return { rotateZ: z };
   }
 
-  return null;
+  return;
 };
 
 // `translate(x)` is `translate(x, 0)` (css-transforms-1 §9)

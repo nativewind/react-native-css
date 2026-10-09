@@ -10,20 +10,16 @@ export const transform: StyleFunctionResolver = (
 ) => {
   const transforms = resolveValue(transformDescriptor[2]);
 
-  if (Array.isArray(transforms)) {
-    // React Native takes one property per transform object, so a resolver's group of entries is spread into the list
-    const entries: unknown[] = transforms.flat();
+  // A group from a resolver and the list a var() fallback holds each nest a level, while React Native takes a flat list of single-key objects
+  const resolved: unknown[] = [transforms].flat(Number.POSITIVE_INFINITY);
+  const entries = resolved.filter(
+    (transform) => transform !== undefined && transform !== "initial",
+  );
 
-    // A function left without a valid argument makes the declaration invalid at computed-value time, so the transform is none (css-variables-1 §3.1)
-    return entries.includes(null)
-      ? []
-      : entries.filter(
-          (transform) => transform !== undefined && transform !== "initial",
-        );
-  } else if (transforms) {
-    // If it's a single transform, wrap it in an array
-    return [transforms];
-  } else {
-    return;
-  }
+  // Anything but a transform entry, null included, leaves the declaration invalid at computed-value time, so the transform is none (css-variables-1 §3.1)
+  return entries.every(isTransformEntry) ? entries : [];
 };
+
+function isTransformEntry(value: unknown): boolean {
+  return typeof value === "object" && value !== null;
+}
