@@ -1188,35 +1188,13 @@ export function unparsedFunction(
  * This export function best efforts parsing it into a export function that we can evaluate at runtime
  */
 export function parseUnparsed(
-  tokenOrValue:
-    | TokenOrValue
-    | TokenOrValue[]
-    | string
-    | number
-    | undefined
-    | null,
+  tokenOrValue: TokenOrValue | TokenOrValue[] | undefined | null,
   builder: StylesheetBuilder,
   property: string,
   allowAuto = allowAutoProperties.has(property),
 ): StyleDescriptor {
   if (tokenOrValue === undefined || tokenOrValue === null) {
     return;
-  }
-
-  if (typeof tokenOrValue === "string") {
-    if (tokenOrValue === "true") {
-      return true;
-    } else if (tokenOrValue === "false") {
-      return false;
-    } else if (tokenOrValue === "currentcolor") {
-      return inheritedColorLookup();
-    } else {
-      return tokenOrValue;
-    }
-  }
-
-  if (typeof tokenOrValue === "number") {
-    return round(tokenOrValue);
   }
 
   if (Array.isArray(tokenOrValue)) {
