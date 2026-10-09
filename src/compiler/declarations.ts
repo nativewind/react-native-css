@@ -36,7 +36,12 @@ import type {
   UnresolvedColor,
 } from "lightningcss";
 
-import { isStyleFunction } from "../utilities";
+import {
+  COLOR_SCHEME_VARIABLE,
+  describeColorSchemeSupport,
+  isStyleFunction,
+  LIGHT_DARK_FUNCTION,
+} from "../utilities";
 import { isMappingProperty } from "./atRules";
 import type { StyleDescriptor, StyleFunction } from "./compiler.types";
 import { parseEasingFunction, parseIterationCount } from "./keyframes";
@@ -176,6 +181,7 @@ const parsers: {
   "box-sizing": parseBoxSizing,
   "caret-color": parseColorOrAutoDeclaration,
   "color": parseFontColorDeclaration,
+  "color-scheme": parseColorScheme,
   "column-gap": parseGap,
   "container": parseContainer,
   "container-name": parseContainerName,
@@ -983,6 +989,11 @@ export function parseUnparsedDeclaration(
     } else {
       builder.addDescriptor(property, [{}, toRNProperty(property), args, 1]);
     }
+  } else if (property === "color-scheme") {
+    builder.addDescriptor(
+      `--${COLOR_SCHEME_VARIABLE}`,
+      parseUnparsed(declaration.value.value, builder, property),
+    );
   } else {
     const value = parseUnparsed(declaration.value.value, builder, property);
 
@@ -1694,7 +1705,7 @@ export function parseColor(
 
       return light === undefined || dark === undefined
         ? undefined
-        : ([{}, "lightDark", [light, dark]] as const);
+        : ([{}, LIGHT_DARK_FUNCTION, [light, dark]] as const);
     }
     case "rgb": {
       color = new Color({
@@ -2545,6 +2556,16 @@ export function parseDisplay(
   }
 }
 
+function parseColorScheme(
+  declaration: DeclarationType<"color-scheme">,
+  builder: StylesheetBuilder,
+) {
+  builder.addDescriptor(
+    `--${COLOR_SCHEME_VARIABLE}`,
+    describeColorSchemeSupport(declaration.value),
+  );
+}
+
 export function parseDirection(
   declaration: DeclarationType<"direction">,
   builder: StylesheetBuilder,
@@ -2958,7 +2979,7 @@ export function parseUnresolvedColor(
 
       return light === undefined || dark === undefined
         ? undefined
-        : [{}, "lightDark", [light, dark]];
+        : [{}, LIGHT_DARK_FUNCTION, [light, dark]];
     }
     default:
       color satisfies never;

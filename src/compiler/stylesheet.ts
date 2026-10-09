@@ -2,6 +2,7 @@ import type { SelectorList } from "lightningcss";
 
 import {
   isStyleDescriptorArray,
+  LIGHT_DARK_FUNCTION,
   Specificity,
   specificityCompareFn,
 } from "../utilities";
@@ -562,6 +563,11 @@ function isStyleFunction(
   );
 }
 
+/** Style functions that read a custom property without naming it: `light-dark()` reads the element's colour scheme */
+const IMPLICIT_VARIABLE_READERS: ReadonlySet<string> = new Set([
+  LIGHT_DARK_FUNCTION,
+]);
+
 function postProcessStyleFunction(value: StyleDescriptor): [
   // Should it be delayed
   boolean,
@@ -586,7 +592,8 @@ function postProcessStyleFunction(value: StyleDescriptor): [
 
   let [shouldDelay, usesVariables] = postProcessStyleFunction(value[2]);
 
-  usesVariables ||= value[1] === "var";
+  usesVariables ||=
+    value[1] === "var" || IMPLICIT_VARIABLE_READERS.has(value[1]);
   shouldDelay ||= value[3] === 1 || usesVariables;
 
   if (shouldDelay) {
