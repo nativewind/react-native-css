@@ -126,3 +126,35 @@ test.each([
     ).toStrictEqual(kept);
   },
 );
+
+test.each([
+  [
+    "object-position",
+    "left inherit",
+    "right top",
+    { contentPosition: "right top" },
+  ],
+  [
+    "font-variant",
+    "all-small-caps inherit",
+    "small-caps",
+    { style: { fontVariant: "small-caps" } },
+  ],
+  [
+    "corner-shape",
+    "round inherit",
+    "squircle",
+    { style: { borderCurve: "continuous" } },
+  ],
+] as const)(
+  "%s: %s leaves an earlier rule's value",
+  (property, invalid, earlier, kept) => {
+    registerCSS(
+      `.earlier { ${property}: ${earlier}; } .child { ${property}: ${invalid}; }`,
+    );
+
+    render(<View testID="child" className="earlier child" />);
+
+    expect(screen.getByTestId("child").props).toMatchObject(kept);
+  },
+);

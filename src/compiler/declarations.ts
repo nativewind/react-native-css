@@ -1058,8 +1058,8 @@ function soleCSSWideKeyword(
 
 function parseCSSWideKeyword(
   keyword: CSSWideKeyword,
-  property: string,
   builder: StylesheetBuilder,
+  property: string,
 ): StyleDescriptor {
   const isCustomProperty = property.startsWith("--");
   // Only `color` and custom properties reach descendants here, so only they inherit where `unset` would (css-cascade-5 §7.3.3)
@@ -1086,16 +1086,16 @@ function parseCSSWideKeyword(
   return;
 }
 
-function parseDeclarationValue(
+// The value a declaration's CSS-wide keyword gives it, or undefined when it holds none
+function parseCSSWideKeywordValue(
   tokens: TokenOrValue[] | null | undefined,
   builder: StylesheetBuilder,
   property: string,
-  allowAuto?: boolean,
-): StyleDescriptor {
+): { readonly value: StyleDescriptor } | undefined {
   const keyword = soleCSSWideKeyword(tokens);
 
   if (keyword !== undefined) {
-    return parseCSSWideKeyword(keyword, property, builder);
+    return { value: parseCSSWideKeyword(keyword, builder, property) };
   }
 
   // A CSS-wide keyword inside a property's longer value makes the declaration invalid (css-values-4 §2.1); a custom property's value is any tokens
@@ -1105,10 +1105,23 @@ function parseDeclarationValue(
 
   if (nested !== undefined) {
     builder.addWarning("value", nested);
-    return;
+    return { value: undefined };
   }
 
-  return parseUnparsed(tokens, builder, property, allowAuto);
+  return;
+}
+
+function parseDeclarationValue(
+  tokens: TokenOrValue[] | null | undefined,
+  builder: StylesheetBuilder,
+  property: string,
+  allowAuto?: boolean,
+): StyleDescriptor {
+  const keywordValue = parseCSSWideKeywordValue(tokens, builder, property);
+
+  return keywordValue === undefined
+    ? parseUnparsed(tokens, builder, property, allowAuto)
+    : keywordValue.value;
 }
 
 // A var() or env() defers its value to computed-value time, so a keyword behind one is not looked for
@@ -1173,20 +1186,17 @@ function cssWideKeywordInColor(color: UnresolvedColor): string | undefined {
 
 function addCSSWideKeyword(
   tokens: TokenOrValue[],
-  property: string,
   builder: StylesheetBuilder,
+  property: string,
   nativeProperty = property,
 ): boolean {
-  const keyword = soleCSSWideKeyword(tokens);
+  const keywordValue = parseCSSWideKeywordValue(tokens, builder, property);
 
-  if (keyword === undefined) {
+  if (keywordValue === undefined) {
     return false;
   }
 
-  builder.addDescriptor(
-    nativeProperty,
-    parseCSSWideKeyword(keyword, property, builder),
-  );
+  builder.addDescriptor(nativeProperty, keywordValue.value);
 
   return true;
 }
@@ -1258,7 +1268,7 @@ export function parseCustomDeclaration(
   } else if (property === "corner-shape") {
     parseCornerShape(declaration.value, builder);
   } else if (property === "font-variant") {
-    if (addCSSWideKeyword(declaration.value.value, property, builder)) {
+    if (addCSSWideKeyword(declaration.value.value, builder, property)) {
       return;
     }
 
@@ -3477,7 +3487,7 @@ function parseObjectPosition(
     "object-position": ["contentPosition"],
   });
 
-  if (addCSSWideKeyword(declaration.value, "object-position", builder)) {
+  if (addCSSWideKeyword(declaration.value, builder, "object-position")) {
     return;
   }
 
@@ -3493,7 +3503,7 @@ function parseCornerShape(
   builder: StylesheetBuilder,
 ) {
   if (
-    addCSSWideKeyword(declaration.value, "corner-shape", builder, "borderCurve")
+    addCSSWideKeyword(declaration.value, builder, "corner-shape", "borderCurve")
   ) {
     return;
   }

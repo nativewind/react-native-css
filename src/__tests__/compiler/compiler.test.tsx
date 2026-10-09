@@ -533,6 +533,9 @@ describe("CSS-wide keywords", () => {
     ["color", "rgb(0 0 0 / inherit)"],
     ["filter", "blur(inherit)"],
     ["transform", "translateX(inherit)"],
+    ["object-position", "left inherit"],
+    ["corner-shape", "round inherit"],
+    ["font-variant", "small-caps inherit"],
     ["box-shadow", "1px 1px INHERIT"],
   ])(
     "%s: %s is dropped, as a CSS-wide keyword is only ever a whole value",
@@ -585,7 +588,7 @@ describe("CSS-wide keywords", () => {
     });
   });
 
-  test("--brand keeps the tokens around a CSS-wide keyword inside its value", () => {
+  test("--brand: 1px INHERIT stays declared, and its keyword is dropped with a warning", () => {
     const css = uninlinedCustomProperty("1px INHERIT");
 
     expect(publishedVariable(css, "brand")).toEqual([1, 1]);
