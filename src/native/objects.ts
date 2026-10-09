@@ -1,6 +1,5 @@
 /* eslint-disable */
 import { ShortHandSymbol } from "../native/styles/constants";
-import { transformKeys } from "../native/styles/defaults";
 
 export function getDeepPath(source: any, paths: string | string[] | false) {
   if (!source) {
@@ -23,10 +22,6 @@ export function getDeepPath(source: any, paths: string | string[] | false) {
     }
 
     return target;
-  } else if (transformKeys.has(paths)) {
-    return Array.isArray(source?.transform)
-      ? source.transform.find((t: any) => t[paths] !== undefined)
-      : source.transform;
   } else {
     return source?.[paths];
   }
@@ -53,11 +48,6 @@ export function applyValue(
   prop: string,
   value: any,
 ) {
-  if (transformKeys.has(prop)) {
-    applyTransformValue(target, prop, value);
-    return;
-  }
-
   // This is confusing.
   // An undefined value means "don't set anything" (something failed while parsing)
   // While a null value means "remove this value", which in React Native means "set to undefined"
@@ -74,27 +64,6 @@ export function applyValue(
   }
 
   target[prop] = value;
-}
-
-// A transform longhand that resolves to no value is `none`, so its entries go and nothing takes their place
-function applyTransformValue(
-  target: Record<string, any>,
-  prop: string,
-  value: unknown,
-) {
-  const transforms: Record<string, unknown>[] = Array.isArray(target.transform)
-    ? target.transform
-    : [];
-
-  target.transform = transforms.filter((transform) => !(prop in transform));
-
-  if (value === undefined || value === null) {
-    return;
-  } else if (Array.isArray(value)) {
-    target.transform.push(...value);
-  } else {
-    target.transform.push(value);
-  }
 }
 
 export function setDeepPath(

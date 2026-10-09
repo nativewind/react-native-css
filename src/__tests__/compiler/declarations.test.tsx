@@ -8,8 +8,8 @@ const tests = [
   ["-rn-ripple-layer: foreground;", [{ d: [[true, ["android_ripple", "foreground"]]], s: [1, 1] }]],
   ["caret-color: black", [{ d: [["#000", ["cursorColor"]]], s: [1, 1] }]],
   ["fill: black;", [{ d: [["#000", ["fill"]]], s: [1, 1] }]],
-  ["rotate: 3deg;", [{ d: [[[{}, "rotateZ", "3deg"], "rotateZ"]], s: [1, 1] }]],
-  ["rotate: x 3deg;", [{ d: [[[{}, "rotateX", "3deg"], "rotateX"]], s: [1, 1] }]],
+  ["rotate: 3deg;", [{ d: [[[{}, "rotateZ", "3deg"], "rotate"]], s: [1, 1] }]],
+  ["rotate: x 3deg;", [{ d: [[[{}, "rotateX", "3deg"], "rotate"]], s: [1, 1] }]],
   ["stroke-width: 1px;", [{ d: [[1, ["strokeWidth"]]], s: [1, 1] }]],
   ["stroke: black;", [{ d: [["#000", ["stroke"]]], s: [1, 1] }]],
 ] as const;

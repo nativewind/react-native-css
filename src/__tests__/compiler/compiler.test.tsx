@@ -333,6 +333,46 @@ test("warnings", () => {
   });
 });
 
+test("a transform value the compiler cannot convert is ignored, with a warning", () => {
+  const compiled = compile(`
+.my-class {
+    transform: translate(10px, 1cap);
+    translate: calc(1em + 5px) 5px;
+    rotate: 1grad;
+    scale: 2;
+}`);
+
+  expect(compiled.stylesheet()).toStrictEqual({
+    s: [
+      [
+        "my-class",
+        [
+          {
+            d: [
+              [
+                [
+                  [{}, "scaleX", 2],
+                  [{}, "scaleY", 2],
+                ],
+                "scale",
+              ],
+            ],
+            s: [1, 1],
+          },
+        ],
+      ],
+    ],
+  });
+
+  expect(compiled.warnings()).toStrictEqual({
+    values: {
+      transform: ["1cap"],
+      translate: ["calc()"],
+      rotate: ["1 grad"],
+    },
+  });
+});
+
 test("simplifies rem", () => {
   const compiled = compile(`.test {
     border-width: calc(10rem + 2px);

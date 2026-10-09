@@ -736,159 +736,144 @@ function parseFont(
   builder.addDescriptor("font-weight", parseFontWeight(value.weight, builder));
 }
 
+type TransformFunction = Extract<
+  StyleFunction,
+  [Record<never, never>, string, StyleDescriptor]
+>;
+
+// An argument React Native has no equivalent for leaves the declaration invalid there, and an invalid declaration is ignored (CSS 2.2 §4.2)
+function hasUnconvertibleArgument(
+  functions: readonly TransformFunction[],
+): boolean {
+  return functions.some(([, , argument]) => argument === undefined);
+}
+
 function parseTransform(
   { value }: DeclarationType<"transform">,
   builder: StylesheetBuilder,
 ) {
-  builder.addDescriptor("transform", [
-    {},
-    "transform",
-    value.flatMap((t): StyleDescriptor[] => {
-      switch (t.type) {
-        case "perspective":
-          return [[{}, "perspective", parseLength(t.value, builder)]];
-        case "translate":
-          return [
-            [
-              {},
-              "translateX",
-              parseLengthOrCoercePercentageToRuntime(t.value[0], builder),
-            ],
-            [
-              [
-                {},
-                "translateY",
-                parseLengthOrCoercePercentageToRuntime(t.value[1], builder),
-              ],
-            ],
-          ];
-        case "translateX":
-          return [
-            [
-              {},
-              "translateX",
-              parseLengthOrCoercePercentageToRuntime(t.value, builder),
-            ],
-          ];
-        case "translateY":
-          return [
-            [
-              {},
-              "translateY",
-              parseLengthOrCoercePercentageToRuntime(t.value, builder),
-            ],
-          ];
-        case "rotate":
-          return [[{}, "rotate", parseAngle(t.value, builder)]];
-        case "rotateX":
-          return [[{}, "rotateX", parseAngle(t.value, builder)]];
-        case "rotateY":
-          return [[{}, "rotateY", parseAngle(t.value, builder)]];
-        case "rotateZ":
-          return [[{}, "rotateZ", parseAngle(t.value, builder)]];
-        case "scale":
-          return [
-            [{}, "scaleX", parseLength(t.value[0], builder)],
-            [{}, "scaleY", parseLength(t.value[1], builder)],
-          ];
-        case "scaleX":
-          return [[{}, "scaleX", parseLength(t.value, builder)]];
-        case "scaleY":
-          return [[{}, "scaleY", parseLength(t.value, builder)]];
-        case "skew":
-          return [
-            [{}, "skewX", parseAngle(t.value[0], builder)],
-            [{}, "skewY", parseAngle(t.value[1], builder)],
-          ];
-        case "skewX":
-          return [[{}, "skewX", parseAngle(t.value, builder)]];
-        case "skewY":
-          return [[{}, "skewY", parseAngle(t.value, builder)]];
-        case "translateZ":
-        case "translate3d":
-        case "scaleZ":
-        case "scale3d":
-        case "rotate3d":
-        case "matrix":
-        case "matrix3d":
-          return [[]];
-      }
-    }),
-  ]);
-  return;
+  const functions = value.flatMap((t): TransformFunction[] => {
+    switch (t.type) {
+      case "perspective":
+        return [[{}, "perspective", parseLength(t.value, builder)]];
+      case "translate":
+        return [
+          [{}, "translateX", parseLength(t.value[0], builder)],
+          [{}, "translateY", parseLength(t.value[1], builder)],
+        ];
+      case "translateX":
+        return [[{}, "translateX", parseLength(t.value, builder)]];
+      case "translateY":
+        return [[{}, "translateY", parseLength(t.value, builder)]];
+      case "rotate":
+        return [[{}, "rotate", parseAngle(t.value, builder)]];
+      case "rotateX":
+        return [[{}, "rotateX", parseAngle(t.value, builder)]];
+      case "rotateY":
+        return [[{}, "rotateY", parseAngle(t.value, builder)]];
+      case "rotateZ":
+        return [[{}, "rotateZ", parseAngle(t.value, builder)]];
+      case "scale":
+        return [
+          [{}, "scaleX", parseLength(t.value[0], builder)],
+          [{}, "scaleY", parseLength(t.value[1], builder)],
+        ];
+      case "scaleX":
+        return [[{}, "scaleX", parseLength(t.value, builder)]];
+      case "scaleY":
+        return [[{}, "scaleY", parseLength(t.value, builder)]];
+      case "skew":
+        return [
+          [{}, "skewX", parseAngle(t.value[0], builder)],
+          [{}, "skewY", parseAngle(t.value[1], builder)],
+        ];
+      case "skewX":
+        return [[{}, "skewX", parseAngle(t.value, builder)]];
+      case "skewY":
+        return [[{}, "skewY", parseAngle(t.value, builder)]];
+      case "translateZ":
+      case "translate3d":
+      case "scaleZ":
+      case "scale3d":
+      case "rotate3d":
+      case "matrix":
+      case "matrix3d":
+        return [];
+    }
+  });
+
+  if (hasUnconvertibleArgument(functions)) {
+    return;
+  }
+
+  builder.addDescriptor("transform", [{}, "transform", functions]);
 }
 
 function parseTranslate(
   { value }: DeclarationType<"translate">,
   builder: StylesheetBuilder,
 ) {
-  builder.addDescriptor("translateX", [
-    {},
-    "translateX",
-    parseTranslateProp(value, "x", builder),
-  ]);
-  builder.addDescriptor("translateY", [
-    {},
-    "translateY",
-    parseTranslateProp(value, "y", builder),
-  ]);
+  const translations: TransformFunction[] = [
+    [{}, "translateX", parseTranslateProp(value, "x", builder)],
+    [{}, "translateY", parseTranslateProp(value, "y", builder)],
+  ];
+
+  if (hasUnconvertibleArgument(translations)) {
+    return;
+  }
+
+  builder.addDescriptor("translate", translations);
 }
 
 function parseRotate(
   { value }: DeclarationType<"rotate">,
   builder: StylesheetBuilder,
 ) {
+  const angle = parseAngle(value.angle, builder);
+  const rotations: TransformFunction[] = [];
+
   if (value.x) {
-    builder.addDescriptor("rotateX", [
-      {},
-      "rotateX",
-      parseAngle(value.angle, builder),
-    ]);
+    rotations.push([{}, "rotateX", angle]);
   }
 
   if (value.y) {
-    builder.addDescriptor("rotateY", [
-      {},
-      "rotateY",
-      parseAngle(value.angle, builder),
-    ]);
+    rotations.push([{}, "rotateY", angle]);
   }
 
   if (value.z) {
-    builder.addDescriptor("rotateZ", [
-      {},
-      "rotateZ",
-      parseAngle(value.angle, builder),
-    ]);
+    rotations.push([{}, "rotateZ", angle]);
   }
+
+  if (hasUnconvertibleArgument(rotations)) {
+    return;
+  }
+
+  builder.addDescriptor(
+    "rotate",
+    rotations.length === 1 ? rotations[0] : rotations,
+  );
 }
 
 function parseScale(
   { value }: DeclarationType<"scale">,
   builder: StylesheetBuilder,
 ) {
-  builder.addDescriptor("scaleX", [
-    {},
-    "scaleX",
-    parseScaleValue(value, "x", builder),
-  ]);
-  builder.addDescriptor("scaleY", [
-    {},
-    "scaleY",
-    parseScaleValue(value, "y", builder),
+  builder.addDescriptor("scale", [
+    [{}, "scaleX", parseScaleValue(value, "x", builder)],
+    [{}, "scaleY", parseScaleValue(value, "y", builder)],
   ]);
 }
 
 export function parseScaleValue(
-  translate: Scale,
+  scale: Scale,
   prop: keyof Extract<Scale, object>,
   builder: StylesheetBuilder,
 ): StyleDescriptor {
-  if (translate === "none") {
+  if (scale === "none") {
     return 1;
   }
 
-  return parseLength(translate[prop], builder);
+  return parseLength(scale[prop], builder);
 }
 
 function parseLetterSpacing(
@@ -1509,6 +1494,7 @@ export function parseLength(
     switch (length.type) {
       case "calc": {
         // TODO: Add the calc polyfill
+        builder.addWarning("value", "calc()");
         return undefined;
       }
       case "number": {
@@ -2399,13 +2385,6 @@ export function parseFontVariantCaps(
 
   builder.addWarning("value", value);
   return undefined;
-}
-
-export function parseLengthOrCoercePercentageToRuntime(
-  value: Length | DimensionPercentageFor_LengthValue | NumberOrPercentage,
-  builder: StylesheetBuilder,
-): StyleDescriptor {
-  return parseLength(value, builder);
 }
 
 export function parseGap(
