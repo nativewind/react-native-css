@@ -9,30 +9,12 @@ import type {
 
 import type { UniqueVarInfo } from "./compiler.types";
 
-/**
- * Folds a custom property that the stylesheet declares exactly once into the
- * `var()` references that read it, so the runtime never has to resolve it.
- *
- * Folding a value into a rule ASSERTS that every element the rule matches holds
- * that value. A single declaration is not enough to know that — a custom
- * property is scoped to the elements its declaring rule matches, and a class
- * selector cannot promise that a consuming rule matches the same element:
- *
- *     .parent { --x: 10px } .child { width: var(--x) }
- *
- * An element carrying only `.child` has no `--x` at all, so `width: 10px` is
- * wrong for it. `canFold` names the two cases where the assertion IS provable.
- */
+// A custom property is scoped to the elements its rule matches (css-variables-1 §2), so a value folds only where every matching element provably holds it
 export function inlineVariables(
   stylesheet: StyleSheet,
   vars: Map<string, UniqueVarInfo>,
 ) {
-  // A second declaration is a cascade this pass cannot resolve — which of the
-  // two wins depends on the element — so only a property declared exactly once
-  // is a candidate at all. Pruning happens BEFORE anything is flattened,
-  // because a value being flattened reads this same map: leaving a
-  // multi-declaration variable in it until its own turn came round made the
-  // fold depend on the order the properties happened to be written in.
+  // Which of two declarations wins depends on the element, and pruning before flattening keeps the fold independent of declaration order
   for (const [name, info] of [...vars]) {
     if (info.count !== 1) {
       vars.delete(name);
@@ -109,34 +91,12 @@ export function inlineVariables(
   return stylesheet;
 }
 
-/**
- * Where each single-definition custom property is declared, and whether that
- * place is one every element inherits from.
- *
- * The two halves answer different questions. `declaringBlocks` decides whether
- * a reference sits in the same block as the declaration; `universalNames`
- * decides whether the declaration reaches every element regardless.
- */
 interface VariableScope {
   readonly declaringBlocks: Map<string, DeclarationBlock>;
   readonly universalNames: Set<string>;
 }
 
-/**
- * Whether the value of `name` may be folded into a `var()` written in `block`.
- *
- * Two cases are provable, and either is enough:
- *
- * - the declaration is in a universal, unconditional scope, so every element
- *   holds the property whatever else it matches; or
- * - the reference is in the block that declares it, so any element the rule
- *   matches holds the property by matching that rule. Whether the rule applies
- *   at all does not matter: a query that switches the declaration off switches
- *   the reference off with it.
- *
- * Neither holds across two rules, which is why `.a { --x: red }` with
- * `.b { color: var(--x) }` is left to the runtime.
- */
+// Every matching element holds the property when its declaration is universal and unconditional, or when the reference shares its block
 function canFold(
   name: string,
   block: DeclarationBlock | undefined,
@@ -183,11 +143,7 @@ function replaceDeclaration(
     return declaration;
   }
 
-  // A universal declaration has been folded into every reference there is, so
-  // nothing is left to read it. A block-scoped one is KEPT: it was folded only
-  // into its own block, and a descendant still inherits it at runtime —
-  // including a descendant styled by a stylesheet compiled separately, which
-  // this pass cannot see and must not assume away.
+  // A block-scoped declaration stays for descendants, including ones a separately compiled stylesheet styles
   if (
     declaration.property === "custom" &&
     vars.has(declaration.value.name) &&
@@ -255,11 +211,7 @@ function flattenVar(
     return;
   }
 
-  // A value is flattened FOR the block that declares it, because that is the
-  // only block it is ever substituted into. A `var()` inside it is therefore
-  // held to the same terms as every other reference written in that block —
-  // otherwise `.a { --x: var(--y) }` quietly takes `.b`'s `--y` and carries it
-  // to elements that never matched `.b`.
+  // A value is substituted only into its declaring block, so a var() inside it folds on that block's terms
   const declaringBlock = scope.declaringBlocks.get(name);
 
   let varInfoValue = varInfo.value?.flatMap((part) => {
@@ -299,7 +251,6 @@ function flattenVar(
   vars.set(name, varInfo);
 }
 
-/** Where a declaration block sits, as the annotating walk descends. */
 interface RuleScope {
   /** Every element matches the enclosing selector. */
   readonly universal: boolean;
@@ -318,14 +269,8 @@ function collectVariableScope(
     universalNames: new Set(),
   };
 
-  // A property registered with `inherits: false` is NOT inherited, so a
-  // universal declaration of it reaches only the element it is written on —
-  // every descendant sees the registered initial value instead. Recording it
-  // before the walk keeps `:root { --x: 20px }` from being read as universal.
+  // A property registered with inherits: false reaches only the element that declares it (css-properties-values-api-1)
   const notInherited = new Set<string>();
-  // Top level only, which is the whole of the compiler's `@property` support:
-  // an `@property` nested in an at-rule registers no initial value either, so
-  // there is nothing there for this to disagree with.
   for (const rule of stylesheet.rules) {
     if (rule.type === "property" && !rule.value.inherits) {
       notInherited.add(rule.value.name);
@@ -374,11 +319,7 @@ function collectVariableScope(
         annotateBlock(rule.value.declarations, ruleScope);
         return;
       case "keyframes":
-        // `@keyframes` is only ever reached at the top level or inside an
-        // at-rule, never inside a style rule, so the scope it carries is
-        // already non-universal. A keyframe declares animation values rather
-        // than a scope another rule can rely on, but its own block still folds
-        // into itself.
+        // A keyframe's block folds only into itself; @keyframes never sits inside a style rule
         for (const keyframe of rule.value.keyframes) {
           annotateBlock(keyframe.declarations, ruleScope);
         }
@@ -386,10 +327,7 @@ function collectVariableScope(
       case "media":
       case "supports":
       case "container":
-        // Whether these rules apply at all is decided elsewhere — at runtime
-        // for a media or container query, at build time for `@supports` — so a
-        // declaration inside one is never unconditional, however universal its
-        // selector.
+        // A query decides elsewhere whether these rules apply, so nothing inside one is unconditional
         for (const child of rule.value.rules) {
           annotateRule(child, {
             universal: false,
@@ -412,17 +350,7 @@ function collectVariableScope(
   return scope;
 }
 
-/**
- * Whether a selector list names a scope every element inherits from.
- *
- * ONE such selector is enough, so the list is tested with `some`: `:root, :host`
- * — the shape Tailwind emits for its theme — is universal because `:root` is,
- * whatever `:host` matches.
- *
- * A nested rule is universal only if both it and the rule it is nested in are,
- * because its selectors are relative to that parent. A nested selector that is
- * nothing but `&` adds no constraint of its own and takes the parent's answer.
- */
+// One universal selector is enough (Tailwind emits `:root, :host`), and a nested rule is universal only where its parent is
 function isUniversalScope(selectors: Selector[], ruleScope: RuleScope) {
   return selectors.some((selector) => {
     const meaningful = selector.filter(
@@ -434,8 +362,7 @@ function isUniversalScope(selectors: Selector[], ruleScope: RuleScope) {
     }
 
     if (meaningful.length !== 1) {
-      // Anything compound or combined is narrower than the whole document:
-      // `:root .theme` matches only descendants of an element with that class.
+      // A compound or combined selector, such as `:root .theme`, matches less than the whole document
       return false;
     }
 
@@ -445,8 +372,7 @@ function isUniversalScope(selectors: Selector[], ruleScope: RuleScope) {
       case "universal":
         return true;
       case "type":
-        // Every element descends from `html`. No other element name can be
-        // relied on, and none of them compile to a rule here anyway.
+        // Every element descends from html, and no other element name can be relied on
         return component.name === "html";
       case "pseudo-class":
         return component.kind === "root" || component.kind === "host";
