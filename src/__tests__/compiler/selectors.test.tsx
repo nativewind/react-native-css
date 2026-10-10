@@ -155,16 +155,16 @@ test(".group-[.test]:text-white { &:is(:where(.group):is(.test) *) {}", () => {
 
 // HTML compares a dir value ASCII case-insensitively unless the selector carries s
 test.each([
-  ['[dir="RTL"]', "rtl"],
-  ['[dir="Rtl"]', "rtl"],
-  ['[dir="rtl"]', "rtl"],
-  ['[dir="RTL" i]', "rtl"],
-  ['[dir="RTL" s]', "RTL"],
-])(".t%s compiles to the direction %p", (attribute, direction) => {
+  ['[dir="RTL"]', ["a", "dir", "=", "RTL", "i"]],
+  ['[dir="rtl"]', ["a", "dir", "=", "rtl", "i"]],
+  ['[dir="RTL" i]', ["a", "dir", "=", "RTL", "i"]],
+  ['[dir="RTL" s]', ["a", "dir", "=", "RTL", "s"]],
+  ["[dir]", ["a", "dir"]],
+])(".t%s reads the element's own dir prop", (attribute, query) => {
   const rule = compile(`.t${attribute} { color: red }`).stylesheet()
     .s?.[0]?.[1][0];
 
-  expect(rule?.m).toStrictEqual([["=", "dir", direction]]);
+  expect(rule?.aq).toStrictEqual([query]);
 });
 
 test.each([

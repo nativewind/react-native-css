@@ -37,9 +37,12 @@ declare module "react-native" {
   }
   interface ViewProps {
     className?: string;
+    /** The element's directionality: HTML's dir, which :dir() matches and descendants inherit */
+    dir?: "ltr" | "rtl";
   }
   interface TextProps {
     className?: string;
+    dir?: "ltr" | "rtl";
   }
   interface SwitchProps {
     className?: string;

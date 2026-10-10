@@ -34,16 +34,17 @@ test.each([false, true])(
   },
 );
 
-test.each([
-  ['[dir="RTL"]', true],
-  ['[dir="RTL" i]', true],
-  ['[dir="RTL" s]', false],
-])(".t%s matches a right-to-left layout: %s", (attribute, matches) => {
+test.each<[string, "rtl" | undefined, boolean]>([
+  ['[dir="RTL"]', "rtl", true],
+  ['[dir="RTL" i]', "rtl", true],
+  ['[dir="RTL" s]', "rtl", false],
+  ['[dir="rtl"]', undefined, false],
+])(".t%s over the dir prop %p matches: %s", (attribute, direction, matches) => {
   Object.defineProperty(I18nManager, "isRTL", {
     configurable: true,
     value: true,
   });
   registerCSS(`.t { width: 10px; } .t${attribute} { width: 37px; }`);
-  render(<View testID="t" className="t" />);
+  render(<View testID="t" className="t" dir={direction} />);
   expect(screen.getByTestId("t")).toHaveStyle({ width: matches ? 37 : 10 });
 });

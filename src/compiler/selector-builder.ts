@@ -39,8 +39,37 @@ const pseudoClassesQueryMap = new WeakMap<WeakKey, PseudoClassesQuery>();
 
 type ContainerQueryWithSpecificity = ContainerQuery & {
   specificity: SpecificityArray;
-  m?: MediaCondition;
 };
+
+type SelectorComponent = Selector[number];
+
+type IsWhereVariant =
+  | {
+      kind: "container";
+      specificity: SpecificityArray;
+      query: ContainerQuery;
+    }
+  | {
+      kind: "condition";
+      specificity: SpecificityArray;
+      condition: MediaCondition;
+    }
+  | {
+      kind: "attribute";
+      specificity: SpecificityArray;
+      query: AttributeQuery;
+    };
+
+interface Compound {
+  components: SelectorComponent[];
+  combinator: Extract<SelectorComponent, { type: "combinator" }> | undefined;
+}
+
+interface AncestorDirectionality {
+  selector: Selector;
+  conditions: MediaCondition[];
+  specificity: number;
+}
 
 export function getClassNameSelectors(
   selectors: SelectorList,
@@ -64,9 +93,19 @@ export function getClassNameSelectors(
       } else if (isUniversalSelector(selector)) {
         return [{ type: "universalVariables" }];
       } else {
+        const ancestry = extractAncestorDirectionality(selector, options);
+        if (!ancestry) {
+          return [];
+        }
+
+        if (ancestry.conditions.length) {
+          getMediaQuery(root).push(...ancestry.conditions);
+          specificity[Specificity.ClassName] = ancestry.specificity;
+        }
+
         return (
           parseComponents(
-            selector.reverse(),
+            ancestry.selector.reverse(),
             options,
             root,
             root,
@@ -145,6 +184,16 @@ function parseComponents(
     }
     case "pseudo-class": {
       switch (component.kind) {
+        case "dir": {
+          // A container's directionality is not known to the element; its [dir] is a prop like any other
+          if (isContainerQuery(ref)) {
+            return [];
+          }
+          getMediaQuery(root).push(["=", "dir", component.direction]);
+          specificity[Specificity.PseudoClass] =
+            (specificity[Specificity.PseudoClass] ?? 0) + 1;
+          return parseComponents(rest, options, root, ref, specificity);
+        }
         case "hover": {
           getPseudoClassesQuery(ref).h = 1;
           specificity[Specificity.PseudoClass] =
@@ -178,11 +227,13 @@ function parseComponents(
         case "where":
         case "is": {
           // Now get the selectors inside the `is` or `where` pseudo-class
-          const isWhereContainerQueries = component.selectors.flatMap(
-            (selector) => {
-              return parseIsWhereComponents(component.kind, selector) ?? [];
-            },
-          );
+          const variants = component.selectors.flatMap((selector) => {
+            return parseIsWhereArm(
+              component.kind,
+              selector,
+              isContainerQuery(ref),
+            );
+          });
 
           // Remember we're looping in reverse order,
           // So `rest` contains the selectors BEFORE this one
@@ -199,23 +250,16 @@ function parseComponents(
           }
 
           // Each parent selector should be combined with each pseudo-class selector
-          return parents.flatMap((parent) => {
-            const originalParent = { ...parent };
-
-            return isWhereContainerQueries.map((containerQuery) => {
-              const { specificity, m, ...query } = containerQuery;
-              parent = { ...originalParent };
-              parent.specificity = [...originalParent.specificity];
-
-              if (m && m.length > 1) {
-                parent.mediaQuery = originalParent.mediaQuery
-                  ? [["&", [...originalParent.mediaQuery, m]]]
-                  : [m];
-              }
+          return parents.flatMap((originalParent) => {
+            return variants.map((variant) => {
+              const parent = {
+                ...originalParent,
+                specificity: [...originalParent.specificity],
+              };
 
               if (component.kind === "is") {
-                for (let i = 0; i < specificity.length; i++) {
-                  const value = specificity[i];
+                for (let i = 0; i < variant.specificity.length; i++) {
+                  const value = variant.specificity[i];
                   if (value !== undefined) {
                     parent.specificity[i] =
                       (parent.specificity[i] ?? 0) + value;
@@ -223,14 +267,7 @@ function parseComponents(
                 }
               }
 
-              if (query.a || query.p || query.n !== undefined) {
-                parent.containerQuery = [
-                  ...(originalParent.containerQuery ?? []),
-                ];
-                parent.containerQuery.push(query);
-              }
-
-              return parent;
+              return applyIsWhereVariant(parent, variant);
             });
           });
         }
@@ -240,35 +277,14 @@ function parseComponents(
       }
     }
     case "attribute": {
-      if (component.name === "dir") {
-        if (!component.operation) {
-          return [];
-        }
-        const operator = operatorMap[component.operation.operator];
-
-        if (operator !== "=") {
-          return [];
-        }
-
-        // HTML compares a dir value ASCII case-insensitively unless the selector carries s
-        const direction =
-          component.operation.caseSensitivity === "explicit-case-sensitive"
-            ? component.operation.value
-            : asciiLowerCase(component.operation.value);
-        getMediaQuery(ref).push([operator, "dir", direction]);
-        return parseComponents(rest, options, root, ref, specificity);
-      } else {
-        // specificity[Specificity.ClassName] =
-        //   (specificity[Specificity.ClassName] ?? 0) + 1;
-        const attributeQuery = attributeQueryFor(component);
-        if (!attributeQuery) {
-          return [];
-        }
-        getAttributeQuery(ref).push(attributeQuery);
-        specificity[Specificity.ClassName] =
-          (specificity[Specificity.ClassName] ?? 0) + 1;
-        return parseComponents(rest, options, root, ref, specificity);
+      const attributeQuery = attributeQueryFor(component);
+      if (!attributeQuery) {
+        return [];
       }
+      getAttributeQuery(ref).push(attributeQuery);
+      specificity[Specificity.ClassName] =
+        (specificity[Specificity.ClassName] ?? 0) + 1;
+      return parseComponents(rest, options, root, ref, specificity);
     }
     case "class": {
       if (component.name === options.selectorPrefix) {
@@ -368,13 +384,6 @@ function parseIsWhereComponents(
       //   specificity[Specificity.ClassName] =
       //     (specificity[Specificity.ClassName] ?? 0) + 1;
       switch (component.kind) {
-        case "dir": {
-          queries ??= [{ specificity: [] }];
-          queries.forEach((query) => {
-            getMediaQuery(query).push(["=", "dir", component.direction]);
-          });
-          return parseIsWhereComponents(type, selector, index + 1, queries);
-        }
         case "hover": {
           queries ??= [{ specificity: [] }];
           queries.forEach((query) => {
@@ -506,18 +515,11 @@ function getAttributeQuery(
   return attributeQuery;
 }
 
-function getMediaQuery(
-  key: PartialSelector | ContainerQuery,
-): MediaCondition[] {
+function getMediaQuery(key: PartialSelector): MediaCondition[] {
   let mediaQuery = mediaQueryMap.get(key);
   if (!mediaQuery) {
-    if ("type" in key) {
-      mediaQuery = [];
-      key.mediaQuery = mediaQuery;
-    } else {
-      mediaQuery = [];
-      key.m ??= ["&", mediaQuery];
-    }
+    mediaQuery = [];
+    key.mediaQuery = mediaQuery;
     mediaQueryMap.set(key, mediaQuery);
   }
 
@@ -576,10 +578,14 @@ function attributeQueryFor(
   }
 
   query.push(operatorMap[operation.operator], operation.value);
-  if (operation.caseSensitivity === "ascii-case-insensitive") {
-    query.push("i");
-  } else if (operation.caseSensitivity === "explicit-case-sensitive") {
+  if (operation.caseSensitivity === "explicit-case-sensitive") {
     query.push("s");
+  } else if (
+    operation.caseSensitivity === "ascii-case-insensitive" ||
+    component.name === "dir"
+  ) {
+    // HTML compares a dir value ASCII case-insensitively, as the web build of the same element does
+    query.push("i");
   }
   return query;
 }
@@ -592,3 +598,251 @@ const operatorMap: Record<AttrOperation["operator"], AttrSelectorOperator> = {
   "substring": "*=",
   "suffix": "$=",
 };
+
+function parseIsWhereArm(
+  type: "is" | "where",
+  selector: Selector,
+  isAncestorCompound: boolean,
+): IsWhereVariant[] {
+  if (selector.some(isDirectionalityComponent)) {
+    const variant = isAncestorCompound
+      ? undefined
+      : parseDirectionalityArm(type, selector);
+    return variant ? [variant] : [];
+  }
+
+  return (parseIsWhereComponents(type, selector) ?? []).map(
+    ({ specificity, ...query }) => ({ kind: "container", specificity, query }),
+  );
+}
+
+// Tailwind's rtl: and ltr: ask after the element's directionality, its own dir and an ancestor's dir, one arm each
+function parseDirectionalityArm(
+  type: "is" | "where",
+  [first, combinator, last, ...rest]: Selector,
+): IsWhereVariant | undefined {
+  const specificity: SpecificityArray = [];
+  if (type === "is") {
+    specificity[Specificity.ClassName] = 1;
+  }
+
+  if (!first || rest.length) {
+    return undefined;
+  }
+
+  if (!combinator) {
+    if (first.type === "pseudo-class" && first.kind === "dir") {
+      return {
+        kind: "condition",
+        specificity,
+        condition: ["=", "dir", first.direction],
+      };
+    }
+    const query =
+      first.type === "attribute" ? attributeQueryFor(first) : undefined;
+    return query && { kind: "attribute", specificity, query };
+  }
+
+  if (
+    combinator.type !== "combinator" ||
+    combinator.value !== "descendant" ||
+    last?.type !== "universal"
+  ) {
+    return undefined;
+  }
+
+  const condition = parseAncestorDirectionality(first);
+  return condition && { kind: "condition", specificity, condition };
+}
+
+function applyIsWhereVariant(
+  parent: PartialSelector,
+  variant: IsWhereVariant,
+): PartialSelector {
+  switch (variant.kind) {
+    case "container": {
+      const { query } = variant;
+      if (query.a || query.p || query.n !== undefined) {
+        parent.containerQuery = [...(parent.containerQuery ?? []), query];
+      }
+      return parent;
+    }
+    case "condition":
+      parent.mediaQuery = [...(parent.mediaQuery ?? []), variant.condition];
+      return parent;
+    case "attribute":
+      parent.attributeQuery = [...(parent.attributeQuery ?? []), variant.query];
+      return parent;
+  }
+}
+
+// A directionality on an ancestor compound is answered before the compound becomes a container query; undefined is one the runtime cannot place
+function extractAncestorDirectionality(
+  selector: Selector,
+  options: CompilerOptions,
+): AncestorDirectionality | undefined {
+  if (!selector.some(isDirectionalityComponent)) {
+    return { selector, conditions: [], specificity: 0 };
+  }
+
+  const compounds = splitCompounds(selector);
+  const subjectIndex = compounds.length - 1;
+  const kept: Compound[] = [];
+  const conditions: MediaCondition[] = [];
+  let specificity = 0;
+
+  for (const [index, compound] of compounds.entries()) {
+    const directionality = compound.components.filter(
+      isDirectionalityComponent,
+    );
+
+    if (index === subjectIndex || !directionality.length) {
+      kept.push(compound);
+    } else if (compound.components.some(isRootComponent)) {
+      // The root's direction is the platform's, and the root carries no dir
+      for (const component of directionality) {
+        if (component.type !== "pseudo-class") {
+          return undefined;
+        }
+        conditions.push(["=", "root-dir", component.direction]);
+        specificity += 1;
+      }
+      kept.push({
+        ...compound,
+        components: compound.components.filter(
+          (component) => !isDirectionalityComponent(component),
+        ),
+      });
+    } else if (
+      compound.components.some((component) =>
+        isContainerClass(component, options),
+      )
+    ) {
+      kept.push(compound);
+    } else {
+      const [component, ...others] = compound.components;
+      const isOnlyAncestor =
+        index === subjectIndex - 1 &&
+        compound.combinator?.value === "descendant" &&
+        compounds
+          .slice(0, index)
+          .every((outer) => isRootOrPrefixCompound(outer, options));
+      const condition =
+        component && !others.length && isOnlyAncestor
+          ? parseAncestorDirectionality(component)
+          : undefined;
+      if (!condition) {
+        return undefined;
+      }
+      conditions.push(condition);
+      specificity += 1;
+    }
+  }
+
+  if (!conditions.length) {
+    return { selector, conditions, specificity };
+  }
+
+  return {
+    selector: kept.flatMap(({ components, combinator }) =>
+      combinator ? [...components, combinator] : components,
+    ),
+    conditions,
+    specificity,
+  };
+}
+
+// An ancestor's :dir() is the root's directionality or a declaration above the element; an ancestor's [dir] is a declaration
+function parseAncestorDirectionality(
+  component: SelectorComponent,
+): MediaCondition | undefined {
+  if (component.type === "pseudo-class" && component.kind === "dir") {
+    return [
+      "|",
+      [
+        ["=", "root-dir", component.direction],
+        ["=", "ancestor-dir", component.direction],
+      ],
+    ];
+  }
+
+  if (
+    component.type !== "attribute" ||
+    component.name !== "dir" ||
+    component.namespace?.type === "specific"
+  ) {
+    return undefined;
+  }
+
+  const direction = resolveDirectionAttributeValue(component.operation);
+  return direction && ["=", "ancestor-dir", direction];
+}
+
+function splitCompounds(selector: Selector): Compound[] {
+  const compounds: Compound[] = [];
+  let components: SelectorComponent[] = [];
+
+  for (const component of selector) {
+    if (component.type === "combinator") {
+      compounds.push({ components, combinator: component });
+      components = [];
+    } else {
+      components.push(component);
+    }
+  }
+
+  compounds.push({ components, combinator: undefined });
+  return compounds;
+}
+
+function isDirectionalityComponent(
+  component: SelectorComponent,
+): component is
+  | Extract<SelectorComponent, { type: "pseudo-class"; kind: "dir" }>
+  | Extract<SelectorComponent, { type: "attribute" }> {
+  return (
+    (component.type === "pseudo-class" && component.kind === "dir") ||
+    (component.type === "attribute" && component.name === "dir")
+  );
+}
+
+function isRootComponent(component: SelectorComponent): boolean {
+  return component.type === "type" && component.name === "html";
+}
+
+function isContainerClass(
+  component: SelectorComponent,
+  options: CompilerOptions,
+): boolean {
+  return (
+    component.type === "class" && component.name !== options.selectorPrefix
+  );
+}
+
+function isRootOrPrefixCompound(
+  compound: Compound,
+  options: CompilerOptions,
+): boolean {
+  return (
+    compound.components.some(isRootComponent) ||
+    compound.components.every(
+      (component) =>
+        (component.type === "class" || component.type === "type") &&
+        component.name === options.selectorPrefix,
+    )
+  );
+}
+
+// HTML's dir takes ltr, rtl and auto, compared ASCII case-insensitively unless s; only an equality naming ltr or rtl can match
+function resolveDirectionAttributeValue(
+  operation: AttrOperation | null | undefined,
+): "ltr" | "rtl" | undefined {
+  if (!operation || operation.operator !== "equal") {
+    return undefined;
+  }
+  const value =
+    operation.caseSensitivity === "explicit-case-sensitive"
+      ? operation.value
+      : asciiLowerCase(operation.value);
+  return value === "ltr" || value === "rtl" ? value : undefined;
+}
