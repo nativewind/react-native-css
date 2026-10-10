@@ -170,13 +170,16 @@ export function useNativeCss(
   }
 
   if (state.containers) {
-    // Publish a new props snapshot even when this component's own rules did not
-    // change. Descendants can depend on an ancestor attribute through a group.
+    // Republished every render, even when this component's own rules did not change: a descendant can ask after its props or the containers above it
     const containers = Object.fromEntries(
       Object.entries(state.containers).map(([name, container]) => [
         name,
         container.key === state.ruleEffectGetter
-          ? { key: container.key, props: originalProps }
+          ? {
+              key: container.key,
+              props: originalProps,
+              scope: inheritedContainers,
+            }
           : (inheritedContainers[name] ?? container),
       ]),
     );

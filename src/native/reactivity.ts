@@ -235,13 +235,14 @@ Appearance.addChangeListener((event) => colorScheme.set(event.colorScheme));
 
 /** Containers ****************************************************************/
 
-export type ContainerContextValue = Record<
-  string,
-  {
-    key: WeakKey;
-    props: Record<string, unknown> | null | undefined;
-  }
->;
+export interface ContainerRegistration {
+  readonly key: WeakKey;
+  readonly props: Record<string, unknown> | null | undefined;
+  /** The containers above this one, so `.a .b .x` can ask for an `.a` above the `.b` (Selectors 4 §16.1) */
+  readonly scope: ContainerContextValue;
+}
+
+export type ContainerContextValue = Record<string, ContainerRegistration>;
 export const ContainerContext = createContext<ContainerContextValue>({});
 
 export const containerLayoutFamily = weakFamily(() => {
