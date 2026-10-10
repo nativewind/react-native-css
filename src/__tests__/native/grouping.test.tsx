@@ -83,6 +83,23 @@ test("group - active (animated) supplies changed and restored transition targets
   expectStyle("#000");
 });
 
+test("a rule nested in a descendant selector applies to that selector's subject", () => {
+  registerCSS(
+    `.group .x { color: red; @media (min-width: 0px) { color: blue; } }`,
+  );
+
+  render(
+    <View testID={parentID} className="group">
+      <View testID={childID} className="x" />
+    </View>,
+  );
+
+  expect(screen.getByTestId(childID).props.style).toStrictEqual({
+    color: "#00f",
+  });
+  expect(screen.getByTestId(parentID).props.style).toStrictEqual(undefined);
+});
+
 test("group selector", () => {
   registerCSS(
     `.my-a.my-b .my-class {
