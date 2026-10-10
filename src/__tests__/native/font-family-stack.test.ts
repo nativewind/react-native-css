@@ -38,7 +38,7 @@ describe("the reduction", () => {
   });
 
   test("a single family passes through untouched", () => {
-    expect(applyFontFamily("fisona-icons").fontFamily).toBe("fisona-icons");
+    expect(applyFontFamily("brand-icons").fontFamily).toBe("brand-icons");
   });
 
   test("a stack with nothing usable sets nothing", () => {
