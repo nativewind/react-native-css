@@ -43,3 +43,11 @@ test("@media (hover: hover)", () => {
     ],
   });
 });
+
+test.each(["dark", "light"])("@media (prefers-color-scheme: %s)", (scheme) => {
+  const rule = compile(
+    `@media (prefers-color-scheme: ${scheme}) { .my-class { color: red; } }`,
+  ).stylesheet().s?.[0]?.[1][0];
+
+  expect(rule?.m).toStrictEqual([["=", "prefers-color-scheme", scheme]]);
+});
