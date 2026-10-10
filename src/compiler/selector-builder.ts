@@ -260,7 +260,11 @@ function parseComponents(
       } else {
         // specificity[Specificity.ClassName] =
         //   (specificity[Specificity.ClassName] ?? 0) + 1;
-        getAttributeQuery(ref).push(attributeQueryFor(component));
+        const attributeQuery = attributeQueryFor(component);
+        if (!attributeQuery) {
+          return [];
+        }
+        getAttributeQuery(ref).push(attributeQuery);
         specificity[Specificity.ClassName] =
           (specificity[Specificity.ClassName] ?? 0) + 1;
         return parseComponents(rest, options, root, ref, specificity);
@@ -430,6 +434,9 @@ function parseIsWhereComponents(
         //   (specificity[Specificity.ClassName] ?? 0) + 1;
       }
       const attributeQuery = attributeQueryFor(component);
+      if (!attributeQuery) {
+        return null;
+      }
       queries ??= [{ specificity: [] }];
       for (const query of queries) {
         if (type === "is") {
@@ -551,9 +558,14 @@ function attributePropName(name: string): string {
   return name.startsWith("aria-") ? name : toRNProperty(name);
 }
 
+// A React Native prop is in no namespace, so [ns|att] represents nothing (Selectors 4 §6.4)
 function attributeQueryFor(
   component: Extract<Selector[number], { type: "attribute" }>,
-): AttributeQuery {
+): AttributeQuery | undefined {
+  if (component.namespace?.type === "specific") {
+    return undefined;
+  }
+
   const query: AttributeQuery = component.name.startsWith("data-")
     ? ["d", toRNProperty(component.name.replace("data-", ""))]
     : ["a", attributePropName(component.name)];

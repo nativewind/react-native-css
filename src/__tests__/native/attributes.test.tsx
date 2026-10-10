@@ -359,3 +359,15 @@ test.each([
   );
   expect(screen.getByTestId(testID).props.style.width).toBe(matches ? 80 : 40);
 });
+
+test.each([
+  ['[|data-x="a"]', true],
+  ['[*|data-x="a"]', true],
+  ['[undeclared|data-x="a"]', false],
+])(".test%s over data-x=a matches: %s", (attribute, matches) => {
+  registerCSS(`.test { width: 40px; } .test${attribute} { width: 80px; }`);
+  render(
+    <View testID={testID} className="test" {...{ dataSet: { x: "a" } }} />,
+  );
+  expect(screen.getByTestId(testID).props.style.width).toBe(matches ? 80 : 40);
+});

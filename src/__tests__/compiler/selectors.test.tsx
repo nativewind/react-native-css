@@ -192,3 +192,36 @@ test("an ancestor [class~=…] reads className through the :is() site", () => {
     { n: "g:group", a: [["a", "className", "~=", "active"]] },
   ]);
 });
+
+test.each([
+  ['[data-x="a"]', ["test"]],
+  ['[|data-x="a"]', ["test"]],
+  ['[*|data-x="a"]', ["test"]],
+  ['[undeclared|data-x="a"]', []],
+])(".test%s emits the rules %p", (attribute, rules) => {
+  expect(
+    compile(`.test${attribute} { width: 10px }`)
+      .stylesheet()
+      .s?.map(([name]) => name) ?? [],
+  ).toStrictEqual(rules);
+});
+
+test("a declared namespace prefix emits no rule, and a sibling rule survives", () => {
+  expect(
+    compile(
+      `@namespace ns url(http://example.com/ns); .dropped[ns|data-x="a"] { width: 10px } .kept[data-x="a"] { width: 10px }`,
+    )
+      .stylesheet()
+      .s?.map(([name]) => name),
+  ).toStrictEqual(["kept"]);
+});
+
+test("an ancestor's namespace-qualified attribute emits no rule through the :is() site", () => {
+  expect(
+    compile(
+      `.child:is(:where(.group)[undeclared|data-x="a"] *) { width: 10px }`,
+    )
+      .stylesheet()
+      .s?.find(([name]) => name === "child"),
+  ).toBeUndefined();
+});
