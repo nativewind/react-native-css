@@ -551,7 +551,6 @@ function nativeStyleMapping(
     return props;
   }
   if (!config.nativeStyleMapping) {
-    if (config.target === false) delete props.style;
     return props;
   }
 
@@ -560,7 +559,7 @@ function nativeStyleMapping(
   if (typeof config.target === "string") {
     source = props[config.target];
   } else if (config.target === false) {
-    source = props["style"];
+    source = props[config.source];
   } else {
     const tokens = [...config.target];
     const lastToken = tokens.pop()!;
@@ -600,6 +599,5 @@ function nativeStyleMapping(
     target[lastToken!] = styleValue;
   }
 
-  if (config.target === false) delete props.style;
   return props;
 }
