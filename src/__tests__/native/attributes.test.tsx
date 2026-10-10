@@ -326,3 +326,36 @@ describe("a dataSet value projects as react-native-web writes it", () => {
     );
   });
 });
+
+test.each([
+  ["[class='test example']", "example", true],
+  ["[class='example']", "example", false],
+  ["[class~='example']", "example", true],
+  ["[class~='example']", "other", false],
+  ["[class*='xamp']", "example", true],
+  ["[class]", "example", true],
+])(
+  ".test%s over the class list test %s matches: %s",
+  (selector, name, matches) => {
+    registerCSS(`.test { width: 40px; } .test${selector} { width: 80px; }`);
+    render(<View testID={testID} className={`test ${name}`} />);
+    expect(screen.getByTestId(testID).props.style.width).toBe(
+      matches ? 80 : 40,
+    );
+  },
+);
+
+test.each([
+  ["group active", true],
+  ["group", false],
+])("an ancestor class list %p answers [class~=…]: %s", (name, matches) => {
+  registerCSS(
+    `.child { width: 40px; } .child:is(:where(.group)[class~="active"] *) { width: 80px; }`,
+  );
+  render(
+    <View className={name}>
+      <View testID={testID} className="child" />
+    </View>,
+  );
+  expect(screen.getByTestId(testID).props.style.width).toBe(matches ? 80 : 40);
+});

@@ -542,17 +542,21 @@ type CamelCase<S extends string> =
     ? `${Lowercase<P1>}${Uppercase<P2>}${CamelCase<P3>}`
     : Lowercase<S>;
 
+// React Native names the class list className, and keeps an aria-* prop as written
+function attributePropName(name: string): string {
+  if (name === "class") {
+    return "className";
+  }
+
+  return name.startsWith("aria-") ? name : toRNProperty(name);
+}
+
 function attributeQueryFor(
   component: Extract<Selector[number], { type: "attribute" }>,
 ): AttributeQuery {
   const query: AttributeQuery = component.name.startsWith("data-")
     ? ["d", toRNProperty(component.name.replace("data-", ""))]
-    : [
-        "a",
-        component.name.startsWith("aria-")
-          ? component.name
-          : toRNProperty(component.name),
-      ];
+    : ["a", attributePropName(component.name)];
 
   const operation = component.operation;
   if (!operation) {
