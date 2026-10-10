@@ -1,3 +1,5 @@
+import { compile } from "react-native-css/compiler";
+
 import { getClassNameSelectors } from "../../compiler/selector-builder";
 
 test("empty", () => {
@@ -149,4 +151,18 @@ test(".group-[.test]:text-white { &:is(:where(.group):is(.test) *) {}", () => {
       type: "className",
     },
   ]);
+});
+
+// HTML compares a dir value ASCII case-insensitively unless the selector carries s
+test.each([
+  ['[dir="RTL"]', "rtl"],
+  ['[dir="Rtl"]', "rtl"],
+  ['[dir="rtl"]', "rtl"],
+  ['[dir="RTL" i]', "rtl"],
+  ['[dir="RTL" s]', "RTL"],
+])(".t%s compiles to the direction %p", (attribute, direction) => {
+  const rule = compile(`.t${attribute} { color: red }`).stylesheet()
+    .s?.[0]?.[1][0];
+
+  expect(rule?.m).toStrictEqual([["=", "dir", direction]]);
 });
