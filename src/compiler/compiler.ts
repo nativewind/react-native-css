@@ -10,6 +10,7 @@ import {
   type PropertyRule,
   type Rule,
   type Visitor,
+  type Warning,
 } from "lightningcss";
 
 import {
@@ -42,6 +43,21 @@ import { supportsConditionValid } from "./supports";
 
 const defaultLogger = debug("react-native-css:compiler");
 
+// lightningcss reports this package's own at-rule as unknown
+const OWN_AT_RULE_WARNING = "Unknown at rule: @nativeMapping";
+
+// lightningcss passes a rule it cannot parse through and the visitor drops it, so its warning is the only signal; only the first pass reads the author's CSS
+function reportSyntaxWarnings(
+  builder: StylesheetBuilder,
+  warnings: Warning[],
+): void {
+  for (const warning of warnings) {
+    if (warning.message !== OWN_AT_RULE_WARNING) {
+      builder.addSyntaxWarning(warning.message);
+    }
+  }
+}
+
 /**
  * Converts a CSS file to a collection of style declarations that can be used with the StyleSheet API
  *
@@ -49,6 +65,7 @@ const defaultLogger = debug("react-native-css:compiler");
  * @param options - Compiler options
  * @returns A `ReactNativeCssStyleSheet` that can be passed to `StyleSheet.register` or used with a custom runtime
  */
+
 export function compile(code: Buffer | string, options: CompilerOptions = {}) {
   const { logger = defaultLogger } = options;
 
@@ -170,7 +187,7 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
     };
   }
 
-  const { code: firstPass } = lightningcss({
+  const { code: firstPass, warnings: firstPassWarnings } = lightningcss({
     code: typeof code === "string" ? new TextEncoder().encode(code) : code,
     include: Features.DoublePositionGradients | Features.ColorFunction,
     exclude: Features.VendorPrefixes,
@@ -230,6 +247,8 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
     filename: options.filename ?? "style.css",
     projectRoot: options.projectRoot ?? process.cwd(),
   });
+
+  reportSyntaxWarnings(builder, firstPassWarnings);
 
   return {
     stylesheet: () => builder.getNativeStyleSheet(),
