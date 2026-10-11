@@ -13,6 +13,8 @@ import { registerCSS } from "react-native-css/jest";
 
 const testID = "tailwind";
 
+let renderCount = 0;
+
 export type NativewindRenderOptions = RenderOptions & {
   /** Replace the generated CSS*/
   css?: string;
@@ -76,8 +78,8 @@ export async function render(
 
   // Process the TailwindCSS
   const { css: output } = await postcss([
-    /* Tailwind seems to internally cache things, so we need a random value to cache bust */
-    tailwind({ base: Date.now().toString() }),
+    /* The plugin reuses one compiler per `from` and `base`, so every render needs a `base` no other render has */
+    tailwind({ base: `render-${++renderCount}` }),
   ]).process(css, {
     from: __dirname,
   });
