@@ -17,6 +17,7 @@ import {
   type Getter,
 } from "../reactivity";
 import { testAttributes } from "./attributes";
+import { compareMediaFeature, testMediaFeatureInterval } from "./compare";
 import type { RenderGuard } from "./guards";
 
 export const DEFAULT_CONTAINER_NAME = "c:___default___";
@@ -100,37 +101,20 @@ function testContainerMediaCondition(
     case "!!":
       return false;
     case "[]":
-      return false;
+      return testMediaFeatureInterval(
+        condition,
+        getContainerFeatureValue(condition[1], containerKey, get),
+      );
     case ">":
     case ">=":
     case "<":
     case "<=":
-    case "=": {
-      const left = getContainerFeatureValue(condition[1], containerKey, get);
-      const right = condition[2];
-
-      if (condition[0] === "=") {
-        return left === right;
-      }
-
-      if (typeof left !== "number" || typeof right !== "number") {
-        return false;
-      }
-
-      switch (condition[0]) {
-        case ">":
-          return left > right;
-        case ">=":
-          return left >= right;
-        case "<":
-          return left < right;
-        case "<=":
-          return left <= right;
-        default:
-          condition[0] satisfies never;
-          return false;
-      }
-    }
+    case "=":
+      return compareMediaFeature(
+        condition[0],
+        getContainerFeatureValue(condition[1], containerKey, get),
+        condition[2],
+      );
     default:
       condition satisfies never;
       return false;

@@ -1,19 +1,38 @@
 /* eslint-disable */
 import { I18nManager, PixelRatio, Platform } from "react-native";
 
-import type { MediaCondition } from "react-native-css/compiler";
+import type {
+  MediaCondition,
+  MediaFeatureComparison,
+} from "react-native-css/compiler";
 
 import { colorScheme, vh, vw, type Getter } from "../reactivity";
+import {
+  compareMediaFeature,
+  testMediaFeatureInterval,
+  type MediaInterval,
+} from "./compare";
+
+type MediaComparison = Extract<
+  MediaCondition,
+  [MediaFeatureComparison, ...unknown[]]
+>;
+
+type MediaFeatureName = MediaComparison[1] | MediaInterval[1];
 
 export function testMediaQuery(mediaQueries: MediaCondition[], get: Getter) {
   return mediaQueries.every((query) => test(query, get));
 }
 
-function test(mediaQuery: MediaCondition, get: Getter): Boolean {
+function test(mediaQuery: MediaCondition, get: Getter): boolean {
   switch (mediaQuery[0]) {
-    case "[]":
     case "!!":
       return false;
+    case "[]":
+      return testMediaFeatureInterval(
+        mediaQuery,
+        getMediaFeatureValue(mediaQuery[1], get),
+      );
     case "!":
       return !test(mediaQuery[1], get);
     case "&":
@@ -34,7 +53,7 @@ function test(mediaQuery: MediaCondition, get: Getter): Boolean {
   }
 }
 
-function testComparison(mediaQuery: MediaCondition, get: Getter): Boolean {
+function testComparison(mediaQuery: MediaComparison, get: Getter): boolean {
   const value = mediaQuery[2];
 
   switch (mediaQuery[1]) {
@@ -61,39 +80,25 @@ function testComparison(mediaQuery: MediaCondition, get: Getter): Boolean {
       return value === "landscape" ? get(vh) < get(vw) : get(vh) >= get(vw);
   }
 
-  if (typeof value !== "number") {
-    return false;
-  }
+  return compareMediaFeature(
+    mediaQuery[0],
+    getMediaFeatureValue(mediaQuery[1], get),
+    value,
+  );
+}
 
-  let left: number | undefined;
-  const right = value;
-
-  switch (mediaQuery[1]) {
+function getMediaFeatureValue(
+  name: MediaFeatureName,
+  get: Getter,
+): number | undefined {
+  switch (name) {
     case "width":
-      left = get(vw);
-      break;
+      return get(vw);
     case "height":
-      left = get(vh);
-      break;
+      return get(vh);
     case "resolution":
-      left = PixelRatio.get();
-      break;
+      return PixelRatio.get();
     default:
-      return false;
-  }
-
-  switch (mediaQuery[0]) {
-    case "=":
-      return left === right;
-    case ">":
-      return left > right;
-    case ">=":
-      return left >= right;
-    case "<":
-      return left < right;
-    case "<=":
-      return left <= right;
-    default:
-      return false;
+      return undefined;
   }
 }
