@@ -174,7 +174,11 @@ export function parseMediaFeatureValue(
           value.value satisfies never;
           return undefined;
       }
-    case "ratio":
+    case "ratio": {
+      const [numerator, denominator] = value.value;
+      // Every engine compares a ratio over 0 as infinite, 0/0 included, and JSON cannot carry Infinity
+      return denominator === 0 ? Number.MAX_VALUE : numerator / denominator;
+    }
     case "env":
   }
 
