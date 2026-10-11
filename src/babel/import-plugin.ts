@@ -25,7 +25,7 @@ export default function ({
 }: {
   types: BabelTypes;
 }): PluginObj<PluginState> {
-  const processed = new WeakSet();
+  const processed = new WeakSet<Statement>();
 
   const packageRoot = resolve(
     __dirname,
@@ -44,17 +44,19 @@ export default function ({
     name: "Rewrite react-native to react-native-css",
     visitor: {
       ImportDeclaration(path, state): void {
+        const { filename } = state;
+
         if (
-          processed.has(path) ||
+          filename === undefined ||
           processed.has(path.node) ||
-          isFromThisModule(state.filename)
+          isFromThisModule(filename)
         ) {
           return;
         }
 
         const statements =
-          handleReactNativeImport(path.node, t, state.filename) ??
-          handleReactNativeWebImport(path.node, t, state.filename);
+          handleReactNativeImport(path.node, t, filename) ??
+          handleReactNativeWebImport(path.node, t, filename);
 
         if (!statements) {
           return;
@@ -67,10 +69,12 @@ export default function ({
         path.replaceWithMultiple(statements);
       },
       VariableDeclaration(path, state): void {
+        const { filename } = state;
+
         if (
-          processed.has(path) ||
+          filename === undefined ||
           processed.has(path.node) ||
-          isFromThisModule(state.filename)
+          isFromThisModule(filename)
         ) {
           return;
         }
@@ -124,14 +128,14 @@ export default function ({
               t,
               id.name,
               initArg.value,
-              state.filename,
+              filename,
             ) ??
             handleReactNativeWebIdentifierRequire(
               path,
               t,
               id.name,
               initArg.value,
-              state.filename,
+              filename,
             );
         } else if (
           t.isObjectPattern(id) &&
@@ -144,14 +148,14 @@ export default function ({
               t,
               id,
               initArg.value,
-              state.filename,
+              filename,
             ) ??
             handleReactNativeWebObjectPatternRequire(
               path,
               t,
               id,
               initArg.value,
-              state.filename,
+              filename,
             );
         } else if (
           t.isIdentifier(id) &&
@@ -168,7 +172,7 @@ export default function ({
             id.name,
             init,
             source,
-            state.filename,
+            filename,
           );
         }
 
