@@ -9,12 +9,12 @@ import * as RNGH from "react-native-gesture-handler";
 
 import {
   deriveReDeclared,
-  disableFabric,
   flattenStyles,
   requiredProps,
+  withoutFabric,
 } from "../_gesture-handler";
 
-beforeAll(disableFabric);
+withoutFabric();
 
 // The compiler emits the same declaration whichever component consumes it, so the interop is a runtime mapping
 

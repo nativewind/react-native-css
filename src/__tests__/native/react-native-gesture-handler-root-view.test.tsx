@@ -5,9 +5,9 @@ import { registerCSS, testID } from "react-native-css/jest";
 
 import {
   collectProps,
-  disableFabric,
   flattenStyles,
   serializeRender,
+  withoutFabric,
 } from "../_gesture-handler";
 
 // Jest resolves the iOS GestureHandlerRootView, so the Android variant, a native view the rewrite cannot reach, is substituted
@@ -19,7 +19,7 @@ jest.mock(
     ),
 );
 
-beforeAll(disableFabric);
+withoutFabric();
 
 function styledRootView(): ComponentType<Record<string, unknown>> {
   return jest.requireActual<Record<string, unknown>>(

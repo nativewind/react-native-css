@@ -6,13 +6,13 @@ import { registerCSS, testID } from "react-native-css/jest";
 import {
   collectProps,
   deprecatedByGestureHandler,
-  disableFabric,
   flattenStyles,
   reachedByTheRewrite,
   requiredProps,
+  withoutFabric,
 } from "../_gesture-handler";
 
-beforeAll(disableFabric);
+withoutFabric();
 
 // The rewrite substitutes react-native-css/components for react-native everywhere but this package's own files
 let mockRewriting = false;

@@ -5,9 +5,20 @@ interface RenderedNode {
   children: RenderedNode[] | null;
 }
 
-// GestureHandlerRootView installs a native module under Fabric, so the jest preset's nativeFabricUIManager is cleared
-export function disableFabric(): void {
-  Reflect.set(globalThis, "nativeFabricUIManager", undefined);
+// GestureHandlerRootView installs a native module under Fabric, so a suite runs without the jest preset's nativeFabricUIManager, and puts it back because jest's teardown reads every global, and expo's lazy fetch then loads the renderer
+export function withoutFabric(): void {
+  const nativeFabricUIManager: unknown = Reflect.get(
+    globalThis,
+    "nativeFabricUIManager",
+  );
+
+  beforeAll(() => {
+    Reflect.set(globalThis, "nativeFabricUIManager", undefined);
+  });
+
+  afterAll(() => {
+    Reflect.set(globalThis, "nativeFabricUIManager", nativeFabricUIManager);
+  });
 }
 
 /** Every rendered element's props, at any depth. */

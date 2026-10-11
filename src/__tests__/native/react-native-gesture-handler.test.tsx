@@ -12,7 +12,6 @@ import {
   deprecatedByGestureHandler,
   deriveExcludedComponents,
   deriveReDeclared,
-  disableFabric,
   flattenStyles,
   functionPropNames,
   gestureHandlers,
@@ -23,9 +22,10 @@ import {
   requiredProps,
   serializeRender,
   unobservable,
+  withoutFabric,
 } from "../_gesture-handler";
 
-beforeAll(disableFabric);
+withoutFabric();
 
 const styledExports = StyledRNGH as unknown as Record<string, unknown>;
 const gestureHandlerExports = RNGH as unknown as Record<string, unknown>;
