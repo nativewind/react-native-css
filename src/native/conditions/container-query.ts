@@ -4,7 +4,6 @@ import type {
   ContainerQuery,
   MediaCondition,
   PseudoClassesQuery,
-  StyleDescriptor,
 } from "react-native-css/compiler";
 
 import {
@@ -17,8 +16,21 @@ import {
   type Getter,
 } from "../reactivity";
 import { testAttributes } from "./attributes";
-import { compareMediaFeature, testMediaFeatureInterval } from "./compare";
+import {
+  compareMediaFeature,
+  isTruthyFeatureValue,
+  testMediaFeatureInterval,
+  type MeasuredFeatureValue,
+} from "./compare";
 import type { RenderGuard } from "./guards";
+import {
+  conjoin,
+  disjoin,
+  matches,
+  negate,
+  UNKNOWN,
+  type Truth,
+} from "./kleene";
 
 export const DEFAULT_CONTAINER_NAME = "c:___default___";
 
@@ -54,7 +66,10 @@ export function testContainerQuery(
     return false;
   }
 
-  if (query.m && !testContainerMediaCondition(query.m, container.key, get)) {
+  if (
+    query.m &&
+    !matches(testContainerMediaCondition(query.m, container.key, get))
+  ) {
     return false;
   }
 
@@ -86,20 +101,26 @@ function testContainerMediaCondition(
   condition: MediaCondition,
   containerKey: WeakKey,
   get: Getter,
-): boolean {
+): Truth {
   switch (condition[0]) {
+    case "?":
+      return UNKNOWN;
     case "!":
-      return !testContainerMediaCondition(condition[1], containerKey, get);
+      return negate(
+        testContainerMediaCondition(condition[1], containerKey, get),
+      );
     case "&":
-      return condition[1].every((query) => {
-        return testContainerMediaCondition(query, containerKey, get);
-      });
+      return conjoin(condition[1], (query) =>
+        testContainerMediaCondition(query, containerKey, get),
+      );
     case "|":
-      return condition[1].some((query) => {
-        return testContainerMediaCondition(query, containerKey, get);
-      });
+      return disjoin(condition[1], (query) =>
+        testContainerMediaCondition(query, containerKey, get),
+      );
     case "!!":
-      return false;
+      return isTruthyFeatureValue(
+        getContainerFeatureValue(condition[1], containerKey, get),
+      );
     case "[]":
       return testMediaFeatureInterval(
         condition,
@@ -117,7 +138,7 @@ function testContainerMediaCondition(
       );
     default:
       condition satisfies never;
-      return false;
+      return UNKNOWN;
   }
 }
 
@@ -125,7 +146,7 @@ function getContainerFeatureValue(
   name: MediaFeatureNameFor_ContainerSizeFeatureId,
   containerKey: WeakKey,
   get: Getter,
-): StyleDescriptor {
+): MeasuredFeatureValue {
   switch (name) {
     case "width":
       return get(containerWidthFamily(containerKey));

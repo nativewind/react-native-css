@@ -9,95 +9,131 @@ import type {
 import { colorScheme, vh, vw, type Getter } from "../reactivity";
 import {
   compareMediaFeature,
+  isTruthyFeatureValue,
   testMediaFeatureInterval,
+  type MeasuredFeatureValue,
   type MediaInterval,
 } from "./compare";
+import {
+  conjoin,
+  disjoin,
+  matches,
+  negate,
+  UNKNOWN,
+  type Truth,
+} from "./kleene";
 
 type MediaComparison = Extract<
   MediaCondition,
   [MediaFeatureComparison, ...unknown[]]
 >;
 
-type MediaFeatureName = MediaComparison[1] | MediaInterval[1];
+type MediaFeatureName =
+  | MediaComparison[1]
+  | MediaInterval[1]
+  | Extract<MediaCondition, ["!!", ...unknown[]]>[1];
+
+// The color feature counts bits per color component
+const BITS_PER_COLOR_COMPONENT = 8;
 
 export function testMediaQuery(mediaQueries: MediaCondition[], get: Getter) {
-  return mediaQueries.every((query) => test(query, get));
+  return mediaQueries.every((query) => matches(test(query, get)));
 }
 
-function test(mediaQuery: MediaCondition, get: Getter): boolean {
+function test(mediaQuery: MediaCondition, get: Getter): Truth {
   switch (mediaQuery[0]) {
+    case "?":
+      return UNKNOWN;
     case "!!":
-      return false;
+      return isTruthyFeatureValue(getMediaFeatureValue(mediaQuery[1], get));
     case "[]":
       return testMediaFeatureInterval(
         mediaQuery,
         getMediaFeatureValue(mediaQuery[1], get),
       );
     case "!":
-      return !test(mediaQuery[1], get);
+      return negate(test(mediaQuery[1], get));
     case "&":
-      return mediaQuery[1].every((query) => {
-        return test(query, get);
-      });
+      return conjoin(mediaQuery[1], (query) => test(query, get));
     case "|":
-      return mediaQuery[1].some((query) => {
-        return test(query, get);
-      });
+      return disjoin(mediaQuery[1], (query) => test(query, get));
     case ">":
     case ">=":
     case "<":
     case "<=":
-    case "=": {
+    case "=":
       return testComparison(mediaQuery, get);
-    }
+    default:
+      mediaQuery satisfies never;
+      return UNKNOWN;
   }
 }
 
-function testComparison(mediaQuery: MediaComparison, get: Getter): boolean {
-  const value = mediaQuery[2];
+function testComparison(mediaQuery: MediaComparison, get: Getter): Truth {
+  const [operator, name, value] = mediaQuery;
 
-  switch (mediaQuery[1]) {
+  switch (name) {
+    // dir and platform are this library's conditions rather than media features, so neither has a boolean context
     case "dir":
-      return value === (I18nManager.isRTL ? "rtl" : "ltr");
-    case "hover":
-      return true;
+      return compareMediaFeature(
+        operator,
+        I18nManager.isRTL ? "rtl" : "ltr",
+        value,
+      );
     case "platform":
-      return value === "native" || value === Platform.OS;
-    case "prefers-color-scheme": {
-      return value === get(colorScheme);
-    }
     case "display-mode":
-      return value === "native" || Platform.OS === value;
+      return (
+        value === "native" || compareMediaFeature(operator, Platform.OS, value)
+      );
     case "min-width":
-      return typeof value === "number" && get(vw) >= value;
+      return compareMediaFeature(">=", get(vw), value);
     case "max-width":
-      return typeof value === "number" && get(vw) <= value;
+      return compareMediaFeature("<=", get(vw), value);
     case "min-height":
-      return typeof value === "number" && get(vh) >= value;
+      return compareMediaFeature(">=", get(vh), value);
     case "max-height":
-      return typeof value === "number" && get(vh) <= value;
-    case "orientation":
-      return value === "landscape" ? get(vh) < get(vw) : get(vh) >= get(vw);
+      return compareMediaFeature("<=", get(vh), value);
+    default:
+      return compareMediaFeature(
+        operator,
+        getMediaFeatureValue(name, get),
+        value,
+      );
   }
-
-  return compareMediaFeature(
-    mediaQuery[0],
-    getMediaFeatureValue(mediaQuery[1], get),
-    value,
-  );
 }
 
 function getMediaFeatureValue(
   name: MediaFeatureName,
   get: Getter,
-): number | undefined {
+): MeasuredFeatureValue {
   switch (name) {
+    // A Pressable reports hover, so the device answers as one that can hover
+    case "hover":
+      return "hover";
+    case "display-mode":
+      return Platform.OS;
+    // A device with no preference matches light (MQ5 §12.5.1)
+    case "prefers-color-scheme":
+      return get(colorScheme) ?? "light";
+    case "color":
+      return BITS_PER_COLOR_COMPONENT;
+    // A React Native screen is a full-color bitmap that redraws as fast as scripts change it
+    case "color-index":
+    case "monochrome":
+    case "grid":
+      return 0;
+    case "scripting":
+      return "enabled";
+    case "update":
+      return "fast";
     case "width":
       return get(vw);
     case "height":
       return get(vh);
     case "resolution":
       return PixelRatio.get();
+    case "orientation":
+      return get(vh) < get(vw) ? "landscape" : "portrait";
     default:
       return undefined;
   }

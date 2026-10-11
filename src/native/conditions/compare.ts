@@ -1,25 +1,38 @@
 import type {
   MediaCondition,
   MediaFeatureComparison,
-  StyleDescriptor,
+  MediaFeatureOperand,
 } from "react-native-css/compiler";
+
+import { conjoin, UNKNOWN, type Truth } from "./kleene";
 
 export type MediaInterval = Extract<MediaCondition, ["[]", ...unknown[]]>;
 
-// Media and container queries share this, so each operator has one meaning
+// undefined for a feature the runtime does not measure
+export type MeasuredFeatureValue = number | string | undefined;
+
+// Media and container queries share this, so each operator has one meaning; an unmeasured feature or an unresolved operand is unknown (MQ5 §3.1)
 export function compareMediaFeature(
   operator: MediaFeatureComparison,
-  left: StyleDescriptor,
-  right: StyleDescriptor,
-): boolean {
+  left: MediaFeatureOperand | undefined,
+  right: MediaFeatureOperand | undefined,
+): Truth {
+  if (
+    left === undefined ||
+    left === null ||
+    right === undefined ||
+    right === null
+  ) {
+    return UNKNOWN;
+  }
+
   // = also compares keywords such as landscape
   if (operator === "=") {
     return left === right;
   }
 
-  // The rest are arithmetic, where a string would coerce
   if (typeof left !== "number" || typeof right !== "number") {
-    return false;
+    return UNKNOWN;
   }
 
   switch (operator) {
@@ -33,19 +46,37 @@ export function compareMediaFeature(
       return left <= right;
     default:
       operator satisfies never;
-      return false;
+      return UNKNOWN;
   }
 }
 
 // The compiler emits a range pair in source order: start, operator, value, operator, end
 export function testMediaFeatureInterval(
   condition: MediaInterval,
-  value: StyleDescriptor,
-): boolean {
+  value: MeasuredFeatureValue,
+): Truth {
   const [, , start, startOperator, end, endOperator] = condition;
 
-  return (
-    compareMediaFeature(startOperator, start, value) &&
-    compareMediaFeature(endOperator, value, end)
+  return conjoin(
+    [
+      compareMediaFeature(startOperator, start, value),
+      compareMediaFeature(endOperator, value, end),
+    ],
+    (truth) => truth,
   );
+}
+
+// A feature in a boolean context is false for zero, none and the no-preference of a user preference, and true for every other value (MQ5 §2.4.2, §12)
+export function isTruthyFeatureValue(value: MeasuredFeatureValue): Truth {
+  switch (typeof value) {
+    case "undefined":
+      return UNKNOWN;
+    case "number":
+      return value !== 0 && !Number.isNaN(value);
+    case "string":
+      return value !== "none" && value !== "no-preference";
+    default:
+      value satisfies never;
+      return UNKNOWN;
+  }
 }
