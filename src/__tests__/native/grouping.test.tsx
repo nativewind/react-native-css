@@ -56,7 +56,12 @@ test("group - active", () => {
 
   expect(child.props.style).toStrictEqual(undefined);
 
-  fireEvent(parent, "touchStart");
+  fireEvent(parent, "touchStart", {
+    nativeEvent: {
+      touches: [{ identifier: 1 }],
+      changedTouches: [{ identifier: 1 }],
+    },
+  });
 
   expect(child.props.style).toStrictEqual({ backgroundColor: "#f00" });
 });
@@ -77,9 +82,16 @@ test("group - active (animated) supplies changed and restored transition targets
     });
   };
   expectStyle("#000");
-  fireEvent(screen.getByTestId(parentID), "touchStart");
+  fireEvent(screen.getByTestId(parentID), "touchStart", {
+    nativeEvent: {
+      touches: [{ identifier: 1 }],
+      changedTouches: [{ identifier: 1 }],
+    },
+  });
   expectStyle("#f00");
-  fireEvent(screen.getByTestId(parentID), "touchEnd");
+  fireEvent(screen.getByTestId(parentID), "touchEnd", {
+    nativeEvent: { touches: [], changedTouches: [{ identifier: 1 }] },
+  });
   expectStyle("#000");
 });
 
