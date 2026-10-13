@@ -56,7 +56,7 @@ test("group - active", () => {
 
   expect(child.props.style).toStrictEqual(undefined);
 
-  fireEvent(parent, "pressIn");
+  fireEvent(parent, "touchStart");
 
   expect(child.props.style).toStrictEqual({ backgroundColor: "#f00" });
 });
@@ -77,9 +77,9 @@ test("group - active (animated) supplies changed and restored transition targets
     });
   };
   expectStyle("#000");
-  fireEvent(screen.getByTestId(parentID), "pressIn");
+  fireEvent(screen.getByTestId(parentID), "touchStart");
   expectStyle("#f00");
-  fireEvent(screen.getByTestId(parentID), "pressOut");
+  fireEvent(screen.getByTestId(parentID), "touchEnd");
   expectStyle("#000");
 });
 

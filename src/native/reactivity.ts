@@ -283,3 +283,8 @@ export const containerHeightFamily = weakFamily((key) => {
     return read(containerLayoutFamily(key))?.height || 0;
   });
 });
+
+/** A container's `:active` as its queries read it, apart from `activeFamily`, whose presence makes an element pressable. */
+export const containerActiveFamily = weakFamily(() =>
+  observable<boolean>(false),
+);

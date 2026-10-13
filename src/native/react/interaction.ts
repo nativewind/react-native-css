@@ -3,6 +3,7 @@ import type { LayoutChangeEvent } from "react-native";
 
 import {
   activeFamily,
+  containerActiveFamily,
   containerLayoutFamily,
   focusFamily,
   hoverFamily,
@@ -23,6 +24,9 @@ export type InteractionType =
   | "onPress"
   | "onPressIn"
   | "onPressOut"
+  | "onTouchStart"
+  | "onTouchEnd"
+  | "onTouchCancel"
   | "onFocus"
   | "onBlur";
 
@@ -33,6 +37,9 @@ const defaultHandlers: Record<InteractionType, Handler> = {
   onPress: () => {},
   onPressIn: () => {},
   onPressOut: () => {},
+  onTouchStart: () => {},
+  onTouchEnd: () => {},
+  onTouchCancel: () => {},
   onFocus: () => {},
   onBlur: () => {},
 };
@@ -76,9 +83,18 @@ export function getInteractionHandler(
           break;
         case "onPressIn":
           activeFamily(weakKey).set(true);
+          containerActiveFamily(weakKey).set(true);
           break;
         case "onPressOut":
           activeFamily(weakKey).set(false);
+          containerActiveFamily(weakKey).set(false);
+          break;
+        case "onTouchStart":
+          containerActiveFamily(weakKey).set(true);
+          break;
+        case "onTouchEnd":
+        case "onTouchCancel":
+          containerActiveFamily(weakKey).set(false);
           break;
         case "onFocus":
           focusFamily(weakKey).set(true);
