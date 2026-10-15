@@ -144,6 +144,28 @@ describe("nativeResolver", () => {
     });
   });
 
+  test.each([
+    ["dist", join(packageRoot, "distribution", "index.js")],
+    ["src", join(packageRoot, "src-generated", "index.js")],
+  ])(
+    "rewrites an import from a directory whose name only begins with %s",
+    (_prefix, originModulePath) => {
+      const { resolver, calls } = recordingResolver();
+
+      nativeResolver(
+        resolver,
+        contextFor(originModulePath),
+        "react-native-gesture-handler",
+        "ios",
+      );
+
+      expect(calls).toEqual([
+        ["react-native-gesture-handler", "ios"],
+        ["react-native-css/components/react-native-gesture-handler", "ios"],
+      ]);
+    },
+  );
+
   test("leaves a resolution that is not a source file alone", () => {
     const calls: [string, string | null][] = [];
     const resolver: CustomResolver = (_context, moduleName, platform) => {

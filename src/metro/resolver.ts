@@ -1,4 +1,4 @@
-import { basename, dirname, join, resolve, sep } from "node:path";
+import { basename, sep } from "node:path";
 
 import type {
   CustomResolutionContext,
@@ -7,20 +7,7 @@ import type {
 } from "metro-resolver";
 
 import { allowedModules } from "../babel/allowedModules";
-
-// Anchored on the layout segment, since this runs from src/metro under the source condition and from dist/<format>/metro once built
-const packageRoot = resolve(
-  __dirname,
-  basename(dirname(__dirname)) === "src" ? "../.." : "../../..",
-);
-const thisModuleDist = join(packageRoot, "dist");
-const thisModuleSrc = join(packageRoot, "src");
-
-function isFromThisModule(filename: string): boolean {
-  return (
-    filename.startsWith(thisModuleDist) || filename.startsWith(thisModuleSrc)
-  );
-}
+import { isFromThisModule } from "../babel/this-module";
 
 export function nativeResolver(
   resolver: CustomResolver,
