@@ -6,19 +6,9 @@ import { registerCSS, testID } from "react-native-css/jest";
 import { colorScheme } from "react-native-css/runtime";
 
 /**
- * <Activity> lifecycle regression tests for the subscription reconnect in
- * useNativeCss.
- *
- * React 19.2's <Activity mode="hidden"> renders its children but does not
- * mount their effects. When the boundary becomes visible, React re-renders
- * the children, re-creates their effects, and — critically — does NOT re-run
- * any state initializers. useNativeCss's state initializer (which runs
- * updateRules and subscribes ruleEffect) therefore runs at a different time
- * than the first effect setup, and observable conditions may have changed in
- * between.
- *
- * The reconnect effect in useNativeCss must re-establish subscriptions
- * against CURRENT observable state at the moment effects (re-)mount.
+ * <Activity mode="hidden"> renders children without mounting effects, so
+ * conditions may change between useNativeCss's state initializer and its
+ * first effect setup.
  */
 
 function Fixture({ className }: { className: string }) {
@@ -52,8 +42,7 @@ test("pre-rendered hidden Activity shows current styles on first show and stays 
     <ActivityFixture hidden className="audit-activity-prerender" />,
   );
 
-  // Show: effects mount for the first time. Nothing changed while hidden,
-  // so the initial styles must be correct...
+  // Effects mount for the first time
   screen.rerender(
     <ActivityFixture hidden={false} className="audit-activity-prerender" />,
   );
@@ -61,8 +50,7 @@ test("pre-rendered hidden Activity shows current styles on first show and stays 
     color: "#00f",
   });
 
-  // ...and the re-established subscriptions must be live, not just initially
-  // correct.
+  // Subscriptions are live
   act(() => {
     colorScheme.set("dark");
   });
@@ -86,9 +74,7 @@ test("applies condition changes made while pre-rendered hidden, before first sho
     <ActivityFixture hidden className="audit-activity-stale" />,
   );
 
-  // The state initializer ran during the hidden render (matching rules
-  // against the light scheme). Conditions change AFTER the initializer but
-  // BEFORE the first effect mount.
+  // Change conditions after the initializer, before effects mount
   act(() => {
     colorScheme.set("dark");
   });
@@ -97,8 +83,6 @@ test("applies condition changes made while pre-rendered hidden, before first sho
     <ActivityFixture hidden={false} className="audit-activity-stale" />,
   );
 
-  // The first commit must re-evaluate rules against current conditions —
-  // not the conditions captured by the initializer.
   expect(screen.getByTestId(testID).props.style).toStrictEqual({
     color: "#f00",
   });
@@ -111,10 +95,7 @@ test("unrelated condition changes during the pre-render window do not force a ca
 .audit-activity-unrelated { color: blue; }
 `);
 
-  // This component has no conditional rules, so the color scheme observable
-  // is NOT among its recorded dependencies. Flipping it while the boundary
-  // is hidden is unrelated observable activity inside the initializer→commit
-  // window. The fresh-mount reconnect should stay on the cheap replay path.
+  // colorScheme is not a dependency, so changing it should not force a re-render
   let renders = 0;
   function CountingFixture({ className }: { className: string }) {
     renders++;
@@ -139,12 +120,11 @@ test("unrelated condition changes during the pre-render window do not force a ca
     </Activity>,
   );
 
-  // Styles are still resolved correctly through the replayed subscriptions.
   expect(screen.getByTestId(testID).props.style).toStrictEqual({
     color: "#00f",
   });
 
-  // Exactly one render pass for the show — no forced catch-up render.
+  // No extra catch-up render
   expect(renders).toBe(2);
 
   screen.unmount();
@@ -166,7 +146,7 @@ test("applies condition changes made while hidden, after a visible mount (mid-li
     color: "#00f",
   });
 
-  // Hiding preserves state but unmounts effects (detaching subscriptions).
+  // Hiding keeps state but cleans up effects
   screen.rerender(
     <ActivityFixture hidden className="audit-activity-midlife" />,
   );
@@ -175,8 +155,6 @@ test("applies condition changes made while hidden, after a visible mount (mid-li
     colorScheme.set("dark");
   });
 
-  // Showing re-mounts effects. The reconnect must catch up on changes that
-  // happened while the component was unsubscribed.
   screen.rerender(
     <ActivityFixture hidden={false} className="audit-activity-midlife" />,
   );

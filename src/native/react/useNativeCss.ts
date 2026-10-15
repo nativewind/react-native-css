@@ -17,10 +17,10 @@ import { testGuards, type RenderGuard } from "../conditions/guards";
 import {
   cleanupEffect,
   ContainerContext,
+  hasChangedDependencies,
   type ContainerContextValue,
   type Effect,
   type Getter,
-  hasChangedDependencies,
   type VariableContextValue,
 } from "../reactivity";
 import { animatedComponentFamily } from "../reanimated";
@@ -111,39 +111,23 @@ export function useNativeCss(
     );
     // State initializers may be discarded by React StrictMode. Subscribe once
     // the component commits instead of retaining an abandoned initializer.
-    // cleanupEffect records the dependency set on the effect so the commit
-    // effect below can replay subscriptions without a full rule re-pass.
     cleanupEffect(ruleEffect);
     return initialState;
   });
 
-  // PERF: distinguishes a fresh mount (first effect setup) from a mid-life
-  // replay (React <Activity> hide/show, StrictMode effect re-invocation).
+  // Distinguishes a fresh mount from an effect replay (Activity, StrictMode)
   const hasCommittedRef = useRef(false);
 
   useEffect(() => {
-    // Reconnect subscriptions after the initializer's (or a prior replay's)
-    // cleanupEffect detached them.
+    // Reconnect subscriptions after React replays an effect setup.
     if (state.ruleEffect.observers.size === 0) {
       if (hasCommittedRef.current || hasChangedDependencies(state.ruleEffect)) {
-        // Mid-life replay, or a condition this component's rule matching
-        // actually read changed between the initializer and this commit —
-        // e.g. a pre-rendered hidden <Activity> whose color scheme, window
-        // dimensions, or container layout changed before first show. Re-run
-        // rule matching against current conditions and force a catch-up
-        // render. These paths are rare.
+        // Replay, or conditions changed since the initializer: recalculate.
         state.ruleEffect.run();
         state.styleEffect.run();
       } else {
-        // Fresh mount with unchanged conditions: the initializer evaluated
-        // current conditions moments ago in the same commit. Cheaply replay
-        // the recorded dependencies instead of re-running a full updateRules
-        // pass and forcing a second render per mount.
-        //
-        // Only ruleEffect needs replaying: its dependency subscriptions are
-        // established exclusively by updateRules, which won't run again until
-        // the className or inherited props change. styleEffect's subscription
-        // to stylesObs is re-established by getStyledProps on every render.
+        // Fresh mount: resubscribe to the initializer's dependencies.
+        // styleEffect resubscribes itself during render.
         for (const observable of state.ruleEffect.dependencies ?? []) {
           observable.get(state.ruleEffect);
         }

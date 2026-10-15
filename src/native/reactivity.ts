@@ -12,19 +12,9 @@ import type { StyleDescriptor } from "react-native-css/compiler";
 export type Effect = {
   observers: Set<Observable<any, any>>;
   run(): void;
-  /**
-   * PERF: the dependency set recorded by the most recent cleanupEffect().
-   * Lets the owning component replay subscriptions cheaply instead of
-   * re-running a full rule pass (see useNativeCss's reconnect effect).
-   */
+  /** Dependencies recorded by the last cleanupEffect() */
   dependencies?: Observable<any, any>[];
-  /**
-   * PERF: [observable, value-at-detach] pairs recorded by the most recent
-   * cleanupEffect(). Lets useNativeCss's fresh-mount reconnect detect
-   * whether any condition the component's rule matching actually read has
-   * changed between the initializer and the commit effect (see
-   * hasChangedDependencies).
-   */
+  /** Dependency values recorded by the last cleanupEffect() */
   snapshots?: [Observable<any, any>, unknown][];
 };
 
@@ -144,15 +134,8 @@ export function observable<Value, Arg = Value>(
 
 export function cleanupEffect(effect: Effect) {
   if (!effect) return;
-  // PERF: record the dependency set before detaching. Every effect setup is
-  // immediately preceded by a cleanupEffect call on that effect (the state
-  // initializer's discard or React's cleanup-then-setup replay), so this is
-  // always the current set — see useNativeCss's reconnect effect.
   const dependencies = (effect.dependencies = Array.from(effect.observers));
-  // PERF: capture each dependency's current value BEFORE detaching. While
-  // this effect is still subscribed, computed observables return their
-  // cached value (didInit is true), so this is O(deps) cheap reads, not
-  // recomputations. Used by hasChangedDependencies.
+  // Snapshot before detaching so computed observables return cached values
   effect.snapshots = dependencies.map(
     (observable) =>
       [observable, observable.get()] as [Observable<any, any>, unknown],
@@ -163,21 +146,7 @@ export function cleanupEffect(effect: Effect) {
   }
 }
 
-/**
- * PERF: whether any dependency recorded by the most recent cleanupEffect()
- * changed value since it was detached.
- *
- * Scoping to the effect's own dependencies is what keeps the fresh-mount
- * fast path fast: unrelated observable activity elsewhere in the app
- * (another component's layout, interaction, or theme change) cannot cause
- * a false positive the way a global change counter would.
- *
- * The reads do not subscribe. A computed observable whose last subscriber
- * was just detached will recompute on read (didInit was reset by
- * unsubscribe), which is no more work than the full reconnect would have
- * performed anyway. Returns false when there is nothing to compare (an
- * effect that never subscribed, or one whose deps are unchanged).
- */
+/** Whether any of the effect's dependencies changed since cleanupEffect() */
 export function hasChangedDependencies(effect: Effect): boolean {
   const snapshots = effect.snapshots;
   if (!snapshots) return false;
