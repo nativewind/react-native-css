@@ -54,18 +54,32 @@ export function functionPropNames(node: unknown): string[][] {
 }
 
 // The merge nests style arrays, so styles are collected at every depth
+function collectStyleEntries(style: unknown): Record<string, unknown>[] {
+  if (Array.isArray(style)) {
+    return style.flatMap((entry) => collectStyleEntries(entry));
+  }
+
+  return style !== null && typeof style === "object"
+    ? [style as Record<string, unknown>]
+    : [];
+}
+
 export function flattenStyles(node: unknown): Record<string, unknown>[] {
-  const collect = (style: unknown): Record<string, unknown>[] => {
-    if (Array.isArray(style)) {
-      return style.flatMap((entry) => collect(entry));
-    }
+  return collectProps(node).flatMap((props) =>
+    collectStyleEntries(props.style),
+  );
+}
 
-    return style !== null && typeof style === "object"
-      ? [style as Record<string, unknown>]
-      : [];
-  };
+// What Yoga reads off the outermost element: its style entries merged in order, later ones winning
+export function rootStyle(node: unknown): Record<string, unknown> {
+  const [root] = collectProps(node);
+  const merged: Record<string, unknown> = {};
 
-  return collectProps(node).flatMap((props) => collect(props.style));
+  for (const entry of collectStyleEntries(root?.style)) {
+    Object.assign(merged, entry);
+  }
+
+  return merged;
 }
 
 export function deriveReDeclared(

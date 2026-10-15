@@ -20,6 +20,7 @@ import {
   reachedByTheRewrite,
   reasonedExclusions,
   requiredProps,
+  rootStyle,
   serializeRender,
   unobservable,
   withoutFabric,
@@ -223,7 +224,7 @@ test("resolves a function style beside className on Pressable", () => {
   }
 });
 
-// GestureHandlerRootView falls back to flex: 1 only while style is absent, and a class must not count as a style
+// GestureHandlerRootView falls back to flex: 1 only while style is absent, and a class counts as a style only when it sizes the root itself
 describe("GestureHandlerRootView's flex:1 default", () => {
   test("survives a className, which supplies a style where none was given", () => {
     registerCSS(`.w-95 { width: 95px; }`);
@@ -262,6 +263,25 @@ describe("GestureHandlerRootView's flex:1 default", () => {
     expect(styles).toContainEqual(expect.objectContaining({ margin: 4 }));
     expect(styles).not.toContainEqual(expect.objectContaining({ flex: 1 }));
   });
+
+  test.each([
+    ["grow-0", "flex-grow: 0", { flexGrow: 0 }],
+    ["shrink-0", "flex-shrink: 0", { flexShrink: 0 }],
+    ["basis-90", "flex-basis: 90px", { flexBasis: 90 }],
+    ["flex-none", "flex: none", { flexGrow: 0, flexShrink: 0 }],
+  ])(
+    "yields to a className that states its own flex sizing (%s)",
+    (className, declaration, sizing) => {
+      registerCSS(`.${className} { ${declaration}; }`);
+
+      const style = rootStyle(
+        renderWith(StyledRNGH.GestureHandlerRootView, { className }),
+      );
+
+      expect(style).toMatchObject(sizing);
+      expect(style).not.toHaveProperty("flex");
+    },
+  );
 });
 
 test("re-exports the members it does not re-declare", () => {

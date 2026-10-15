@@ -6,6 +6,7 @@ import { registerCSS, testID } from "react-native-css/jest";
 import {
   collectProps,
   flattenStyles,
+  rootStyle,
   serializeRender,
   withoutFabric,
 } from "../_gesture-handler";
@@ -81,6 +82,39 @@ test("the flex:1 default survives the class on Android too", () => {
   expect(
     flattenStyles(renderWith(styledRootView(), { className: "w-99" })),
   ).toContainEqual(expect.objectContaining({ flex: 1 }));
+});
+
+// Yoga reads a positive flex over an explicit or absent basis, so a default left beside these would collapse a root sized to its content
+test.each([
+  ["grow-0", "flex-grow: 0", { flexGrow: 0 }],
+  ["shrink-0", "flex-shrink: 0", { flexShrink: 0 }],
+  ["basis-90", "flex-basis: 90px", { flexBasis: 90 }],
+  ["flex-none", "flex: none", { flexGrow: 0, flexShrink: 0 }],
+])(
+  "a class stating its own flex sizing (%s) replaces the flex:1 default",
+  (className, declaration, sizing) => {
+    registerCSS(`.${className} { ${declaration}; }`);
+
+    const style = rootStyle(renderWith(styledRootView(), { className }));
+
+    expect(style).toMatchObject(sizing);
+    expect(style).not.toHaveProperty("flex");
+  },
+);
+
+test("an inline style displaces the default, as Gesture Handler's own does", () => {
+  registerCSS(`.w-96 { width: 96px; }`);
+
+  for (const props of [
+    { style: { width: 95 } },
+    { className: "w-96", style: { height: 94 } },
+  ]) {
+    const style = rootStyle(renderWith(styledRootView(), props));
+
+    expect(style).not.toHaveProperty("flex");
+    expect(style).not.toHaveProperty("flexGrow");
+    expect(style).not.toHaveProperty("flexBasis");
+  }
 });
 
 test("renders identically to the unwrapped Android variant with no className", () => {

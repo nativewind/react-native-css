@@ -99,27 +99,62 @@ export const PureNativeButton = copyComponentProperties(
   },
 );
 
-const gestureHandlerRootViewMapping: StyledConfiguration<
-  typeof RNGHGestureHandlerRootView
-> = {
-  className: "style",
-};
+type RootViewProps = ComponentProps<typeof RNGHGestureHandlerRootView>;
 
 // Gesture Handler applies its own flex: 1 through `style ?? styles.container`, which a resolved class would displace
 const rootViewDefault = StyleSheet.create({ container: { flex: 1 } });
 
+const flexSizingProperties = [
+  "flex",
+  "flexGrow",
+  "flexShrink",
+  "flexBasis",
+] as const;
+
+// Yoga reads a positive flex over an explicit or absent basis, so a class that sizes the root itself replaces the default rather than sitting beside it
+function resolveRootViewStyle(
+  style: RootViewProps["style"],
+  hasInlineStyle: boolean,
+): RootViewProps["style"] {
+  if (hasInlineStyle) {
+    return style;
+  }
+  if (style === undefined) {
+    return rootViewDefault.container;
+  }
+  const resolved = StyleSheet.flatten(style);
+  return flexSizingProperties.some(
+    (property) => resolved[property] !== undefined,
+  )
+    ? style
+    : [style, rootViewDefault.container];
+}
+
+function RootViewWithDefault({
+  hasInlineStyle,
+  style,
+  ...props
+}: RootViewProps & { hasInlineStyle: boolean }) {
+  return (
+    <RNGHGestureHandlerRootView
+      {...props}
+      style={resolveRootViewStyle(style, hasInlineStyle)}
+    />
+  );
+}
+
+const gestureHandlerRootViewMapping: StyledConfiguration<
+  typeof RootViewWithDefault
+> = {
+  className: "style",
+};
+
 export const GestureHandlerRootView = copyComponentProperties(
   RNGHGestureHandlerRootView,
-  ({
-    style,
-    ...props
-  }: StyledProps<
-    ComponentProps<typeof RNGHGestureHandlerRootView>,
-    typeof gestureHandlerRootViewMapping
-  >) => {
+  (props: StyledProps<RootViewProps, typeof gestureHandlerRootViewMapping>) => {
     return useCssElement(
-      RNGHGestureHandlerRootView,
-      { ...props, style: style ?? rootViewDefault.container },
+      RootViewWithDefault,
+      { ...props, hasInlineStyle: props.style !== undefined },
       gestureHandlerRootViewMapping,
     );
   },
