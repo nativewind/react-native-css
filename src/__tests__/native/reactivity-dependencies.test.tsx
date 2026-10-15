@@ -120,6 +120,21 @@ test("a computed value read without a subscriber is computed once until a source
   expect(compute).toHaveBeenCalledTimes(2);
 });
 
+test("a computed value whose computation threw computes again on its next read", () => {
+  const source = observable(0);
+  const value = observable((get) => {
+    const current = get(source);
+    if (current === 0) {
+      throw new Error("no value yet");
+    }
+    return current * 2;
+  });
+  expect(() => value.get()).toThrow("no value yet");
+  expect(() => value.get()).toThrow("no value yet");
+  source.set(5);
+  expect(value.get()).toBe(10);
+});
+
 test("a read without a subscriber subscribes nothing", () => {
   const source = observable(10);
   const value = observable((get) => get(source) * 2);

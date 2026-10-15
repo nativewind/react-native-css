@@ -66,7 +66,14 @@ export function observable<Value, Arg = Value>(
     cleanupEffect(effect);
     const isFirstComputation = sources === undefined;
     sources = new Map();
-    const nextValue = (init as Read<Value, Arg>)(getter, arg);
+    let nextValue: Value;
+    try {
+      nextValue = (init as Read<Value, Arg>)(getter, arg);
+    } catch (error) {
+      // A computation that threw produced no value, so the next read computes again rather than trusting a partial read
+      sources = undefined;
+      throw error;
+    }
     if (!isFirstComputation && equality(value, nextValue)) {
       return false;
     }
