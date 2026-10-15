@@ -19,7 +19,12 @@ import {
   type VariableContextValue,
 } from "../reactivity";
 import { stylesFamily } from "../styles";
-import type { ComponentState, Config } from "./useNativeCss";
+import {
+  classifyUiThreadPressRule,
+  resolveUiThreadPseudoApi,
+  targetsElementStyle,
+} from "./ui-thread-pseudo";
+import type { ComponentState, Config, GroupPressStyles } from "./useNativeCss";
 
 export const INLINE_RULE_SYMBOL = Symbol("react-native-css.inlineRule");
 
@@ -48,8 +53,13 @@ export function updateRules(
   let animated = false;
   let pressable = false;
 
+  const pressOnUiThread = resolveUiThreadPseudoApi() !== undefined;
+  let ownPressRules: StyleRule[] | undefined;
+  let groupPressRules: Map<WeakKey, StyleRule[]> | undefined;
+
   for (const config of state.configs) {
     const source = currentProps?.[config.source];
+    const pressTarget = pressOnUiThread && targetsElementStyle(config);
     const shallowTarget = Array.isArray(config.target)
       ? config.target[0]
       : config.target;
@@ -117,6 +127,45 @@ export function updateRules(
       if (rule.c) {
         containers ??= inheritedContainers;
         observeContainerActivity(state, currentProps);
+      }
+
+      // A press painted on the UI thread is resolved apart from the resting rules
+      const pressRule = pressTarget
+        ? classifyUiThreadPressRule(
+            rule,
+            inheritedContainers,
+            state.rendersText === true,
+          )
+        : undefined;
+
+      if (pressRule) {
+        if (pressRule.kind === "group") {
+          guards.push(["c", pressRule.name, pressRule.registration]);
+        }
+
+        if (
+          !testRule(
+            pressRule.rule,
+            state.ruleEffectGetter,
+            currentProps,
+            guards,
+            inheritedContainers,
+          )
+        ) {
+          continue;
+        }
+
+        if (pressRule.kind === "own") {
+          ownPressRules ??= [];
+          ownPressRules.push(pressRule.rule);
+        } else {
+          groupPressRules ??= new Map();
+          const container = pressRule.registration.key;
+          const rulesOfGroup = groupPressRules.get(container) ?? [];
+          rulesOfGroup.push(pressRule.rule);
+          groupPressRules.set(container, rulesOfGroup);
+        }
+        continue;
       }
 
       if (
@@ -209,7 +258,14 @@ export function updateRules(
 
   pressable = activeFamily.has(state.ruleEffectGetter);
 
-  if (!rules.size && !state.stylesObs && !inlineVariables.size) {
+  if (
+    !rules.size &&
+    !state.stylesObs &&
+    !inlineVariables.size &&
+    !ownPressRules &&
+    !groupPressRules
+  ) {
+    releasePressStyles(state, undefined, undefined);
     return {
       ...state,
       currentProps,
@@ -218,6 +274,8 @@ export function updateRules(
       pressable,
       variables,
       containers,
+      pressStylesObs: undefined,
+      groupPressStylesObs: undefined,
     };
   }
 
@@ -246,13 +304,31 @@ export function updateRules(
   // We will subscribe within the render using the StyleEffect
   guards.push(...stylesObs.get().guards);
 
+  const pressStylesObs =
+    ownPressRules && derivePressStylesObs(state, rules, ownPressRules, guards);
+  const groupPressStylesObs =
+    groupPressRules &&
+    Array.from(
+      groupPressRules,
+      ([container, rulesOfGroup]): GroupPressStyles => ({
+        container,
+        stylesObs: derivePressStylesObs(state, rules, rulesOfGroup, guards),
+      }),
+    );
+
   // If these are the same styles with no inline variables, we can skip the update
-  if (state.stylesObs === stylesObs && !inlineVariables.size) {
+  if (
+    state.stylesObs === stylesObs &&
+    !inlineVariables.size &&
+    state.pressStylesObs === pressStylesObs &&
+    isSameGroupPressStyles(state.groupPressStylesObs, groupPressStylesObs)
+  ) {
     return state;
   }
 
-  // Remove this component from the old observer
+  // Remove this component from the old observers
   state.stylesObs?.unsubscribe(state.styleEffect);
+  releasePressStyles(state, pressStylesObs, groupPressStylesObs);
 
   return {
     ...state,
@@ -263,7 +339,63 @@ export function updateRules(
     guards,
     animated,
     pressable,
+    pressStylesObs,
+    groupPressStylesObs,
   };
+}
+
+/** The styles of an element whose press condition holds, resolved over its resting rules. */
+function derivePressStylesObs(
+  state: ComponentState,
+  rules: Set<StyleRule | InlineVariable | VariableContextValue>,
+  pressRules: StyleRule[],
+  guards: RenderGuard[],
+) {
+  const pressedRules = new Set(rules);
+  for (const rule of pressRules) {
+    pressedRules.add(rule);
+  }
+
+  const stylesObs = stylesFamily(
+    generateStateHash(state, pressedRules),
+    pressedRules,
+  );
+  guards.push(...stylesObs.get().guards);
+  return stylesObs;
+}
+
+function isSameGroupPressStyles(
+  previous: readonly GroupPressStyles[] | undefined,
+  next: readonly GroupPressStyles[] | undefined,
+) {
+  if (previous === next) {
+    return true;
+  }
+  if (!previous || !next || previous.length !== next.length) {
+    return false;
+  }
+  return previous.every(
+    (group, index) =>
+      group.container === next[index]?.container &&
+      group.stylesObs === next[index]?.stylesObs,
+  );
+}
+
+function releasePressStyles(
+  state: ComponentState,
+  pressStylesObs: ComponentState["pressStylesObs"],
+  groupPressStylesObs: ComponentState["groupPressStylesObs"],
+) {
+  if (state.pressStylesObs !== pressStylesObs) {
+    state.pressStylesObs?.unsubscribe(state.styleEffect);
+  }
+  for (const group of state.groupPressStylesObs ?? []) {
+    if (
+      !groupPressStylesObs?.some((next) => next.stylesObs === group.stylesObs)
+    ) {
+      group.stylesObs.unsubscribe(state.styleEffect);
+    }
+  }
 }
 
 /**

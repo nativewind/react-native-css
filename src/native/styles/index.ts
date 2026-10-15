@@ -185,6 +185,33 @@ export const stylesFamily = family(
   },
 );
 
+/** The style a config resolves from `stylesObs`, merged with the element's inline style. */
+export function getStyledTarget(
+  state: ComponentState,
+  stylesObs: NonNullable<ComponentState["stylesObs"]>,
+  inline: Record<string, any> | undefined | null,
+  config: Config,
+) {
+  const styledProps = stylesObs.get(state.styleEffect);
+
+  let result = deepMergeConfig(
+    config,
+    nativeStyleMapping(config, styledProps?.normal),
+    inline,
+    true,
+  );
+
+  if (styledProps?.important) {
+    result = deepMergeConfig(
+      config,
+      result,
+      nativeStyleMapping(config, styledProps.important),
+    );
+  }
+
+  return result?.style;
+}
+
 export function getStyledProps(
   state: ComponentState,
   inline: Record<string, any> | undefined | null,
