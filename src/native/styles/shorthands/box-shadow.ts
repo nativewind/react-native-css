@@ -13,9 +13,11 @@ export const boxShadow: StyleFunctionResolver = (resolveValue, func) => {
 
   const shadows = readShadows(value, boxShadowGrammar, resolveValue);
 
-  return shadows === undefined
-    ? []
-    : shadows.filter((shadow) => !isTransparent(shadow)).map(toBoxShadow);
+  if (shadows === undefined) {
+    return;
+  }
+
+  return shadows.filter((shadow) => !isTransparent(shadow)).map(toBoxShadow);
 };
 
 /** Tailwind's unset shadow layers hold `0 0 #0000`, which React Native would still draw as a native shadow. */

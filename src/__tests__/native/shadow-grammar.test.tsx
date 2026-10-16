@@ -7,7 +7,7 @@ import { Text } from "react-native-css/components/Text";
 import { registerCSS, testID } from "react-native-css/jest";
 import { StyleCollection } from "react-native-css/native";
 
-// Every expected value is what Chromium, Firefox and WebKit compute for the spelling held in a variable.
+// Every expected value is what Chromium, Firefox and WebKit compute for the same CSS.
 const currentColor = { semantic: ["label", "labelColor"] };
 const navy = "#123456";
 
@@ -169,17 +169,17 @@ const boxShadowCases: readonly ShadowCase[] = [
       expectedBoxShadow([4, 4, 0, 0], currentColor),
     ],
   },
-  { spelling: "2px", expected: [] },
-  { spelling: "2px 2px 4px 1px 3px", expected: [] },
-  { spelling: "2px #123456 2px", expected: [] },
-  { spelling: "2px 2px #123456 #654321", expected: [] },
-  { spelling: "inset inset 2px 2px", expected: [] },
-  { spelling: "2px inset 2px", expected: [] },
-  { spelling: "2px 2px #123456, 3px", expected: [] },
+  // A variable holding what is not a box shadow leaves none, as browsers make the declaration unset (css-variables-1 §3.1)
+  ...[
+    "2px",
+    "2px 2px 4px 1px 3px",
+    "2px #123456 2px",
+    "2px 2px #123456 #654321",
+    "inset inset 2px 2px",
+    "2px inset 2px",
+    "2px 2px #123456, 3px",
+  ].map((spelling) => ({ spelling, expected: undefined })),
 ];
-
-// A declaration that is not a text shadow sets nothing, so the earlier rule's shadow stays.
-const earlierTextShadow = expectedTextShadow([9, 9, 0], "#010203");
 
 const textShadowCases: readonly ShadowCase[] = [
   {
@@ -229,14 +229,6 @@ const textShadowCases: readonly ShadowCase[] = [
     variables: offsetVariable,
     expected: expectedTextShadow([2, 2, 0], navy),
   },
-  ...[
-    "2px",
-    "#123456",
-    "2px #123456 2px",
-    "inset 2px 2px",
-    "2px 2px #123456 #654321",
-    "2px 2px #123456, 3px",
-  ].map((spelling) => ({ spelling, expected: earlierTextShadow })),
 ];
 
 const dropShadowCases: readonly ShadowCase[] = [
@@ -289,6 +281,16 @@ const dropShadowCases: readonly ShadowCase[] = [
   },
 ];
 
+const readTextShadow = ({
+  textShadowOffset,
+  textShadowRadius,
+  textShadowColor,
+}: Record<string, unknown>): unknown => ({
+  textShadowOffset,
+  textShadowRadius,
+  textShadowColor,
+});
+
 const properties = [
   {
     property: "box-shadow",
@@ -301,15 +303,7 @@ const properties = [
     property: "text-shadow",
     earlier: "text-shadow: 9px 9px 0 #010203",
     declare: "text-shadow: var(--shadow)",
-    read: ({
-      textShadowOffset,
-      textShadowRadius,
-      textShadowColor,
-    }: Record<string, unknown>): unknown => ({
-      textShadowOffset,
-      textShadowRadius,
-      textShadowColor,
-    }),
+    read: readTextShadow,
     cases: textShadowCases,
   },
   {
@@ -319,6 +313,16 @@ const properties = [
     read: (style: Record<string, unknown>): unknown => style.filter,
     cases: dropShadowCases,
   },
+] as const;
+
+// A written value that is not a text shadow is invalid, so browsers ignore the declaration and the earlier rule's shadow stays
+const writtenInvalidTextShadows = [
+  "2px",
+  "#123456",
+  "2px #123456 2px",
+  "inset 2px 2px",
+  "2px 2px #123456 #654321",
+  "2px 2px #123456, 3px",
 ] as const;
 
 const routes = [
@@ -379,6 +383,20 @@ describe.each(routes)(
 
           expect(read(style)).toStrictEqual(expected);
         });
+      },
+    );
+
+    test.each(writtenInvalidTextShadows)(
+      "text-shadow written as %s is ignored",
+      (spelling) => {
+        const style = renderSubject(
+          `.first { text-shadow: 9px 9px 0 #010203; } .second { text-shadow: ${spelling}; }`,
+          route,
+        );
+
+        expect(readTextShadow(style)).toStrictEqual(
+          expectedTextShadow([9, 9, 0], "#010203"),
+        );
       },
     );
 
