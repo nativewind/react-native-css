@@ -254,6 +254,12 @@ export function family<Key, Result = Key, Args extends any = void>(
       delete(key: Key) {
         return map.delete(key);
       },
+      getOrInsert(key: Key, value: Result) {
+        if (!map.has(key)) {
+          map.set(key, value);
+        }
+        return map.get(key) as Result;
+      },
       clear() {
         return map.clear();
       },

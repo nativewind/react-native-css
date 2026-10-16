@@ -173,8 +173,17 @@ export const stylesFamily = family(
     /**
      * A family is a map, so we need to cleanup the observers when the the hash is no longer used
      */
-    const unsubscribe = obs.unsubscribe;
+    const { get, unsubscribe } = obs;
     return Object.assign(obs, {
+      get: (effect?: Effect) => {
+        const wasUnobserved = obs.observers.size === 0;
+        const value = get(effect);
+        // React runs an element's effects again after cleaning them up (StrictMode, a re-shown <Activity>), so the entry it holds comes back
+        if (effect && wasUnobserved) {
+          stylesFamily.getOrInsert(hash, obs);
+        }
+        return value;
+      },
       unsubscribe: (effect: Effect) => {
         unsubscribe(effect);
         if (obs.observers.size === 0) {

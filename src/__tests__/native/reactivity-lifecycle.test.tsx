@@ -1,4 +1,11 @@
-import { startTransition, StrictMode, Suspense, use } from "react";
+import {
+  Activity,
+  startTransition,
+  StrictMode,
+  Suspense,
+  use,
+  type ReactElement,
+} from "react";
 import { Text } from "react-native";
 
 import { act, render, renderAsync } from "@testing-library/react-native";
@@ -10,7 +17,8 @@ import {
   StyleCollection,
 } from "react-native-css/native-internal";
 
-import { cleanupEffect, observable, vw } from "../../native/reactivity";
+import * as useNativeCssModule from "../../native/react/useNativeCss";
+import { cleanupEffect, observable, vh, vw } from "../../native/reactivity";
 import * as calculatePropsModule from "../../native/styles/calculate-props";
 
 test("cleaned observers receive no later notifications", () => {
@@ -302,3 +310,60 @@ test("class changes detach the old rule subscription", () => {
   screen.unmount();
   expect(second.observers.size).toBe(0);
 });
+
+function setViewport(width: number, height: number) {
+  act(() => {
+    vw.set(width);
+    vh.set(height);
+  });
+}
+
+const ELEMENT_MOUNTS = [
+  ["mounted once", (element: ReactElement) => render(element)],
+  [
+    "whose effects StrictMode ran twice",
+    (element: ReactElement) => render(<StrictMode>{element}</StrictMode>),
+  ],
+  [
+    "that Activity hid and showed again",
+    (element: ReactElement) => {
+      const screen = render(<Activity mode="visible">{element}</Activity>);
+      screen.rerender(<Activity mode="hidden">{element}</Activity>);
+      screen.rerender(<Activity mode="visible">{element}</Activity>);
+      return screen;
+    },
+  ],
+] as const;
+
+test.each(ELEMENT_MOUNTS)(
+  "a viewport change that moves no rule renders nothing and computes no styles on an element %s",
+  (_shape, mount) => {
+    registerCSS(`
+      .audit-rule-unmoved { height: 5px; }
+      @media (min-width: 600px) { .audit-rule-unmoved { width: 10px; } }
+    `);
+    const originalWidth = vw.get();
+    const originalHeight = vh.get();
+    setViewport(500, 500);
+    const screen = mount(
+      <View testID="sample" className="audit-rule-unmoved" />,
+    );
+    const renders = jest.spyOn(useNativeCssModule, "useNativeCss");
+    const computations = jest.spyOn(calculatePropsModule, "calculateProps");
+    try {
+      act(() => {
+        vw.set(550);
+      });
+      expect(renders).not.toHaveBeenCalled();
+      expect(computations).not.toHaveBeenCalled();
+      expect(screen.getByTestId("sample").props.style).toStrictEqual({
+        height: 5,
+      });
+    } finally {
+      computations.mockRestore();
+      renders.mockRestore();
+      screen.unmount();
+      setViewport(originalWidth, originalHeight);
+    }
+  },
+);
