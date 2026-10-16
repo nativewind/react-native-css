@@ -80,6 +80,24 @@ describe.each([undefined, false] as const)(
         expect(filter()).toBeUndefined();
       },
     );
+
+    // Chromium 153, Firefox 155 and WebKit 26.6: an empty fallback substitutes nothing, while an undefined variable with none invalidates the list
+    test("an empty fallback contributes no filter", () => {
+      registerCSS(`.subject { filter: var(--missing,) blur(2px); }`, {
+        inlineVariables,
+      });
+      render(<View testID="subject" className="subject" />);
+      expect(filter()).toEqual([{ blur: 2 }]);
+    });
+
+    test("an undefined variable with no fallback leaves no filter", () => {
+      registerCSS(
+        `.earlier { filter: blur(4px); } .subject { filter: var(--missing) blur(2px); }`,
+        { inlineVariables },
+      );
+      render(<View testID="subject" className="earlier subject" />);
+      expect(filter()).toBeUndefined();
+    });
   },
 );
 

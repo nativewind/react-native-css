@@ -113,11 +113,12 @@ describe("transform", () => {
     });
   });
 
+  // Chromium 153, Firefox 155 and WebKit 26.6: Tailwind's empty fallbacks let an undefined variable substitute nothing
   test("rotate-x-45", () => {
     registerCSS(`
 .rotate-45 {
   --tw-rotate-x: rotateX(45deg);
-  transform: var(--tw-rotate-x) var(--tw-rotate-y) var(--tw-rotate-z) var(--tw-skew-x) var(--tw-skew-y);
+  transform: var(--tw-rotate-x,) var(--tw-rotate-y,) var(--tw-rotate-z,) var(--tw-skew-x,) var(--tw-skew-y,);
 }`);
 
     const component = render(

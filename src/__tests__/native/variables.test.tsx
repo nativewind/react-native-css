@@ -271,3 +271,61 @@ test("variable overriding with classes", () => {
   const component = screen.getByTestId(testID);
   expect(component.props.style).toStrictEqual({ color: "#f00" });
 });
+
+// Chromium 153, Firefox 155 and WebKit 26.6 read a custom property's name as its own, never as a property every object inherits
+test.each(["constructor", "toString", "hasOwnProperty"])(
+  "var(--%s) with no declaration takes its fallback",
+  (name) => {
+    registerCSS(`
+      .parent { --unrelated: 1px; }
+      .other { --unrelated: 2px; }
+      .test { color: var(--${name}, green); }
+    `);
+
+    render(
+      <View className="parent">
+        <View testID={testID} className="test" />
+      </View>,
+    );
+
+    expect(screen.getByTestId(testID).props.style).toStrictEqual({
+      color: "green",
+    });
+  },
+);
+
+test("var(--constructor) reads the ancestor's declaration", () => {
+  registerCSS(`
+    .parent { --constructor: blue; }
+    .other { --constructor: red; }
+    .test { color: var(--constructor); }
+  `);
+
+  render(
+    <View className="parent">
+      <View testID={testID} className="test" />
+    </View>,
+  );
+
+  expect(screen.getByTestId(testID).props.style).toStrictEqual({
+    color: "blue",
+  });
+});
+
+// Chromium 153, Firefox 155 and WebKit 26.6 make each member of a cycle the guaranteed-invalid value (css-variables-1 §2.3), wherever it is declared
+test.each([
+  ["*", "universal-cycle"],
+  [":root", "root-cycle"],
+])("a cycle declared on %s leaves var() its fallback", (selector, name) => {
+  registerCSS(`
+    ${selector} { --${name}-a: var(--${name}-b); --${name}-b: var(--${name}-a); }
+    .other { --${name}-a: 1px; --${name}-b: 1px; }
+    .test { color: var(--${name}-a, green); }
+  `);
+
+  render(<View testID={testID} className="test" />);
+
+  expect(screen.getByTestId(testID).props.style).toStrictEqual({
+    color: "green",
+  });
+});

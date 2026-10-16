@@ -670,23 +670,37 @@ describe("CSS-wide keywords", () => {
     `.child { --brand: ${value}; color: var(--brand); }
      .other { --brand: ${value}; }`;
 
+  // css-variables-1 §2: the keyword is the custom property's own value, which a read then substitutes
   test.each(["inherit", "unset", "revert", "revert-layer", "INHERIT"])(
-    "--brand: %s publishes nothing, so a read finds the ancestor's value",
+    "--brand: %s compiles to the parent's value",
     (keyword) => {
       const css = uninlinedCustomProperty(keyword);
 
-      expect(publishedVariable(css, "brand")).toEqual([]);
+      expect(publishedVariable(css, "brand")).toEqual([
+        [{}, "inherit"],
+        [{}, "inherit"],
+      ]);
       expect(compile(css).warnings()).toStrictEqual({});
     },
   );
 
-  test("--brand: initial is dropped with a warning", () => {
+  test("whitespace around the keyword leaves it the whole value", () => {
+    expect(
+      publishedVariable(uninlinedCustomProperty("  inherit  "), "brand"),
+    ).toEqual([
+      [{}, "inherit"],
+      [{}, "inherit"],
+    ]);
+  });
+
+  test("--brand: initial compiles to the guaranteed-invalid value", () => {
     const css = uninlinedCustomProperty("initial");
 
-    expect(publishedVariable(css, "brand")).toEqual([]);
-    expect(compile(css).warnings()).toStrictEqual({
-      values: { "--brand": ["initial", "initial"] },
-    });
+    expect(publishedVariable(css, "brand")).toEqual([
+      [{}, "initial"],
+      [{}, "initial"],
+    ]);
+    expect(compile(css).warnings()).toStrictEqual({});
   });
 
   test("--brand: 1px INHERIT stays declared, and its keyword is dropped with a warning", () => {
@@ -714,7 +728,10 @@ describe("CSS-wide keywords", () => {
         uninlinedCustomProperty("/* reset */ inherit"),
         "brand",
       ),
-    ).toEqual([]);
+    ).toEqual([
+      [{}, "inherit"],
+      [{}, "inherit"],
+    ]);
   });
 
   test.each(["currentcolor", "currentColor"])(
@@ -730,24 +747,28 @@ describe("CSS-wide keywords", () => {
     },
   );
 
-  test("a custom property declared once is inlined, so its keyword resolves on color", () => {
+  test("a custom property set to inherit is never inlined, because its value is its parent's", () => {
     expect(
-      compile(`.child { --brand: inherit; color: var(--brand); }`).stylesheet(),
-    ).toStrictEqual({
-      s: [
-        [
-          "child",
-          [
-            {
-              s: [1, 1],
-              d: [[[{}, "var", "__rn-css-color"], "color", 1]],
-              dv: 1,
-              v: [["__rn-css-color", [{}, "var", "__rn-css-color"]]],
-            },
-          ],
-        ],
-      ],
-    });
+      publishedVariable(
+        `.child { --brand: inherit; color: var(--brand); }`,
+        "brand",
+      ),
+    ).toEqual([[{}, "inherit"]]);
+  });
+
+  test("a custom property set to initial is inlined as the guaranteed-invalid value, so a read takes its fallback", () => {
+    expect(
+      declarationsFor(`.child { --brand: initial; color: var(--brand, red); }`),
+    ).toStrictEqual(declarationsFor(`.child { color: red; }`));
+  });
+
+  test("a read of an inlined initial with no fallback is invalid at computed-value time, so it compiles as unset", () => {
+    expect(
+      declarationsFor(`.child { --brand: initial; width: var(--brand); }`),
+    ).toStrictEqual(declarationsFor(`.child { width: unset; }`));
+    expect(
+      declarationsFor(`.child { --brand: initial; color: var(--brand); }`),
+    ).toStrictEqual(declarationsFor(`.child { color: unset; }`));
   });
 
   test.each(["INHERIT", "Inherit", "UNSET", "INITIAL"])(

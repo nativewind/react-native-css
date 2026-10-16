@@ -3,10 +3,18 @@ import {
   rootVariables,
   universalVariables,
 } from "react-native-css/native-internal";
-import { isStyleDescriptorArray } from "react-native-css/utilities";
+import {
+  isGuaranteedInvalidValue,
+  isInheritedValue,
+  isStyleDescriptorArray,
+} from "react-native-css/utilities";
 
 import { VAR_SYMBOL, type Getter } from "../reactivity";
 import type { ResolveValueOptions, SimpleResolveValue } from "./resolve";
+
+type Lookup =
+  | { readonly settled: true; readonly value: unknown }
+  | { readonly settled: false };
 
 export function varResolver(
   resolve: SimpleResolveValue,
@@ -56,40 +64,65 @@ export function varResolver(
 
   variableHistory.add(name);
 
+  const memoise = (value: unknown) => {
+    options.inlineVariables ??= { [VAR_SYMBOL]: "inline" };
+    options.inlineVariables[name] = value;
+    return value;
+  };
+
+  // A universal selector declares the variable on every element: below a class, above inheritance
+  const lookUpUniversal = (): Lookup => {
+    const universal = get(universalVariables(name));
+    if (isGuaranteedInvalidValue(universal)) {
+      return { settled: true, value: resolve(fallback) };
+    } else if (isInheritedValue(universal)) {
+      return { settled: false };
+    }
+
+    const value = resolve(universal);
+    if (variableCycles.has(name)) {
+      return { settled: true, value: resolve(fallback) };
+    }
+
+    return value === undefined
+      ? { settled: false }
+      : { settled: true, value: memoise(value) };
+  };
+
   try {
-    let value = resolve(inlineVariables?.[name] as StyleDescriptor);
-    if (variableCycles.has(name)) return resolve(fallback);
-    if (value !== undefined) {
-      options.inlineVariables ??= { [VAR_SYMBOL]: "inline" };
-      options.inlineVariables[name] = value;
+    const declared = inlineVariables?.[name] as StyleDescriptor;
+    if (isGuaranteedInvalidValue(declared)) return resolve(fallback);
 
-      return value;
+    // A custom property set to `inherit` takes its parent's value, over every declaration on the element
+    const inheriting = isInheritedValue(declared);
+
+    if (!inheriting) {
+      const value = resolve(declared);
+      if (variableCycles.has(name)) return resolve(fallback);
+      if (value !== undefined) return memoise(value);
+
+      const universal = lookUpUniversal();
+      if (universal.settled) return universal.value;
     }
 
-    // A universal selector declares the variable on this element. It has lower
-    // specificity than the element's class declarations, but beats inheritance.
-    value = resolve(get(universalVariables(name)));
-    if (variableCycles.has(name)) return resolve(fallback);
-    if (value !== undefined) {
-      options.inlineVariables ??= { [VAR_SYMBOL]: "inline" };
-      options.inlineVariables[name] = value;
-      return value;
-    }
-
-    // Guards retain the ancestor's raw descriptor, matching the context value.
-    if (name in variables) {
+    // Guards retain the ancestor's raw descriptor, matching the context value. An entry with no value is no declaration.
+    if (Object.hasOwn(variables, name) && variables[name] !== undefined) {
       renderGuards?.push(["v", name, variables[name]]);
-      value = resolve(variables[name]);
+      if (isGuaranteedInvalidValue(variables[name])) return resolve(fallback);
+      const value = resolve(variables[name]);
       return variableCycles.has(name) ? resolve(fallback) : value;
     }
 
-    value = resolve(get(rootVariables(name)));
-    if (variableCycles.has(name)) return resolve(fallback);
-    if (value !== undefined) {
-      options.inlineVariables ??= { [VAR_SYMBOL]: "inline" };
-      options.inlineVariables[name] = value;
-      return value;
+    if (inheriting) {
+      // Undeclared in the context, the parent's own value is what `*` declares on it
+      const universal = lookUpUniversal();
+      if (universal.settled) return universal.value;
     }
+
+    // At the root a keyword resolves to nothing, so the fallback applies
+    const value = resolve(get(rootVariables(name)));
+    if (variableCycles.has(name)) return resolve(fallback);
+    if (value !== undefined) return memoise(value);
 
     return resolve(fallback);
   } finally {

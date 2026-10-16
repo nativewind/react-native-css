@@ -38,7 +38,10 @@ import type {
 } from "lightningcss";
 
 import {
+  guaranteedInvalidValue,
   INHERITED_COLOR_VARIABLE,
+  inheritedColorLookup,
+  inheritedValue,
   isInheritedColorLookup,
   isStyleFunction,
 } from "../utilities";
@@ -48,6 +51,11 @@ import type {
   StyleFunction,
   StyleRule,
 } from "./compiler.types";
+import {
+  isCSSWideKeyword,
+  soleCSSWideKeyword,
+  type SoleCSSWideKeyword,
+} from "./css-wide-keywords";
 import { parseEasingFunction, parseIterationCount } from "./keyframes";
 import { toRNProperty } from "./selectors";
 import type { StylesheetBuilder } from "./stylesheet";
@@ -1018,51 +1026,6 @@ export function parseUnparsedDeclaration(
   }
 }
 
-// A fresh tuple per call, because a descriptor is owned by the rule it lands in
-function inheritedColorLookup() {
-  return [{}, "var", INHERITED_COLOR_VARIABLE] as const satisfies StyleFunction;
-}
-
-const CSS_WIDE_KEYWORDS = [
-  "inherit",
-  "initial",
-  "unset",
-  "revert",
-  "revert-layer",
-] as const;
-
-type CSSWideKeyword = (typeof CSS_WIDE_KEYWORDS)[number];
-
-function isCSSWideKeyword(keyword: string): keyword is CSSWideKeyword {
-  return (CSS_WIDE_KEYWORDS as readonly string[]).includes(keyword);
-}
-
-interface SoleCSSWideKeyword {
-  keyword: CSSWideKeyword;
-  written: string;
-}
-
-// A CSS-wide keyword is a value only on its own (css-values-4 §2.1)
-function soleCSSWideKeyword(
-  tokens: TokenOrValue[] | null | undefined,
-): SoleCSSWideKeyword | undefined {
-  const [token, ...rest] = tokens ?? [];
-
-  if (
-    token === undefined ||
-    rest.length > 0 ||
-    token.type !== "token" ||
-    token.value.type !== "ident"
-  ) {
-    return;
-  }
-
-  const written = token.value.value;
-  const keyword = written.toLowerCase();
-
-  return isCSSWideKeyword(keyword) ? { keyword, written } : undefined;
-}
-
 function parseCSSWideKeyword(
   { keyword, written }: SoleCSSWideKeyword,
   builder: StylesheetBuilder,
@@ -1079,12 +1042,11 @@ function parseCSSWideKeyword(
         ? "inherit"
         : "initial";
 
-  if (resolved === "inherit" && property === "color") {
+  if (isCustomProperty) {
+    return resolved === "inherit" ? inheritedValue() : guaranteedInvalidValue();
+  } else if (resolved === "inherit" && property === "color") {
     return inheritedColorLookup();
-  } else if (resolved === "inherit" && isCustomProperty) {
-    // An undeclared custom property already reads its ancestor's value
-    return;
-  } else if (resolved === "initial" && !isCustomProperty) {
+  } else if (resolved === "initial") {
     // The literal the runtime clears with, which leaves React Native's default to stand in for the initial value
     return "unset";
   }
@@ -1202,15 +1164,27 @@ function parseVariable(
   allowAuto?: boolean,
 ): StyleFunction {
   const name = variable.name.ident.slice(2);
-  const fallback = parseSubstitutionFallback(
-    variable.fallback,
-    builder,
-    property,
-    position,
-    allowAuto,
-  );
+  // An empty fallback substitutes nothing, which a longer value can hold (css-variables-1 §3)
+  const fallback = isEmptyFallback(variable.fallback)
+    ? []
+    : parseSubstitutionFallback(
+        variable.fallback,
+        builder,
+        property,
+        position,
+        allowAuto,
+      );
 
   return [{}, "var", fallback === undefined ? name : [name, fallback], 1];
+}
+
+function isEmptyFallback(tokens: TokenOrValue[] | null | undefined): boolean {
+  return (
+    Array.isArray(tokens) &&
+    tokens.every(
+      (token) => token.type === "token" && token.value.type === "white-space",
+    )
+  );
 }
 
 // A var() or env() defers its value to computed-value time, so a keyword behind one is not looked for

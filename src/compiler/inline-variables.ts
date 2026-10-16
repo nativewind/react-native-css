@@ -6,6 +6,7 @@ import type {
 } from "lightningcss";
 
 import type { UniqueVarInfo } from "./compiler.types";
+import { soleCSSWideKeyword } from "./css-wide-keywords";
 
 export function inlineVariables(
   stylesheet: StyleSheet,
@@ -118,11 +119,46 @@ function replaceDeclaration(
     return;
   }
 
+  if (readsGuaranteedInvalid(declaration.value.value, vars)) {
+    // css-variables-1 §3.1: the declaration is invalid at computed-value time, as if its value were `unset`, and a custom property's is the guaranteed-invalid value
+    declaration.value.value = [
+      keywordToken(declaration.property === "custom" ? "initial" : "unset"),
+    ];
+    return declaration;
+  }
+
   declaration.value.value = declaration.value.value.flatMap((part) => {
     return flattenPart(part, vars);
   });
 
   return declaration;
+}
+
+function readsGuaranteedInvalid(
+  parts: TokenOrValue[],
+  vars: Map<string, UniqueVarInfo>,
+): boolean {
+  return parts.some((part) => {
+    if (part.type === "var") {
+      const varInfo = vars.get(part.value.name.ident);
+
+      if (varInfo === undefined || varInfo.value !== undefined) {
+        return false;
+      }
+
+      return part.value.fallback
+        ? readsGuaranteedInvalid(part.value.fallback, vars)
+        : true;
+    } else if (part.type === "function") {
+      return readsGuaranteedInvalid(part.value.arguments, vars);
+    }
+
+    return false;
+  });
+}
+
+function keywordToken(keyword: "initial" | "unset"): TokenOrValue {
+  return { type: "token", value: { type: "ident", value: keyword } };
 }
 
 function flattenPart(
@@ -187,16 +223,15 @@ function flattenVar(
     return flattenPart(part, vars);
   });
 
-  // If the variable is shorthand for "initial", substitute it for undefined
-  if (
-    varInfoValue?.length === 2 &&
-    varInfoValue[0]?.type === "token" &&
-    varInfoValue[0].value.type === "ident" &&
-    varInfoValue[0].value.value === "initial" &&
-    varInfoValue[1]?.type === "token" &&
-    varInfoValue[1].value.type === "white-space"
-  ) {
+  const keyword = soleCSSWideKeyword(varInfo.value)?.keyword;
+
+  if (keyword === "initial") {
+    // css-variables-1 §2.2: the guaranteed-invalid value, which no var() substitutes
     varInfoValue = undefined;
+  } else if (keyword !== undefined) {
+    // The parent's value, which only the runtime knows
+    vars.delete(name);
+    return;
   }
 
   varInfo = {

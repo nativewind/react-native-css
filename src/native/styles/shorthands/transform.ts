@@ -12,9 +12,12 @@ export const transform: StyleFunctionResolver = (
   const transforms = resolveValue(transformDescriptor[2]);
 
   if (Array.isArray(transforms)) {
-    return transforms.some(resetsToNone)
+    // An empty fallback substitutes no transform
+    const entries: unknown[] = transforms.flat();
+
+    return entries.some(resetsToNone)
       ? undefined
-      : (transforms.filter((transform) => transform !== undefined) as unknown);
+      : entries.filter((transform) => transform !== undefined);
   } else if (transforms) {
     // If it's a single transform, wrap it in an array
     return [transforms];

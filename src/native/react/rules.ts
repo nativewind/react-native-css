@@ -7,7 +7,7 @@ import type {
 import { StyleCollection } from "react-native-css/native-internal";
 import {
   assignPublishedColor,
-  assignRuleVariables,
+  assignSubtreeVariables,
 } from "react-native-css/utilities";
 
 import { testRule } from "../conditions";
@@ -145,7 +145,8 @@ export function updateRules(
         }
 
         publishedColor =
-          assignRuleVariables(variables, rule.v) ?? publishedColor;
+          assignSubtreeVariables(variables, rule.v, inheritedVariables) ??
+          publishedColor;
       }
 
       if (rule.c) {
