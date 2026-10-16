@@ -145,8 +145,10 @@ export function parseMediaFeatureValue(
   builder: StylesheetBuilder,
 ): StyleDescriptor {
   switch (value.type) {
-    case "boolean":
     case "ident":
+      // A keyword is ASCII case-insensitive (css-values-4 §4.1), so `DARK` names the scheme `dark` does
+      return value.value.replace(/[A-Z]/g, (letter) => letter.toLowerCase());
+    case "boolean":
     case "integer":
     case "number":
       return value.value;

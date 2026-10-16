@@ -1,6 +1,7 @@
 /* eslint-disable */
 import { createContext } from "react";
 import {
+  AccessibilityInfo,
   Appearance,
   Dimensions,
   type ColorSchemeName,
@@ -251,6 +252,28 @@ export const colorScheme = observable<ColorSchemeName | null | undefined>(
   Appearance.getColorScheme(),
 );
 Appearance.addChangeListener((event) => colorScheme.set(event.colorScheme));
+
+/** Reduce Motion ************************************************************/
+
+// AccessibilityInfo answers asynchronously, so motion counts as enabled until it does; Android reports its animator scale (react-native#31221)
+export const reduceMotion = observable(false);
+
+// Every media feature imports this module, so a platform without AccessibilityInfo must not throw here
+try {
+  AccessibilityInfo.isReduceMotionEnabled()
+    .then((enabled) => reduceMotion.set(enabled))
+    .catch(() => undefined);
+} catch {
+  // Motion stays enabled
+}
+
+try {
+  AccessibilityInfo.addEventListener("reduceMotionChanged", (enabled) =>
+    reduceMotion.set(enabled),
+  );
+} catch {
+  // The flag keeps the value the seed resolved to
+}
 
 /** Containers ****************************************************************/
 
