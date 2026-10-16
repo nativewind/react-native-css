@@ -193,6 +193,8 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
     visitor: firstPassVisitor,
     filename: options.filename ?? "style.css",
     projectRoot: options.projectRoot ?? process.cwd(),
+    // A rule or declaration that fails to parse is dropped and its siblings survive (css-syntax-3 §5)
+    errorRecovery: true,
   });
 
   if (isLoggerEnabled) {
@@ -245,6 +247,7 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
     visitor,
     filename: options.filename ?? "style.css",
     projectRoot: options.projectRoot ?? process.cwd(),
+    errorRecovery: true,
   });
 
   reportSyntaxWarnings(builder, firstPassWarnings);
