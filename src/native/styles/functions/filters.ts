@@ -1,7 +1,5 @@
-import { isStyleDescriptorArray } from "react-native-css/utilities";
-
 import type { StyleFunctionResolver } from "../resolve";
-import { shorthandHandler } from "../shorthands/_handler";
+import { readShadows, type ShadowGrammar } from "../shorthands/_shadow";
 
 export const blur: StyleFunctionResolver = (resolveValue, value) => {
   const args = resolveValue(value[2]);
@@ -66,36 +64,24 @@ export const opacity: StyleFunctionResolver = (resolveValue, value) => {
   };
 };
 
-const color = ["color", "color"] as const;
-const offsetX = ["offsetX", "number"] as const;
-const offsetY = ["offsetY", "number"] as const;
-const standardDeviation = ["standardDeviation", "number"] as const;
+const dropShadowGrammar: ShadowGrammar = { maxLengths: 3, acceptsInset: false };
 
-const handler = shorthandHandler(
-  [
-    [offsetX, offsetY, standardDeviation, color],
-    [color, offsetX, offsetY],
-    [color, offsetX, offsetY, standardDeviation],
-    [offsetX, offsetY, color],
-    [offsetX, offsetY, standardDeviation, color],
-  ],
-  [],
-  "object",
-);
+export const dropShadow: StyleFunctionResolver = (resolveValue, func) => {
+  const [shadow, ...others] =
+    readShadows(resolveValue(func[2]), dropShadowGrammar, resolveValue) ?? [];
 
-export const dropShadow: StyleFunctionResolver = (
-  resolveValue,
-  func,
-  get,
-  options,
-) => {
-  const args = resolveValue(func[2]);
+  if (shadow === undefined || others.length > 0) {
+    return;
+  }
 
-  return isStyleDescriptorArray(args)
-    ? {
-        dropShadow: handler(resolveValue, args, get, options),
-      }
-    : undefined;
+  return {
+    dropShadow: {
+      offsetX: shadow.offsetX,
+      offsetY: shadow.offsetY,
+      standardDeviation: shadow.blurRadius,
+      color: shadow.color,
+    },
+  };
 };
 
 /** CSS variables may expand to multiple filters; native filter arrays must be flat. */
