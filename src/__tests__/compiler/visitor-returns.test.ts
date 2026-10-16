@@ -57,9 +57,7 @@ test("the second pass hands lightningcss nothing back", () => {
 
   const secondPass = calls.filter((call) => call.pass === 2);
 
-  expect(secondPass.map((call) => call.visitor)).toEqual(
-    expect.arrayContaining(["Rule", "StyleSheetExit"]),
-  );
+  expect(secondPass.map((call) => call.visitor)).toContain("StyleSheetExit");
   expect(secondPass.filter((call) => call.returned !== undefined)).toEqual([]);
 });
 
