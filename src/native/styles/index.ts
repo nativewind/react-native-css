@@ -13,6 +13,7 @@ import {
   observable,
   VAR_SYMBOL,
   type Effect,
+  type Getter,
   type VariableContextValue,
 } from "../reactivity";
 import { calculateProps } from "./calculate-props";
@@ -186,6 +187,7 @@ export const stylesFamily = family(
 
 export function getStyledProps(
   state: ComponentState,
+  read: Getter,
   inline: Record<string, any> | undefined | null,
   adaptProps: (
     props: Record<string, any> | undefined,
@@ -193,7 +195,7 @@ export function getStyledProps(
 ) {
   let result: Record<string, any> | undefined;
 
-  const styledProps = state.stylesObs?.get(state.styleEffect);
+  const styledProps = state.stylesObs ? read(state.stylesObs) : undefined;
 
   // Each config merges a complete props object. Preserve its full target path
   // before the next config merges unrelated inline props over that object.

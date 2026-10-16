@@ -4,6 +4,7 @@ import {
   Fragment,
   useContext,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type ComponentType,
@@ -18,6 +19,8 @@ import {
   cleanupEffect,
   ContainerContext,
   hasChangedDependencies,
+  observeReads,
+  recordReads,
   type ContainerContextValue,
   type Effect,
   type Getter,
@@ -118,16 +121,30 @@ export function useNativeCss(
   // Distinguishes a fresh mount from an effect replay (Activity, StrictMode)
   const hasCommittedRef = useRef(false);
 
+  // React may discard a render, so a render subscribes nothing and its commit subscribes what it read
+  const styleReads = recordReads();
+
+  useLayoutEffect(() => {
+    if (observeReads(state.styleEffect, styleReads.reads) === "moved") {
+      state.styleEffect.run();
+    }
+  });
+
+  useLayoutEffect(
+    () => () => {
+      cleanupEffect(state.styleEffect);
+    },
+    [state.styleEffect],
+  );
+
   useEffect(() => {
     // Reconnect subscriptions after React replays an effect setup.
     if (state.ruleEffect.observers.size === 0) {
       if (hasCommittedRef.current || hasChangedDependencies(state.ruleEffect)) {
         // Replay, or conditions changed since the initializer: recalculate.
         state.ruleEffect.run();
-        state.styleEffect.run();
       } else {
         // Fresh mount: resubscribe to the initializer's dependencies.
-        // styleEffect resubscribes itself during render.
         for (const observable of state.ruleEffect.dependencies ?? []) {
           observable.get(state.ruleEffect);
         }
@@ -136,9 +153,8 @@ export function useNativeCss(
     hasCommittedRef.current = true;
     return () => {
       cleanupEffect(state.ruleEffect);
-      cleanupEffect(state.styleEffect);
     };
-  }, [state.ruleEffect, state.styleEffect]);
+  }, [state.ruleEffect]);
 
   // Check if our derived state has changed (e.g the className prop)
   if (
@@ -164,6 +180,7 @@ export function useNativeCss(
 
   let props = getStyledProps(
     state,
+    styleReads.read,
     originalProps,
     type === Image ? adaptImageProps : undefined,
   );

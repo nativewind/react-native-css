@@ -241,17 +241,13 @@ export function updateRules(
   // Generate a StyleObservable for this unique set of rules / variables
   const stylesObs = stylesFamily(generateStateHash(state, rules), rules);
 
-  // Get the guards without subscribing to the observable
-  // We will subscribe within the render using the StyleEffect
+  // Get the guards without subscribing to the observable; the style effect subscribes when the component commits
   guards.push(...stylesObs.get().guards);
 
   // If these are the same styles with no inline variables, we can skip the update
   if (state.stylesObs === stylesObs && !inlineVariables.size) {
     return state;
   }
-
-  // Remove this component from the old observer
-  state.stylesObs?.unsubscribe(state.styleEffect);
 
   return {
     ...state,
