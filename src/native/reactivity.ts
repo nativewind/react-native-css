@@ -28,9 +28,9 @@ export type Observable<Value, Arg = Value> = {
 type Read<Value, Arg> = (get: Getter, arg?: Arg) => Value;
 export type Getter = <Value>(observable: Observable<Value, any>) => Value;
 
-export const observableBatch: {
+export type ObservableBatch = {
   current?: Set<Effect>;
-} = {};
+};
 
 export function observable<Value, Arg = Value>(
   init: Value | Read<Value, Arg>,
@@ -217,42 +217,7 @@ export type VariableContextValue = Record<string, StyleDescriptor> & {
   [VAR_SYMBOL]: true;
 };
 
-/** Pseudo Classes ************************************************************/
-
-export const hoverFamily = weakFamily(() => observable(false));
-export const activeFamily = weakFamily(() => observable<boolean>(false));
-export const focusFamily = weakFamily(() => observable<boolean>(false));
-
-/** Dimensions ****************************************************************/
-
-export const dimensions = observable(Dimensions.get("window"));
-export const vw = observable<number>(
-  (read, value) => value ?? read(dimensions)?.width,
-);
-export const vh = observable<number>(
-  (read, value) => value ?? read(dimensions)?.height,
-);
-
-Dimensions.addEventListener("change", ({ window }) => {
-  observableBatch.current = new Set();
-  vw.set(window.width);
-  vh.set(window.height);
-
-  for (const effect of observableBatch.current) {
-    effect.run();
-  }
-
-  observableBatch.current = undefined;
-});
-
-/** Color Scheme **************************************************************/
-
-export const colorScheme = observable<ColorSchemeName | null | undefined>(
-  Appearance.getColorScheme(),
-);
-Appearance.addChangeListener((event) => colorScheme.set(event.colorScheme));
-
-/** Containers ****************************************************************/
+/******************************* Process globals ******************************/
 
 export type ContainerContextValue = Record<
   string,
@@ -261,25 +226,91 @@ export type ContainerContextValue = Record<
     props: Record<string, unknown> | null | undefined;
   }
 >;
-export const ContainerContext = createContext<ContainerContextValue>({});
 
-export const containerLayoutFamily = weakFamily(() => {
-  return observable<LayoutRectangle>({
-    x: 0,
-    y: 0,
-    width: 0,
-    height: 0,
-  });
-});
+// The exports map sends import and require to two builds, so one app can evaluate this module twice; one pinned object keeps a single copy of every observable, context and listener
+function createReactivityState() {
+  const observableBatch: ObservableBatch = {};
 
-export const containerWidthFamily = weakFamily((key) => {
-  return observable((read) => {
-    return read(containerLayoutFamily(key))?.width || 0;
-  });
-});
+  const dimensions = observable(Dimensions.get("window"));
+  const vw = observable<number>(
+    (read, value) => value ?? read(dimensions)?.width,
+  );
+  const vh = observable<number>(
+    (read, value) => value ?? read(dimensions)?.height,
+  );
 
-export const containerHeightFamily = weakFamily((key) => {
-  return observable((read) => {
-    return read(containerLayoutFamily(key))?.height || 0;
+  Dimensions.addEventListener("change", ({ window }) => {
+    observableBatch.current = new Set();
+    vw.set(window.width);
+    vh.set(window.height);
+
+    for (const effect of observableBatch.current) {
+      effect.run();
+    }
+
+    observableBatch.current = undefined;
   });
-});
+
+  const colorScheme = observable<ColorSchemeName | null | undefined>(
+    Appearance.getColorScheme(),
+  );
+  Appearance.addChangeListener((event) => colorScheme.set(event.colorScheme));
+
+  const containerLayoutFamily = weakFamily(() => {
+    return observable<LayoutRectangle>({
+      x: 0,
+      y: 0,
+      width: 0,
+      height: 0,
+    });
+  });
+
+  return {
+    observableBatch,
+
+    hoverFamily: weakFamily(() => observable(false)),
+    activeFamily: weakFamily(() => observable<boolean>(false)),
+    focusFamily: weakFamily(() => observable<boolean>(false)),
+
+    dimensions,
+    vw,
+    vh,
+    colorScheme,
+
+    ContainerContext: createContext<ContainerContextValue>({}),
+    containerLayoutFamily,
+    containerWidthFamily: weakFamily((key: WeakKey) => {
+      return observable((read) => {
+        return read(containerLayoutFamily(key))?.width || 0;
+      });
+    }),
+    containerHeightFamily: weakFamily((key: WeakKey) => {
+      return observable((read) => {
+        return read(containerLayoutFamily(key))?.height || 0;
+      });
+    }),
+  };
+}
+
+declare global {
+  var __react_native_css_reactivity:
+    | ReturnType<typeof createReactivityState>
+    | undefined;
+}
+
+globalThis.__react_native_css_reactivity ??= createReactivityState();
+
+export const {
+  observableBatch,
+  hoverFamily,
+  activeFamily,
+  focusFamily,
+  dimensions,
+  vw,
+  vh,
+  colorScheme,
+  ContainerContext,
+  containerLayoutFamily,
+  containerWidthFamily,
+  containerHeightFamily,
+} = globalThis.__react_native_css_reactivity;
