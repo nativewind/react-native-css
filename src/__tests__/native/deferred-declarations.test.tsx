@@ -150,7 +150,7 @@ describe("a deferred shorthand keeps no key a later declaration set", () => {
     ],
     [
       "text-shadow: var() then text-shadow, across rules",
-      ".earlier { --s: 2px 2px blue; text-shadow: var(--s); } .my-class { text-shadow: 1px 1px red; }",
+      ".earlier { --s: 2px 2px #00f; text-shadow: var(--s); } .my-class { text-shadow: 1px 1px red; }",
       "earlier my-class",
       {
         textShadowColor: "#f00",
@@ -160,10 +160,10 @@ describe("a deferred shorthand keeps no key a later declaration set", () => {
     ],
     [
       "text-shadow then text-shadow: var(), across rules",
-      ".earlier { text-shadow: 1px 1px red; } .my-class { --s: 2px 2px blue; text-shadow: var(--s); }",
+      ".earlier { text-shadow: 1px 1px red; } .my-class { --s: 2px 2px #00f; text-shadow: var(--s); }",
       "earlier my-class",
       {
-        textShadowColor: "blue",
+        textShadowColor: "#00f",
         textShadowRadius: 0,
         textShadowOffset: { width: 2, height: 2 },
       },
