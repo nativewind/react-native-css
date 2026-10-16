@@ -36,6 +36,22 @@ describe("Typography - Font Family", () => {
     });
   });
 
+  test.each([
+    ["font-serif", "--font-serif", "ui-serif"],
+    ["font-mono", "--font-mono", "ui-monospace"],
+  ])("%s with an overridden %s", async (className, variable, family) => {
+    // A second definition stops the compiler inlining the variable, so the stack reaches render
+    expect(
+      await renderSimple({
+        className,
+        sourceInline: [className],
+        extraCss: `.dark { ${variable}: Georgia, serif; }`,
+      }),
+    ).toStrictEqual({
+      props: { style: { fontFamily: family } },
+    });
+  });
+
   test("font-sans overridden at :root", async () => {
     expect(
       await renderSimple({
