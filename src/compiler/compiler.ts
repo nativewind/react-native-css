@@ -22,7 +22,6 @@ import type {
   ContainerQuery,
   StyleDescriptor,
   StyleRuleMapping,
-  UniqueVarInfo,
 } from "./compiler.types";
 import { parseContainerCondition } from "./container-query";
 import {
@@ -85,8 +84,6 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
    * Due to the above issue, we run lightningcss twice
    */
 
-  const vars = new Map<string, UniqueVarInfo>();
-
   // Determine the effective rem multiplier for compile-time inlining.
   // If inlineRem is explicitly set, use that. Otherwise, scan for
   // :root { font-size: Npx } in the CSS to allow CSS-based configuration.
@@ -148,25 +145,8 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
   if (options.inlineVariables !== false) {
     const exclusionList: string[] = options.inlineVariables?.exclude ?? [];
 
-    firstPassVisitor.Declaration = (decl) => {
-      if (
-        decl.property === "custom" &&
-        decl.value.name.startsWith("--") &&
-        !exclusionList.includes(decl.value.name)
-      ) {
-        const entry = vars.get(decl.value.name) ?? {
-          count: 0,
-          value: [
-            ...decl.value.value,
-            { type: "token", value: { type: "white-space", value: " " } },
-          ],
-        };
-        entry.count++;
-        vars.set(decl.value.name, entry);
-      }
-    };
     firstPassVisitor.StyleSheetExit = (sheet) => {
-      return inlineVariables(sheet, vars);
+      return inlineVariables(sheet, exclusionList);
     };
   }
 

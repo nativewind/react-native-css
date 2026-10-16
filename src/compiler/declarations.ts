@@ -36,7 +36,7 @@ import type {
   UnresolvedColor,
 } from "lightningcss";
 
-import { isStyleFunction } from "../utilities";
+import { isStyleFunction, isTransparentColor } from "../utilities";
 import { isMappingProperty } from "./atRules";
 import type {
   StyleDescriptor,
@@ -1078,6 +1078,26 @@ export function parseCustomDeclaration(
   }
 }
 
+function isRatioGroup(
+  group: readonly unknown[],
+): group is [number, "/", number] {
+  return (
+    group.length === 3 &&
+    typeof group[0] === "number" &&
+    group[1] === "/" &&
+    typeof group[2] === "number"
+  );
+}
+
+// The value parseAspectRatio produces, so folding a variable that holds a ratio is invisible
+function ratioDescriptor([width, , height]: [
+  number,
+  "/",
+  number,
+]): StyleDescriptor {
+  return width === height ? 1 : `${width}/${height}`;
+}
+
 export function reduceParseUnparsed(
   tokenOrValues: TokenOrValue[],
   builder: StylesheetBuilder,
@@ -1123,17 +1143,8 @@ export function reduceParseUnparsed(
       } else {
         return [first];
       }
-    } else if (
-      // This is a special case for <ratio> values
-      group.includes("/") &&
-      group.every((item) =>
-        typeof item === "string" && item === "/"
-          ? item
-          : typeof item === "number",
-      )
-    ) {
-      // eslint-disable-next-line @typescript-eslint/no-base-to-string
-      return [group.join(" ")];
+    } else if (isRatioGroup(group)) {
+      return [ratioDescriptor(group)];
     } else {
       return [group];
     }
@@ -1198,7 +1209,8 @@ export function parseUnparsed(
       property,
       allowAuto,
     );
-    if (!args) return;
+    // `0` and `false` are values, not absences
+    if (args === undefined) return;
     if (Array.isArray(args) && args.length === 1) {
       return args[0];
     } else if (
@@ -2459,11 +2471,18 @@ export function parseBoxShadow(
   { value }: DeclarationType<"box-shadow">,
   builder: StylesheetBuilder,
 ) {
-  for (const [index, shadow] of value.entries()) {
-    builder.addDescriptor(
-      `&.boxShadow.[${index}].color`,
-      parseColor(shadow.color, builder),
-    );
+  const shadows = value
+    .map((shadow) => ({ shadow, color: parseColor(shadow.color, builder) }))
+    .filter(({ color }) => !isTransparentColor(color));
+
+  // A transparent shadow paints nothing, so it is dropped as the runtime drops one it reads from a variable
+  if (shadows.length === 0 && value.length > 0) {
+    builder.addDescriptor("box-shadow", [{}, "boxShadow", [], 1]);
+    return;
+  }
+
+  for (const [index, { shadow, color }] of shadows.entries()) {
+    builder.addDescriptor(`&.boxShadow.[${index}].color`, color);
     builder.addDescriptor(
       `&.boxShadow.[${index}].offsetX`,
       parseLength(shadow.xOffset, builder),
