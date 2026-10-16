@@ -107,7 +107,7 @@ export const filter: StyleFunctionResolver = (resolveValue, descriptor) => {
     if (filters.some(resetsToNone)) return null;
     return filters.filter((entry) => entry !== undefined);
   }
-  if (value === undefined || value === "initial") return;
+  if (value === undefined) return;
   if (resetsToNone(value)) return null;
   return typeof value === "string" ? value : [value];
 };
