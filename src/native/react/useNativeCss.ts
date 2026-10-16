@@ -3,7 +3,6 @@ import {
   createElement,
   Fragment,
   useContext,
-  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -18,12 +17,12 @@ import { testGuards, type RenderGuard } from "../conditions/guards";
 import {
   cleanupEffect,
   ContainerContext,
-  hasChangedDependencies,
   observeReads,
   recordReads,
   type ContainerContextValue,
   type Effect,
   type Getter,
+  type RenderReads,
   type VariableContextValue,
 } from "../reactivity";
 import { animatedComponentFamily } from "../reanimated";
@@ -43,6 +42,8 @@ export type ComponentState = {
   /** Reactive tracking */
   ruleEffect: Effect;
   ruleEffectGetter: Getter;
+  /** What the rule pass that produced this state read, for the commit to observe */
+  ruleReads: RenderReads;
   styleEffect: Effect;
 
   /** The components props */
@@ -82,7 +83,14 @@ export function useNativeCss(
      */
     const ruleEffect: Effect = {
       observers: new Set(),
-      run: () => setState((state) => updateRules(state)),
+      run: () => {
+        // Not an updater: React computes one eagerly from its last rendered state, which a render it discards still writes
+        const committed = committedState.current;
+        const next = updateRules(committed);
+        if (next !== committed) {
+          setState(next);
+        }
+      },
     };
 
     /**
@@ -96,10 +104,11 @@ export function useNativeCss(
       run: () => setState((state) => ({ ...state })),
     };
 
-    const initialState = updateRules(
+    return updateRules(
       {
         ruleEffect,
         ruleEffectGetter: (observable) => observable.get(ruleEffect),
+        ruleReads: [],
         styleEffect,
         configs,
         inheritedContainers,
@@ -112,17 +121,21 @@ export function useNativeCss(
       false,
       false,
     );
-    // State initializers may be discarded by React StrictMode. Subscribe once
-    // the component commits instead of retaining an abandoned initializer.
-    cleanupEffect(ruleEffect);
-    return initialState;
   });
-
-  // Distinguishes a fresh mount from an effect replay (Activity, StrictMode)
-  const hasCommittedRef = useRef(false);
+  const committedState = useRef(state);
 
   // React may discard a render, so a render subscribes nothing and its commit subscribes what it read
   const styleReads = recordReads();
+
+  useLayoutEffect(() => {
+    committedState.current = state;
+  });
+
+  useLayoutEffect(() => {
+    if (observeReads(state.ruleEffect, state.ruleReads) === "moved") {
+      state.ruleEffect.run();
+    }
+  }, [state.ruleEffect, state.ruleReads]);
 
   useLayoutEffect(() => {
     if (observeReads(state.styleEffect, styleReads.reads) === "moved") {
@@ -132,29 +145,11 @@ export function useNativeCss(
 
   useLayoutEffect(
     () => () => {
+      cleanupEffect(state.ruleEffect);
       cleanupEffect(state.styleEffect);
     },
-    [state.styleEffect],
+    [state.ruleEffect, state.styleEffect],
   );
-
-  useEffect(() => {
-    // Reconnect subscriptions after React replays an effect setup.
-    if (state.ruleEffect.observers.size === 0) {
-      if (hasCommittedRef.current || hasChangedDependencies(state.ruleEffect)) {
-        // Replay, or conditions changed since the initializer: recalculate.
-        state.ruleEffect.run();
-      } else {
-        // Fresh mount: resubscribe to the initializer's dependencies.
-        for (const observable of state.ruleEffect.dependencies ?? []) {
-          observable.get(state.ruleEffect);
-        }
-      }
-    }
-    hasCommittedRef.current = true;
-    return () => {
-      cleanupEffect(state.ruleEffect);
-    };
-  }, [state.ruleEffect]);
 
   // Check if our derived state has changed (e.g the className prop)
   if (

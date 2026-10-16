@@ -17,6 +17,7 @@ import {
   StyleCollection,
 } from "react-native-css/native-internal";
 
+import * as rulesModule from "../../native/react/rules";
 import * as useNativeCssModule from "../../native/react/useNativeCss";
 import { cleanupEffect, observable, vh, vw } from "../../native/reactivity";
 import * as calculatePropsModule from "../../native/styles/calculate-props";
@@ -207,6 +208,41 @@ function NeverResolves() {
   return use(neverResolves);
 }
 
+function SampleBesideSuspense({
+  className,
+  suspended,
+}: {
+  className: string;
+  suspended: boolean;
+}) {
+  return (
+    <>
+      <View testID="sample" className={className} />
+      <Suspense fallback={null}>
+        {suspended ? <NeverResolves /> : null}
+      </Suspense>
+    </>
+  );
+}
+
+async function renderDiscardedClassChange(
+  committedClassName: string,
+  discardedClassName: string,
+) {
+  const screen = render(
+    <SampleBesideSuspense className={committedClassName} suspended={false} />,
+  );
+  await act(() => {
+    startTransition(() => {
+      screen.rerender(
+        <SampleBesideSuspense className={discardedClassName} suspended />,
+      );
+    });
+    return Promise.resolve();
+  });
+  return screen;
+}
+
 test("a render React discards leaves no subscription and takes no later update", async () => {
   registerCSS(".audit-discarded-render { width: 10vw; }");
   const original = vw.get();
@@ -256,32 +292,11 @@ test("a render React discards leaves the committed element subscribed", async ()
     ".audit-kept-first { width: 10vw; } .audit-kept-second { width: 20px; }",
   );
   const original = vw.get();
-  function Sample({
-    className,
-    suspended,
-  }: {
-    className: string;
-    suspended: boolean;
-  }) {
-    return (
-      <>
-        <View testID="sample" className={className} />
-        <Suspense fallback={null}>
-          {suspended ? <NeverResolves /> : null}
-        </Suspense>
-      </>
-    );
-  }
-  const screen = render(
-    <Sample className="audit-kept-first" suspended={false} />,
+  const screen = await renderDiscardedClassChange(
+    "audit-kept-first",
+    "audit-kept-second",
   );
   try {
-    await act(() => {
-      startTransition(() => {
-        screen.rerender(<Sample className="audit-kept-second" suspended />);
-      });
-      return Promise.resolve();
-    });
     expect(screen.getByTestId("sample").props.style.width).toBe(original / 10);
     await act(() => {
       vw.set(1000);
@@ -317,6 +332,76 @@ function setViewport(width: number, height: number) {
     vh.set(height);
   });
 }
+
+test("a class change React discards leaves the committed element following its rules", async () => {
+  registerCSS(`
+    .audit-rule-kept-first { height: 5px; }
+    @media (min-width: 600px) { .audit-rule-kept-first { width: 10px; } }
+    .audit-rule-kept-second { width: 20px; }
+  `);
+  const originalWidth = vw.get();
+  const originalHeight = vh.get();
+  setViewport(500, 500);
+  const screen = await renderDiscardedClassChange(
+    "audit-rule-kept-first",
+    "audit-rule-kept-second",
+  );
+  try {
+    expect(screen.getByTestId("sample").props.style).toStrictEqual({
+      height: 5,
+    });
+    await act(() => {
+      vw.set(700);
+      return Promise.resolve();
+    });
+    expect(screen.getByTestId("sample").props.style).toStrictEqual({
+      height: 5,
+      width: 10,
+    });
+  } finally {
+    screen.unmount();
+    setViewport(originalWidth, originalHeight);
+  }
+});
+
+test("a class change React discards leaves no subscription to the discarded rules", async () => {
+  registerCSS(`
+    .audit-rule-gone-first { width: 10px; }
+    @media (min-width: 600px) { .audit-rule-gone-second { width: 20px; } }
+  `);
+  const discardedRules = StyleCollection.styles("audit-rule-gone-second");
+  const viewportObservers = vw.observers.size;
+  const screen = await renderDiscardedClassChange(
+    "audit-rule-gone-first",
+    "audit-rule-gone-second",
+  );
+  try {
+    expect(screen.getByTestId("sample").props.style).toStrictEqual({
+      width: 10,
+    });
+    expect(discardedRules.observers.size).toBe(0);
+    expect(vw.observers.size).toBe(viewportObservers);
+  } finally {
+    screen.unmount();
+  }
+});
+
+test("mounting an element runs its rule pass once", () => {
+  registerCSS(".audit-single-rule-pass { width: 10px; }");
+  const rulePasses = jest.spyOn(rulesModule, "updateRules");
+  try {
+    const screen = render(
+      <View testID="sample" className="audit-single-rule-pass" />,
+    );
+    expect(screen.getByTestId("sample").props.style).toStrictEqual({
+      width: 10,
+    });
+    expect(rulePasses).toHaveBeenCalledTimes(1);
+    screen.unmount();
+  } finally {
+    rulePasses.mockRestore();
+  }
+});
 
 const ELEMENT_MOUNTS = [
   ["mounted once", (element: ReactElement) => render(element)],
@@ -367,3 +452,132 @@ test.each(ELEMENT_MOUNTS)(
     }
   },
 );
+
+test("a viewport change between render and commit reaches the element's rules once it commits", () => {
+  registerCSS(`
+    .audit-rule-window { height: 5px; }
+    @media (min-width: 600px) { .audit-rule-window { width: 10px; } }
+  `);
+  const originalWidth = vw.get();
+  const originalHeight = vh.get();
+  setViewport(500, 500);
+  const errors = captureConsoleErrors();
+  function ResizeDuringRender() {
+    vw.set(700);
+    return null;
+  }
+  try {
+    const screen = render(
+      <>
+        <View testID="sample" className="audit-rule-window" />
+        <ResizeDuringRender />
+      </>,
+    );
+    expect(errors.messages()).toEqual([]);
+    expect(screen.getByTestId("sample").props.style).toStrictEqual({
+      height: 5,
+      width: 10,
+    });
+    screen.unmount();
+  } finally {
+    errors.restore();
+    setViewport(originalWidth, originalHeight);
+  }
+});
+
+test("a rule pass that reads more after a change follows what it read", () => {
+  registerCSS(`
+    .audit-rule-reads-more { height: 5px; }
+    @media (min-width: 600px) and (min-height: 600px) {
+      .audit-rule-reads-more { width: 10px; }
+    }
+  `);
+  const originalWidth = vw.get();
+  const originalHeight = vh.get();
+  setViewport(500, 500);
+  const screen = render(
+    <View testID="sample" className="audit-rule-reads-more" />,
+  );
+  try {
+    act(() => {
+      vw.set(700);
+    });
+    expect(screen.getByTestId("sample").props.style).toStrictEqual({
+      height: 5,
+    });
+    act(() => {
+      vh.set(700);
+    });
+    expect(screen.getByTestId("sample").props.style).toStrictEqual({
+      height: 5,
+      width: 10,
+    });
+  } finally {
+    screen.unmount();
+    setViewport(originalWidth, originalHeight);
+  }
+});
+
+test("StrictMode rule consumers remain reactive and release subscriptions", () => {
+  registerCSS(`
+    .audit-strict-rule { height: 5px; }
+    @media (min-width: 600px) { .audit-strict-rule { width: 10px; } }
+  `);
+  const rules = StyleCollection.styles("audit-strict-rule");
+  const originalWidth = vw.get();
+  const originalHeight = vh.get();
+  setViewport(500, 500);
+  const viewportObservers = vw.observers.size;
+  const screen = render(
+    <StrictMode>
+      <View testID="sample" className="audit-strict-rule" />
+    </StrictMode>,
+  );
+  try {
+    act(() => {
+      vw.set(700);
+    });
+    expect(screen.getByTestId("sample").props.style).toStrictEqual({
+      height: 5,
+      width: 10,
+    });
+  } finally {
+    screen.unmount();
+    expect(rules.observers.size).toBe(0);
+    expect(vw.observers.size).toBe(viewportObservers);
+    setViewport(originalWidth, originalHeight);
+  }
+});
+
+test("an element Activity hid follows rules that changed while it was hidden", async () => {
+  registerCSS(`
+    .audit-activity-rule { height: 5px; }
+    @media (min-width: 600px) { .audit-activity-rule { width: 10px; } }
+  `);
+  const originalWidth = vw.get();
+  const originalHeight = vh.get();
+  setViewport(500, 500);
+  function Sample({ mode }: { mode: "visible" | "hidden" }) {
+    return (
+      <Activity mode={mode}>
+        <View testID="sample" className="audit-activity-rule" />
+      </Activity>
+    );
+  }
+  const screen = await renderAsync(<Sample mode="visible" />);
+  try {
+    await screen.rerenderAsync(<Sample mode="hidden" />);
+    await act(() => {
+      vw.set(700);
+      return Promise.resolve();
+    });
+    await screen.rerenderAsync(<Sample mode="visible" />);
+    expect(screen.getByTestId("sample").props.style).toStrictEqual({
+      height: 5,
+      width: 10,
+    });
+  } finally {
+    await screen.unmountAsync();
+    setViewport(originalWidth, originalHeight);
+  }
+});

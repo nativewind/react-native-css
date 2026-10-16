@@ -8,13 +8,15 @@ import type { RenderGuard } from "../conditions/guards";
 import { getDeepPath } from "../objects";
 import {
   activeFamily,
-  cleanupEffect,
   containerLayoutFamily,
   focusFamily,
   hoverFamily,
+  readSameObservables,
+  recordReads,
   VAR_SYMBOL,
   weakFamily,
   type ContainerContextValue,
+  type Getter,
   type VariableContextValue,
 } from "../reactivity";
 import { stylesFamily } from "../styles";
@@ -31,7 +33,8 @@ export function updateRules(
   forceUpdate = false,
   isRerender = true,
 ): ComponentState {
-  cleanupEffect(state.ruleEffect);
+  // React may discard the render this pass runs in, so it subscribes nothing and the commit observes what it read
+  const ruleReads = recordReads();
   const guards: RenderGuard[] = [];
   const rules = new Set<StyleRule | InlineVariable | VariableContextValue>();
   if (forceUpdate) {
@@ -63,9 +66,7 @@ export function updateRules(
     if (typeof source === "string") {
       const classNames = source.split(/\s+/);
       for (const className of classNames) {
-        styleRuleSet.push(
-          ...StyleCollection.styles(className).get(state.ruleEffect),
-        );
+        styleRuleSet.push(...ruleReads.read(StyleCollection.styles(className)));
       }
     }
 
@@ -84,7 +85,7 @@ export function updateRules(
             INLINE_RULE_SYMBOL in item &&
             typeof item[INLINE_RULE_SYMBOL] === "string"
           ) {
-            pushInlineRule(state, item, styleRuleSet);
+            pushInlineRule(ruleReads.read, item, styleRuleSet);
           }
         }
       } else if (
@@ -98,7 +99,7 @@ export function updateRules(
         INLINE_RULE_SYMBOL in target &&
         typeof target[INLINE_RULE_SYMBOL] === "string"
       ) {
-        pushInlineRule(state, target, styleRuleSet);
+        pushInlineRule(ruleReads.read, target, styleRuleSet);
       }
     }
 
@@ -122,6 +123,7 @@ export function updateRules(
         !testRule(
           rule,
           state.ruleEffectGetter,
+          ruleReads.read,
           currentProps,
           guards,
           inheritedContainers,
@@ -217,6 +219,7 @@ export function updateRules(
       pressable,
       variables,
       containers,
+      ruleReads: ruleReads.reads,
     };
   }
 
@@ -246,7 +249,9 @@ export function updateRules(
 
   // If these are the same styles with no inline variables, we can skip the update
   if (state.stylesObs === stylesObs && !inlineVariables.size) {
-    return state;
+    return readSameObservables(state.ruleReads, ruleReads.reads)
+      ? state
+      : { ...state, ruleReads: ruleReads.reads };
   }
 
   return {
@@ -258,6 +263,7 @@ export function updateRules(
     guards,
     animated,
     pressable,
+    ruleReads: ruleReads.reads,
   };
 }
 
@@ -271,13 +277,9 @@ const getRuleVariation = weakFamily((rule: StyleRule) => {
   });
 });
 
-function pushInlineRule(
-  state: ComponentState,
-  item: any,
-  styleRuleSet: StyleRule[],
-) {
+function pushInlineRule(read: Getter, item: any, styleRuleSet: StyleRule[]) {
   for (const className of item[INLINE_RULE_SYMBOL].split(/\s+/)) {
-    let inlineRuleSet = StyleCollection.styles(className).get(state.ruleEffect);
+    let inlineRuleSet = read(StyleCollection.styles(className));
 
     for (let rule of inlineRuleSet) {
       styleRuleSet.push(rule);
