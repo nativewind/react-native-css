@@ -12,6 +12,7 @@ import {
   type Visitor,
 } from "lightningcss";
 
+import { DEFAULT_REM } from "../utilities";
 import {
   maybeMutateReactNativeOptions,
   parsePropAtRule,
@@ -94,7 +95,7 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
   if (effectiveRem === undefined) {
     const css = typeof code === "string" ? code : code.toString();
     const match = css.match(/:root\s*\{[^}]*font-size:\s*([\d.]+)px/);
-    effectiveRem = match?.[1] ? parseFloat(match[1]) : 14;
+    effectiveRem = match?.[1] ? parseFloat(match[1]) : DEFAULT_REM;
     options.inlineRem = effectiveRem;
   }
 

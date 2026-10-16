@@ -8,6 +8,7 @@ import type {
   QueryFeatureFor_MediaFeatureId,
 } from "lightningcss";
 
+import { DEFAULT_REM } from "../utilities";
 import { asciiLowerCase } from "../utilities/ascii-case";
 import type {
   MediaCondition,
@@ -15,7 +16,7 @@ import type {
   MediaFeatureOperand,
   StyleDescriptor,
 } from "./compiler.types";
-import { parseLength } from "./declarations";
+import { parseLength, round } from "./declarations";
 import type { StylesheetBuilder } from "./stylesheet";
 
 export function parseMediaQuery(
@@ -113,7 +114,11 @@ export function parseMediaQueryCondition(
 ): MediaCondition {
   switch (query.type) {
     case "feature":
-      return parseQueryFeature(query.value, builder) ?? ["?"];
+      return (
+        parseQueryFeature(query.value, builder, parseMediaFeatureOperand) ?? [
+          "?",
+        ]
+      );
     case "not":
       return ["!", parseMediaQueryCondition(query.value, builder)];
     case "operation": {
@@ -151,29 +156,36 @@ const FEATURE_KEYWORDS: ReadonlyMap<string, readonly string[]> = new Map([
   ["update", ["none", "slow", "fast"]],
 ]);
 
+type OperandReader = (
+  name: string,
+  value: CSSMediaFeatureValue,
+  builder: StylesheetBuilder,
+) => MediaFeatureOperand | undefined;
+
 // A feature holding a value outside its syntax compiles to undefined, which a media query reads as unknown (MQ5 §3.2) and a container query as no query
 export function parseQueryFeature(
   feature:
     | QueryFeatureFor_MediaFeatureId
     | QueryFeatureFor_ContainerSizeFeatureId,
   builder: StylesheetBuilder,
+  readOperand: OperandReader = parseFeatureOperand,
 ): MediaCondition | undefined {
   switch (feature.type) {
     case "boolean":
       return ["!!", feature.name];
     case "plain": {
-      const operand = parseFeatureOperand(feature.name, feature.value, builder);
+      const operand = readOperand(feature.name, feature.value, builder);
       return operand === undefined ? undefined : ["=", feature.name, operand];
     }
     case "range": {
-      const operand = parseFeatureOperand(feature.name, feature.value, builder);
+      const operand = readOperand(feature.name, feature.value, builder);
       return operand === undefined
         ? undefined
         : [parseMediaFeatureOperator(feature.operator), feature.name, operand];
     }
     case "interval": {
-      const start = parseFeatureOperand(feature.name, feature.start, builder);
-      const end = parseFeatureOperand(feature.name, feature.end, builder);
+      const start = readOperand(feature.name, feature.start, builder);
+      const end = readOperand(feature.name, feature.end, builder);
       return start === undefined || end === undefined
         ? undefined
         : [
@@ -230,6 +242,33 @@ function isOutsideValueSyntax(
       value satisfies never;
       return false;
   }
+}
+
+// A media query has no element, so its em is the font size rem inlines, as its rem is (Media Queries 4 §1.3); a container query's em is the container's
+function parseMediaFeatureOperand(
+  name: string,
+  value: CSSMediaFeatureValue,
+  builder: StylesheetBuilder,
+): MediaFeatureOperand | undefined {
+  const fontRelative = readFontRelativeLength(value);
+
+  if (fontRelative === undefined) {
+    return parseFeatureOperand(name, value, builder);
+  }
+
+  const { inlineRem = DEFAULT_REM } = builder.getOptions();
+  return round(fontRelative * (inlineRem === false ? DEFAULT_REM : inlineRem));
+}
+
+function readFontRelativeLength(
+  value: CSSMediaFeatureValue,
+): number | undefined {
+  if (value.type !== "length" || value.value.type !== "value") {
+    return undefined;
+  }
+
+  const { unit, value: amount } = value.value.value;
+  return unit === "em" || unit === "rem" ? amount : undefined;
 }
 
 function parseMediaFeatureValue(
