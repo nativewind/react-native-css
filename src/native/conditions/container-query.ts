@@ -14,6 +14,7 @@ import {
   focusFamily,
   hoverFamily,
   type ContainerContextValue,
+  type ContainerRegistration,
   type Getter,
 } from "../reactivity";
 import { testAttributes } from "./attributes";
@@ -21,34 +22,40 @@ import type { RenderGuard } from "./guards";
 
 export const DEFAULT_CONTAINER_NAME = "c:___default___";
 
+// The ancestor compounds arrive outermost first; each resolves in the scope of the one inside it (Selectors 4 §16.1)
 export function testContainerQueries(
   queries: ContainerQuery[],
   inheritedContainers: ContainerContextValue,
   guards: RenderGuard[],
   get: Getter,
 ) {
-  return queries.every((query) => {
-    return testContainerQuery(query, inheritedContainers, guards, get);
-  });
+  // Every container the walk reaches registered above this element, so this element's scope observes a change to any of them
+  for (const query of queries) {
+    const name = query.n ?? DEFAULT_CONTAINER_NAME;
+    guards.push(["c", name, inheritedContainers[name]]);
+  }
+
+  let scope = inheritedContainers;
+
+  for (const query of [...queries].reverse()) {
+    const container = scope[query.n ?? DEFAULT_CONTAINER_NAME];
+
+    if (!container || !testContainerQuery(query, container, get)) {
+      return false;
+    }
+
+    scope = container.scope;
+  }
+
+  return true;
 }
 
 export function testContainerQuery(
   query: ContainerQuery,
-  inheritedContainers: ContainerContextValue,
-  guards: RenderGuard[],
+  container: ContainerRegistration,
   get: Getter,
 ): boolean {
-  const name = query.n ?? DEFAULT_CONTAINER_NAME;
-  const container = inheritedContainers[name]!;
-
-  guards.push(["c", name, container]);
-
-  if (!container) {
-    return false;
-  }
-
-  // Ancestor snapshots have their own context guard. Their attributes must not
-  // be compared with this descendant's props by the ordinary attribute guards.
+  // The registration's own guard covers a container's props, so this element's attribute guards must not record them
   if (query.a && !testAttributes(query.a, container.props, [])) {
     return false;
   }
