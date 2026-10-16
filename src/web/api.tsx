@@ -63,12 +63,49 @@ export const useCssElement = <C extends ReactComponent>(
   return createElement(component, props);
 };
 
+interface RootElement {
+  readonly classList: {
+    add(...tokens: string[]): void;
+    contains(token: string): boolean;
+    remove(...tokens: string[]): void;
+  };
+  readonly style: {
+    removeProperty(property: string): string;
+    setProperty(property: string, value: string): void;
+  };
+}
+
+// The package compiles without the DOM lib, and the document is absent while a route prerenders
+declare const document: { readonly documentElement: RootElement } | undefined;
+
+const EXPLICIT_SCHEMES = ["dark", "light"] as const;
+
+const resolveRootElement = (): RootElement | undefined =>
+  typeof document === "undefined" ? undefined : document.documentElement;
+
+// No page can override prefers-color-scheme, so an explicit scheme is a class on the root, which Tailwind's class strategy reads, and color-scheme, which light-dark() follows
 export const colorScheme: ColorScheme = {
   get() {
-    return Appearance.getColorScheme();
+    const root = resolveRootElement();
+    return (
+      EXPLICIT_SCHEMES.find((scheme) => root?.classList.contains(scheme)) ??
+      Appearance.getColorScheme() ??
+      "light"
+    );
   },
   set(name) {
-    Appearance.setColorScheme(name ?? "unspecified");
+    const root = resolveRootElement();
+    if (!root) {
+      return;
+    }
+
+    root.classList.remove(...EXPLICIT_SCHEMES);
+    if (name === "dark" || name === "light") {
+      root.classList.add(name);
+      root.style.setProperty("color-scheme", name);
+    } else {
+      root.style.removeProperty("color-scheme");
+    }
   },
 };
 
