@@ -10,7 +10,11 @@ import {
 } from "react-native-css/utilities";
 
 import { VAR_SYMBOL, type Getter } from "../reactivity";
-import type { ResolveValueOptions, SimpleResolveValue } from "./resolve";
+import type {
+  ResolveValueOptions,
+  SimpleResolveValue,
+  Substitution,
+} from "./resolve";
 
 // A variable rncss publishes itself carries a property's computed value, which always exists, so one nothing publishes leaves the property its default
 const COMPUTED_CHANNEL_PREFIX = "__rn-css-";
@@ -113,7 +117,7 @@ export function varResolver(
     }
 
     const outer = options.substitution;
-    const substitution = { failed: false };
+    const substitution: Substitution = { failed: false, emptied: false };
     options.substitution = substitution;
 
     try {

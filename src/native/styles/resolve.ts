@@ -66,9 +66,12 @@ export type ResolveValueOptions = {
   calculateProps?: typeof calculateProps;
 };
 
-/** Whether a var() in the value being resolved substituted nothing, which makes the value invalid at computed-value time (css-variables-1 §3.1) */
+/** What the var()s in the value being resolved left it (css-variables-1 §3.1) */
 export interface Substitution {
+  /** A var() had no value and no fallback, which leaves any value invalid at computed-value time */
   failed: boolean;
+  /** Every entry of a list substituted nothing, which leaves a property's value invalid and a custom property's empty */
+  emptied: boolean;
 }
 
 export function resolveValue(
@@ -104,13 +107,23 @@ export function resolveValue(
       }
 
       if (isStyleDescriptorArray(value)) {
-        return value.flatMap((entry) => {
+        let substitutedNothing = value.length > 0;
+        const entries = value.flatMap((entry) => {
           const resolved: unknown = resolveValue(entry, get, options);
 
-          return resolved === undefined || isEmptySubstitution(entry, resolved)
-            ? []
-            : [resolved];
+          if (isEmptySubstitution(entry, resolved)) {
+            return [];
+          }
+
+          substitutedNothing = false;
+          return resolved === undefined ? [] : [resolved];
         });
+
+        if (substitutedNothing && options.substitution) {
+          options.substitution.emptied = true;
+        }
+
+        return entries;
       }
 
       const name = value[1];

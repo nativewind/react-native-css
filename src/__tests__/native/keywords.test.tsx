@@ -367,6 +367,23 @@ describe.each(routes)(
       },
     );
 
+    test("a value whose every var() substitutes nothing clears an earlier rule's value", () => {
+      registerCSS(
+        `
+          .earlier { margin: 5px; }
+          .child { --empty-start: initial; --empty-end: initial; margin: var(--empty-start,) var(--empty-end,); }
+          .other { --empty-end: 1px; }
+        `,
+        options,
+      );
+
+      render(<View testID="child" className="earlier child" />);
+
+      expect(screen.getByTestId("child").props.style).toStrictEqual({
+        margin: undefined,
+      });
+    });
+
     // Chromium 153, Firefox 155 and WebKit 26.6 substitute an empty custom property's value as nothing, over an ancestor's
     test("an authored empty value shadows the ancestor's, and lets the colour inherit", () => {
       expect(

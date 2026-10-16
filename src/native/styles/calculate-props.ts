@@ -243,7 +243,7 @@ function resolveDeclaration(
   get: Getter,
   options: ResolveValueOptions,
 ): unknown {
-  const substitution: Substitution = { failed: false };
+  const substitution: Substitution = { failed: false, emptied: false };
   const value = resolveValue(descriptor, get, { ...options, substitution });
 
   if (!isInvalidAtComputedValueTime(descriptor, value, substitution)) {
@@ -273,13 +273,13 @@ function unsetDescriptor(
   return "unset";
 }
 
-// A var() that substitutes nothing anywhere in the value, or leaves the declaration nothing: no value, or as the whole value an empty fallback
+// A var() with no value and no fallback anywhere in the value, or a value its var()s leave empty
 function isInvalidAtComputedValueTime(
   descriptor: StyleDescriptor,
   value: unknown,
   substitution: Readonly<Substitution>,
 ): boolean {
-  if (substitution.failed) {
+  if (substitution.failed || substitution.emptied) {
     return true;
   } else if (!readsVariable(descriptor)) {
     return false;
