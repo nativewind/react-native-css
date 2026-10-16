@@ -5,7 +5,11 @@ import {
   type PropsWithChildren,
 } from "react";
 
-import { VAR_SYMBOL, type VariableContextValue } from "../native/reactivity";
+import {
+  toVariableRecord,
+  VAR_SYMBOL,
+  type VariableContextValue,
+} from "../native/reactivity";
 import type { CustomPropertyValue } from "../runtime.types";
 
 globalThis.__react_native_css_variable_context ??=
@@ -25,9 +29,7 @@ export function VariableContextProvider(
   const value: VariableContextValue = useMemo(
     () => ({
       ...inheritedVariables,
-      ...Object.fromEntries(
-        Object.entries(props.value).map(([k, v]) => [k.replace(/^--/, ""), v]),
-      ),
+      ...toVariableRecord(props.value),
       [VAR_SYMBOL]: true,
     }),
     [inheritedVariables, props.value],
