@@ -64,7 +64,6 @@ export class StylesheetBuilder {
       rootVariables?: VariableRecord;
       universalVariables?: VariableRecord;
       animations?: AnimationRecord;
-      rem: number;
       ruleOrder: number;
       warningProperty?: string;
       warningProperties: string[];
@@ -72,7 +71,6 @@ export class StylesheetBuilder {
       warningFunctions: string[];
     } = {
       ruleSets: {},
-      rem: 14,
       ruleOrder: 0,
       warningProperties: [],
       warningValues: {},

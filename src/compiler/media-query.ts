@@ -8,13 +8,14 @@ import type {
   QueryFeatureFor_MediaFeatureId,
 } from "lightningcss";
 
+import { DEFAULT_REM } from "../utilities";
 import type {
   MediaCondition,
   MediaFeatureComparison,
   MediaFeatureOperand,
   StyleDescriptor,
 } from "./compiler.types";
-import { parseLength } from "./declarations";
+import { parseLength, round } from "./declarations";
 import type { StylesheetBuilder } from "./stylesheet";
 
 export function parseMediaQuery(
@@ -127,7 +128,28 @@ function parseMediaFeatureOperand(
   value: CSSMediaFeatureValue,
   builder: StylesheetBuilder,
 ): MediaFeatureOperand {
+  const fontRelative = readFontRelativeLength(value);
+
+  if (fontRelative !== undefined) {
+    const { inlineRem = DEFAULT_REM } = builder.getOptions();
+    return round(
+      fontRelative * (inlineRem === false ? DEFAULT_REM : inlineRem),
+    );
+  }
+
   return parseMediaFeatureValue(value, builder) ?? null;
+}
+
+// A media query has no element, so its em is the font size rem inlines, as its rem is (Media Queries 4 §1.3)
+function readFontRelativeLength(
+  value: CSSMediaFeatureValue,
+): number | undefined {
+  if (value.type !== "length" || value.value.type !== "value") {
+    return undefined;
+  }
+
+  const { unit, value: amount } = value.value.value;
+  return unit === "em" || unit === "rem" ? amount : undefined;
 }
 
 export function parseMediaFeatureValue(
