@@ -1,6 +1,7 @@
 import type { AttrOperation, Selector, SelectorList } from "lightningcss";
 
 import { Specificity } from "../utilities";
+import { asciiLowerCase } from "../utilities/ascii-case";
 import type {
   AttributeQuery,
   AttrSelectorOperator,
@@ -249,7 +250,12 @@ function parseComponents(
           return [];
         }
 
-        getMediaQuery(ref).push([operator, "dir", component.operation.value]);
+        // HTML compares a dir value ASCII case-insensitively unless the selector carries s
+        const direction =
+          component.operation.caseSensitivity === "explicit-case-sensitive"
+            ? component.operation.value
+            : asciiLowerCase(component.operation.value);
+        getMediaQuery(ref).push([operator, "dir", direction]);
         return parseComponents(rest, options, root, ref, specificity);
       } else {
         // specificity[Specificity.ClassName] =
