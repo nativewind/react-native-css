@@ -247,10 +247,30 @@ Dimensions.addEventListener("change", ({ window }) => {
 
 /** Color Scheme **************************************************************/
 
-export const colorScheme = observable<ColorSchemeName | null | undefined>(
+export type HeldColorScheme = ColorSchemeName | null | undefined;
+
+export const colorScheme = observable<HeldColorScheme>(
   Appearance.getColorScheme(),
 );
 Appearance.addChangeListener((event) => colorScheme.set(event.colorScheme));
+
+// A held value that is not a scheme is a follow-the-system request, so the reported scheme answers, then light (MQ5 §12.5.1)
+export function resolveColorScheme(held: HeldColorScheme): "light" | "dark" {
+  if (held === "light" || held === "dark") {
+    return held;
+  }
+  const reported = Appearance.getColorScheme();
+  return reported === "light" || reported === "dark" ? reported : "light";
+}
+
+// The native module always answers a scheme, so only react-native 0.82.0-0.84.1 leaves a setColorScheme request in the cache
+export function holdsRequestNotScheme(held: HeldColorScheme): boolean {
+  return held !== null && held !== undefined && !isScheme(held);
+}
+
+function isScheme(held: HeldColorScheme): held is "light" | "dark" {
+  return held === "light" || held === "dark";
+}
 
 /** Containers ****************************************************************/
 
