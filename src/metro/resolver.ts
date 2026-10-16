@@ -1,4 +1,4 @@
-import { basename, resolve, sep } from "node:path";
+import { basename, sep } from "node:path";
 
 import type {
   CustomResolutionContext,
@@ -7,15 +7,7 @@ import type {
 } from "metro-resolver";
 
 import { allowedModules } from "../babel/allowedModules";
-
-const thisModuleDist = resolve(__dirname, "../../../dist");
-const thisModuleSrc = resolve(__dirname, "../../../src");
-
-function isFromThisModule(filename: string): boolean {
-  return (
-    filename.startsWith(thisModuleDist) || filename.startsWith(thisModuleSrc)
-  );
-}
+import { isFromThisModule } from "../babel/this-module";
 
 export function nativeResolver(
   resolver: CustomResolver,
@@ -39,6 +31,12 @@ export function nativeResolver(
     return resolver(
       context,
       `react-native-css/components/react-native-safe-area-context`,
+      platform,
+    );
+  } else if (moduleName === "react-native-gesture-handler") {
+    return resolver(
+      context,
+      `react-native-css/components/react-native-gesture-handler`,
       platform,
     );
   } else if (
