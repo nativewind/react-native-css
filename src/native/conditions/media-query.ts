@@ -75,6 +75,9 @@ function testComparison(mediaQuery: MediaCondition, get: Getter): Boolean {
     case "height":
       left = get(vh);
       break;
+    case "aspect-ratio":
+      left = get(vw) / get(vh);
+      break;
     case "resolution":
       left = PixelRatio.get();
       break;
