@@ -7,6 +7,7 @@ import type {
 
 export type RenderGuard =
   | ["a", string, any]
+  | ["p", string, boolean]
   | ["d", string, any]
   | ["v", string, any]
   | ["c", string, WeakKey];
@@ -24,6 +25,10 @@ export function testGuards(
       case "a":
         // Attribute
         result = currentProps?.[guard[1]] !== guard[2];
+        break;
+      case "p":
+        // Attribute presence
+        result = Boolean(currentProps?.[guard[1]]) !== guard[2];
         break;
       case "d":
         // DataSet
