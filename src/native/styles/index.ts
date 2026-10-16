@@ -370,6 +370,43 @@ function composeStyleCallback(left: unknown, right: unknown): StyleCallback {
   ];
 }
 
+function isStyleObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// An inline style object can carry an identity a copy would lose (an animated style), so only computed values are flattened
+type StyleLayering = "flattened" | "layered";
+
+/** Combines two values of one style prop, `right` taking precedence */
+function combineStyleValues(
+  left: unknown,
+  right: unknown,
+  layering: StyleLayering,
+): unknown {
+  if (isStyleCallback(left) || isStyleCallback(right)) {
+    return composeStyleCallback(left, right);
+  }
+
+  if (
+    isStyleObject(left) &&
+    isStyleObject(right) &&
+    !hasNonOverlappingProperties(left, right)
+  ) {
+    return right;
+  }
+
+  switch (layering) {
+    case "flattened":
+      return flattenStyleArray(
+        Array.isArray(left) ? [...left, right] : [left, right],
+      );
+    case "layered":
+      return [left, right];
+    default:
+      return layering satisfies never;
+  }
+}
+
 function deepMergeConfig(
   config: Config,
   left: Record<string, any> | undefined,
@@ -396,31 +433,9 @@ function deepMergeConfig(
         if (left?.style) {
           result.style = left.style;
         }
-      } else if (!rightIsInline && right?.style) {
+      } else if (!rightIsInline && right?.style && left?.style) {
         // Merging non-inline styles (e.g., important styles)
-        if (left?.style) {
-          if (isStyleCallback(left.style) || isStyleCallback(right.style)) {
-            result.style = composeStyleCallback(left.style, right.style);
-          } else if (Array.isArray(left.style)) {
-            const combined = [...left.style, right.style];
-            result.style = flattenStyleArray(combined);
-          } else if (
-            typeof left.style === "object" &&
-            typeof right.style === "object"
-          ) {
-            // Both are objects, check for overlaps
-            if (hasNonOverlappingProperties(left.style, right.style)) {
-              result.style = flattenStyleArray([left.style, right.style]);
-            } else {
-              // All left properties are overridden by right
-              result.style = right.style;
-            }
-          } else {
-            // One or both are arrays/mixed types
-            const combined = [left.style, right.style];
-            result.style = flattenStyleArray(combined);
-          }
-        }
+        result.style = combineStyleValues(left.style, right.style, "flattened");
       }
     } else {
       result = mergeDefinedProps(left, right);
@@ -470,27 +485,11 @@ function deepMergeConfig(
           delete result[finalKey];
         }
       } else if (left && finalKey in left) {
-        const leftValue = left[finalKey];
-        const leftIsObj =
-          typeof leftValue === "object" &&
-          leftValue !== null &&
-          !Array.isArray(leftValue);
-        const rightIsObj =
-          typeof rightValue === "object" &&
-          rightValue !== null &&
-          !Array.isArray(rightValue);
-        if (isStyleCallback(leftValue) || isStyleCallback(rightValue)) {
-          result[finalKey] = composeStyleCallback(leftValue, rightValue);
-        } else if (leftIsObj && rightIsObj) {
-          if (hasNonOverlappingProperties(leftValue, rightValue)) {
-            result[finalKey] = [leftValue, rightValue];
-          } else {
-            // All left keys are in right — use filtered right value
-            result[finalKey] = rightValue;
-          }
-        } else {
-          result[finalKey] = [leftValue, rightValue];
-        }
+        result[finalKey] = combineStyleValues(
+          left[finalKey],
+          rightValue,
+          "layered",
+        );
       } else {
         // No left value — use filtered right value (not the unfiltered one from mergeDefinedProps)
         result[finalKey] = rightValue;
@@ -514,14 +513,10 @@ function deepMergeConfig(
   }
 
   if (rightValue !== undefined) {
-    if (left && target in left) {
-      result[target] =
-        isStyleCallback(left[target]) || isStyleCallback(rightValue)
-          ? composeStyleCallback(left[target], rightValue)
-          : [left[target], rightValue];
-    } else {
-      result[target] = rightValue;
-    }
+    result[target] =
+      left && target in left
+        ? combineStyleValues(left[target], rightValue, "layered")
+        : rightValue;
   }
 
   return result;

@@ -611,3 +611,68 @@ describe("multi-config: inline style should not destroy className styles on othe
     ]);
   });
 });
+
+describe("both spellings of a style target combine an inline style the same way", () => {
+  const MAPPINGS = [
+    ["the shorthand", { className: "style" }],
+    ["the object form", { className: { target: "style" } }],
+  ] as const satisfies readonly (readonly [
+    string,
+    StyledConfiguration<typeof RNView>,
+  ])[];
+
+  test.each(MAPPINGS)(
+    "%s: an inline style that sets every property the class sets replaces it",
+    (_spelling, mapping) => {
+      registerCSS(`.bg-red { background-color: red; }`);
+      const StyledView = copyComponentProperties(
+        RNView,
+        (
+          props: StyledProps<
+            React.ComponentProps<typeof RNView>,
+            typeof mapping
+          >,
+        ) => useCssElement(RNView, props, mapping),
+      );
+
+      const component = render(
+        <StyledView
+          testID={testID}
+          className="bg-red"
+          style={{ backgroundColor: "blue" }}
+        />,
+      ).getByTestId(testID);
+
+      expect(component.props.style).toStrictEqual({ backgroundColor: "blue" });
+    },
+  );
+
+  test.each(MAPPINGS)(
+    "%s: an inline style that sets other properties is layered over the class",
+    (_spelling, mapping) => {
+      registerCSS(`.bg-red { background-color: red; }`);
+      const StyledView = copyComponentProperties(
+        RNView,
+        (
+          props: StyledProps<
+            React.ComponentProps<typeof RNView>,
+            typeof mapping
+          >,
+        ) => useCssElement(RNView, props, mapping),
+      );
+
+      const component = render(
+        <StyledView
+          testID={testID}
+          className="bg-red"
+          style={{ height: 16 }}
+        />,
+      ).getByTestId(testID);
+
+      expect(component.props.style).toStrictEqual([
+        { backgroundColor: "#f00" },
+        { height: 16 },
+      ]);
+    },
+  );
+});
