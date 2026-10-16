@@ -1,6 +1,10 @@
+import { StyleSheet } from "react-native";
+
 import { render, screen } from "@testing-library/react-native";
+import { compile } from "react-native-css/compiler";
 import { View } from "react-native-css/components/View";
 import { registerCSS, testID } from "react-native-css/jest";
+import { StyleCollection } from "react-native-css/native";
 
 test("single shadow - basic", () => {
   registerCSS(`
@@ -910,4 +914,122 @@ describe("@property defaults with shadow variables", () => {
       },
     ]);
   });
+});
+
+describe("a rule's shadow list replaces the list an earlier rule declared", () => {
+  const earlier = [
+    {
+      offsetX: 1,
+      offsetY: 1,
+      blurRadius: 0,
+      spreadDistance: 0,
+      color: "#123456",
+    },
+    {
+      offsetX: 2,
+      offsetY: 2,
+      blurRadius: 0,
+      spreadDistance: 0,
+      color: "#654321",
+    },
+  ];
+  const later = [
+    {
+      offsetX: 3,
+      offsetY: 3,
+      blurRadius: 0,
+      spreadDistance: 0,
+      color: "#13579b",
+    },
+  ];
+
+  const cases = [
+    {
+      name: "a list over a longer one",
+      css: `.first { box-shadow: 1px 1px 0 0 #123456, 2px 2px 0 0 #654321; } .second { box-shadow: 3px 3px 0 0 #13579b; }`,
+      expected: later,
+    },
+    {
+      name: "a list over an inset shadow",
+      css: `.first { box-shadow: inset 1px 1px 0 0 #123456; } .second { box-shadow: 3px 3px 0 0 #13579b; }`,
+      expected: later,
+    },
+    {
+      name: "a list over one held in a variable",
+      css: `.first { --shadows: 1px 1px 0 0 #123456, 2px 2px 0 0 #654321; box-shadow: var(--shadows); } .second { box-shadow: 3px 3px 0 0 #13579b; }`,
+      expected: later,
+    },
+    {
+      name: "a list held in a variable over a longer one",
+      css: `.first { box-shadow: 1px 1px 0 0 #123456, 2px 2px 0 0 #654321; } .second { --shadow: 3px 3px 0 0 #13579b; box-shadow: var(--shadow); }`,
+      expected: later,
+    },
+    {
+      name: "a list held in a variable over another",
+      css: `.first { --shadows: 1px 1px 0 0 #123456, 2px 2px 0 0 #654321; box-shadow: var(--shadows); } .second { --shadow: 3px 3px 0 0 #13579b; box-shadow: var(--shadow); }`,
+      expected: later,
+    },
+    {
+      name: "none over a list",
+      css: `.first { box-shadow: 1px 1px 0 0 #123456; } .second { box-shadow: none; }`,
+      expected: "none",
+    },
+    {
+      name: "a list over none",
+      css: `.first { box-shadow: none; } .second { box-shadow: 1px 1px 0 0 #123456, 2px 2px 0 0 #654321; }`,
+      expected: earlier,
+    },
+    {
+      name: "an important list over an earlier important one",
+      css: `.first { box-shadow: 1px 1px 0 0 #123456, 2px 2px 0 0 #654321 !important; } .second { box-shadow: 3px 3px 0 0 #13579b !important; }`,
+      expected: later,
+    },
+    {
+      name: "an important list under a later list",
+      css: `.first { box-shadow: 1px 1px 0 0 #123456, 2px 2px 0 0 #654321 !important; } .second { box-shadow: 3px 3px 0 0 #13579b; }`,
+      expected: earlier,
+    },
+    {
+      name: "a more specific list over a longer, later one",
+      css: `.second.second { box-shadow: 3px 3px 0 0 #13579b; } .first { box-shadow: 1px 1px 0 0 #123456, 2px 2px 0 0 #654321; }`,
+      expected: later,
+    },
+  ];
+
+  describe.each([
+    { variables: "inlined", options: {}, sheet: "as compiled" },
+    {
+      variables: "resolved at runtime",
+      options: { inlineVariables: false } as const,
+      sheet: "as compiled",
+    },
+    {
+      variables: "inlined",
+      options: {},
+      sheet: "as the JSON a device receives",
+    },
+    {
+      variables: "resolved at runtime",
+      options: { inlineVariables: false } as const,
+      sheet: "as the JSON a device receives",
+    },
+  ])(
+    "variables $variables, the sheet injected $sheet",
+    ({ options, sheet }) => {
+      test.each(cases)("$name", ({ css, expected }) => {
+        const stylesheet = compile(css, options).stylesheet();
+        StyleCollection.inject(
+          sheet === "as compiled"
+            ? stylesheet
+            : (JSON.parse(JSON.stringify(stylesheet)) as typeof stylesheet),
+        );
+
+        render(<View testID={testID} className="first second" />);
+
+        expect(
+          StyleSheet.flatten(screen.getByTestId(testID).props.style),
+        ).toStrictEqual({ boxShadow: expected });
+      });
+    },
+  );
 });
