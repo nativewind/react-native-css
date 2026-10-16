@@ -984,13 +984,11 @@ export function parseUnparsedDeclaration(
   builder.descriptorProperty = property;
 
   if (unparsedRuntimeParsing.has(property)) {
-    const args = parseUnparsed(declaration.value.value, builder, property);
-
-    if (property === "animation") {
-      builder.addDescriptor("animation", [{}, property, args]);
-    } else {
-      builder.addDescriptor(property, [{}, toRNProperty(property), args, 1]);
-    }
+    builder.addDescriptor(property, [
+      {},
+      toRNProperty(property),
+      parseUnparsed(declaration.value.value, builder, property),
+    ]);
   } else {
     const value = parseUnparsed(declaration.value.value, builder, property);
 
