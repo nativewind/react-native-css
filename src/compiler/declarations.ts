@@ -36,7 +36,7 @@ import type {
   UnresolvedColor,
 } from "lightningcss";
 
-import { isStyleFunction } from "../utilities";
+import { isStyleFunction, NO_TEXT_SHADOW } from "../utilities";
 import { isMappingProperty } from "./atRules";
 import type {
   StyleDescriptor,
@@ -984,11 +984,22 @@ export function parseUnparsedDeclaration(
   builder.descriptorProperty = property;
 
   if (unparsedRuntimeParsing.has(property)) {
-    builder.addDescriptor(property, [
-      {},
-      toRNProperty(property),
-      parseUnparsed(declaration.value.value, builder, property),
-    ]);
+    const args = parseUnparsed(declaration.value.value, builder, property);
+
+    if (property === "text-shadow" && args === "none") {
+      // lightningcss leaves `none` unparsed, and resolved at runtime it would land after a later rule's text shadow
+      builder.addDescriptor("textShadowColor", NO_TEXT_SHADOW.color);
+      builder.addDescriptor("&.textShadowOffset.width", NO_TEXT_SHADOW.offsetX);
+      builder.addDescriptor(
+        "&.textShadowOffset.height",
+        NO_TEXT_SHADOW.offsetY,
+      );
+      builder.addDescriptor("textShadowRadius", NO_TEXT_SHADOW.blurRadius);
+    } else if (property === "animation") {
+      builder.addDescriptor("animation", [{}, property, args]);
+    } else {
+      builder.addDescriptor(property, [{}, toRNProperty(property), args, 1]);
+    }
   } else {
     const value = parseUnparsed(declaration.value.value, builder, property);
 
