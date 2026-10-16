@@ -17,10 +17,10 @@ import type {
 } from "./resolve";
 
 // A variable rncss publishes itself carries a property's computed value, which always exists, so one nothing publishes leaves the property its default
-const COMPUTED_CHANNEL_PREFIX = "__rn-css-";
+const LIBRARY_VARIABLE_PREFIX = "__rn-css-";
 
-function isComputedChannel(name: string): boolean {
-  return name.startsWith(COMPUTED_CHANNEL_PREFIX);
+function isLibraryVariable(name: string): boolean {
+  return name.startsWith(LIBRARY_VARIABLE_PREFIX);
 }
 
 // What one source declares for the variable: nothing, its parent's value, the guaranteed-invalid value, or a value
@@ -72,7 +72,7 @@ export function varResolver(
     if (
       fallback === undefined &&
       options.substitution &&
-      !isComputedChannel(name)
+      !isLibraryVariable(name)
     ) {
       options.substitution.failed = true;
     }
