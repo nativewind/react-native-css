@@ -1,6 +1,7 @@
 import { Platform, PlatformColor } from "react-native";
 
 import type { StyleDescriptor, VariableValue } from "react-native-css/compiler";
+import { DEFAULT_REM } from "react-native-css/utilities";
 
 import { testMediaQuery } from "../native/conditions/media-query";
 import { family, observable, type Observable } from "../native/reactivity";
@@ -32,7 +33,7 @@ const rootVariableFamily = () => {
 export const rootVariables = rootVariableFamily();
 export const universalVariables = rootVariableFamily();
 
-rootVariables("__rn-css-rem").set([[14]]);
+rootVariables("__rn-css-rem").set([[DEFAULT_REM]]);
 // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
 rootVariables("__rn-css-color").set([
   [

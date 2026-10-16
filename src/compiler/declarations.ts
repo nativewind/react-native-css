@@ -36,7 +36,7 @@ import type {
   UnresolvedColor,
 } from "lightningcss";
 
-import { isStyleFunction } from "../utilities";
+import { DEFAULT_REM, isStyleFunction } from "../utilities";
 import { isMappingProperty } from "./atRules";
 import type {
   StyleDescriptor,
@@ -1423,7 +1423,7 @@ export function parseLength(
     | LengthValue,
   builder: StylesheetBuilder,
 ): StyleDescriptor {
-  const { inlineRem = 14 } = builder.getOptions();
+  const { inlineRem = DEFAULT_REM } = builder.getOptions();
 
   if (typeof length === "number") {
     return round(length);
