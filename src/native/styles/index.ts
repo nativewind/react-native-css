@@ -6,6 +6,7 @@ import { getInteractionHandler } from "../react/interaction";
 import type { ComponentState, Config } from "../react/useNativeCss";
 import {
   activeFamily,
+  containerActiveFamily,
   containerLayoutFamily,
   family,
   focusFamily,
@@ -264,6 +265,24 @@ export function getStyledProps(
         state.ruleEffectGetter,
         "onPressOut",
         inline?.onPressOut,
+      );
+    } else if (containerActiveFamily.has(state.ruleEffectGetter)) {
+      // Touch events bubble to every ancestor without a responder claim, so observing them leaves the subtree's gestures alone.
+      result ??= {};
+      result.onTouchStart = getInteractionHandler(
+        state.ruleEffectGetter,
+        "onTouchStart",
+        inline?.onTouchStart,
+      );
+      result.onTouchEnd = getInteractionHandler(
+        state.ruleEffectGetter,
+        "onTouchEnd",
+        inline?.onTouchEnd,
+      );
+      result.onTouchCancel = getInteractionHandler(
+        state.ruleEffectGetter,
+        "onTouchCancel",
+        inline?.onTouchCancel,
       );
     }
 
