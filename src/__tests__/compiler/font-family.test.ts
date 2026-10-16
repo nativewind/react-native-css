@@ -55,36 +55,35 @@ describe("the typed path", () => {
   });
 });
 
+// Chromium 153, Firefox 155 and WebKit 26.6 ignore a stack with an entry that names no family
 describe("the unparsed path", () => {
   test.each([
     ["a trailing comma", `.a { font-family: Inter, Helvetica,; }`],
     ["a leading comma", `.a { font-family: ,Inter, Helvetica; }`],
     ["a doubled comma", `.a { font-family: Inter,,Helvetica; }`],
-    ["quoted families", `.a { font-family: "Inter", "Helvetica",; }`],
-  ])("%s still narrows to the first family", (_name, css) => {
-    expect(declarationsFor(css, "a")).toStrictEqual([{ fontFamily: "Inter" }]);
-  });
-
-  test("a quoted name keeps its spaces and its commas", () => {
-    expect(
-      declarationsFor(`.a { font-family: "Helvetica Neue", Arial,; }`, "a"),
-    ).toStrictEqual([{ fontFamily: "Helvetica Neue" }]);
-    expect(
-      declarationsFor(`.a { font-family: "Foo, Bar", Arial,; }`, "a"),
-    ).toStrictEqual([{ fontFamily: "Foo, Bar" }]);
-  });
-
-  test("an entry that cannot name a family is skipped", () => {
-    expect(
-      declarationsFor(`.a { font-family: 12, Inter; }`, "a"),
-    ).toStrictEqual([{ fontFamily: "Inter" }]);
+    [
+      "quoted families and a trailing comma",
+      `.a { font-family: "Inter", "Helvetica",; }`,
+    ],
+    ["a number", `.a { font-family: 12, Inter; }`],
+    ["a function", `.a { font-family: calc(1px), Inter; }`],
+    [
+      "a CSS-wide keyword",
+      `:root { --x: Georgia; } .other { --x: Verdana; } .a { font-family: Inter, inherit, var(--x); }`,
+    ],
+    [
+      "a reserved ident in any case",
+      `:root { --x: Georgia; } .other { --x: Verdana; } .a { font-family: Inter, DEFAULT, var(--x); }`,
+    ],
+  ])("%s invalidates the stack", (_name, css) => {
+    expect(declarationsFor(css, "a")).toStrictEqual([]);
   });
 
   test("a stack with nothing usable emits no declaration at all", () => {
     expect(declarationsFor(`.a { font-family: ,; }`, "a")).toStrictEqual([]);
   });
 
-  test("a keyframe narrows too", () => {
+  test("a keyframe drops an invalid stack too", () => {
     expect(
       compile(
         `@keyframes k { from { font-family: Inter, Helvetica,; } to { font-family: Georgia; } }`,
@@ -93,7 +92,7 @@ describe("the unparsed path", () => {
       [
         "k",
         [
-          ["from", [{ fontFamily: "Inter" }]],
+          ["from", []],
           ["to", [{ fontFamily: "Georgia" }]],
         ],
       ],
@@ -113,13 +112,13 @@ describe("the var() path", () => {
     ).toStrictEqual([[[{}, "var", "stack", 1], "fontFamily", 1]]);
   });
 
-  test("a var() behind a literal is narrowed away", () => {
+  test("a var() behind a literal is left whole, because its value can invalidate the stack", () => {
     expect(
       declarationsFor(
         `:root { --x: Georgia; } .other { --x: Verdana; } .a { font-family: Inter, var(--x); }`,
         "a",
       ),
-    ).toStrictEqual([{ fontFamily: "Inter" }]);
+    ).toStrictEqual([[["Inter", [{}, "var", "x", 1]], "fontFamily"]]);
   });
 
   test("a var() in front of a literal is left whole", () => {

@@ -25,16 +25,13 @@ describe("the reduction", () => {
 
   test("a nested stack is flattened, not descended into", () => {
     expect(applyFontFamily([[...FONT_SANS_STACK]]).fontFamily).toBe("Inter");
-    expect(applyFontFamily([[], "Arial"]).fontFamily).toBe("Arial");
-    expect(applyFontFamily([[[]], "Arial"]).fontFamily).toBe("Arial");
     expect(applyFontFamily([["Inter"], "Arial"]).fontFamily).toBe("Inter");
   });
 
-  test("an entry that cannot name a family is skipped", () => {
-    expect(applyFontFamily([12, "Inter"]).fontFamily).toBe("Inter");
-    expect(applyFontFamily([null, "Arial"]).fontFamily).toBe("Arial");
-    expect(applyFontFamily([undefined, "Arial"]).fontFamily).toBe("Arial");
-    expect(applyFontFamily([true, "Arial"]).fontFamily).toBe("Arial");
+  test("an entry that cannot name a family sets nothing", () => {
+    for (const unusable of [12, null, undefined, true, [], [[]]]) {
+      expect("fontFamily" in applyFontFamily([unusable, "Arial"])).toBe(false);
+    }
   });
 
   test("a single family passes through untouched", () => {

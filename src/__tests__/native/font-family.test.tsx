@@ -9,12 +9,12 @@ const styleOf = (className: string, css: string): unknown => {
   return screen.getByTestId(testID).props.style;
 };
 
+// Every expected value is what Chromium 153, Firefox 155 and WebKit 26.6 compute: a stack with an entry that names no family is invalid
 describe("a stack the compiler could read", () => {
-  test("a static stack it could not type arrives as one family", () => {
-    // The trailing comma puts this on the unparsed path, which applyDeclarations copies straight onto the style
+  test("a static stack with an empty entry is ignored", () => {
     expect(
       styleOf("a", `.a { font-family: Inter, Helvetica,; }`),
-    ).toStrictEqual({ fontFamily: "Inter" });
+    ).toBeUndefined();
   });
 
   test("a static stack with nothing usable produces no style at all", () => {
@@ -44,33 +44,40 @@ describe("a stack behind a var()", () => {
     ).toStrictEqual({});
   });
 
-  test("an unusable entry inside the resolved stack is skipped", () => {
+  test("an entry in the resolved stack that names no family sets no family", () => {
     expect(
       styleOf(
         "a",
         `:root { --f: 12, Arial; } .other { --f: Georgia; } .a { font-family: var(--f); }`,
       ),
-    ).toStrictEqual({ fontFamily: "Arial" });
+    ).toStrictEqual({});
+  });
+
+  test("a var() behind a family still waits, and a value that names no family invalidates the stack", () => {
     expect(
       styleOf(
         "a",
-        `:root { --f: unset, Arial; } .other { --f: Georgia; } .a { font-family: var(--f); }`,
+        `:root { --f: Georgia; } .other { --f: Verdana; } .a { font-family: Inter, var(--f); }`,
       ),
-    ).toStrictEqual({ fontFamily: "Arial" });
-  });
-
-  test("a var() that resolves to nothing falls through to the next family", () => {
+    ).toStrictEqual({ fontFamily: "Inter" });
     expect(
-      styleOf("a", `.a { font-family: var(--missing), Helvetica; }`),
-    ).toStrictEqual({ fontFamily: "Helvetica" });
+      styleOf(
+        "a",
+        `:root { --f: 12; } .other { --f: Verdana; } .a { font-family: Inter, var(--f); }`,
+      ),
+    ).toStrictEqual({});
   });
 
-  test("a function that resolves to something unusable falls through too", () => {
-    expect(styleOf("a", `.a { font-family: calc(1px), Inter; }`)).toStrictEqual(
-      {
-        fontFamily: "Inter",
-      },
-    );
+  test("a function in a stack invalidates it", () => {
+    expect(
+      styleOf("a", `.a { font-family: calc(1px), Inter; }`),
+    ).toBeUndefined();
+  });
+
+  test("an empty fallback substitutes nothing inside an entry", () => {
+    expect(
+      styleOf("a", `.a { font-family: var(--missing,) Helvetica; }`),
+    ).toStrictEqual({ fontFamily: "Helvetica" });
   });
 });
 
@@ -189,7 +196,7 @@ describe("a stack supplied at render", () => {
     expect(element.props.style).toStrictEqual({ fontFamily: "Georgia" });
   });
 
-  test("an empty group in front of a family does not swallow it", () => {
+  test("an empty group in front of a family invalidates the stack, as an empty entry does", () => {
     registerCSS(`.a { font-family: var(--stack); }`);
 
     render(
@@ -198,9 +205,7 @@ describe("a stack supplied at render", () => {
       </VariableContextProvider>,
     );
 
-    expect(screen.getByTestId(testID).props.style).toStrictEqual({
-      fontFamily: "Arial",
-    });
+    expect(screen.getByTestId(testID).props.style).toStrictEqual({});
   });
 
   test("MEASURED: a null head never reaches the reduction on this plane", () => {

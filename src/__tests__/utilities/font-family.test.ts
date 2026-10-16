@@ -1,4 +1,7 @@
-import { narrowFontFamily } from "react-native-css/utilities";
+import {
+  isReservedFamilyIdent,
+  narrowFontFamily,
+} from "react-native-css/utilities";
 
 describe("narrowFontFamily", () => {
   test("a family is itself", () => {
@@ -15,27 +18,28 @@ describe("narrowFontFamily", () => {
   });
 
   test("a nested group is read in place, not descended into", () => {
-    expect(narrowFontFamily([[], "Arial"])).toStrictEqual({
-      kind: "family",
-      family: "Arial",
-    });
-    expect(narrowFontFamily([[[]], "Arial"])).toStrictEqual({
-      kind: "family",
-      family: "Arial",
-    });
     expect(narrowFontFamily([["Inter"], "Arial"])).toStrictEqual({
       kind: "family",
       family: "Inter",
     });
   });
 
-  test("an entry that cannot name a family is skipped", () => {
-    for (const unusable of [12, null, undefined, true]) {
+  // Chromium 153, Firefox 155 and WebKit 26.6 ignore a stack with an entry that names no family
+  test("an entry that cannot name a family invalidates the stack", () => {
+    for (const unusable of [12, null, undefined, true, [], [[]]]) {
       expect(narrowFontFamily([unusable, "Arial"])).toStrictEqual({
-        kind: "family",
-        family: "Arial",
+        kind: "none",
+      });
+      expect(narrowFontFamily(["Arial", unusable])).toStrictEqual({
+        kind: "none",
       });
     }
+  });
+
+  test("a function other than var() names no family", () => {
+    expect(narrowFontFamily([[{}, "calc", [1]], "Inter"])).toStrictEqual({
+      kind: "none",
+    });
   });
 
   test("nothing usable is `none`", () => {
@@ -54,11 +58,32 @@ describe("narrowFontFamily", () => {
     ).toStrictEqual({ kind: "deferred" });
   });
 
-  test("a family in front of a variable reference wins", () => {
+  test("a variable reference behind a family still waits, because its value can invalidate the stack", () => {
     expect(narrowFontFamily(["Inter", [{}, "var", "x", 1]])).toStrictEqual({
-      kind: "family",
-      family: "Inter",
+      kind: "deferred",
     });
+  });
+
+  test("an entry that names no family invalidates a stack that also waits", () => {
+    expect(narrowFontFamily([[{}, "var", "x", 1], 12])).toStrictEqual({
+      kind: "none",
+    });
+  });
+
+  test("a reserved ident is never a family name", () => {
+    for (const reserved of [
+      "inherit",
+      "initial",
+      "unset",
+      "revert",
+      "revert-layer",
+      "default",
+      "INHERIT",
+    ]) {
+      expect(isReservedFamilyIdent(reserved)).toBe(true);
+    }
+    expect(isReservedFamilyIdent("Inter")).toBe(false);
+    expect(isReservedFamilyIdent("serif")).toBe(false);
   });
 
   test("an array is a comma-separated stack, never one multi-word name", () => {

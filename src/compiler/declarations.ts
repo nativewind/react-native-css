@@ -36,7 +36,11 @@ import type {
   UnresolvedColor,
 } from "lightningcss";
 
-import { isStyleFunction, narrowFontFamily } from "../utilities";
+import {
+  isReservedFamilyIdent,
+  isStyleFunction,
+  narrowFontFamily,
+} from "../utilities";
 import { isMappingProperty } from "./atRules";
 import type {
   StyleDescriptor,
@@ -995,8 +999,10 @@ export function parseUnparsedDeclaration(
     let value = parseUnparsed(declaration.value.value, builder, property);
 
     if (property === "font-family") {
-      // A stack LightningCSS could not type is still one family, so only a leading var() waits for render
-      const narrowing = narrowFontFamily(value);
+      // A stack LightningCSS could not type is still one family, so only a stack holding a var() waits for render
+      const narrowing = hasEveryFontFamilyEntry(declaration.value.value)
+        ? narrowFontFamily(value)
+        : ({ kind: "none" } as const);
 
       switch (narrowing.kind) {
         case "family":
@@ -1028,6 +1034,38 @@ export function parseUnparsedDeclaration(
       }
     }
   }
+}
+
+// css-fonts-4 §4.2: an empty entry or an unquoted reserved ident invalidates a written stack, and parseUnparsed keeps neither
+function hasEveryFontFamilyEntry(tokens: readonly TokenOrValue[]): boolean {
+  let entryHoldsSomething = false;
+
+  for (const token of tokens) {
+    if (token.type === "token") {
+      switch (token.value.type) {
+        case "comma":
+          if (!entryHoldsSomething) {
+            return false;
+          }
+          entryHoldsSomething = false;
+          continue;
+        case "white-space":
+        case "comment":
+          continue;
+        case "ident":
+          if (isReservedFamilyIdent(token.value.value)) {
+            return false;
+          }
+          break;
+        default:
+          break;
+      }
+    }
+
+    entryHoldsSomething = true;
+  }
+
+  return entryHoldsSomething;
 }
 
 export function parseCustomDeclaration(
