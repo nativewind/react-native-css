@@ -36,6 +36,8 @@ const debugDefault =
   typeof process.env.NODE_OPTIONS === "string" &&
   process.env.NODE_OPTIONS.includes("--inspect");
 
+let renderCount = 0;
+
 export async function render(
   component: ReactElement<PropsWithChildren>,
   {
@@ -76,8 +78,8 @@ export async function render(
 
   // Process the TailwindCSS
   const { css: output } = await postcss([
-    /* Tailwind seems to internally cache things, so we need a random value to cache bust */
-    tailwind({ base: Date.now().toString() }),
+    // Tailwind caches its compiler per base, so each render takes a base of its own
+    tailwind({ base: `render-${renderCount++}` }),
   ]).process(css, {
     from: __dirname,
   });
