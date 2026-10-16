@@ -756,6 +756,17 @@ describe("CSS-wide keywords", () => {
     ).toEqual([[{}, "inherit"]]);
   });
 
+  test("a variable that leads into a cycle is inlined, and only the cycle's members are left to the runtime", () => {
+    const published = (
+      compile(
+        `.child { --lead: var(--cycle-x); --cycle-x: var(--cycle-y); --cycle-y: var(--cycle-x); color: var(--lead); }`,
+      ).stylesheet().s?.[0]?.[1]?.[0]?.v ?? []
+    ).map(([name]) => name);
+
+    expect(published).toEqual(expect.arrayContaining(["cycle-x", "cycle-y"]));
+    expect(published).not.toContain("lead");
+  });
+
   test("a variable two branches read is inlined into both, as no cycle", () => {
     expect(
       declarationsFor(
