@@ -15,6 +15,14 @@ declare module "@react-native/virtualized-lists" {
   }
 }
 
+declare module "react-native-gesture-handler" {
+  // The button family extends neither ViewProps nor TouchableWithoutFeedbackProps
+  interface RawButtonProps {
+    className?: string | undefined;
+    cssInterop?: boolean | undefined;
+  }
+}
+
 declare module "react-native" {
   interface ButtonProps {
     className?: string;

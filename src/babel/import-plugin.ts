@@ -1,5 +1,3 @@
-import { basename, dirname, resolve, sep } from "path";
-
 import { type PluginObj } from "@babel/core";
 import type { Statement } from "@babel/types";
 
@@ -19,6 +17,7 @@ import {
   handleReactNativeWebInteropRequireDefault,
   handleReactNativeWebObjectPatternRequire,
 } from "./react-native-web";
+import { isFromThisModule } from "./this-module";
 
 export default function ({
   types: t,
@@ -26,19 +25,6 @@ export default function ({
   types: BabelTypes;
 }): PluginObj<PluginState> {
   const processed = new WeakSet();
-
-  const packageRoot = resolve(
-    __dirname,
-    basename(dirname(__dirname)) === "src" ? "../.." : "../../..",
-  );
-  const thisModuleDist = resolve(packageRoot, "dist") + sep;
-  const thisModuleSrc = resolve(packageRoot, "src") + sep;
-
-  function isFromThisModule(filename: string): boolean {
-    return (
-      filename.startsWith(thisModuleDist) || filename.startsWith(thisModuleSrc)
-    );
-  }
 
   return {
     name: "Rewrite react-native to react-native-css",
