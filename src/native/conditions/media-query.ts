@@ -1,45 +1,73 @@
 /* eslint-disable */
-import { I18nManager, PixelRatio, Platform } from "react-native";
+import { PixelRatio, Platform } from "react-native";
 
 import type { MediaCondition } from "react-native-css/compiler";
 
 import { colorScheme, vh, vw, type Getter } from "../reactivity";
+import {
+  isDeclaredByAncestor,
+  NO_DECLARATIONS,
+  resolveDeclaredDirectionality,
+  resolveDirectionality,
+  resolveRootDirectionality,
+  type ElementDirectionality,
+} from "./directionality";
 
-export function testMediaQuery(mediaQueries: MediaCondition[], get: Getter) {
-  return mediaQueries.every((query) => test(query, get));
+export function testMediaQuery(
+  mediaQueries: MediaCondition[],
+  get: Getter,
+  element: ElementDirectionality = NO_DECLARATIONS,
+) {
+  return mediaQueries.every((query) => test(query, get, element));
 }
 
-function test(mediaQuery: MediaCondition, get: Getter): Boolean {
+function test(
+  mediaQuery: MediaCondition,
+  get: Getter,
+  element: ElementDirectionality,
+): Boolean {
   switch (mediaQuery[0]) {
     case "[]":
     case "!!":
       return false;
     case "!":
-      return !test(mediaQuery[1], get);
+      return !test(mediaQuery[1], get, element);
     case "&":
       return mediaQuery[1].every((query) => {
-        return test(query, get);
+        return test(query, get, element);
       });
     case "|":
       return mediaQuery[1].some((query) => {
-        return test(query, get);
+        return test(query, get, element);
       });
     case ">":
     case ">=":
     case "<":
     case "<=":
     case "=": {
-      return testComparison(mediaQuery, get);
+      return testComparison(mediaQuery, get, element);
     }
   }
 }
 
-function testComparison(mediaQuery: MediaCondition, get: Getter): Boolean {
+function testComparison(
+  mediaQuery: MediaCondition,
+  get: Getter,
+  element: ElementDirectionality,
+): Boolean {
   const value = mediaQuery[2];
 
   switch (mediaQuery[1]) {
     case "dir":
-      return value === (I18nManager.isRTL ? "rtl" : "ltr");
+      return value === resolveDirectionality(element);
+    case "root-dir":
+      return value === resolveRootDirectionality();
+    case "ancestor-dir": {
+      const direction = resolveDeclaredDirectionality(value);
+      return (
+        direction !== undefined && isDeclaredByAncestor(element, direction)
+      );
+    }
     case "hover":
       return true;
     case "platform":

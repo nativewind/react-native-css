@@ -10,6 +10,7 @@ import {
 } from "../reactivity";
 import { testAttributes } from "./attributes";
 import { testContainerQueries } from "./container-query";
+import type { ElementDirectionality } from "./directionality";
 import type { RenderGuard } from "./guards";
 import { testMediaQuery } from "./media-query";
 
@@ -19,11 +20,12 @@ export function testRule(
   props: Props,
   guards: RenderGuard[],
   containerContext: ContainerContextValue,
+  element: ElementDirectionality,
 ) {
   if (rule.p && !pseudoClasses(rule.p, get)) {
     return false;
   }
-  if (rule.m && !testMediaQuery(rule.m, get)) {
+  if (rule.m && !testMediaQuery(rule.m, get, element)) {
     return false;
   }
   if (rule.aq && !testAttributes(rule.aq, props, guards)) {

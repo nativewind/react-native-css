@@ -185,7 +185,7 @@ export type MediaCondition =
   // Comparison
   | [
       MediaFeatureComparison,
-      MediaFeatureNameFor_MediaFeatureId | "dir",
+      MediaFeatureNameFor_MediaFeatureId | DirectionalityFeature,
       StyleDescriptor,
     ]
   // [Start, End]
@@ -199,6 +199,9 @@ export type MediaCondition =
     ];
 
 export type MediaFeatureComparison = "=" | ">" | ">=" | "<" | "<=";
+
+/** The element's directionality, the root's (the platform's), and a direction an ancestor declares with its dir prop */
+export type DirectionalityFeature = "dir" | "root-dir" | "ancestor-dir";
 
 export interface PseudoClassesQuery {
   /** Hover */

@@ -22,6 +22,10 @@ const Order = Specificity.Order;
 export const inlineSpecificity: SpecificityArray = [];
 inlineSpecificity[Specificity.Inline] = 1;
 
+/** A user-agent rule sits beneath every author rule — CSS Cascade 5 §6.1, origin precedence. */
+export const uaSpecificity: SpecificityArray = [];
+uaSpecificity[Specificity.Order] = Number.NEGATIVE_INFINITY;
+
 export const specificityCompareFn = (
   a: StyleRule | InlineStyleRecord,
   b: StyleRule | InlineStyleRecord,
