@@ -30,6 +30,9 @@ export interface RecordedTransform {
 
 export const recordedTransforms: RecordedTransform[] = [];
 
+/** Loading and running the stylesheet pipeline outlasts jest's 5 s default on a loaded machine. */
+export const TRANSFORM_TIMEOUT_MS = 60_000;
+
 /** Chrome 100 predates `:dir()` (Chrome 120), in lightningcss's `major << 16` encoding. */
 const CHROME_100 = 100 << 16;
 

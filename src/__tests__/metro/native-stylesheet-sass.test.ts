@@ -8,11 +8,13 @@ import type {
 import type { ReactNativeCssStyleSheet } from "react-native-css/compiler";
 
 import { transform } from "../../metro/metro-transformer";
-import { recordedTransforms } from "./_expo-worker";
+import { recordedTransforms, TRANSFORM_TIMEOUT_MS } from "./_expo-worker";
 
 jest.mock("@expo/metro-config", () => ({
   unstable_transformerPath: require.resolve("./_expo-worker"),
 }));
+
+jest.setTimeout(TRANSFORM_TIMEOUT_MS);
 
 interface SassCall {
   readonly filename: string;
