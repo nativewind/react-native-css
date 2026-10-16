@@ -64,6 +64,49 @@ describe("a deferred declaration beside a nested one", () => {
     expect(props.style).toStrictEqual({ color: "red" });
     expect(props.numberOfLines).toBe(2);
   });
+
+  test("a text-shadow with no colour takes the element's colour", () => {
+    expect(
+      renderText(`.my-class { color: #0000ff; text-shadow: 2px 2px; }`).style,
+    ).toStrictEqual({
+      color: "#00f",
+      textShadowColor: "#00f",
+      textShadowRadius: 0,
+      textShadowOffset: { width: 2, height: 2 },
+    });
+  });
+
+  test("a box-shadow's first shadow with no colour takes the inherited colour", () => {
+    registerCSS(
+      `${decoy} .parent { color: #123456; } .my-class { box-shadow: inset 1px 1px, 2px 2px #654321; }`,
+    );
+
+    const child = render(
+      <Text className="parent">
+        <Text testID={testID} className="my-class" />
+      </Text>,
+    ).getByTestId(testID);
+
+    expect(child.props.style).toStrictEqual({
+      boxShadow: [
+        {
+          color: "#123456",
+          offsetX: 1,
+          offsetY: 1,
+          blurRadius: 0,
+          spreadDistance: 0,
+          inset: true,
+        },
+        {
+          color: "#654321",
+          offsetX: 2,
+          offsetY: 2,
+          blurRadius: 0,
+          spreadDistance: 0,
+        },
+      ],
+    });
+  });
 });
 
 // Chromium 153, Firefox 155 and WebKit 26.6: each key belongs to the declaration that set it last, so a later longhand beats an earlier shorthand however late the shorthand resolves
