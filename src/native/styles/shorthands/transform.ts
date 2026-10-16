@@ -12,7 +12,7 @@ export const transform: StyleFunctionResolver = (
   const transforms = resolveValue(transformDescriptor[2]);
 
   if (Array.isArray(transforms)) {
-    // An empty fallback substitutes no transform
+    // A var() holding several transforms substitutes each of them into the list
     const entries: unknown[] = transforms.flat();
 
     return entries.some(resetsToNone)

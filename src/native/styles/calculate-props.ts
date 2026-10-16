@@ -22,7 +22,12 @@ import {
   type VariableContextValue,
 } from "../reactivity";
 import { transformKeys } from "./defaults";
-import { resolveValue, type ResolveValueOptions } from "./resolve";
+import {
+  isEmptySubstitution,
+  resolveValue,
+  type ResolveValueOptions,
+  type Substitution,
+} from "./resolve";
 
 export function calculateProps(
   get: Getter,
@@ -238,9 +243,10 @@ function resolveDeclaration(
   get: Getter,
   options: ResolveValueOptions,
 ): unknown {
-  const value = resolveValue(descriptor, get, options);
+  const substitution: Substitution = { failed: false };
+  const value = resolveValue(descriptor, get, { ...options, substitution });
 
-  if (!isInvalidAtComputedValueTime(descriptor, value)) {
+  if (!isInvalidAtComputedValueTime(descriptor, value, substitution)) {
     return value;
   }
 
@@ -267,22 +273,19 @@ function unsetDescriptor(
   return "unset";
 }
 
-// A var() that leaves the declaration nothing: no value, or as the whole value an empty fallback
+// A var() that substitutes nothing anywhere in the value, or leaves the declaration nothing: no value, or as the whole value an empty fallback
 function isInvalidAtComputedValueTime(
   descriptor: StyleDescriptor,
   value: unknown,
+  substitution: Readonly<Substitution>,
 ): boolean {
-  if (!readsVariable(descriptor)) {
+  if (substitution.failed) {
+    return true;
+  } else if (!readsVariable(descriptor)) {
     return false;
   }
 
-  return (
-    value === undefined ||
-    (isStyleFunction(descriptor) &&
-      descriptor[1] === "var" &&
-      Array.isArray(value) &&
-      value.length === 0)
-  );
+  return value === undefined || isEmptySubstitution(descriptor, value);
 }
 
 function readsVariable(descriptor: StyleDescriptor): boolean {

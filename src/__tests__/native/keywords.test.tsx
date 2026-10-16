@@ -244,6 +244,30 @@ describe.each(routes)("--brand: initial, %s", (_route, options) => {
     });
   });
 
+  test("hides a :root declaration from a descendant", () => {
+    registerCSS(
+      `
+        :root { --hidden-root: red; }
+        .middle { --hidden-root: initial; }
+        .child { color: var(--hidden-root, green); }
+        .other { --hidden-root: blue; }
+      `,
+      options,
+    );
+
+    render(
+      <View className="parent">
+        <View className="middle">
+          <View testID="child" className="child" />
+        </View>
+      </View>,
+    );
+
+    expect(screen.getByTestId("child").props.style).toStrictEqual({
+      color: "green",
+    });
+  });
+
   test("over an earlier rule makes var(--brand) invalid, so the colour inherits", () => {
     expect(
       renderNested(
@@ -258,6 +282,141 @@ describe.each(routes)("--brand: initial, %s", (_route, options) => {
     ).toStrictEqual({ color: "#008000" });
   });
 });
+
+// Chromium 153, Firefox 155 and WebKit 26.6 give a custom property its var() leaves without a value the guaranteed-invalid value (css-variables-1 §3.1), so a var() reading it takes its fallback
+describe.each(routes)(
+  "a custom property a var() leaves without a value, %s",
+  (_route, options) => {
+    test("takes the var() fallback over an ancestor's declaration", () => {
+      expect(
+        renderNested(
+          `
+            .parent { --unresolved: blue; }
+            .child { --unresolved: var(--missing); color: var(--unresolved, green); }
+          `,
+          options,
+        ),
+      ).toStrictEqual({ color: "green" });
+    });
+
+    test("hides the ancestor's declaration from a descendant", () => {
+      registerCSS(
+        `
+          .parent { --unresolved-down: blue; }
+          .middle { --unresolved-down: var(--missing); }
+          .child { color: var(--unresolved-down, green); }
+        `,
+        options,
+      );
+
+      render(
+        <View className="parent">
+          <View className="middle">
+            <View testID="child" className="child" />
+          </View>
+        </View>,
+      );
+
+      expect(screen.getByTestId("child").props.style).toStrictEqual({
+        color: "green",
+      });
+    });
+
+    test("reads the guaranteed-invalid value inside a longer value", () => {
+      registerCSS(
+        `.child { --source: initial; --reader: var(--source) 1px; width: var(--reader, 5px); }`,
+        options,
+      );
+
+      render(<View testID="child" className="child" />);
+
+      expect(screen.getByTestId("child").props.style).toStrictEqual({
+        width: 5,
+      });
+    });
+
+    test("reads it inside a function declared before the variable it reads", () => {
+      registerCSS(
+        `.child { --reader: calc(var(--source) * 2); --source: initial; width: var(--reader, 5px); }`,
+        options,
+      );
+
+      render(<View testID="child" className="child" />);
+
+      expect(screen.getByTestId("child").props.style).toStrictEqual({
+        width: 5,
+      });
+    });
+
+    test.each([
+      ["declared once", ""],
+      ["declared twice", ".other { --reader: 1px; }"],
+    ])(
+      "an empty value substituted whole lets the colour inherit, the variable %s",
+      (_declarations, other) => {
+        expect(
+          renderNested(
+            `
+              .parent { color: green; }
+              .child { --source: initial; --reader: var(--source,); color: var(--reader, red); }
+              ${other}
+            `,
+            options,
+          ),
+        ).toStrictEqual({ color: "#008000" });
+      },
+    );
+
+    // Chromium 153, Firefox 155 and WebKit 26.6 substitute an empty custom property's value as nothing, over an ancestor's
+    test("an authored empty value shadows the ancestor's, and lets the colour inherit", () => {
+      expect(
+        renderNested(
+          `
+            .parent { color: green; --authored-empty: red; }
+            .child { --authored-empty: ; color: var(--authored-empty, blue); }
+          `,
+          options,
+        ),
+      ).toStrictEqual({ color: "#008000" });
+    });
+
+    test("an authored empty value substitutes nothing inside a longer value", () => {
+      registerCSS(
+        `.child { --authored-empty-list: ; width: calc(4px var(--authored-empty-list) + 2px); }`,
+        options,
+      );
+
+      render(<View testID="child" className="child" />);
+
+      expect(screen.getByTestId("child").props.style).toStrictEqual({
+        width: 6,
+      });
+    });
+
+    // Chromium 153, Firefox 155 and WebKit 26.6 unset both, reading neither the fallback nor the parent's declaration
+    test("a value that resolves to nothing reads the same each time it is read", () => {
+      registerCSS(
+        `
+          .parent { --memo: 9px; }
+          .child { --memo-empty: initial; --memo: calc(var(--memo-empty,) * 2); width: var(--memo, 5px); height: var(--memo, 5px); }
+          .other { --memo: 1px; --memo-empty: 1px; }
+        `,
+        options,
+      );
+
+      render(
+        <View className="parent">
+          <View testID="child" className="child" />
+        </View>,
+      );
+
+      expect(screen.getByTestId("child").props.style).toStrictEqual({
+        width: undefined,
+        height: undefined,
+      });
+    });
+  },
+);
 
 // Chromium 153, Firefox 155 and WebKit 26.6: the root has no parent, so inherit gives the guaranteed-invalid value there too
 test.each(["inherit", "initial"])(
@@ -297,6 +456,19 @@ test("* { --brand: initial } leaves var(--brand) its fallback", () => {
         * { --universal-initial: initial; }
         .other { --universal-initial: blue; }
         .child { color: var(--universal-initial, green); }
+      `,
+      {},
+    ),
+  ).toStrictEqual({ color: "green" });
+});
+
+test("--brand: inherit under *'s initial leaves var(--brand) its fallback", () => {
+  expect(
+    renderNested(
+      `
+        * { --universal-gone: initial; }
+        .child { --universal-gone: inherit; color: var(--universal-gone, green); }
+        .other { --universal-gone: blue; }
       `,
       {},
     ),

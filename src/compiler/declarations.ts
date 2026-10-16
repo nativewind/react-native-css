@@ -1165,7 +1165,7 @@ function parseVariable(
 ): StyleFunction {
   const name = variable.name.ident.slice(2);
   // An empty fallback substitutes nothing, which a longer value can hold (css-variables-1 §3)
-  const fallback = isEmptyFallback(variable.fallback)
+  const fallback = isEmptyTokenList(variable.fallback)
     ? []
     : parseSubstitutionFallback(
         variable.fallback,
@@ -1178,7 +1178,7 @@ function parseVariable(
   return [{}, "var", fallback === undefined ? name : [name, fallback], 1];
 }
 
-function isEmptyFallback(tokens: TokenOrValue[] | null | undefined): boolean {
+function isEmptyTokenList(tokens: TokenOrValue[] | null | undefined): boolean {
   return (
     Array.isArray(tokens) &&
     tokens.every(
@@ -1346,6 +1346,12 @@ export function parseCustomDeclaration(
     if (parsedFontVariant !== undefined) {
       builder.addDescriptor(property, parsedFontVariant);
     }
+  } else if (
+    property.startsWith("--") &&
+    isEmptyTokenList(declaration.value.value)
+  ) {
+    // css-variables-1 §2: a custom property's value may be empty, and substitutes nothing
+    builder.addDescriptor(property, []);
   } else if (
     validProperties.has(property) ||
     property.startsWith("--") ||

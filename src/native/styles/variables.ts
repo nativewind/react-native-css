@@ -12,9 +12,23 @@ import {
 import { VAR_SYMBOL, type Getter } from "../reactivity";
 import type { ResolveValueOptions, SimpleResolveValue } from "./resolve";
 
-type Lookup =
-  | { readonly settled: true; readonly value: unknown }
-  | { readonly settled: false };
+// A variable rncss publishes itself carries a property's computed value, which always exists, so one nothing publishes leaves the property its default
+const COMPUTED_CHANNEL_PREFIX = "__rn-css-";
+
+function isComputedChannel(name: string): boolean {
+  return name.startsWith(COMPUTED_CHANNEL_PREFIX);
+}
+
+// What one source declares for the variable: nothing, its parent's value, the guaranteed-invalid value, or a value
+type Declaration =
+  | { readonly kind: "absent" }
+  | { readonly kind: "inherit" }
+  | { readonly kind: "guaranteed-invalid" }
+  | { readonly kind: "value"; readonly value: unknown };
+
+const ABSENT: Declaration = { kind: "absent" };
+const INHERIT: Declaration = { kind: "inherit" };
+const GUARANTEED_INVALID: Declaration = { kind: "guaranteed-invalid" };
 
 export function varResolver(
   resolve: SimpleResolveValue,
@@ -49,7 +63,20 @@ export function varResolver(
     return;
   }
 
-  if (variableCycles.has(name)) return resolve(fallback);
+  // css-variables-1 §3.1: a var() with no fallback for a variable that has no value leaves its declaration invalid at computed-value time
+  const substituteFallback = (): unknown => {
+    if (
+      fallback === undefined &&
+      options.substitution &&
+      !isComputedChannel(name)
+    ) {
+      options.substitution.failed = true;
+    }
+
+    return resolve(fallback);
+  };
+
+  if (variableCycles.has(name)) return substituteFallback();
 
   // Share the active resolution path with recursive calls. Mark only the
   // actual cycle, so a dependent variable can still use its own fallback.
@@ -65,67 +92,116 @@ export function varResolver(
   variableHistory.add(name);
 
   const memoise = (value: unknown) => {
-    options.inlineVariables ??= { [VAR_SYMBOL]: "inline" };
-    options.inlineVariables[name] = value;
+    if (value !== undefined) {
+      options.inlineVariables ??= { [VAR_SYMBOL]: "inline" };
+      options.inlineVariables[name] = value;
+    }
+
     return value;
   };
 
-  // A universal selector declares the variable on every element: below a class, above inheritance
-  const lookUpUniversal = (): Lookup => {
-    const universal = get(universalVariables(name));
-    if (isGuaranteedInvalidValue(universal)) {
-      return { settled: true, value: resolve(fallback) };
-    } else if (isInheritedValue(universal)) {
-      return { settled: false };
+  // css-variables-1 §3.1: a value a var() leaves without one, like a member of a cycle, is the guaranteed-invalid value
+  const readDeclaration = (
+    descriptor: StyleDescriptor | undefined,
+  ): Declaration => {
+    if (descriptor === undefined) {
+      return ABSENT;
+    } else if (isGuaranteedInvalidValue(descriptor)) {
+      return GUARANTEED_INVALID;
+    } else if (isInheritedValue(descriptor)) {
+      return INHERIT;
     }
 
-    const value = resolve(universal);
-    if (variableCycles.has(name)) {
-      return { settled: true, value: resolve(fallback) };
-    }
+    const outer = options.substitution;
+    const substitution = { failed: false };
+    options.substitution = substitution;
 
-    return value === undefined
-      ? { settled: false }
-      : { settled: true, value: memoise(value) };
+    try {
+      const value = resolve(descriptor);
+
+      return substitution.failed || variableCycles.has(name)
+        ? GUARANTEED_INVALID
+        : { kind: "value", value };
+    } finally {
+      options.substitution = outer;
+    }
   };
 
-  try {
-    const declared = inlineVariables?.[name] as StyleDescriptor;
-    if (isGuaranteedInvalidValue(declared)) return resolve(fallback);
+  // The parent's value: what it hands down, or else what `*` declares on it, then what :root does
+  const readParentValue = (readsUniversal: boolean): unknown => {
+    const handedDown = readOwnEntry(variables, name);
 
-    // A custom property set to `inherit` takes its parent's value, over every declaration on the element
-    const inheriting = isInheritedValue(declared);
+    // Guards retain the ancestor's raw descriptor, matching the context value
+    if (handedDown !== undefined) {
+      renderGuards?.push(["v", name, handedDown]);
+      const inherited = readDeclaration(handedDown);
 
-    if (!inheriting) {
-      const value = resolve(declared);
-      if (variableCycles.has(name)) return resolve(fallback);
-      if (value !== undefined) return memoise(value);
-
-      const universal = lookUpUniversal();
-      if (universal.settled) return universal.value;
+      if (inherited.kind === "value") {
+        return inherited.value;
+      } else if (inherited.kind === "guaranteed-invalid") {
+        return substituteFallback();
+      }
     }
 
-    // Guards retain the ancestor's raw descriptor, matching the context value. An entry with no value is no declaration.
-    if (Object.hasOwn(variables, name) && variables[name] !== undefined) {
-      renderGuards?.push(["v", name, variables[name]]);
-      if (isGuaranteedInvalidValue(variables[name])) return resolve(fallback);
-      const value = resolve(variables[name]);
-      return variableCycles.has(name) ? resolve(fallback) : value;
-    }
+    if (readsUniversal) {
+      const universal = readDeclaration(get(universalVariables(name)));
 
-    if (inheriting) {
-      // Undeclared in the context, the parent's own value is what `*` declares on it
-      const universal = lookUpUniversal();
-      if (universal.settled) return universal.value;
+      if (universal.kind === "value") {
+        return memoise(universal.value);
+      } else if (universal.kind === "guaranteed-invalid") {
+        return substituteFallback();
+      }
     }
 
     // At the root a keyword resolves to nothing, so the fallback applies
-    const value = resolve(get(rootVariables(name)));
-    if (variableCycles.has(name)) return resolve(fallback);
-    if (value !== undefined) return memoise(value);
+    const root = readDeclaration(get(rootVariables(name)));
 
-    return resolve(fallback);
+    return root.kind === "value" ? memoise(root.value) : substituteFallback();
+  };
+
+  try {
+    const own = readDeclaration(readOwnEntry(inlineVariables, name));
+
+    switch (own.kind) {
+      case "value":
+        return memoise(own.value);
+      case "guaranteed-invalid":
+        return substituteFallback();
+      case "inherit":
+        // A custom property set to `inherit` takes its parent's value, over every declaration on the element
+        return readParentValue(true);
+      case "absent":
+        break;
+      default:
+        own satisfies never;
+    }
+
+    // A universal selector declares the variable on every element: below a class, above inheritance
+    const universal = readDeclaration(get(universalVariables(name)));
+
+    switch (universal.kind) {
+      case "value":
+        return memoise(universal.value);
+      case "guaranteed-invalid":
+        return substituteFallback();
+      case "inherit":
+      case "absent":
+        return readParentValue(false);
+      default:
+        universal satisfies never;
+        return;
+    }
   } finally {
     variableHistory.delete(name);
   }
+}
+
+// A variable's name is its own, never a property every object inherits, and an entry with no value is no declaration
+function readOwnEntry(
+  record: Readonly<Record<string, unknown>> | undefined,
+  name: string,
+): StyleDescriptor | undefined {
+  return record !== undefined && Object.hasOwn(record, name)
+    ? (record[name] as StyleDescriptor | undefined)
+    : undefined;
 }

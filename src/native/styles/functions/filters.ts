@@ -1,6 +1,5 @@
 import { isStyleDescriptorArray } from "react-native-css/utilities";
 
-import { resolveListEntries } from "../list-entries";
 import { resetsToNone } from "../resets-to-none";
 import type { StyleFunctionResolver } from "../resolve";
 import { shorthandHandler } from "../shorthands/_handler";
@@ -102,10 +101,7 @@ export const dropShadow: StyleFunctionResolver = (
 
 /** CSS variables may expand to multiple filters; native filter arrays must be flat. */
 export const filter: StyleFunctionResolver = (resolveValue, descriptor) => {
-  const list = descriptor[2];
-  const value: unknown = isStyleDescriptorArray(list)
-    ? resolveListEntries(resolveValue, list)
-    : resolveValue(list);
+  const value: unknown = resolveValue(descriptor[2]);
   if (Array.isArray(value)) {
     const filters: unknown[] = value.flat(Infinity);
     if (filters.some(resetsToNone)) return null;

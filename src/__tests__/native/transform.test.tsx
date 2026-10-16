@@ -219,3 +219,18 @@ test.each([
 
   expect(component.props.style).toStrictEqual({});
 });
+
+// Chromium 153, Firefox 155 and WebKit 26.6 substitute each transform a variable holds, in place
+test("a var() holding several transforms substitutes each of them", () => {
+  registerCSS(
+    `.my-class { --several: rotate(45deg) scale(2); transform: translateX(1px) var(--several); } .other { --several: none; }`,
+  );
+
+  const component = render(
+    <View testID={testID} className="my-class" />,
+  ).getByTestId(testID);
+
+  expect(component.props.style).toStrictEqual({
+    transform: [{ translateX: 1 }, { rotate: "45deg" }, { scale: 2 }],
+  });
+});

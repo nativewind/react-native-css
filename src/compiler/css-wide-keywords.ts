@@ -15,13 +15,13 @@ export function isCSSWideKeyword(keyword: string): keyword is CSSWideKeyword {
 }
 
 export interface SoleCSSWideKeyword {
-  keyword: CSSWideKeyword;
-  written: string;
+  readonly keyword: CSSWideKeyword;
+  readonly written: string;
 }
 
 // A CSS-wide keyword is a value only on its own (css-values-4 §2.1), and a custom property's value keeps the whitespace around it
 export function soleCSSWideKeyword(
-  tokens: TokenOrValue[] | null | undefined,
+  tokens: readonly TokenOrValue[] | null | undefined,
 ): SoleCSSWideKeyword | undefined {
   const [token, ...rest] = (tokens ?? []).filter(
     (part) => part.type !== "token" || part.value.type !== "white-space",

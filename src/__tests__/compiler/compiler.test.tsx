@@ -756,6 +756,14 @@ describe("CSS-wide keywords", () => {
     ).toEqual([[{}, "inherit"]]);
   });
 
+  test("a variable two branches read is inlined into both, as no cycle", () => {
+    expect(
+      declarationsFor(
+        `.child { --diamond-reader: calc(var(--diamond-left) + var(--diamond-right)); --diamond-left: var(--diamond-base); --diamond-right: var(--diamond-base); --diamond-base: 3px; width: var(--diamond-reader, 1px); }`,
+      ),
+    ).toStrictEqual(declarationsFor(`.child { width: 6px; }`));
+  });
+
   test("a custom property set to initial is inlined as the guaranteed-invalid value, so a read takes its fallback", () => {
     expect(
       declarationsFor(`.child { --brand: initial; color: var(--brand, red); }`),

@@ -119,23 +119,34 @@ function replaceDeclaration(
     return;
   }
 
-  if (readsGuaranteedInvalid(declaration.value.value, vars)) {
-    // css-variables-1 §3.1: the declaration is invalid at computed-value time, as if its value were `unset`, and a custom property's is the guaranteed-invalid value
+  const value = readsGuaranteedInvalid(declaration.value.value, vars)
+    ? undefined
+    : declaration.value.value.flatMap((part) => flattenPart(part, vars));
+
+  // css-variables-1 §3.1: a declaration a var() leaves without a value is invalid at computed-value time, as if its value were `unset`, and a custom property's is the guaranteed-invalid value
+  if (
+    value === undefined ||
+    (declaration.property === "unparsed" && substitutesNothing(value))
+  ) {
     declaration.value.value = [
       keywordToken(declaration.property === "custom" ? "initial" : "unset"),
     ];
     return declaration;
   }
 
-  declaration.value.value = declaration.value.value.flatMap((part) => {
-    return flattenPart(part, vars);
-  });
+  declaration.value.value = value;
 
   return declaration;
 }
 
+function substitutesNothing(parts: readonly TokenOrValue[]): boolean {
+  return parts.every(
+    (part) => part.type === "token" && part.value.type === "white-space",
+  );
+}
+
 function readsGuaranteedInvalid(
-  parts: TokenOrValue[],
+  parts: readonly TokenOrValue[],
   vars: Map<string, UniqueVarInfo>,
 ): boolean {
   return parts.some((part) => {
@@ -195,50 +206,79 @@ function flattenPart(
 function flattenVar(
   name: string,
   vars: Map<string, UniqueVarInfo>,
-  seen = new Set<string>(),
+  path = new Set<string>(),
 ) {
-  if (seen.has(name)) {
-    vars.delete(name);
+  if (path.has(name)) {
+    // css-variables-1 §2.3: every variable in a cycle is the guaranteed-invalid value, which the runtime's cycle guard answers
+    leaveCycleToRuntime(name, path, vars);
+    return;
   }
 
-  seen.add(name);
-
-  let varInfo = vars.get(name);
+  const varInfo = vars.get(name);
 
   if (!varInfo || varInfo.flat) {
     return;
   }
 
-  let varInfoValue = varInfo.value?.flatMap((part) => {
-    if (part.type === "var") {
-      const name = part.value.name.ident;
+  const parts = varInfo.value;
 
-      flattenVar(name, vars, seen);
+  // Each variable the value reads is flattened before the value substitutes it, whichever was declared first
+  path.add(name);
+  for (const readName of readVariableNames(parts)) {
+    flattenVar(readName, vars, path);
+  }
+  path.delete(name);
 
-      const nestedVarInfo = vars.get(part.value.name.ident);
-      if (nestedVarInfo?.value) {
-        return nestedVarInfo.value;
-      }
-    }
-    return flattenPart(part, vars);
-  });
+  if (!vars.has(name)) {
+    return;
+  }
 
-  const keyword = soleCSSWideKeyword(varInfo.value)?.keyword;
+  const keyword = soleCSSWideKeyword(parts)?.keyword;
 
-  if (keyword === "initial") {
-    // css-variables-1 §2.2: the guaranteed-invalid value, which no var() substitutes
-    varInfoValue = undefined;
-  } else if (keyword !== undefined) {
+  if (keyword !== undefined && keyword !== "initial") {
     // The parent's value, which only the runtime knows
     vars.delete(name);
     return;
   }
 
-  varInfo = {
-    count: 1,
-    flat: true,
-    value: varInfoValue,
-  };
+  // css-variables-1 §2.2, §3.1: `initial`, and a value that reads the guaranteed-invalid value, are the guaranteed-invalid value, which no var() substitutes
+  const value =
+    keyword === "initial" || readsGuaranteedInvalid(parts, vars)
+      ? undefined
+      : parts.flatMap((part) => flattenPart(part, vars));
 
-  vars.set(name, varInfo);
+  vars.set(name, { count: 1, flat: true, value });
+}
+
+function leaveCycleToRuntime(
+  reentered: string,
+  path: ReadonlySet<string>,
+  vars: Map<string, UniqueVarInfo>,
+) {
+  let inCycle = false;
+
+  for (const name of path) {
+    inCycle ||= name === reentered;
+
+    if (inCycle) {
+      vars.delete(name);
+    }
+  }
+}
+
+// The names `flattenPart` substitutes: each var(), its fallback's, and those inside a function's arguments
+function readVariableNames(
+  parts: readonly TokenOrValue[],
+  names = new Set<string>(),
+): ReadonlySet<string> {
+  for (const part of parts) {
+    if (part.type === "var") {
+      names.add(part.value.name.ident);
+      readVariableNames(part.value.fallback ?? [], names);
+    } else if (part.type === "function") {
+      readVariableNames(part.value.arguments, names);
+    }
+  }
+
+  return names;
 }

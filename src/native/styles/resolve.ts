@@ -8,6 +8,7 @@ import type {
 import {
   isInheritedColorLookup,
   isStyleDescriptorArray,
+  isStyleFunction,
 } from "react-native-css/utilities";
 
 import type { RenderGuard } from "../conditions/guards";
@@ -59,9 +60,16 @@ export type ResolveValueOptions = {
   variableCycles?: Set<string>;
   /** Resolving the element's own `color`, where css-color-3 §4.4 makes `currentcolor` the inherited colour */
   computingColor?: boolean;
+  /** Where a var() that substitutes nothing is recorded, since a list drops the entry it leaves */
+  substitution?: Substitution;
   /** Pass down to perform recursive calculations and avoid circular dependencies */
   calculateProps?: typeof calculateProps;
 };
+
+/** Whether a var() in the value being resolved substituted nothing, which makes the value invalid at computed-value time (css-variables-1 §3.1) */
+export interface Substitution {
+  failed: boolean;
+}
 
 export function resolveValue(
   value: StyleDescriptor,
@@ -96,15 +104,13 @@ export function resolveValue(
       }
 
       if (isStyleDescriptorArray(value)) {
-        value = value
-          .map((d) => resolveValue(d, get, options))
-          .filter((d) => d !== undefined);
+        return value.flatMap((entry) => {
+          const resolved: unknown = resolveValue(entry, get, options);
 
-        if (castToArray && !Array.isArray(value)) {
-          return [value];
-        } else {
-          return value;
-        }
+          return resolved === undefined || isEmptySubstitution(entry, resolved)
+            ? []
+            : [resolved];
+        });
       }
 
       const name = value[1];
@@ -114,22 +120,7 @@ export function resolveValue(
       };
 
       if (name === "var") {
-        if (options.computingColor && isInheritedColorLookup(value)) {
-          const inheritedScope: ResolveValueOptions = {
-            ...options,
-            inlineVariables: undefined,
-            computingColor: false,
-          };
-
-          return varResolver(
-            (inner) => resolveValue(inner, get, inheritedScope),
-            value,
-            get,
-            inheritedScope,
-          );
-        }
-
-        return varResolver(simpleResolve, value, get, options);
+        return resolveVariable(value, get, options);
       } else if (name in functionResolvers) {
         const fn = functionResolvers[name as keyof typeof functionResolvers];
 
@@ -185,4 +176,45 @@ export function resolveValue(
       return castToArray && value && !Array.isArray(value) ? [value] : value;
     }
   }
+}
+
+// css-variables-1 §3: a var() whose value or fallback is empty substitutes nothing
+export function isEmptySubstitution(
+  descriptor: StyleDescriptor,
+  value: unknown,
+): boolean {
+  return (
+    isStyleFunction(descriptor) &&
+    descriptor[1] === "var" &&
+    Array.isArray(value) &&
+    value.length === 0
+  );
+}
+
+function resolveVariable(
+  fn: StyleFunction,
+  get: Getter,
+  options: ResolveValueOptions,
+): unknown {
+  if (options.computingColor && isInheritedColorLookup(fn)) {
+    const inheritedScope: ResolveValueOptions = {
+      ...options,
+      inlineVariables: undefined,
+      computingColor: false,
+    };
+
+    return varResolver(
+      (inner) => resolveValue(inner, get, inheritedScope),
+      fn,
+      get,
+      inheritedScope,
+    );
+  }
+
+  return varResolver(
+    (inner) => resolveValue(inner, get, options),
+    fn,
+    get,
+    options,
+  );
 }
