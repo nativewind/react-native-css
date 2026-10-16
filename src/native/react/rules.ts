@@ -109,7 +109,10 @@ export function updateRules(
       // We we need to inject React context
       if (rule.a) animated = true;
 
-      if (rule.v) {
+      // A pseudo-element's variables are its own and never reach the element's children
+      const publishesVariables = Boolean(rule.v) && !rule.pe;
+
+      if (publishesVariables) {
         variables ??= inheritedVariables;
       }
 
@@ -130,7 +133,7 @@ export function updateRules(
         continue;
       }
 
-      if (rule.v) {
+      if (publishesVariables && rule.v) {
         if (variables === inheritedVariables) {
           variables = { ...inheritedVariables };
         }

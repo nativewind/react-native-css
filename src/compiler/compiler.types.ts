@@ -59,6 +59,8 @@ export interface ReactNativeCssStyleSheet {
  */
 export type StyleRuleSet = StyleRule[];
 
+export type PseudoElement = "selection" | "placeholder";
+
 export interface StyleRule {
   /** Specificity */
   s: SpecificityArray;
@@ -68,6 +70,8 @@ export interface StyleRule {
   v?: VariableDescriptor[];
   /** Named Containers */
   c?: string[];
+  /** The pseudo-element the rule styles, which owns its declarations and variables */
+  pe?: PseudoElement;
 
   /** Declarations use variables */
   dv?: number;

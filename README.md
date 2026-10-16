@@ -235,6 +235,28 @@ This API only allows for setting CSS variables as primitive values. For more com
 > [!IMPORTANT]  
 > By using `VariableContext` you may need to disable the `inlineVariable` optimization
 
+## Pseudo-elements
+
+React Native has no pseudo-elements. A `TextInput` has one prop for each of `::selection` and `::placeholder`:
+
+| CSS                                | React Native prop      |
+| ---------------------------------- | ---------------------- |
+| `::selection { background-color }` | `selectionColor`       |
+| `::placeholder { color }`          | `placeholderTextColor` |
+
+`selectionColor` is the band behind the selected text, which CSS styles with `background-color`; `::selection { color }` is the selected text itself, which React Native cannot style. With Tailwind, use `selection:bg-*` on the input.
+
+The custom properties a pseudo-element declares are its own, and `currentcolor` inside it is its own `color`, as CSS specifies. Every other declaration is dropped rather than applied to the element, and `compile()` lists what it dropped. A Metro build does not print this list.
+
+```js
+compile(
+  `.input::selection { background-color: red; color: white; width: 10px; }`,
+).warnings();
+// { values: { "::selection": ["color", "width"] } }
+```
+
+On web the stylesheet reaches the browser unchanged, so both pseudo-elements behave as CSS specifies.
+
 ## Optimizations
 
 CSS is a dynamic styling language that use highly optimized engines that are not available in React Native. Instead, we optimize the styles to improve performance

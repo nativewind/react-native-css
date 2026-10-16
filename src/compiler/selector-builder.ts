@@ -8,6 +8,7 @@ import type {
   ContainerQuery,
   MediaCondition,
   PseudoClassesQuery,
+  PseudoElement,
   SpecificityArray,
 } from "./compiler.types";
 
@@ -19,7 +20,7 @@ interface ReactNativeClassNameSelector {
   containerQuery?: ContainerQuery[];
   pseudoClassesQuery?: PseudoClassesQuery;
   attributeQuery?: AttributeQuery[];
-  pseudoElementQuery?: string[];
+  pseudoElement?: PseudoElement;
 }
 
 interface ReactNativeGlobalSelector {
@@ -133,8 +134,7 @@ function parseComponents(
         case "placeholder": {
           specificity[Specificity.PseudoElements] =
             (specificity[Specificity.PseudoElements] ?? 0) + 1;
-          root.pseudoElementQuery ??= [];
-          root.pseudoElementQuery.push(component.kind);
+          root.pseudoElement = component.kind;
           return parseComponents(rest, options, root, ref, specificity);
         }
         default: {
