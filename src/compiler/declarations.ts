@@ -727,7 +727,7 @@ function parseFont(
     "line-height",
     parseLineHeight(value.lineHeight, builder),
   );
-  builder.addDescriptor("font-size", parseFontSize(value.size, builder));
+  addFontSize(parseFontSize(value.size, builder), builder);
   builder.addDescriptor("font-style", parseFontStyle(value.style, builder));
   builder.addDescriptor(
     "font-variant-caps",
@@ -994,10 +994,10 @@ export function parseUnparsedDeclaration(
   } else {
     const value = parseUnparsed(declaration.value.value, builder, property);
 
-    builder.addDescriptor(property, value);
-
     if (property === "font-size") {
-      builder.addDescriptor("--__rn-css-em", value);
+      addFontSize(value, builder);
+    } else {
+      builder.addDescriptor(property, value);
     }
 
     if (property === "color") {
@@ -2331,15 +2331,31 @@ export function parseFontSizeDeclaration(
   declaration: DeclarationType<"font-size">,
   builder: StylesheetBuilder,
 ) {
-  const fontSize = parseFontSize(declaration.value, builder);
-  builder.addDescriptor("fontSize", fontSize);
-  builder.addDescriptor("--__rn-css-em", fontSize);
+  addFontSize(parseFontSize(declaration.value, builder), builder);
 }
 
-export function parseFontSize(value: FontSize, builder: StylesheetBuilder) {
+/**
+ * A font size is also the em its element's lengths and its descendants measure
+ * against. A size the runtime computes is computed against the parent's em.
+ */
+function addFontSize(fontSize: StyleDescriptor, builder: StylesheetBuilder) {
+  const descriptor: StyleDescriptor = isStyleFunction(fontSize)
+    ? [{}, "fontSize", fontSize, 1]
+    : fontSize;
+
+  builder.addDescriptor("fontSize", descriptor);
+  builder.addDescriptor("--__rn-css-em", descriptor);
+}
+
+export function parseFontSize(
+  value: FontSize,
+  builder: StylesheetBuilder,
+): StyleDescriptor {
   switch (value.type) {
     case "length":
-      return parseLength(value.value, builder);
+      return value.value.type === "percentage"
+        ? [{}, "em", round(value.value.value * 100) / 100, 1]
+        : parseLength(value.value, builder);
     case "absolute":
     case "relative":
       builder.addWarning("value", value.value);

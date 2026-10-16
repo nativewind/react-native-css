@@ -11,12 +11,13 @@ import type { RenderGuard } from "../conditions/guards";
 import { type Getter, type VariableContextValue } from "../reactivity";
 import type { calculateProps } from "./calculate-props";
 import { transformKeys } from "./defaults";
+import { fontSize } from "./font-size";
 import * as functions from "./functions";
 import { lineHeight } from "./line-height";
 import { scaleFactor } from "./scale-factor";
 import * as shorthands from "./shorthands";
 import { em, rem, vh, vw } from "./units";
-import { varResolver } from "./variables";
+import { parentFontScopeOptions, varResolver } from "./variables";
 
 export type SimpleResolveValue = (
   value: StyleDescriptor,
@@ -40,11 +41,22 @@ export type StyleResolver = (
 const functionResolvers = {
   ...shorthands,
   ...functions,
+  fontSize,
   lineHeight,
   em,
   rem,
   vh,
   vw,
+};
+
+/** Resolvers whose argument is evaluated in a scope other than the element's own. */
+const argumentScopes: Partial<
+  Record<
+    keyof typeof functionResolvers,
+    (options: ResolveValueOptions) => ResolveValueOptions
+  >
+> = {
+  fontSize: parentFontScopeOptions,
 };
 
 export type ResolveValueOptions = {
@@ -54,6 +66,8 @@ export type ResolveValueOptions = {
   renderGuards?: RenderGuard[];
   variableHistory?: Set<string>;
   variableCycles?: Set<string>;
+  /** The scope this element's font size is computed in, once a resolver has entered it */
+  parentFontScope?: ResolveValueOptions;
   /** Pass down to perform recursive calculations and avoid circular dependencies */
   calculateProps?: typeof calculateProps;
 };
@@ -111,17 +125,22 @@ export function resolveValue(
       if (name === "var") {
         return varResolver(simpleResolve, value, get, options);
       } else if (name in functionResolvers) {
-        const fn = functionResolvers[name as keyof typeof functionResolvers];
+        const resolverName = name as keyof typeof functionResolvers;
+        const fn = functionResolvers[resolverName];
 
         if (typeof fn !== "function") {
           throw new Error(`Unknown function: ${name}`);
         }
 
+        const scope = argumentScopes[resolverName]?.(options) ?? options;
+
         value = fn(
-          simpleResolve,
+          scope === options
+            ? simpleResolve
+            : (argument) => resolveValue(argument, get, scope),
           value as StyleFunction,
           get,
-          options,
+          scope,
         ) as StyleDescriptor;
       } else if (transformKeys.has(name)) {
         // translate, rotate, scale, etc.
