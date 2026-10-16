@@ -151,7 +151,7 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
     const remMultiplier = effectiveRem;
     firstPassVisitor.Length = (length) => {
       if (length.unit !== "rem") {
-        return length;
+        return undefined;
       }
 
       return {
@@ -219,7 +219,6 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
   const visitor: Visitor<typeof customAtRules> = {
     Rule(rule) {
       maybeMutateReactNativeOptions(rule, builder);
-      return rule;
     },
     StyleSheetExit(sheet) {
       if (isLoggerEnabled) {
@@ -236,7 +235,6 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
       }
 
       logger(`Exiting lightningcss`);
-      return sheet;
     },
   };
 
