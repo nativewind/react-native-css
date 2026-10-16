@@ -60,10 +60,14 @@ test("vars: an array is a list the declaration consumes", () => {
 });
 
 test("vars: undefined leaves the property unset", () => {
-  registerCSS(`
+  // Kept, so the runtime resolves the variable the inline entry leaves unset
+  registerCSS(
+    `
     .my-class { color: var(--color); }
-    .green { --color: green; }
-  `);
+    .green { --color: #123456; }
+  `,
+    { inlineVariables: false },
+  );
 
   render(
     <View
@@ -75,7 +79,7 @@ test("vars: undefined leaves the property unset", () => {
 
   // An unset inline value lets the class's --color through
   expect(screen.getByTestId(testID).props.style).toStrictEqual({
-    color: "#008000",
+    color: "#123456",
   });
 });
 
