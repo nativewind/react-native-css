@@ -130,10 +130,10 @@ export function VariableContextProvider(
   return <div style={style}>{props.children}</div>;
 }
 
-export const useNativeVariable = () => {
+export const useNativeVariable = (_name: string): never => {
   throw new Error("useNativeVariable is not supported in web");
 };
 
-export const useUnstableNativeVariable = () => {
+export const useUnstableNativeVariable = (_name: string): never => {
   throw new Error("useUnstableNativeVariable is not supported in web");
 };
