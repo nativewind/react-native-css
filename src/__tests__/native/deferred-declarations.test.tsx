@@ -3,7 +3,7 @@ import { Text } from "react-native-css/components/Text";
 import { registerCSS, testID } from "react-native-css/jest";
 
 // A second definition keeps each variable from being inlined, so it resolves at runtime
-const decoy = `.decoy { --c: green; --n: 9; --b: 1px solid green; --w: 9px; }`;
+const decoy = `.decoy { --c: green; --n: 9; --b: 1px solid green; --w: 9px; --s: 9px 9px green; }`;
 
 function renderText(css: string, className = "my-class") {
   registerCSS(`${decoy} ${css}`);
@@ -147,6 +147,26 @@ describe("a deferred shorthand keeps no key a later declaration set", () => {
       ".my-class { border-inline-start-width: 5px; --w: 2px 3px; border-inline-width: var(--w); }",
       "my-class",
       { borderStartWidth: 2, borderEndWidth: 3 },
+    ],
+    [
+      "text-shadow: var() then text-shadow, across rules",
+      ".earlier { --s: 2px 2px blue; text-shadow: var(--s); } .my-class { text-shadow: 1px 1px red; }",
+      "earlier my-class",
+      {
+        textShadowColor: "#f00",
+        textShadowRadius: 0,
+        textShadowOffset: { width: 1, height: 1 },
+      },
+    ],
+    [
+      "text-shadow then text-shadow: var(), across rules",
+      ".earlier { text-shadow: 1px 1px red; } .my-class { --s: 2px 2px blue; text-shadow: var(--s); }",
+      "earlier my-class",
+      {
+        textShadowColor: "blue",
+        textShadowRadius: 0,
+        textShadowOffset: { width: 2, height: 2 },
+      },
     ],
   ] as const)("%s", (_name, css, className, style) => {
     expect(renderText(css, className).style).toStrictEqual(style);

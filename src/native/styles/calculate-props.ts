@@ -224,6 +224,8 @@ export function applyDeclarations(
             previousTarget = declarationTarget;
             previousProp = prop;
 
+            // A shorthand that resolves late writes this key whole, so a path through it holds it too
+            claim(cascade, declarationTarget, prop, position);
             declarationTarget[prop] ??= {};
             declarationTarget = declarationTarget[prop];
           }
