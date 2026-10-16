@@ -36,7 +36,7 @@ import type {
   UnresolvedColor,
 } from "lightningcss";
 
-import { isStyleFunction } from "../utilities";
+import { ABSOLUTE_UNIT_PIXELS, isStyleFunction } from "../utilities";
 import { isMappingProperty } from "./atRules";
 import type {
   StyleDescriptor,
@@ -1461,6 +1461,7 @@ export function parseLength(
       case "q":
       case "pt":
       case "pc":
+        return round(length.value * ABSOLUTE_UNIT_PIXELS[length.unit]);
       case "ex":
       case "rex":
       case "ch":
