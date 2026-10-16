@@ -138,6 +138,16 @@ export type InlineStyle =
   | (Record<string, unknown> | undefined | null)[]
   | (() => unknown);
 
+/*******************************    Variables    ******************************/
+
+// The values both platforms honour: web serialises them to a token stream, an array as a comma-separated list
+export type CustomPropertyValue =
+  | string
+  | number
+  | boolean
+  | undefined
+  | CustomPropertyValue[];
+
 /*********************************    Misc    *********************************/
 
 export type Props = Record<string, any> | undefined | null;
