@@ -36,13 +36,14 @@ import type {
   UnresolvedColor,
 } from "lightningcss";
 
-import { isStyleFunction } from "../utilities";
+import {
+  COLOR_SCHEME_VARIABLE,
+  describeColorSchemeSupport,
+  isStyleFunction,
+  LIGHT_DARK_FUNCTION,
+} from "../utilities";
 import { isMappingProperty } from "./atRules";
-import type {
-  StyleDescriptor,
-  StyleFunction,
-  StyleRule,
-} from "./compiler.types";
+import type { StyleDescriptor, StyleFunction } from "./compiler.types";
 import { parseEasingFunction, parseIterationCount } from "./keyframes";
 import { toRNProperty } from "./selectors";
 import type { StylesheetBuilder } from "./stylesheet";
@@ -180,6 +181,7 @@ const parsers: {
   "box-sizing": parseBoxSizing,
   "caret-color": parseColorOrAutoDeclaration,
   "color": parseFontColorDeclaration,
+  "color-scheme": parseColorScheme,
   "column-gap": parseGap,
   "container": parseContainer,
   "container-name": parseContainerName,
@@ -315,8 +317,6 @@ export function parseDeclaration(
 function parseWithParser(declaration: Declaration, builder: StylesheetBuilder) {
   if (declaration.property in parsers) {
     const parser = parsers[declaration.property] as Parser;
-
-    builder.descriptorProperty = declaration.property;
 
     builder.setWarningProperty(declaration.property);
     const value = parser(declaration, builder, declaration.property);
@@ -981,8 +981,6 @@ export function parseUnparsedDeclaration(
   /**
    * Unparsed shorthand properties need to be parsed at runtime
    */
-  builder.descriptorProperty = property;
-
   if (unparsedRuntimeParsing.has(property)) {
     const args = parseUnparsed(declaration.value.value, builder, property);
 
@@ -991,6 +989,11 @@ export function parseUnparsedDeclaration(
     } else {
       builder.addDescriptor(property, [{}, toRNProperty(property), args, 1]);
     }
+  } else if (property === "color-scheme") {
+    builder.addDescriptor(
+      `--${COLOR_SCHEME_VARIABLE}`,
+      parseUnparsed(declaration.value.value, builder, property),
+    );
   } else {
     const value = parseUnparsed(declaration.value.value, builder, property);
 
@@ -1678,7 +1681,10 @@ function nanToZero(value: number): number {
   return Number.isNaN(value) ? 0 : value;
 }
 
-export function parseColor(cssColor: CssColor, builder: StylesheetBuilder) {
+export function parseColor(
+  cssColor: CssColor,
+  builder: StylesheetBuilder,
+): StyleDescriptor {
   if (typeof cssColor === "string") {
     if (namedColors.has(cssColor)) {
       return cssColor;
@@ -1694,18 +1700,12 @@ export function parseColor(cssColor: CssColor, builder: StylesheetBuilder) {
     case "currentcolor":
       return [{}, "var", "__rn-css-color"] as const;
     case "light-dark": {
-      const extraRule: StyleRule = {
-        s: [],
-        m: [["=", "prefers-color-scheme", "dark"]],
-      };
+      const light = parseColor(cssColor.light, builder);
+      const dark = parseColor(cssColor.dark, builder);
 
-      builder.addUnnamedDescriptor(
-        parseColor(cssColor.dark, builder),
-        false,
-        extraRule,
-      );
-      builder.addExtraRule(extraRule);
-      return parseColor(cssColor.light, builder);
+      return light === undefined || dark === undefined
+        ? undefined
+        : ([{}, LIGHT_DARK_FUNCTION, [light, dark]] as const);
     }
     case "rgb": {
       color = new Color({
@@ -2556,6 +2556,16 @@ export function parseDisplay(
   }
 }
 
+function parseColorScheme(
+  declaration: DeclarationType<"color-scheme">,
+  builder: StylesheetBuilder,
+) {
+  builder.addDescriptor(
+    `--${COLOR_SCHEME_VARIABLE}`,
+    describeColorSchemeSupport(declaration.value),
+  );
+}
+
 export function parseDirection(
   declaration: DeclarationType<"direction">,
   builder: StylesheetBuilder,
@@ -2954,16 +2964,22 @@ export function parseUnresolvedColor(
         ],
       ];
     case "light-dark": {
-      const extraRule = builder.extendRule({
-        m: [["=", "prefers-color-scheme", "dark"]],
-      });
-      builder.addUnnamedDescriptor(
-        reduceParseUnparsed(color.dark, builder, property, allowAuto),
-        false,
-        extraRule,
+      const light = reduceParseUnparsed(
+        color.light,
+        builder,
+        property,
+        allowAuto,
       );
-      builder.addExtraRule(extraRule);
-      return reduceParseUnparsed(color.light, builder, property, allowAuto);
+      const dark = reduceParseUnparsed(
+        color.dark,
+        builder,
+        property,
+        allowAuto,
+      );
+
+      return light === undefined || dark === undefined
+        ? undefined
+        : [{}, LIGHT_DARK_FUNCTION, [light, dark]];
     }
     default:
       color satisfies never;
