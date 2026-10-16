@@ -14,9 +14,20 @@ import {
   type Observable,
   type VariableContextValue,
 } from "../native/reactivity";
-import { rootVariables, universalVariables } from "./root";
+import {
+  nonInheritedVariables,
+  registeredInitialValues,
+  replaceRegisteredInitialValues,
+  rootVariables,
+  universalVariables,
+} from "./root";
 
-export { rootVariables, universalVariables };
+export {
+  nonInheritedVariables,
+  registeredInitialValues,
+  rootVariables,
+  universalVariables,
+};
 
 interface StyleCollectionType {
   styles: ReturnType<typeof family<string, Observable<StyleRuleSet>>>;
@@ -92,6 +103,18 @@ globalThis.__react_native_css_style_collection ??= {
     if (options.vu) {
       for (const entry of options.vu) {
         universalVariables(entry[0]).set(entry[1]);
+      }
+    }
+
+    // A reload replaces both halves of every registration, or a deleted @property keeps its initial value
+    replaceRegisteredInitialValues(options.vi);
+
+    // Cleared in place, since a second copy of root.ts reads this same Set
+    nonInheritedVariables.clear();
+
+    if (options.vn) {
+      for (const name of options.vn) {
+        nonInheritedVariables.add(name);
       }
     }
 

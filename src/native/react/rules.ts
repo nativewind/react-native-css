@@ -1,6 +1,9 @@
 /* eslint-disable */
 import type { InlineVariable, StyleRule } from "react-native-css/compiler";
-import { StyleCollection } from "react-native-css/native-internal";
+import {
+  assignInheritedVariables,
+  StyleCollection,
+} from "react-native-css/native-internal";
 
 import { testRule } from "../conditions";
 import { DEFAULT_CONTAINER_NAME } from "../conditions/container-query";
@@ -131,13 +134,12 @@ export function updateRules(
       }
 
       if (rule.v) {
-        if (variables === inheritedVariables) {
+        if (variables === undefined || variables === inheritedVariables) {
           variables = { ...inheritedVariables };
         }
 
-        for (const v of rule.v) {
-          variables![v[0]] = v[1];
-        }
+        // Published to descendants; the declaring element resolves its own var() from the rule
+        assignInheritedVariables(variables, rule.v);
       }
 
       if (rule.c) {
@@ -224,11 +226,12 @@ export function updateRules(
     rules.add(inheritedVariables);
 
     if (inlineVariables.size) {
+      // An inline vars() applies in full to its own element, and descendants inherit only what each registration lets through
       variables = Object.assign(
         {},
         inheritedVariables,
         variables,
-        ...Array.from(inlineVariables),
+        ...Array.from(inlineVariables, publishableVariables),
         { [VAR_SYMBOL]: true },
       );
     }
@@ -263,6 +266,12 @@ export function updateRules(
     animated,
     pressable,
   };
+}
+
+function publishableVariables(inlineVariable: InlineVariable): InlineVariable {
+  const published: InlineVariable = { [VAR_SYMBOL]: "inline" };
+  assignInheritedVariables(published, Object.entries(inlineVariable));
+  return published;
 }
 
 /**
