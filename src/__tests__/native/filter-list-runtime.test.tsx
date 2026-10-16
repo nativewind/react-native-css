@@ -98,6 +98,15 @@ describe.each([undefined, false] as const)(
       render(<View testID="subject" className="earlier subject" />);
       expect(filter()).toBeUndefined();
     });
+
+    test("an undefined variable that is the whole value leaves no filter", () => {
+      registerCSS(
+        `.earlier { filter: blur(4px); } .subject { filter: var(--missing); }`,
+        { inlineVariables },
+      );
+      render(<View testID="subject" className="earlier subject" />);
+      expect(filter()).toBeUndefined();
+    });
   },
 );
 
