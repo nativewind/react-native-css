@@ -447,4 +447,31 @@ describe.each([
       });
     },
   );
+
+  test.each([
+    [
+      "the property",
+      ".first { width: 9px } .second { --size: 2px; width: var(--size); width: calc(1px + red) }",
+      { width: 2 },
+    ],
+    [
+      "another property",
+      ".first { width: 9px } .second { --shadow: 2px; text-shadow: var(--shadow); width: calc(1px + red) }",
+      {
+        width: 9,
+        textShadowColor: undefined,
+        textShadowOffset: undefined,
+        textShadowRadius: undefined,
+      },
+    ],
+  ])(
+    "a written value the property cannot take is ignored beside a substitution of %s",
+    (_substituted, css, style) => {
+      registerCSS(css, options);
+
+      render(<View testID={testID} className="first second" />);
+
+      expect(screen.getByTestId(testID).props.style).toStrictEqual(style);
+    },
+  );
 });

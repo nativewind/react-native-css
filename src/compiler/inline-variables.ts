@@ -14,10 +14,13 @@ type BlockRewrite = (
   block: DeclarationBlock | undefined,
 ) => DeclarationBlock | undefined;
 
-type CustomDeclaration = Extract<Declaration, { property: "custom" }>;
+type UnparsedDeclaration = Extract<Declaration, { property: "unparsed" }>;
 
-// The library variable a substituted declaration's value travels in, named for the property it was substituted into
-const SUBSTITUTION_PREFIX = "--__rn-css-substituted-";
+// Names the properties a var() substituted in one declaration list, since only the second pass's parse knows whether each takes its value
+const SUBSTITUTED_PROPERTIES = "--__rn-css-substituted";
+
+// The library variable a substitution the second pass cannot parse reads its value through, named for its property
+const SUBSTITUTION_PREFIX = "--__rn-css-substitution-";
 
 export function inlineVariables(
   stylesheet: StyleSheet,
@@ -115,15 +118,81 @@ function replaceDeclarationBlock(
 ) {
   if (!block) return;
 
-  block.declarations = block.declarations?.flatMap((declaration) =>
-    replaceDeclaration(declaration, vars, keptForRuntime),
+  block.declarations = replaceDeclarations(
+    block.declarations,
+    vars,
+    keptForRuntime,
   );
 
-  block.importantDeclarations = block.importantDeclarations?.flatMap(
-    (declaration) => replaceDeclaration(declaration, vars, keptForRuntime),
+  block.importantDeclarations = replaceDeclarations(
+    block.importantDeclarations,
+    vars,
+    keptForRuntime,
   );
 
   return block;
+}
+
+function replaceDeclarations(
+  declarations: Declaration[] | undefined,
+  vars: Map<string, UniqueVarInfo>,
+  keptForRuntime: Set<string>,
+): Declaration[] | undefined {
+  if (!declarations) return;
+
+  const replacements = declarations.map((declaration) => ({
+    declaration,
+    substitution: replaceDeclaration(declaration, vars, keptForRuntime),
+  }));
+
+  if (replacements.every(({ substitution }) => !substitution)) {
+    return declarations;
+  }
+
+  // A value written for the property stays unparsed in both passes, so only this pass can tell a substitution beside it apart
+  const writtenUnparsed = new Set(
+    replacements.flatMap(({ declaration, substitution }) =>
+      !substitution && isUnparsedWithoutVar(declaration)
+        ? [declaration.value.propertyId.property]
+        : [],
+    ),
+  );
+
+  const markedProperties = new Set<string>();
+
+  const replaced = replacements.flatMap(
+    ({ declaration, substitution }): readonly Declaration[] => {
+      if (!substitution) {
+        return [declaration];
+      }
+
+      const property = substitution.value.propertyId.property;
+
+      if (writtenUnparsed.has(property)) {
+        return readThroughLibraryVariable(substitution);
+      }
+
+      markedProperties.add(property);
+      return [substitution];
+    },
+  );
+
+  return markedProperties.size === 0
+    ? replaced
+    : [substitutionMarker(markedProperties), ...replaced];
+}
+
+function substitutionMarker(properties: ReadonlySet<string>): Declaration {
+  return {
+    property: "custom",
+    value: {
+      name: SUBSTITUTED_PROPERTIES,
+      value: [...properties].flatMap((property): readonly TokenOrValue[] => [
+        { type: "token", value: { type: "ident", value: property } },
+        { type: "token", value: { type: "white-space", value: " " } },
+      ]),
+    },
+  };
 }
 
 function removeInlinedDeclarations(
@@ -149,16 +218,17 @@ function removeInlinedDeclarations(
   return block;
 }
 
+// Returns the declaration when a var() substituted it into a value with no var() left
 function replaceDeclaration(
   declaration: Declaration,
   vars: Map<string, UniqueVarInfo>,
   keptForRuntime: Set<string>,
-): Declaration | Declaration[] {
+): UnparsedDeclaration | undefined {
   if (
     declaration.property !== "unparsed" &&
     declaration.property !== "custom"
   ) {
-    return declaration;
+    return;
   }
 
   const readsVariable = readVariableNames(declaration.value.value).size > 0;
@@ -177,91 +247,78 @@ function replaceDeclaration(
     declaration.value.value = [
       keywordToken(declaration.property === "custom" ? "initial" : "unset"),
     ];
-    return declaration;
+    return;
   }
 
   declaration.value.value = value;
 
-  // css-variables-1 §3.1: a value the property cannot take is ignored when written and resets the declaration when substituted, and only the second pass's parse knows which it is
-  if (
-    declaration.property === "unparsed" &&
-    readsVariable &&
-    readVariableNames(value).size === 0
-  ) {
-    return [
-      {
-        property: "custom",
-        value: {
-          name: `${SUBSTITUTION_PREFIX}${declaration.value.propertyId.property}`,
-          value: [...value],
-        },
-      },
-      declaration,
-    ];
-  }
-
-  return declaration;
+  return readsVariable && isUnparsedWithoutVar(declaration)
+    ? declaration
+    : undefined;
 }
 
-// A declaration the second pass could not parse reads its substituted value through the library variable, which the runtime resets like any var() the property cannot take
+// css-variables-1 §3.1: a value the property cannot take is ignored when written and resets the declaration when a var() substituted it
 export function restoreSubstitutionStatus(
   declarations: readonly Declaration[],
 ): readonly Declaration[] {
-  const substitutions = new Map<string, CustomDeclaration>();
+  const marker = declarations.find(isSubstitutionMarker);
 
-  for (const declaration of declarations) {
-    const property = readSubstitutedProperty(declaration);
-
-    if (property !== undefined && declaration.property === "custom") {
-      substitutions.set(property, declaration);
-    }
-  }
-
-  if (substitutions.size === 0) {
+  if (marker?.property !== "custom") {
     return declarations;
   }
 
-  return declarations.flatMap((declaration) => {
-    if (readSubstitutedProperty(declaration) !== undefined) {
+  const markedProperties = new Set(
+    marker.value.value.flatMap((part) =>
+      part.type === "token" && part.value.type === "ident"
+        ? [part.value.value]
+        : [],
+    ),
+  );
+
+  return declarations.flatMap((declaration): readonly Declaration[] => {
+    if (declaration === marker) {
       return [];
-    } else if (
-      declaration.property !== "unparsed" ||
-      readVariableNames(declaration.value.value).size > 0
-    ) {
-      return [declaration];
     }
 
-    const substitution = substitutions.get(
-      declaration.value.propertyId.property,
-    );
-
-    if (substitution === undefined) {
-      return [declaration];
-    }
-
-    return [
-      substitution,
-      {
-        ...declaration,
-        value: {
-          ...declaration.value,
-          value: [
-            {
-              type: "var",
-              value: { name: { ident: substitution.value.name } },
-            },
-          ],
-        },
-      },
-    ];
+    return isUnparsedWithoutVar(declaration) &&
+      markedProperties.has(declaration.value.propertyId.property)
+      ? readThroughLibraryVariable(declaration)
+      : [declaration];
   });
 }
 
-function readSubstitutedProperty(declaration: Declaration): string | undefined {
-  return declaration.property === "custom" &&
-    declaration.value.name.startsWith(SUBSTITUTION_PREFIX)
-    ? declaration.value.name.slice(SUBSTITUTION_PREFIX.length)
-    : undefined;
+// The runtime resets a declaration whose var() substitutes a value the property cannot take
+function readThroughLibraryVariable(
+  declaration: UnparsedDeclaration,
+): readonly Declaration[] {
+  const name = `${SUBSTITUTION_PREFIX}${declaration.value.propertyId.property}`;
+
+  return [
+    { property: "custom", value: { name, value: declaration.value.value } },
+    {
+      ...declaration,
+      value: {
+        ...declaration.value,
+        value: [{ type: "var", value: { name: { ident: name } } }],
+      },
+    },
+  ];
+}
+
+function isSubstitutionMarker(declaration: Declaration): boolean {
+  return (
+    declaration.property === "custom" &&
+    declaration.value.name === SUBSTITUTED_PROPERTIES
+  );
+}
+
+function isUnparsedWithoutVar(
+  declaration: Declaration,
+): declaration is UnparsedDeclaration {
+  return (
+    declaration.property === "unparsed" &&
+    readVariableNames(declaration.value.value).size === 0
+  );
 }
 
 function substitutesNothing(parts: readonly TokenOrValue[]): boolean {
