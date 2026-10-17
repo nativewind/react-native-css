@@ -133,6 +133,7 @@ test("an invalid numeric animation name is omitted without throwing", () => {
   expect(style()?.animationName).toBeUndefined();
 });
 
+const variableAnimation = `.other { --motion: none; } .earlier { --motion: slide-in 1s; animation: var(--motion); }`;
 const clearedAnimation = {
   animationName: undefined,
   animationDelay: undefined,
@@ -161,6 +162,48 @@ describe.each([undefined, false] as const)(
         );
       },
     );
+
+    test.each(["initial", "unset", "var(--missing)"])(
+      "animation: %s after a variable animation leaves no animation",
+      (reset) => {
+        registerCSS(
+          `${keyframes} ${variableAnimation} .reset { animation: ${reset}; }`,
+          { inlineVariables },
+        );
+        render(<View testID={testID} className="earlier reset" />);
+        expect(screen.getByTestId(testID).props.style).toStrictEqual(
+          clearedAnimation,
+        );
+      },
+    );
+
+    test.each(["initial", "var(--missing)"])(
+      "animation-name: %s after a written animation name leaves no animation name",
+      (reset) => {
+        registerCSS(
+          `${keyframes} .earlier { animation-name: slide-in; animation-duration: 1s; } .reset { animation-name: ${reset}; }`,
+          { inlineVariables },
+        );
+        render(<View testID={testID} className="earlier reset" />);
+        expect(screen.getByTestId(testID).props.style).toStrictEqual({
+          animationName: undefined,
+          animationDuration: [1000],
+        });
+      },
+    );
+
+    // Chromium 153, Firefox 155 and WebKit 26.6 apply a later longhand over the variable-held shorthand before it
+    test("a written animation-duration after a variable animation applies", () => {
+      registerCSS(
+        `${keyframes} ${variableAnimation} .reset { animation-duration: 2s; }`,
+        { inlineVariables },
+      );
+      render(<View testID={testID} className="earlier reset" />);
+      expect(style()).toMatchObject({
+        animationName: horizontal,
+        animationDuration: [2000],
+      });
+    });
   },
 );
 

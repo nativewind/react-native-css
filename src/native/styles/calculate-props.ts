@@ -15,7 +15,7 @@ import {
 } from "react-native-css/utilities";
 
 import type { RenderGuard } from "../conditions/guards";
-import { applyValue, getDeepPath } from "../objects";
+import { applyValue } from "../objects";
 import {
   VAR_SYMBOL,
   type Getter,
@@ -43,10 +43,10 @@ export function calculateProps(
   let normal: Record<string, any> | undefined;
   let important: Record<string, any> | undefined;
 
-  const delayedStyles: (() => void)[] = [];
   const transformStyles: (() => void)[] = [];
   let publishedColor: StyleDescriptor | undefined;
 
+  // css-variables-1 §3: a var() substitutes the element's computed custom property, so every rule's variables are assigned before any declaration resolves
   for (const rule of rules) {
     if (VAR_SYMBOL in rule) {
       if (typeof rule[VAR_SYMBOL] === "string") {
@@ -54,48 +54,44 @@ export function calculateProps(
       } else {
         Object.assign(inheritedVariables, rule);
       }
-      continue;
-    }
-
-    if (rule.v) {
+    } else if (rule.v) {
       publishedColor =
         assignRuleVariables(inlineVariables, rule.v) ?? publishedColor;
-    }
-
-    if (rule.d) {
-      let topLevelTarget = rule.s?.[S.Important]
-        ? (important ??= {})
-        : (normal ??= {});
-      let target = topLevelTarget;
-
-      const ruleTarget = rule.target || "style";
-
-      if (typeof ruleTarget === "string") {
-        target = target[ruleTarget] ??= {};
-      } else if (ruleTarget) {
-        for (const path of ruleTarget) {
-          target = target[path] ??= {};
-        }
-      }
-
-      applyDeclarations(
-        get,
-        rule.d,
-        inlineVariables,
-        inheritedVariables,
-        delayedStyles,
-        transformStyles,
-        guards,
-        target,
-        topLevelTarget,
-      );
     }
   }
 
   assignPublishedColor(inlineVariables, publishedColor);
 
-  for (const delayedStyle of delayedStyles) {
-    delayedStyle();
+  for (const rule of rules) {
+    if (VAR_SYMBOL in rule || !rule.d) {
+      continue;
+    }
+
+    let topLevelTarget = rule.s?.[S.Important]
+      ? (important ??= {})
+      : (normal ??= {});
+    let target = topLevelTarget;
+
+    const ruleTarget = rule.target || "style";
+
+    if (typeof ruleTarget === "string") {
+      target = target[ruleTarget] ??= {};
+    } else if (ruleTarget) {
+      for (const path of ruleTarget) {
+        target = target[path] ??= {};
+      }
+    }
+
+    applyDeclarations(
+      get,
+      rule.d,
+      inlineVariables,
+      inheritedVariables,
+      transformStyles,
+      guards,
+      target,
+      topLevelTarget,
+    );
   }
 
   for (const transformStyle of transformStyles) {
@@ -114,14 +110,13 @@ export function applyDeclarations(
   declarations: StyleDeclaration[],
   inlineVariables: InlineVariable,
   inheritedVariables: VariableContextValue,
-  delayedStyles: (() => void)[] = [],
   transformStyles: (() => void)[] = [],
   guards: RenderGuard[] = [],
   target: Record<string, any> = {},
   topLevelTarget = target,
 ) {
   for (const declaration of declarations) {
-    // The delayed and transform closures below run after the walk, so each must capture its own declaration's target
+    // The transform closures below run after the walk, so each must capture its own declaration's target
     let declarationTarget = target;
 
     if (!Array.isArray(declaration)) {
@@ -179,48 +174,21 @@ export function applyDeclarations(
         prop = propPath;
       }
 
-      const shouldDelay = declaration[2];
-
-      if (shouldDelay || transformKeys.has(prop)) {
-        /**
-         * We need to delay the resolution of this value until after all
-         * styles have been calculated. But another style might override
-         * this value. So we set a placeholder value and only override
-         * if the placeholder is preserved
-         *
-         * This also ensures the props exist, so setValue will properly
-         * mutate the props object and not create a new one
-         */
+      // An individual transform property composes into the `transform` list once every rule is walked, so it holds its place until then
+      if (transformKeys.has(prop)) {
         const originalValue = value;
-        // This needs to be a object with the [prop] so we can discover in transform arrays
         value = { [prop]: true };
 
-        if (transformKeys.has(prop)) {
-          transformStyles.push(() => {
-            value = resolveDeclaration(originalValue, prop, get, {
-              inlineVariables,
-              inheritedVariables,
-              renderGuards: guards,
-              calculateProps,
-              computingColor,
-            });
-            applyValue(declarationTarget, prop, value);
+        transformStyles.push(() => {
+          value = resolveDeclaration(originalValue, prop, get, {
+            inlineVariables,
+            inheritedVariables,
+            renderGuards: guards,
+            calculateProps,
+            computingColor,
           });
-        } else {
-          delayedStyles.push(() => {
-            if (getDeepPath(declarationTarget, prop) === value) {
-              delete declarationTarget[prop];
-              value = resolveDeclaration(originalValue, prop, get, {
-                inlineVariables,
-                inheritedVariables,
-                renderGuards: guards,
-                calculateProps,
-                computingColor,
-              });
-              applyValue(declarationTarget, prop, value);
-            }
-          });
-        }
+          applyValue(declarationTarget, prop, value);
+        });
       } else {
         value = resolveDeclaration(value, prop, get, {
           inlineVariables,

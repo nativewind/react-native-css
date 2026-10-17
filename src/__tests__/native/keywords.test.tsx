@@ -13,8 +13,8 @@ const clearedProperties: readonly (readonly [
   ["opacity", "0.5", { opacity: undefined }],
   ["box-shadow", "1px 1px red", { boxShadow: undefined }],
   ["filter", "blur(2px)", { filter: undefined }],
-  ["transform", "translateX(10px)", {}],
-  ["line-height", "30px", {}],
+  ["transform", "translateX(10px)", { transform: undefined }],
+  ["line-height", "30px", { lineHeight: undefined }],
   [
     "text-shadow",
     "1px 1px red",
@@ -548,26 +548,19 @@ describe.each(routes)(
       ).toStrictEqual({ color: "#008000" });
     });
 
-    test.each(
-      clearedProperties
-        .filter(
-          ([property]) =>
-            property !== "line-height" && property !== "transform",
-        )
-        .map(
-          ([property, earlier, cleared]) =>
-            [property, earlier, cleared] as const,
-        ),
-    )("%s clears an earlier rule's value", (property, earlier, cleared) => {
-      registerCSS(
-        `.earlier { ${property}: ${earlier}; } .child { ${property}: var(--missing); }`,
-        options,
-      );
+    test.each(clearedProperties)(
+      "%s clears an earlier rule's value",
+      (property, earlier, cleared) => {
+        registerCSS(
+          `.earlier { ${property}: ${earlier}; } .child { ${property}: var(--missing); }`,
+          options,
+        );
 
-      render(<View testID="child" className="earlier child" />);
+        render(<View testID="child" className="earlier child" />);
 
-      expect(screen.getByTestId("child").props.style).toStrictEqual(cleared);
-    });
+        expect(screen.getByTestId("child").props.style).toStrictEqual(cleared);
+      },
+    );
 
     test("an empty fallback as the whole value inherits the colour", () => {
       expect(
@@ -581,20 +574,6 @@ describe.each(routes)(
           "earlier child",
         ),
       ).toStrictEqual({ color: "#008000" });
-    });
-
-    test("transform leaves no transform", () => {
-      registerCSS(
-        `.earlier { transform: translateX(10px); } .child { transform: var(--missing); }`,
-        options,
-      );
-
-      render(<View testID="child" className="earlier child" />);
-
-      const style = screen.getByTestId("child").props.style as {
-        transform?: unknown[];
-      };
-      expect(style.transform ?? []).toStrictEqual([]);
     });
 
     test("width: calc() of it clears an earlier rule's width", () => {

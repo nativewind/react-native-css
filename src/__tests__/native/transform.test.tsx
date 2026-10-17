@@ -217,7 +217,22 @@ test.each([
     <View testID={testID} className="my-class keyword" />,
   ).getByTestId(testID);
 
-  expect(component.props.style).toStrictEqual({});
+  expect(component.props.style).toStrictEqual({ transform: undefined });
+});
+
+// Chromium 153, Firefox 155 and WebKit 26.6 ignore a written transform list with a keyword among its functions, so the earlier transform stands
+test("transform: none rotate(10deg) as written is ignored", () => {
+  registerCSS(
+    `.earlier { transform: translateX(10px); } .written { transform: none rotate(10deg); }`,
+  );
+
+  const component = render(
+    <View testID={testID} className="earlier written" />,
+  ).getByTestId(testID);
+
+  expect(component.props.style).toStrictEqual({
+    transform: [{ translateX: 10 }],
+  });
 });
 
 // Chromium 153, Firefox 155 and WebKit 26.6 substitute each transform a variable holds, in place

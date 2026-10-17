@@ -18,6 +18,8 @@ export const transform: StyleFunctionResolver = (
     return entries.some(resetsToNone)
       ? undefined
       : entries.filter((transform) => transform !== undefined);
+  } else if (resetsToNone(transforms)) {
+    return null;
   } else if (transforms) {
     // If it's a single transform, wrap it in an array
     return [transforms];
