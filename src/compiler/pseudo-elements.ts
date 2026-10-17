@@ -1,4 +1,4 @@
-import { isStyleFunction } from "../utilities";
+import { INHERITED_COLOR_VARIABLE, isStyleFunction } from "../utilities";
 import type { StyleDeclaration, StyleRule } from "./compiler.types";
 
 export function modifyRuleForSelection(rule: StyleRule): StyleRule | undefined {
@@ -10,7 +10,7 @@ export function modifyRuleForSelection(rule: StyleRule): StyleRule | undefined {
     return modifyStyleDeclaration(declaration, "color", "selectionColor");
   });
 
-  return rule;
+  return withoutInheritedColor(rule);
 }
 
 export function modifyRuleForPlaceholder(
@@ -23,6 +23,21 @@ export function modifyRuleForPlaceholder(
   rule.d = rule.d.flatMap((declaration): StyleDeclaration[] => {
     return modifyStyleDeclaration(declaration, "color", "placeholderTextColor");
   });
+
+  return withoutInheritedColor(rule);
+}
+
+// A pseudo-element's colour is its own, so the element and its subtree keep theirs
+function withoutInheritedColor(rule: StyleRule): StyleRule {
+  const variables = rule.v?.filter(
+    ([name]) => name !== INHERITED_COLOR_VARIABLE,
+  );
+
+  if (variables?.length) {
+    rule.v = variables;
+  } else {
+    delete rule.v;
+  }
 
   return rule;
 }

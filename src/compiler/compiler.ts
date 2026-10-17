@@ -33,7 +33,7 @@ import {
   reduceParseUnparsed,
   round,
 } from "./declarations";
-import { inlineVariables } from "./inline-variables";
+import { inlineVariables, restoreSubstitutionStatus } from "./inline-variables";
 import { extractKeyFrames } from "./keyframes";
 import { lightningcssLoader } from "./lightningcss-loader";
 import { parseMediaQuery } from "./media-query";
@@ -269,7 +269,9 @@ function extractRule(
       if (declarationBlock) {
         if (declarationBlock.declarations?.length) {
           builder.newNestedRule({ mapping });
-          for (const declaration of declarationBlock.declarations) {
+          for (const declaration of restoreSubstitutionStatus(
+            declarationBlock.declarations,
+          )) {
             parseDeclaration(declaration, builder);
           }
           builder.applyRuleToSelectors();
@@ -277,7 +279,9 @@ function extractRule(
 
         if (declarationBlock.importantDeclarations?.length) {
           builder.newNestedRule({ mapping, important: true });
-          for (const declaration of declarationBlock.importantDeclarations) {
+          for (const declaration of restoreSubstitutionStatus(
+            declarationBlock.importantDeclarations,
+          )) {
             parseDeclaration(declaration, builder);
           }
           builder.applyRuleToSelectors();
@@ -302,7 +306,9 @@ function extractRule(
       if (declarationBlock) {
         if (declarationBlock.declarations?.length) {
           builder.newRule(mapping);
-          for (const declaration of declarationBlock.declarations) {
+          for (const declaration of restoreSubstitutionStatus(
+            declarationBlock.declarations,
+          )) {
             parseDeclaration(declaration, builder);
           }
           builder.applyRuleToSelectors();
@@ -310,7 +316,9 @@ function extractRule(
 
         if (declarationBlock.importantDeclarations?.length) {
           builder.newRule(mapping, { important: true });
-          for (const declaration of declarationBlock.importantDeclarations) {
+          for (const declaration of restoreSubstitutionStatus(
+            declarationBlock.importantDeclarations,
+          )) {
             parseDeclaration(declaration, builder);
           }
           builder.applyRuleToSelectors();
