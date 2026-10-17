@@ -11,6 +11,7 @@ import type {
 import type {
   MediaCondition,
   MediaFeatureComparison,
+  MediaFeatureOperand,
   StyleDescriptor,
 } from "./compiler.types";
 import { parseLength } from "./declarations";
@@ -38,11 +39,6 @@ export function parseMediaQuery(
 
   if (query.condition) {
     condition = parseMediaQueryCondition(query.condition, builder);
-
-    // If any of these are undefined, the media query is invalid
-    if (!condition || condition.some((v) => v === undefined)) {
-      return false;
-    }
   }
 
   let mediaQuery: MediaCondition | undefined =
@@ -66,29 +62,16 @@ export function parseMediaQuery(
 function parseMediaQueryCondition(
   query: CSSMediaCondition,
   builder: StylesheetBuilder,
-): MediaCondition | undefined {
+): MediaCondition {
   switch (query.type) {
-    case "feature": {
-      const feature = parseFeature(query.value, builder);
-      return feature?.some((value) => value === undefined)
-        ? undefined
-        : feature;
-    }
+    case "feature":
+      return parseFeature(query.value, builder);
     case "not":
-      const mediaQuery = parseMediaQueryCondition(query.value, builder);
-      return mediaQuery ? ["!", mediaQuery] : undefined;
-    case "operation":
-      const parsed = query.conditions.map((c) =>
-        parseMediaQueryCondition(c, builder),
+      return ["!", parseMediaQueryCondition(query.value, builder)];
+    case "operation": {
+      const mediaQueries = query.conditions.map((condition) =>
+        parseMediaQueryCondition(condition, builder),
       );
-      if (query.operator === "and" && parsed.some((c) => !c)) {
-        return;
-      }
-      const mediaQueries = parsed.filter((v): v is MediaCondition => !!v);
-
-      if (mediaQueries.length === 0) {
-        return;
-      }
 
       switch (query.operator) {
         case "and":
@@ -97,19 +80,19 @@ function parseMediaQueryCondition(
           return ["|", mediaQueries];
         default:
           query.operator satisfies never;
-          return;
+          throw new Error(`Unknown media condition operator ${query.operator}`);
       }
+    }
     default:
       query satisfies never;
+      throw new Error(`Unknown media condition ${JSON.stringify(query)}`);
   }
-
-  return;
 }
 
 function parseFeature(
   feature: QueryFeatureFor_MediaFeatureId,
   builder: StylesheetBuilder,
-): MediaCondition | undefined {
+): MediaCondition {
   switch (feature.type) {
     case "boolean":
       return ["!!", feature.name];
@@ -117,27 +100,34 @@ function parseFeature(
       return [
         "=",
         feature.name,
-        parseMediaFeatureValue(feature.value, builder),
+        parseMediaFeatureOperand(feature.value, builder),
       ];
     case "range":
       return [
         parseMediaFeatureOperator(feature.operator),
         feature.name,
-        parseMediaFeatureValue(feature.value, builder),
+        parseMediaFeatureOperand(feature.value, builder),
       ];
     case "interval":
       return [
         "[]",
         feature.name,
-        parseMediaFeatureValue(feature.start, builder),
+        parseMediaFeatureOperand(feature.start, builder),
         parseMediaFeatureOperator(feature.startOperator),
-        parseMediaFeatureValue(feature.end, builder),
+        parseMediaFeatureOperand(feature.end, builder),
         parseMediaFeatureOperator(feature.endOperator),
       ];
     default:
       feature satisfies never;
+      throw new Error(`Unknown media feature ${JSON.stringify(feature)}`);
   }
-  return;
+}
+
+function parseMediaFeatureOperand(
+  value: CSSMediaFeatureValue,
+  builder: StylesheetBuilder,
+): MediaFeatureOperand {
+  return parseMediaFeatureValue(value, builder) ?? null;
 }
 
 export function parseMediaFeatureValue(
@@ -145,7 +135,9 @@ export function parseMediaFeatureValue(
   builder: StylesheetBuilder,
 ): StyleDescriptor {
   switch (value.type) {
+    // <mq-boolean> is the integer 0 or 1 (MQ4 §5.3)
     case "boolean":
+      return value.value ? 1 : 0;
     case "ident":
     case "integer":
     case "number":

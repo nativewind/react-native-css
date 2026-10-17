@@ -174,6 +174,8 @@ export type AnimationKeyframes = [string | number, StyleDeclaration[]];
 /******************************    Conditions    ******************************/
 
 export type MediaCondition =
+  // Unknown, as a container style() query is to the runtime
+  | ["?"]
   // Boolean
   | ["!!", MediaFeatureNameFor_MediaFeatureId]
   // Not
@@ -186,17 +188,20 @@ export type MediaCondition =
   | [
       MediaFeatureComparison,
       MediaFeatureNameFor_MediaFeatureId | "dir",
-      StyleDescriptor,
+      MediaFeatureOperand,
     ]
   // [Start, End]
   | [
       "[]",
       MediaFeatureNameFor_MediaFeatureId,
-      StyleDescriptor, // Start
+      MediaFeatureOperand, // Start
       MediaFeatureComparison, // Start comparison
-      StyleDescriptor, // End
+      MediaFeatureOperand, // End
       MediaFeatureComparison, // End comparison
     ];
+
+// JSON writes undefined in an array as null, so null is what a device reads for a value the compiler could not resolve
+export type MediaFeatureOperand = Exclude<StyleDescriptor, undefined> | null;
 
 export type MediaFeatureComparison = "=" | ">" | ">=" | "<" | "<=";
 
