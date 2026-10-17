@@ -776,6 +776,26 @@ describe("CSS-wide keywords", () => {
     ).toStrictEqual(declarationsFor(`.child { width: 6px; }`));
   });
 
+  test.each([
+    [
+      "a rule",
+      ".child { --shadow: 2px 2px red; text-shadow: var(--shadow); }",
+      ".child { text-shadow: 2px 2px red; }",
+    ],
+    [
+      "a keyframe",
+      "@keyframes fade { from { opacity: var(--start) } } .child { --start: 0.5; animation: fade 1s; }",
+      "@keyframes fade { from { opacity: 0.5 } } .child { animation: fade 1s; }",
+    ],
+  ])(
+    "a substituted value the property takes compiles in %s as though it were written, leaving the runtime nothing",
+    (_where, substituted, written) => {
+      expect(compile(substituted).stylesheet()).toStrictEqual(
+        compile(written).stylesheet(),
+      );
+    },
+  );
+
   test("a custom property set to initial is inlined as the guaranteed-invalid value, so a read takes its fallback", () => {
     expect(
       declarationsFor(`.child { --brand: initial; color: var(--brand, red); }`),

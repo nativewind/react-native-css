@@ -8,98 +8,143 @@ import type {
 import type { UniqueVarInfo } from "./compiler.types";
 import { soleCSSWideKeyword } from "./css-wide-keywords";
 
+type Rule = StyleSheet["rules"][number];
+
+type BlockRewrite = (
+  block: DeclarationBlock | undefined,
+) => DeclarationBlock | undefined;
+
+type CustomDeclaration = Extract<Declaration, { property: "custom" }>;
+
+// The library variable a substituted declaration's value travels in, named for the property it was substituted into
+const SUBSTITUTION_PREFIX = "--__rn-css-substituted-";
+
 export function inlineVariables(
   stylesheet: StyleSheet,
   vars: Map<string, UniqueVarInfo>,
 ) {
+  // A variable two rules declare has a value per element, so it leaves before any value that reads it is flattened
   for (const [name, info] of [...vars]) {
     if (info.count !== 1) {
       vars.delete(name);
-    } else {
-      flattenVar(name, vars);
     }
   }
 
-  stylesheet.rules = stylesheet.rules.map(function checkRule(rule) {
-    switch (rule.type) {
-      case "custom":
-      case "font-face":
-      case "font-palette-values":
-      case "font-feature-values":
-      case "namespace":
-      case "layer-statement":
-      case "property":
-      case "view-transition":
-      case "ignored":
-      case "unknown":
-      case "import":
-      case "page":
-      case "counter-style":
-      case "moz-document":
-      case "nesting":
-      case "viewport":
-      case "custom-media":
-      case "scope":
-      case "starting-style":
-        return rule;
+  const keptForRuntime = new Set<string>();
 
-      case "media":
-        rule.value.rules = rule.value.rules.map((rule) => checkRule(rule));
-        return rule;
-      case "keyframes":
-        rule.value.keyframes = rule.value.keyframes.map((keyframe) => {
-          keyframe.declarations =
-            replaceDeclarationBlock(keyframe.declarations, vars) ??
-            keyframe.declarations;
+  for (const name of [...vars.keys()]) {
+    flattenVar(name, vars, keptForRuntime);
+  }
 
-          return keyframe;
-        });
-        return rule;
-      case "style":
-        rule.value.declarations = replaceDeclarationBlock(
-          rule.value.declarations,
-          vars,
-        );
-
-        rule.value.rules = rule.value.rules?.flatMap((rule) => checkRule(rule));
-
-        return rule;
-      case "nested-declarations":
-        rule.value.declarations =
-          replaceDeclarationBlock(rule.value.declarations, vars) ?? {};
-        return rule;
-      case "supports":
-        rule.value.rules = rule.value.rules.flatMap((rule) => checkRule(rule));
-        return rule;
-      case "layer-block":
-        rule.value.rules = rule.value.rules.flatMap((rule) => checkRule(rule));
-        return rule;
-      case "container":
-        rule.value.rules = rule.value.rules.flatMap((rule) => checkRule(rule));
-        return rule;
-    }
-  });
+  stylesheet.rules = stylesheet.rules
+    .map((rule) =>
+      rewriteRule(rule, (block) =>
+        replaceDeclarationBlock(block, vars, keptForRuntime),
+      ),
+    )
+    .map((rule) =>
+      rewriteRule(rule, (block) =>
+        removeInlinedDeclarations(block, vars, keptForRuntime),
+      ),
+    );
 
   return stylesheet;
+}
+
+function rewriteRule(rule: Rule, rewriteBlock: BlockRewrite): Rule {
+  switch (rule.type) {
+    case "custom":
+    case "font-face":
+    case "font-palette-values":
+    case "font-feature-values":
+    case "namespace":
+    case "layer-statement":
+    case "property":
+    case "view-transition":
+    case "ignored":
+    case "unknown":
+    case "import":
+    case "page":
+    case "counter-style":
+    case "moz-document":
+    case "nesting":
+    case "viewport":
+    case "custom-media":
+    case "scope":
+    case "starting-style":
+      return rule;
+
+    case "media":
+      rule.value.rules = rule.value.rules.map((nested) =>
+        rewriteRule(nested, rewriteBlock),
+      );
+      return rule;
+    case "keyframes":
+      rule.value.keyframes = rule.value.keyframes.map((keyframe) => {
+        keyframe.declarations =
+          rewriteBlock(keyframe.declarations) ?? keyframe.declarations;
+
+        return keyframe;
+      });
+      return rule;
+    case "style":
+      rule.value.declarations = rewriteBlock(rule.value.declarations);
+
+      rule.value.rules = rule.value.rules?.flatMap((nested) =>
+        rewriteRule(nested, rewriteBlock),
+      );
+
+      return rule;
+    case "nested-declarations":
+      rule.value.declarations = rewriteBlock(rule.value.declarations) ?? {};
+      return rule;
+    case "supports":
+    case "layer-block":
+    case "container":
+      rule.value.rules = rule.value.rules.flatMap((nested) =>
+        rewriteRule(nested, rewriteBlock),
+      );
+      return rule;
+  }
 }
 
 function replaceDeclarationBlock(
   block: DeclarationBlock | undefined,
   vars: Map<string, UniqueVarInfo>,
+  keptForRuntime: Set<string>,
 ) {
   if (!block) return;
 
-  block.declarations = block.declarations
-    ?.map((decl) => {
-      return replaceDeclaration(decl, vars);
-    })
-    .filter((d) => !!d);
+  block.declarations = block.declarations?.flatMap((declaration) =>
+    replaceDeclaration(declaration, vars, keptForRuntime),
+  );
 
-  block.importantDeclarations = block.importantDeclarations
-    ?.map((decl) => {
-      return replaceDeclaration(decl, vars);
-    })
-    .filter((d) => !!d);
+  block.importantDeclarations = block.importantDeclarations?.flatMap(
+    (declaration) => replaceDeclaration(declaration, vars, keptForRuntime),
+  );
+
+  return block;
+}
+
+function removeInlinedDeclarations(
+  block: DeclarationBlock | undefined,
+  vars: Map<string, UniqueVarInfo>,
+  keptForRuntime: ReadonlySet<string>,
+) {
+  if (!block) return;
+
+  const isInlined = (declaration: Declaration) =>
+    declaration.property === "custom" &&
+    vars.has(declaration.value.name) &&
+    !keptForRuntime.has(declaration.value.name);
+
+  block.declarations = block.declarations?.filter(
+    (declaration) => !isInlined(declaration),
+  );
+
+  block.importantDeclarations = block.importantDeclarations?.filter(
+    (declaration) => !isInlined(declaration),
+  );
 
   return block;
 }
@@ -107,7 +152,8 @@ function replaceDeclarationBlock(
 function replaceDeclaration(
   declaration: Declaration,
   vars: Map<string, UniqueVarInfo>,
-) {
+  keptForRuntime: Set<string>,
+): Declaration | Declaration[] {
   if (
     declaration.property !== "unparsed" &&
     declaration.property !== "custom"
@@ -115,13 +161,13 @@ function replaceDeclaration(
     return declaration;
   }
 
-  if (declaration.property === "custom" && vars.has(declaration.value.name)) {
-    return;
-  }
+  const readsVariable = readVariableNames(declaration.value.value).size > 0;
 
   const value = readsGuaranteedInvalid(declaration.value.value, vars)
     ? undefined
-    : declaration.value.value.flatMap((part) => flattenPart(part, vars));
+    : declaration.value.value.flatMap((part) =>
+        flattenPart(part, vars, keptForRuntime),
+      );
 
   // css-variables-1 §3.1: a declaration a var() leaves without a value is invalid at computed-value time, as if its value were `unset`, and a custom property's is the guaranteed-invalid value
   if (
@@ -136,7 +182,86 @@ function replaceDeclaration(
 
   declaration.value.value = value;
 
+  // css-variables-1 §3.1: a value the property cannot take is ignored when written and resets the declaration when substituted, and only the second pass's parse knows which it is
+  if (
+    declaration.property === "unparsed" &&
+    readsVariable &&
+    readVariableNames(value).size === 0
+  ) {
+    return [
+      {
+        property: "custom",
+        value: {
+          name: `${SUBSTITUTION_PREFIX}${declaration.value.propertyId.property}`,
+          value: [...value],
+        },
+      },
+      declaration,
+    ];
+  }
+
   return declaration;
+}
+
+// A declaration the second pass could not parse reads its substituted value through the library variable, which the runtime resets like any var() the property cannot take
+export function restoreSubstitutionStatus(
+  declarations: readonly Declaration[],
+): readonly Declaration[] {
+  const substitutions = new Map<string, CustomDeclaration>();
+
+  for (const declaration of declarations) {
+    const property = readSubstitutedProperty(declaration);
+
+    if (property !== undefined && declaration.property === "custom") {
+      substitutions.set(property, declaration);
+    }
+  }
+
+  if (substitutions.size === 0) {
+    return declarations;
+  }
+
+  return declarations.flatMap((declaration) => {
+    if (readSubstitutedProperty(declaration) !== undefined) {
+      return [];
+    } else if (
+      declaration.property !== "unparsed" ||
+      readVariableNames(declaration.value.value).size > 0
+    ) {
+      return [declaration];
+    }
+
+    const substitution = substitutions.get(
+      declaration.value.propertyId.property,
+    );
+
+    if (substitution === undefined) {
+      return [declaration];
+    }
+
+    return [
+      substitution,
+      {
+        ...declaration,
+        value: {
+          ...declaration.value,
+          value: [
+            {
+              type: "var",
+              value: { name: { ident: substitution.value.name } },
+            },
+          ],
+        },
+      },
+    ];
+  });
+}
+
+function readSubstitutedProperty(declaration: Declaration): string | undefined {
+  return declaration.property === "custom" &&
+    declaration.value.name.startsWith(SUBSTITUTION_PREFIX)
+    ? declaration.value.name.slice(SUBSTITUTION_PREFIX.length)
+    : undefined;
 }
 
 function substitutesNothing(parts: readonly TokenOrValue[]): boolean {
@@ -175,28 +300,37 @@ function keywordToken(keyword: "initial" | "unset"): TokenOrValue {
 function flattenPart(
   part: TokenOrValue,
   vars: Map<string, UniqueVarInfo>,
+  keptForRuntime: Set<string>,
 ): TokenOrValue | TokenOrValue[] {
   if (part.type === "var") {
-    const varInfo = vars.get(part.value.name.ident);
+    const name = part.value.name.ident;
+    const varInfo = vars.get(name);
+    const flattenFallback = () =>
+      part.value.fallback?.flatMap((arg) =>
+        flattenPart(arg, vars, keptForRuntime),
+      );
 
     if (!varInfo) {
-      part.value.fallback = part.value.fallback?.flatMap((arg) => {
-        return flattenPart(arg, vars);
-      });
+      part.value.fallback = flattenFallback();
 
       return part;
     } else if (varInfo.value === undefined) {
-      const fallback = part.value.fallback?.flatMap((arg) => {
-        return flattenPart(arg, vars);
-      });
+      return flattenFallback() ?? [];
+    } else if (
+      part.value.fallback &&
+      readVariableNames(varInfo.value).size > 0
+    ) {
+      // css-variables-1 §3.1: a value that reads a variable only the runtime resolves may yet be the guaranteed-invalid value, which only this var() answers, with its fallback
+      keptForRuntime.add(name);
+      part.value.fallback = flattenFallback();
 
-      return fallback ?? [];
+      return part;
     }
 
     return varInfo.value;
   } else if (part.type === "function") {
     part.value.arguments = part.value.arguments.flatMap((arg) => {
-      return flattenPart(arg, vars);
+      return flattenPart(arg, vars, keptForRuntime);
     });
   }
 
@@ -206,6 +340,7 @@ function flattenPart(
 function flattenVar(
   name: string,
   vars: Map<string, UniqueVarInfo>,
+  keptForRuntime: Set<string>,
   path = new Set<string>(),
 ) {
   if (path.has(name)) {
@@ -225,7 +360,7 @@ function flattenVar(
   // Each variable the value reads is flattened before the value substitutes it, whichever was declared first
   path.add(name);
   for (const readName of readVariableNames(parts)) {
-    flattenVar(readName, vars, path);
+    flattenVar(readName, vars, keptForRuntime, path);
   }
   path.delete(name);
 
@@ -245,7 +380,7 @@ function flattenVar(
   const value =
     keyword === "initial" || readsGuaranteedInvalid(parts, vars)
       ? undefined
-      : parts.flatMap((part) => flattenPart(part, vars));
+      : parts.flatMap((part) => flattenPart(part, vars, keptForRuntime));
 
   vars.set(name, { count: 1, flat: true, value });
 }

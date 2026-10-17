@@ -379,3 +379,62 @@ test.each([
 
   expect(screen.getByTestId(testID).props.style).toStrictEqual(style);
 });
+
+// Chromium 153, Firefox 155 and WebKit 26.6 read a variable the same way whether or not the compiler inlines it
+describe.each([
+  ["inlined", {}],
+  ["kept", { inlineVariables: false }],
+] as const)("with every variable %s", (_route, options) => {
+  // css-variables-1 §2.3, §3.1: a value that reads the guaranteed-invalid value is the guaranteed-invalid value, so var() takes its fallback
+  test.each([
+    [
+      "a cycle",
+      ".child { --cycle-a: var(--cycle-b); --cycle-b: var(--cycle-a); --cycle-reader: var(--cycle-a) 2px; width: var(--cycle-reader, 5px); }",
+    ],
+    [
+      "a variable no rule gives the element",
+      ".child { --theme-reader: var(--theme) 2px; width: var(--theme-reader, 5px); } .light { --theme: 1px; } .dark { --theme: 2px; }",
+    ],
+  ])(
+    "a variable whose value reads %s leaves var() its fallback",
+    (_reads, css) => {
+      registerCSS(css, options);
+
+      render(<View testID={testID} className="child" />);
+
+      expect(screen.getByTestId(testID).props.style).toStrictEqual({
+        width: 5,
+      });
+    },
+  );
+
+  test("a variable two rules declare is read from the rule that applies, through one declared once", () => {
+    registerCSS(
+      ".child { --size-reader: var(--size); width: var(--size-reader, 5px); } .small { --size: 3px; } .large { --size: 4px; }",
+      options,
+    );
+
+    render(<View testID={testID} className="child large" />);
+
+    expect(screen.getByTestId(testID).props.style).toStrictEqual({ width: 4 });
+  });
+
+  // css-variables-1 §3.1: a value a var() substitutes that the property cannot take leaves the declaration invalid at computed-value time, as if it were `unset`; written, the same value is ignored
+  test.each(["", " !important"])(
+    "a substituted value the property cannot take resets it%s, where the earlier rule's would stand if it were written",
+    (importance) => {
+      registerCSS(
+        `.first { text-shadow: 9px 9px 0 #010203${importance} } .second { --shadow: 2px; text-shadow: var(--shadow)${importance} }`,
+        options,
+      );
+
+      render(<View testID={testID} className="first second" />);
+
+      expect(screen.getByTestId(testID).props.style).toStrictEqual({
+        textShadowColor: undefined,
+        textShadowOffset: undefined,
+        textShadowRadius: undefined,
+      });
+    },
+  );
+});
