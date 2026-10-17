@@ -249,3 +249,18 @@ test("a var() holding several transforms substitutes each of them", () => {
     transform: [{ translateX: 1 }, { rotate: "45deg" }, { scale: 2 }],
   });
 });
+
+// Chromium 153, Firefox 155 and WebKit 26.6 compute a gradian or a turn as the angle it is; React Native takes degrees or radians alone
+test.each([
+  ["transform: rotate(100grad)", { transform: [{ rotate: "90deg" }] }],
+  ["rotate: 0.25turn", { transform: [{ rotateZ: "90deg" }] }],
+  ["transform: skewX(50grad)", { transform: [{ skewX: "45deg" }] }],
+])("%s reaches React Native in degrees", (declaration, style) => {
+  registerCSS(`.my-class { ${declaration}; }`);
+
+  const component = render(
+    <View testID={testID} className="my-class" />,
+  ).getByTestId(testID);
+
+  expect(component.props.style).toStrictEqual(style);
+});

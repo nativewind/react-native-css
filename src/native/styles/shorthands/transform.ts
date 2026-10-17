@@ -15,9 +15,8 @@ export const transform: StyleFunctionResolver = (
     // A var() holding several transforms substitutes each of them into the list
     const entries: unknown[] = transforms.flat();
 
-    return entries.some(resetsToNone)
-      ? undefined
-      : entries.filter((transform) => transform !== undefined);
+    // A keyword among other transforms leaves the list invalid; one a var() substitutes makes it invalid at computed-value time, which resolves to `unset`
+    return entries.some(resetsToNone) ? undefined : entries;
   } else if (resetsToNone(transforms)) {
     return null;
   } else if (transforms) {

@@ -11,6 +11,7 @@ import type {
   Declaration,
   DimensionPercentageFor_LengthValue,
   EnvironmentVariable,
+  Filter,
   FontSize,
   FontStyle,
   FontVariantCaps,
@@ -44,6 +45,9 @@ import {
   inheritedValue,
   isInheritedColorLookup,
   isStyleFunction,
+  readAngle,
+  readNonNegativeAmount,
+  readNonNegativeLength,
 } from "../utilities";
 import { isMappingProperty } from "./atRules";
 import type {
@@ -1793,14 +1797,13 @@ export function parseAngle(angle: Angle | number, builder: StylesheetBuilder) {
     return `${angle}deg`;
   }
 
-  switch (angle.type) {
-    case "deg":
-    case "rad":
-      return `${angle.value}${angle.type}`;
-    default:
-      builder.addWarning("value", `${angle.value} ${angle.type}`);
-      return undefined;
+  const reactNativeAngle = readAngle(`${angle.value}${angle.type}`);
+
+  if (reactNativeAngle === undefined) {
+    builder.addWarning("value", `${angle.value} ${angle.type}`);
   }
+
+  return reactNativeAngle;
 }
 
 export function parseSizeDeclaration(
@@ -3621,40 +3624,80 @@ function parseFilter(
     return "unset";
   }
 
-  return declaration.value.value
-    .map((value) => {
-      switch (value.type) {
-        case "opacity":
-        case "blur":
-        case "brightness":
-        case "contrast":
-        case "grayscale":
-        case "invert":
-        case "saturate":
-        case "sepia":
-          return {
-            [value.type]: parseLength(value.value, builder),
-          } as unknown as StyleDescriptor;
-        case "hue-rotate":
-          return {
-            [toRNProperty(value.type)]: parseAngle(value.value, builder),
-          } as unknown as StyleDescriptor;
-        case "drop-shadow":
-          return [
-            {},
-            toRNProperty(value.type),
-            [
-              parseLength(value.value.xOffset, builder),
-              parseLength(value.value.yOffset, builder),
-              parseLength(value.value.blur, builder),
-              parseColor(value.value.color, builder),
-            ],
-          ] as unknown as StyleDescriptor;
-        case "url":
-          return;
-      }
-    })
-    .filter((value) => value !== undefined);
+  const filters: StyleDescriptor[] = [];
+
+  for (const value of declaration.value.value) {
+    // React Native has no SVG filter reference, so a url() entry is left out and the rest still apply
+    if (value.type === "url") {
+      continue;
+    }
+
+    const filter = parseFilterFunction(value, builder);
+
+    // A filter function the property cannot take leaves the declaration ignored, as the runtime does
+    if (filter === undefined) {
+      return;
+    }
+
+    filters.push(filter);
+  }
+
+  return filters;
+}
+
+function parseFilterFunction(
+  value: Exclude<Filter, { type: "url" }>,
+  builder: StylesheetBuilder,
+): StyleDescriptor | undefined {
+  switch (value.type) {
+    case "blur":
+      return parseFilterArgument(
+        value.type,
+        parseLength(value.value, builder),
+        readNonNegativeLength,
+      );
+    case "opacity":
+    case "brightness":
+    case "contrast":
+    case "grayscale":
+    case "invert":
+    case "saturate":
+    case "sepia":
+      return parseFilterArgument(
+        value.type,
+        parseLength(value.value, builder),
+        readNonNegativeAmount,
+      );
+    case "hue-rotate":
+      return parseFilterArgument(
+        toRNProperty(value.type),
+        parseAngle(value.value, builder),
+        readAngle,
+      );
+    case "drop-shadow":
+      return [
+        {},
+        toRNProperty(value.type),
+        [
+          parseLength(value.value.xOffset, builder),
+          parseLength(value.value.yOffset, builder),
+          parseLength(value.value.blur, builder),
+          parseColor(value.value.color, builder),
+        ],
+      ] as unknown as StyleDescriptor;
+  }
+}
+
+// A unit resolved at runtime is read there, by the same reader
+function parseFilterArgument(
+  name: string,
+  argument: StyleDescriptor | undefined,
+  read: (argument: unknown) => unknown,
+): StyleDescriptor | undefined {
+  const value = isStyleFunction(argument) ? argument : read(argument);
+  return value === undefined
+    ? undefined
+    : ({ [name]: value } as unknown as StyleDescriptor);
 }
 
 const namedColors = new Set([

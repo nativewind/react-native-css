@@ -1007,3 +1007,53 @@ describe("the inherited-color variable is never a lookup into itself", () => {
     expect(new Set(rules).size).toBe(rules.length);
   });
 });
+
+// Chromium 153, Firefox 155 and WebKit 26.6 ignore a written filter with an argument its function cannot take
+describe("a written filter the property cannot take", () => {
+  test.each(["brightness(-1)", "blur(-1px)", "blur(2px) brightness(-0.5)"])(
+    "filter: %s emits no declaration",
+    (value) => {
+      expect(
+        compile(`.child { filter: ${value}; }`).stylesheet(),
+      ).toStrictEqual({});
+    },
+  );
+
+  test("CONTROL: a url() entry is left out and the filters React Native can draw still apply", () => {
+    expect(
+      compile(`.child { filter: blur(2px) url(#shadow); }`).stylesheet()
+        .s?.[0]?.[1]?.[0]?.d,
+    ).toStrictEqual([{ filter: [{ blur: 2 }] }]);
+  });
+
+  test("CONTROL: a percentage and a non-negative number are kept as written", () => {
+    expect(
+      compile(`.child { filter: brightness(150%) contrast(0); }`).stylesheet()
+        .s?.[0]?.[1]?.[0]?.d,
+    ).toStrictEqual([{ filter: [{ brightness: "150%" }, { contrast: 0 }] }]);
+  });
+});
+
+// Chromium 153, Firefox 155 and WebKit 26.6 compute a gradian or a turn as the angle it is; React Native takes degrees or radians alone
+describe("an angle in gradians or turns", () => {
+  test.each([
+    ["hue-rotate(1turn)", "360deg"],
+    ["hue-rotate(100grad)", "90deg"],
+  ])("filter: %s compiles to %s", (filter, degrees) => {
+    const compiled = compile(`.child { filter: ${filter}; }`);
+
+    expect(compiled.warnings()).toStrictEqual({});
+    expect(compiled.stylesheet().s?.[0]?.[1]?.[0]?.d).toStrictEqual([
+      { filter: [{ hueRotate: degrees }] },
+    ]);
+  });
+
+  test.each(["transform: rotate(100grad)", "rotate: 0.25turn"])(
+    "%s compiles without a warning",
+    (declaration) => {
+      expect(compile(`.child { ${declaration}; }`).warnings()).toStrictEqual(
+        {},
+      );
+    },
+  );
+});

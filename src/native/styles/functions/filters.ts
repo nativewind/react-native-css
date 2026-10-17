@@ -1,71 +1,44 @@
-import { isStyleDescriptorArray } from "react-native-css/utilities";
+import {
+  isStyleDescriptorArray,
+  readAngle,
+  readNonNegativeAmount,
+  readNonNegativeLength,
+} from "react-native-css/utilities";
 
 import { resetsToNone } from "../resets-to-none";
 import type { StyleFunctionResolver } from "../resolve";
 import { shorthandHandler } from "../shorthands/_handler";
 
-export const blur: StyleFunctionResolver = (resolveValue, value) => {
-  const args = resolveValue(value[2]);
-  return {
-    blur: (Array.isArray(args) ? args[0] : args) as unknown,
-  };
-};
+type FilterArgumentReader = (argument: unknown) => unknown;
 
-export const brightness: StyleFunctionResolver = (resolveValue, value) => {
-  const args = resolveValue(value[2]);
-  return {
-    brightness: (Array.isArray(args) ? args[0] : args) as unknown,
-  };
-};
+// Filter Effects 1: a filter function takes one argument, so one given several is invalid
+function readFilterArgument(args: unknown): unknown {
+  if (!Array.isArray(args)) {
+    return args;
+  }
 
-export const contrast: StyleFunctionResolver = (resolveValue, value) => {
-  const args = resolveValue(value[2]);
-  return {
-    contrast: (Array.isArray(args) ? args[0] : args) as unknown,
-  };
-};
+  return args.length === 1 ? args[0] : undefined;
+}
 
-export const grayscale: StyleFunctionResolver = (resolveValue, value) => {
-  const args = resolveValue(value[2]);
-  return {
-    grayscale: (Array.isArray(args) ? args[0] : args) as unknown,
+function filterFunction(
+  name: string,
+  readArgument: FilterArgumentReader,
+): StyleFunctionResolver {
+  return (resolveValue, value) => {
+    const argument = readArgument(readFilterArgument(resolveValue(value[2])));
+    return argument === undefined ? undefined : { [name]: argument };
   };
-};
+}
 
-export const hueRotate: StyleFunctionResolver = (resolveValue, value) => {
-  const args = resolveValue(value[2]);
-  return {
-    hueRotate: (Array.isArray(args) ? args[0] : args) as unknown,
-  };
-};
-
-export const invert: StyleFunctionResolver = (resolveValue, value) => {
-  const args = resolveValue(value[2]);
-  return {
-    invert: (Array.isArray(args) ? args[0] : args) as unknown,
-  };
-};
-
-export const sepia: StyleFunctionResolver = (resolveValue, value) => {
-  const args = resolveValue(value[2]);
-  return {
-    sepia: (Array.isArray(args) ? args[0] : args) as unknown,
-  };
-};
-
-export const saturate: StyleFunctionResolver = (resolveValue, value) => {
-  const args = resolveValue(value[2]);
-  return {
-    saturate: (Array.isArray(args) ? args[0] : args) as unknown,
-  };
-};
-
-export const opacity: StyleFunctionResolver = (resolveValue, value) => {
-  const args = resolveValue(value[2]);
-  return {
-    opacity: (Array.isArray(args) ? args[0] : args) as unknown,
-  };
-};
+export const blur = filterFunction("blur", readNonNegativeLength);
+export const brightness = filterFunction("brightness", readNonNegativeAmount);
+export const contrast = filterFunction("contrast", readNonNegativeAmount);
+export const grayscale = filterFunction("grayscale", readNonNegativeAmount);
+export const hueRotate = filterFunction("hueRotate", readAngle);
+export const invert = filterFunction("invert", readNonNegativeAmount);
+export const sepia = filterFunction("sepia", readNonNegativeAmount);
+export const saturate = filterFunction("saturate", readNonNegativeAmount);
+export const opacity = filterFunction("opacity", readNonNegativeAmount);
 
 const color = ["color", "color"] as const;
 const offsetX = ["offsetX", "number"] as const;
@@ -91,12 +64,12 @@ export const dropShadow: StyleFunctionResolver = (
   options,
 ) => {
   const args = resolveValue(func[2]);
+  if (!isStyleDescriptorArray(args)) {
+    return undefined;
+  }
 
-  return isStyleDescriptorArray(args)
-    ? {
-        dropShadow: handler(resolveValue, args, get, options),
-      }
-    : undefined;
+  const shadow: unknown = handler(resolveValue, args, get, options);
+  return shadow === undefined ? undefined : { dropShadow: shadow };
 };
 
 /** CSS variables may expand to multiple filters; native filter arrays must be flat. */
@@ -104,8 +77,8 @@ export const filter: StyleFunctionResolver = (resolveValue, descriptor) => {
   const value: unknown = resolveValue(descriptor[2]);
   if (Array.isArray(value)) {
     const filters: unknown[] = value.flat(Infinity);
-    if (filters.some(resetsToNone)) return null;
-    return filters.filter((entry) => entry !== undefined);
+    // A keyword among other filters leaves the list invalid; one a var() substitutes makes it invalid at computed-value time, which resolves to `unset`
+    return filters.some(resetsToNone) ? undefined : filters;
   }
   if (value === undefined) return;
   if (resetsToNone(value)) return null;

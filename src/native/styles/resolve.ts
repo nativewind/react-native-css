@@ -108,16 +108,24 @@ export function resolveValue(
 
       if (isStyleDescriptorArray(value)) {
         let substitutedNothing = value.length > 0;
-        const entries = value.flatMap((entry) => {
+        const entries: unknown[] = [];
+
+        for (const entry of value) {
           const resolved: unknown = resolveValue(entry, get, options);
 
           if (isEmptySubstitution(entry, resolved)) {
-            return [];
+            continue;
           }
 
           substitutedNothing = false;
-          return resolved === undefined ? [] : [resolved];
-        });
+
+          if (resolved !== undefined) {
+            entries.push(resolved);
+          } else if (entry !== undefined) {
+            // A component the property cannot take leaves the whole value invalid, never a shorter one
+            return;
+          }
+        }
 
         if (substitutedNothing && options.substitution) {
           options.substitution.emptied = true;
