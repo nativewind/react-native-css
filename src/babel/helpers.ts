@@ -10,7 +10,7 @@ export interface PluginOpts {
 
 export interface PluginState {
   opts?: PluginOpts;
-  filename: string;
+  filename: string | undefined;
 }
 
 export function getInteropRequireDefaultSource(
