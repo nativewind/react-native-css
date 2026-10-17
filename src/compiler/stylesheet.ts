@@ -69,7 +69,7 @@ export class StylesheetBuilder {
       ruleOrder: number;
       warningProperty?: string;
       warningProperties: string[];
-      warningValues: Record<string, unknown[]>;
+      warningValues: Record<string, string[]>;
       warningFunctions: string[];
       syntaxWarnings: Set<string>;
     } = {
@@ -201,18 +201,17 @@ export class StylesheetBuilder {
   }
 
   addWarning(type: "property" | "value", property: string): void;
-  addWarning(type: "style", property: string, value: unknown): void;
+  addWarning(type: "style", property: string, value: string): void;
   addWarning(
     type: "property" | "style" | "value",
     property: string,
-    value?: unknown,
+    value: string = property,
   ): void {
     switch (type) {
       case "property":
         this.shared.warningProperties.push(property);
         break;
       case "value": {
-        value = property;
         property = this.shared.warningProperty ?? "";
 
         if (!property) {

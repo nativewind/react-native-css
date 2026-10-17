@@ -135,21 +135,15 @@ function toDisplayPath(filename: string, projectRoot: string): string {
 }
 
 function renderValues(
-  values: Record<string, unknown[]> | undefined,
+  values: Record<string, string[]> | undefined,
   verbose: boolean,
 ): { entries: string[]; hidden: number } {
   let hidden = 0;
   const entries: string[] = [];
+  const recordedByProperty = values ?? {};
 
-  for (const [property, recorded] of Object.entries(values ?? {}).sort(
-    ([a], [b]) => (a < b ? -1 : a > b ? 1 : 0),
-  )) {
-    const distinct = unique(recorded.map(stringify));
-
-    if (distinct.length === 0) {
-      continue;
-    }
-
+  for (const property of Object.keys(recordedByProperty).sort()) {
+    const distinct = unique(recordedByProperty[property]);
     const shown = verbose ? distinct : distinct.slice(0, SUMMARY_VALUE_LIMIT);
     hidden += distinct.length - shown.length;
 
@@ -181,18 +175,6 @@ function suffix(hidden: number): string {
 // Code-unit order rather than localeCompare, whose collation varies with the ICU build
 function unique(entries: string[] | undefined): string[] {
   return entries ? [...new Set(entries)].sort() : [];
-}
-
-function stringify(value: unknown): string {
-  if (typeof value === "string") {
-    return value;
-  }
-
-  if (value === null || typeof value !== "object") {
-    return String(value);
-  }
-
-  return JSON.stringify(value);
 }
 
 // An unresolved calc() is recorded as its whole lightningcss node, hundreds of characters long

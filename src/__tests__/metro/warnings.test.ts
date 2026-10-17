@@ -138,8 +138,21 @@ describe("formatCompilerWarnings", () => {
     );
   });
 
-  test("a value the compiler recorded as a number renders as text", () => {
-    // line-height: 50% is recorded as the number 0.5
+  test("value entries are listed by property in code-unit order, not stylesheet order", () => {
+    expect(
+      formatCompilerWarnings(
+        warningsFor(`.a { z-index: auto; line-height: 50%; }`),
+        { displayPath: "src/global.css" },
+      ),
+    ).toBe(
+      [
+        "react-native-css: src/global.css - 2 declarations dropped, no React Native equivalent",
+        "  values: line-height: 0.5; z-index: auto",
+      ].join("\n"),
+    );
+  });
+
+  test("a percentage line-height is reported as the ratio it resolved to", () => {
     expect(
       formatCompilerWarnings(warningsFor(`.a { line-height: 50%; }`), {
         displayPath: "src/global.css",

@@ -41,6 +41,12 @@ describe("the syntax channel", () => {
     expect(compile(css).warnings()).toStrictEqual({});
   });
 
+  test("a misspelling of this package's own at-rule is reported like any unknown one", () => {
+    expect(compile(`@nativeMapping-typo {}`).warnings()).toStrictEqual({
+      syntax: ["Unknown at rule: @nativeMapping-typo"],
+    });
+  });
+
   test("a repeated mistake is one entry, and two different ones are two", () => {
     expect(
       compile(`@unknown-a { .x { color: red } }
