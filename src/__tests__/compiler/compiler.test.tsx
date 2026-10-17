@@ -289,6 +289,31 @@ test("media query nested in rules", () => {
   });
 });
 
+test.each([
+  ["@media", "@media (min-width: 0px) { color: blue; }"],
+  ["@container", "@container (min-width: 0px) { color: blue; }"],
+  ["&:hover", "&:hover { color: blue; }"],
+])(
+  "a %s rule nested in a descendant selector applies to that selector's subject",
+  (_kind, nested) => {
+    const stylesheet = compile(
+      `.group .x { color: red; ${nested} }`,
+    ).stylesheet();
+    const rules = (name: string) =>
+      stylesheet.s?.find(([className]) => className === name)?.[1] ?? [];
+
+    expect(rules("x").map((rule) => rule.d)).toStrictEqual([
+      [{ color: "#f00" }],
+      [{ color: "#00f" }],
+    ]);
+    for (const rule of rules("x")) {
+      expect(rule.cq).toContainEqual({ n: "g:group" });
+    }
+    expect(rules("x").flatMap((rule) => rule.c ?? [])).toStrictEqual([]);
+    expect(rules("group").flatMap((rule) => rule.d ?? [])).toStrictEqual([]);
+  },
+);
+
 test("container queries", () => {
   const compiled = compile(`
   @container (width > 400px) {
