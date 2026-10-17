@@ -62,7 +62,7 @@ export const animationShorthand = shorthandHandler(
   "tuples",
 );
 
-const resolveAnimation: StyleFunctionResolver = (
+export const animation: StyleFunctionResolver = (
   resolveValue,
   value,
   get,
@@ -77,7 +77,9 @@ const resolveAnimation: StyleFunctionResolver = (
 
   if (!Array.isArray(animationShortHandTuples)) {
     // css-cascade-5 §7.3.3: a shorthand reset to `unset` resets every longhand it sets
-    return resolveValue(value[2]) === null ? null : undefined;
+    return resolveValue(value[2]) === null
+      ? clearedLonghands(longhands)
+      : undefined;
   }
 
   const nameTuple = animationShortHandTuples.find(
@@ -128,14 +130,12 @@ const resolveAnimation: StyleFunctionResolver = (
   return applyShorthand(animationShortHandTuples);
 };
 
-export const animation: StyleFunctionResolver = (...args) => {
-  const animationLonghands = resolveAnimation(...args);
-  return animationLonghands === null
-    ? clearedLonghands(longhands)
-    : animationLonghands;
-};
-
-export const animationName: StyleFunctionResolver = (...args) => {
-  const animationLonghands: any = resolveAnimation(...args);
-  return animationLonghands === null ? null : animationLonghands?.animationName;
+export const animationName: StyleFunctionResolver = (
+  resolveValue,
+  value,
+  get,
+  options,
+) => {
+  const shorthand: any = animation(resolveValue, value, get, options);
+  return shorthand?.animationName;
 };

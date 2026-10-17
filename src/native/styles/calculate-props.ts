@@ -215,14 +215,22 @@ function resolveDeclaration(
   const value = resolveValue(descriptor, get, { ...options, substitution });
 
   if (!isInvalidAtComputedValueTime(descriptor, value, substitution)) {
-    return value;
+    return value === undefined && isUnsetDescriptor(descriptor) ? null : value;
   }
 
-  return resolveValue(
-    unsetDescriptor(descriptor, prop, options.computingColor),
-    get,
-    options,
+  // css-cascade-5 §7.3.3: `unset` resets the property even where its parser has no reset of its own
+  return (
+    resolveValue(
+      unsetDescriptor(descriptor, prop, options.computingColor),
+      get,
+      options,
+    ) ?? null
   );
+}
+
+// The compiler writes a CSS-wide keyword on a property the runtime parses as that parser's `unset`
+function isUnsetDescriptor(descriptor: StyleDescriptor): boolean {
+  return isStyleFunction(descriptor) && descriptor[2] === "unset";
 }
 
 // The `unset` the compiler writes for the same property: the inherited colour for `color`, the runtime parser's own reset for a property it parses, and the clearing literal otherwise

@@ -3,10 +3,6 @@ import type { StyleFunctionResolver } from "./resolve";
 export const lineHeight: StyleFunctionResolver = (resolve, func) => {
   const value = resolve(func[2]);
 
-  if (value === null) {
-    return null;
-  }
-
   if (typeof value !== "number") {
     return;
   }
