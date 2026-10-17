@@ -4,6 +4,11 @@ import type { StyleFunctionResolver } from "../resolve";
 function logicalWidth(start: string, end: string): StyleFunctionResolver {
   return (resolve, descriptor) => {
     const resolved = resolve(descriptor[2]);
+
+    if (resolved === null) {
+      return { [ShortHandSymbol]: true, [start]: undefined, [end]: undefined };
+    }
+
     const values: unknown[] = Array.isArray(resolved) ? resolved : [resolved];
     if (
       values.length < 1 ||
