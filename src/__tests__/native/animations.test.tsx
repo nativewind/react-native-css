@@ -133,6 +133,22 @@ test("an invalid numeric animation name is omitted without throwing", () => {
   expect(style()?.animationName).toBeUndefined();
 });
 
+// Chromium 153, Firefox 155 and WebKit 26.6 apply a later longhand over the variable-held shorthand before it
+test.each([undefined, false] as const)(
+  "a written animation-duration after a variable animation applies with inlineVariables=%s",
+  (inlineVariables) => {
+    registerCSS(
+      `${keyframes} .other { --motion: none; } .earlier { --motion: slide-in 1s; animation: var(--motion); } .later { animation-duration: 2s; }`,
+      { inlineVariables },
+    );
+    render(<View testID={testID} className="earlier later" />);
+    expect(style()).toMatchObject({
+      animationName: horizontal,
+      animationDuration: [2000],
+    });
+  },
+);
+
 test("multiple animation names preserve keyframe order and timing metadata", () => {
   registerCSS(`${keyframes} .motion {
     animation: slide-in 1s linear 250ms 2 alternate both,
