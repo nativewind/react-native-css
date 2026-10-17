@@ -420,13 +420,23 @@ describe.each([
   });
 
   // css-variables-1 §3.1: a value a var() substitutes that the property cannot take leaves the declaration invalid at computed-value time, as if it were `unset`; written, the same value is ignored
-  test.each(["", " !important"])(
+  test.each([
+    [
+      "",
+      ".first { text-shadow: 9px 9px 0 #010203 } .second { --shadow: 2px; text-shadow: var(--shadow) }",
+    ],
+    [
+      " !important",
+      ".first { text-shadow: 9px 9px 0 #010203 !important } .second { --shadow: 2px; text-shadow: var(--shadow) !important }",
+    ],
+    [
+      " after a nested rule",
+      ".first { text-shadow: 9px 9px 0 #010203 } .second { & .descendant { color: red } --shadow: 2px; text-shadow: var(--shadow) }",
+    ],
+  ])(
     "a substituted value the property cannot take resets it%s, where the earlier rule's would stand if it were written",
-    (importance) => {
-      registerCSS(
-        `.first { text-shadow: 9px 9px 0 #010203${importance} } .second { --shadow: 2px; text-shadow: var(--shadow)${importance} }`,
-        options,
-      );
+    (_placement, css) => {
+      registerCSS(css, options);
 
       render(<View testID={testID} className="first second" />);
 
