@@ -6,6 +6,7 @@ import type {
 } from "lightningcss";
 
 import type { UniqueVarInfo } from "./compiler.types";
+import { soleCSSWideKeyword } from "./css-wide-keywords";
 
 export function inlineVariables(
   stylesheet: StyleSheet,
@@ -118,11 +119,57 @@ function replaceDeclaration(
     return;
   }
 
-  declaration.value.value = declaration.value.value.flatMap((part) => {
-    return flattenPart(part, vars);
-  });
+  const value = readsGuaranteedInvalid(declaration.value.value, vars)
+    ? undefined
+    : declaration.value.value.flatMap((part) => flattenPart(part, vars));
+
+  // css-variables-1 §3.1: a declaration a var() leaves without a value is invalid at computed-value time, as if its value were `unset`, and a custom property's is the guaranteed-invalid value
+  if (
+    value === undefined ||
+    (declaration.property === "unparsed" && substitutesNothing(value))
+  ) {
+    declaration.value.value = [
+      keywordToken(declaration.property === "custom" ? "initial" : "unset"),
+    ];
+    return declaration;
+  }
+
+  declaration.value.value = value;
 
   return declaration;
+}
+
+function substitutesNothing(parts: readonly TokenOrValue[]): boolean {
+  return parts.every(
+    (part) => part.type === "token" && part.value.type === "white-space",
+  );
+}
+
+function readsGuaranteedInvalid(
+  parts: readonly TokenOrValue[],
+  vars: Map<string, UniqueVarInfo>,
+): boolean {
+  return parts.some((part) => {
+    if (part.type === "var") {
+      const varInfo = vars.get(part.value.name.ident);
+
+      if (varInfo === undefined || varInfo.value !== undefined) {
+        return false;
+      }
+
+      return part.value.fallback
+        ? readsGuaranteedInvalid(part.value.fallback, vars)
+        : true;
+    } else if (part.type === "function") {
+      return readsGuaranteedInvalid(part.value.arguments, vars);
+    }
+
+    return false;
+  });
+}
+
+function keywordToken(keyword: "initial" | "unset"): TokenOrValue {
+  return { type: "token", value: { type: "ident", value: keyword } };
 }
 
 function flattenPart(
@@ -159,51 +206,79 @@ function flattenPart(
 function flattenVar(
   name: string,
   vars: Map<string, UniqueVarInfo>,
-  seen = new Set<string>(),
+  path = new Set<string>(),
 ) {
-  if (seen.has(name)) {
-    vars.delete(name);
+  if (path.has(name)) {
+    // css-variables-1 §2.3: every variable in a cycle is the guaranteed-invalid value, which the runtime's cycle guard answers
+    leaveCycleToRuntime(name, path, vars);
+    return;
   }
 
-  seen.add(name);
-
-  let varInfo = vars.get(name);
+  const varInfo = vars.get(name);
 
   if (!varInfo || varInfo.flat) {
     return;
   }
 
-  let varInfoValue = varInfo.value?.flatMap((part) => {
-    if (part.type === "var") {
-      const name = part.value.name.ident;
+  const parts = varInfo.value;
 
-      flattenVar(name, vars, seen);
+  // Each variable the value reads is flattened before the value substitutes it, whichever was declared first
+  path.add(name);
+  for (const readName of readVariableNames(parts)) {
+    flattenVar(readName, vars, path);
+  }
+  path.delete(name);
 
-      const nestedVarInfo = vars.get(part.value.name.ident);
-      if (nestedVarInfo?.value) {
-        return nestedVarInfo.value;
-      }
-    }
-    return flattenPart(part, vars);
-  });
-
-  // If the variable is shorthand for "initial", substitute it for undefined
-  if (
-    varInfoValue?.length === 2 &&
-    varInfoValue[0]?.type === "token" &&
-    varInfoValue[0].value.type === "ident" &&
-    varInfoValue[0].value.value === "initial" &&
-    varInfoValue[1]?.type === "token" &&
-    varInfoValue[1].value.type === "white-space"
-  ) {
-    varInfoValue = undefined;
+  if (!vars.has(name)) {
+    return;
   }
 
-  varInfo = {
-    count: 1,
-    flat: true,
-    value: varInfoValue,
-  };
+  const keyword = soleCSSWideKeyword(parts)?.keyword;
 
-  vars.set(name, varInfo);
+  if (keyword !== undefined && keyword !== "initial") {
+    // The parent's value, which only the runtime knows
+    vars.delete(name);
+    return;
+  }
+
+  // css-variables-1 §2.2, §3.1: `initial`, and a value that reads the guaranteed-invalid value, are the guaranteed-invalid value, which no var() substitutes
+  const value =
+    keyword === "initial" || readsGuaranteedInvalid(parts, vars)
+      ? undefined
+      : parts.flatMap((part) => flattenPart(part, vars));
+
+  vars.set(name, { count: 1, flat: true, value });
+}
+
+function leaveCycleToRuntime(
+  reentered: string,
+  path: ReadonlySet<string>,
+  vars: Map<string, UniqueVarInfo>,
+) {
+  let inCycle = false;
+
+  for (const name of path) {
+    inCycle ||= name === reentered;
+
+    if (inCycle) {
+      vars.delete(name);
+    }
+  }
+}
+
+// The names `flattenPart` substitutes: each var(), its fallback's, and those inside a function's arguments
+function readVariableNames(
+  parts: readonly TokenOrValue[],
+  names = new Set<string>(),
+): ReadonlySet<string> {
+  for (const part of parts) {
+    if (part.type === "var") {
+      names.add(part.value.name.ident);
+      readVariableNames(part.value.fallback ?? [], names);
+    } else if (part.type === "function") {
+      readVariableNames(part.value.arguments, names);
+    }
+  }
+
+  return names;
 }
