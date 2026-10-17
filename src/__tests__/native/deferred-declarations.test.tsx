@@ -3,7 +3,7 @@ import { Text } from "react-native-css/components/Text";
 import { registerCSS, testID } from "react-native-css/jest";
 
 // A second definition keeps each variable from being inlined, so it resolves at runtime
-const decoy = `.decoy { --c: green; --n: 9; --b: 1px solid green; --w: 9px; --s: 9px 9px green; }`;
+const decoy = `.decoy { --c: green; --n: 9; --b: 1px solid green; --w: 9px; --s: 9px 9px green; --t: none; }`;
 
 function renderText(css: string, className = "my-class") {
   registerCSS(`${decoy} ${css}`);
@@ -13,7 +13,7 @@ function renderText(css: string, className = "my-class") {
   ).props;
 }
 
-// A deferred declaration resolves after every other one in its rule, against the target it was declared on
+// A declaration that reads a variable resolves against the target it was declared on
 describe("a deferred declaration beside a nested one", () => {
   test("color: var() beside a box-shadow", () => {
     expect(
@@ -170,5 +170,89 @@ describe("a deferred shorthand keeps no key a later declaration set", () => {
     ],
   ] as const)("%s", (_name, css, className, style) => {
     expect(renderText(css, className).style).toStrictEqual(style);
+  });
+});
+
+// Chromium 153, Firefox 155 and WebKit 26.6 apply a transform and an individual transform property together, however the transform is written
+test("a deferred transform composes with an individual transform property as a written one does", () => {
+  registerCSS(
+    `${decoy} .held { --t: translateX(10px); transform: var(--t); } .written { transform: translateX(10px); } .turn { rotate: 45deg; }`,
+  );
+
+  const screen = render(
+    <>
+      <Text testID="held" className="held turn" />
+      <Text testID="written" className="written turn" />
+    </>,
+  );
+
+  const written = screen.getByTestId("written").props.style as {
+    transform: unknown[];
+  };
+  expect(written.transform).toEqual(
+    expect.arrayContaining([{ translateX: 10 }, { rotateZ: "45deg" }]),
+  );
+  expect(screen.getByTestId("held").props.style).toStrictEqual(written);
+});
+
+// Chromium 153, Firefox 155 and WebKit 26.6 reset a property whose var() has no value, so an earlier rule's value is gone
+test("a var() with no value resets an earlier rule's value", () => {
+  expect(
+    renderText(
+      ".earlier { width: 10px; } .my-class { width: var(--c-missing); }",
+      "earlier my-class",
+    ).style,
+  ).toStrictEqual({});
+});
+
+// CSS 2.1 §4.2: a declaration with a value the property cannot take is ignored, so the earlier rule's value stands
+test("a written value the runtime cannot read leaves an earlier rule's value", () => {
+  expect(
+    renderText(
+      ".earlier { width: 10px; } .my-class { width: roundToNearestPixel(foo); }",
+      "earlier my-class",
+    ).style,
+  ).toStrictEqual({ width: 10 });
+});
+
+// Chromium 153, Firefox 155 and WebKit 26.6 apply an individual transform property whatever the cascade order of the transform beside it
+test.each([
+  [
+    "before a transform",
+    ".earlier { rotate: 45deg; } .my-class { transform: translateX(10px); }",
+  ],
+  [
+    "after a transform",
+    ".earlier { transform: translateX(10px); } .my-class { rotate: 45deg; }",
+  ],
+])(
+  "an individual transform property declared %s composes with it",
+  (_order, css) => {
+    const { transform } = renderText(css, "earlier my-class").style as {
+      transform: unknown[];
+    };
+
+    expect(transform).toHaveLength(2);
+    expect(transform).toEqual(
+      expect.arrayContaining([{ translateX: 10 }, { rotateZ: "45deg" }]),
+    );
+  },
+);
+
+// Chromium 153, Firefox 155 and WebKit 26.6 apply both, each to its own property
+test("an individual transform property beside a box-shadow", () => {
+  expect(
+    renderText(".my-class { rotate: 45deg; box-shadow: 1px 1px blue; }").style,
+  ).toStrictEqual({
+    transform: [{ rotateZ: "45deg" }],
+    boxShadow: [
+      {
+        color: "#00f",
+        offsetX: 1,
+        offsetY: 1,
+        blurRadius: 0,
+        spreadDistance: 0,
+      },
+    ],
   });
 });
