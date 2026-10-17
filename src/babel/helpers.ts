@@ -1,3 +1,5 @@
+import { dirname, resolve, sep } from "path";
+
 import tBabelTypes, { type CallExpression } from "@babel/types";
 
 export type BabelTypes = typeof tBabelTypes;
@@ -37,4 +39,9 @@ export function getInteropRequireDefaultSource(
   }
 
   return requireArg.value;
+}
+
+// The handlers match "/"-separated package paths, and path.resolve separates with "\" on Windows
+export function resolveImportSource(filename: string, source: string): string {
+  return resolve(dirname(filename), source).split(sep).join("/");
 }

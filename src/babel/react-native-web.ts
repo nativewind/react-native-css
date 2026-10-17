@@ -1,5 +1,3 @@
-import { dirname, resolve } from "path";
-
 import { type NodePath } from "@babel/traverse";
 import tBabelTypes, {
   type CallExpression,
@@ -10,12 +8,13 @@ import tBabelTypes, {
 } from "@babel/types";
 
 import { allowedModules } from "./allowedModules";
+import { resolveImportSource } from "./helpers";
 
 type BabelTypes = typeof tBabelTypes;
 
 function parseReactNativeWebSource(source: string, filename: string) {
   if (source.startsWith(".")) {
-    source = resolve(dirname(filename), source);
+    source = resolveImportSource(filename, source);
 
     const internalPath = source.split("react-native-web/dist")[1];
     if (!internalPath) {
