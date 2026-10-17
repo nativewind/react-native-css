@@ -6,6 +6,7 @@ import {
   View,
   type ButtonProps,
   type TextInputProps,
+  type ViewProps,
 } from "react-native";
 
 import { render } from "@testing-library/react-native";
@@ -13,7 +14,7 @@ import { copyComponentProperties } from "react-native-css/components/copyCompone
 import { KeyboardAvoidingView } from "react-native-css/components/KeyboardAvoidingView";
 import { TextInput } from "react-native-css/components/TextInput";
 import { registerCSS, testID } from "react-native-css/jest";
-import { useCssElement } from "react-native-css/native";
+import { styled, useCssElement } from "react-native-css/native";
 import type {
   StyledConfiguration,
   StyledProps,
@@ -150,4 +151,140 @@ test("KeyboardAvoidingView maps content classes through replacement, removal, an
     expect(style.opacity).toBe(0.5);
     expect(contentStyle).toEqual({ opacity: 0.5 });
   }
+});
+
+interface LabelledProps extends ViewProps {
+  readonly labelColor?: string;
+  readonly badgeColor?: string;
+}
+
+// nativeStyleMapping is typed against the target's props, so a target:false config needs a component that has some
+const Labelled = (props: LabelledProps) => <View {...props} />;
+
+test("a target:false config does not take a style-target config's declarations", () => {
+  registerCSS(`.c1 { color: orange; } .c2 { color: blue; }`);
+
+  const Styled = styled(Labelled, {
+    className: { target: "style" },
+    labelClassName: {
+      target: false,
+      nativeStyleMapping: { color: "labelColor" },
+    },
+  });
+
+  const component = render(
+    <Styled testID={testID} className="c1" labelClassName="c2" />,
+  ).getByTestId(testID);
+
+  expect(component.props.style).toStrictEqual({ color: "#ffa500" });
+  expect(component.props.labelColor).toBe("#00f");
+});
+
+test("a target:false config emits no style prop", () => {
+  registerCSS(`.c3 { color: orange; font-size: 20px; }`);
+
+  const Styled = styled(Labelled, {
+    labelClassName: {
+      target: false,
+      nativeStyleMapping: { color: "labelColor" },
+    },
+  });
+
+  const component = render(
+    <Styled testID={testID} labelClassName="c3" />,
+  ).getByTestId(testID);
+
+  expect(component.props.labelColor).toBe("#ffa500");
+  expect(component.props).not.toHaveProperty("style");
+});
+
+test("two target:false configs each keep their own declarations", () => {
+  registerCSS(`.c4 { color: orange; } .c5 { color: blue; }`);
+
+  const Styled = styled(Labelled, {
+    labelClassName: {
+      target: false,
+      nativeStyleMapping: { color: "labelColor" },
+    },
+    badgeClassName: {
+      target: false,
+      nativeStyleMapping: { color: "badgeColor" },
+    },
+  });
+
+  const component = render(
+    <Styled testID={testID} labelClassName="c4" badgeClassName="c5" />,
+  ).getByTestId(testID);
+
+  expect(component.props.labelColor).toBe("#ffa500");
+  expect(component.props.badgeColor).toBe("#00f");
+  expect(component.props).not.toHaveProperty("labelClassName");
+  expect(component.props).not.toHaveProperty("badgeClassName");
+});
+
+test("declaration order does not change what either config gets", () => {
+  registerCSS(
+    `.c6 { color: orange; font-size: 20px; } .c7 { background-color: blue; }`,
+  );
+
+  const Styled = styled(Labelled, {
+    labelClassName: {
+      target: false,
+      nativeStyleMapping: { color: "labelColor" },
+    },
+    className: { target: "style" },
+  });
+
+  const component = render(
+    <Styled testID={testID} className="c7" labelClassName="c6" />,
+  ).getByTestId(testID);
+
+  expect(component.props.labelColor).toBe("#ffa500");
+  expect(component.props.style).toStrictEqual({ backgroundColor: "#00f" });
+  expect(component.props).not.toHaveProperty("labelClassName");
+});
+
+test("an !important declaration keeps to its own config", () => {
+  registerCSS(`
+    .i1 { color: orange !important; }
+    .i2 { color: blue !important; font-size: 11px !important; }
+  `);
+
+  const Styled = styled(Labelled, {
+    className: { target: "style" },
+    labelClassName: {
+      target: false,
+      nativeStyleMapping: { color: "labelColor" },
+    },
+  });
+
+  const component = render(
+    <Styled testID={testID} className="i1" labelClassName="i2" />,
+  ).getByTestId(testID);
+
+  expect(component.props.style).toStrictEqual({ color: "#ffa500" });
+  expect(component.props.labelColor).toBe("#00f");
+});
+
+test("a declaration no mapping entry names is dropped, not moved into style", () => {
+  registerCSS(`.d1 { transform: translateX(10px); color: orange; }`);
+
+  const Mapped = styled(Labelled, {
+    labelClassName: {
+      target: false,
+      nativeStyleMapping: { color: "labelColor" },
+    },
+  });
+  const Shorthand = styled(Labelled, { labelClassName: false });
+
+  const mapped = render(
+    <Mapped testID={testID} labelClassName="d1" />,
+  ).getByTestId(testID);
+  expect(mapped.props.labelColor).toBe("#ffa500");
+  expect(mapped.props).not.toHaveProperty("style");
+
+  const shorthand = render(
+    <Shorthand testID="shorthand" {...{ labelClassName: "d1" }} />,
+  ).getByTestId("shorthand");
+  expect(shorthand.props).not.toHaveProperty("style");
 });

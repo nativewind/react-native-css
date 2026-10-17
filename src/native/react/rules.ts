@@ -271,7 +271,11 @@ export function updateRules(
  */
 const getRuleVariation = weakFamily((rule: StyleRule) => {
   return weakFamily((config: Config): StyleRule => {
-    return { ...rule, target: config.target };
+    // A target:false config collects its declarations under its own source key until nativeStyleMapping moves them; style belongs to whichever config targets it
+    return {
+      ...rule,
+      target: config.target === false ? [config.source] : config.target,
+    };
   });
 });
 
