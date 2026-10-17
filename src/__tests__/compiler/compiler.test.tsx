@@ -796,6 +796,16 @@ describe("CSS-wide keywords", () => {
     },
   );
 
+  test("a substitution that leaves an env() compiles as the written env(), which the runtime reads", () => {
+    expect(
+      compile(
+        ".child { --inset: env(safe-area-inset-top); padding-top: var(--inset); }",
+      ).stylesheet(),
+    ).toStrictEqual(
+      compile(".child { padding-top: env(safe-area-inset-top); }").stylesheet(),
+    );
+  });
+
   test("a custom property set to initial is inlined as the guaranteed-invalid value, so a read takes its fallback", () => {
     expect(
       declarationsFor(`.child { --brand: initial; color: var(--brand, red); }`),

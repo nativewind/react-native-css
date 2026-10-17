@@ -152,7 +152,7 @@ function replaceDeclarations(
   // A value written for the property stays unparsed in both passes, so only this pass can tell a substitution beside it apart
   const writtenUnparsed = new Set(
     replacements.flatMap(({ declaration, substitution }) =>
-      !substitution && isUnparsedWithoutVar(declaration)
+      !substitution && isStaticUnparsed(declaration)
         ? [declaration.value.propertyId.property]
         : [],
     ),
@@ -218,7 +218,7 @@ function removeInlinedDeclarations(
   return block;
 }
 
-// Returns the declaration when a var() substituted it into a value with no var() left
+// Returns the declaration when a var() substituted it into a value with nothing left for the runtime to read
 function replaceDeclaration(
   declaration: Declaration,
   vars: Map<string, UniqueVarInfo>,
@@ -252,7 +252,7 @@ function replaceDeclaration(
 
   declaration.value.value = value;
 
-  return readsVariable && isUnparsedWithoutVar(declaration)
+  return readsVariable && isStaticUnparsed(declaration)
     ? declaration
     : undefined;
 }
@@ -280,7 +280,7 @@ export function restoreSubstitutionStatus(
       return [];
     }
 
-    return isUnparsedWithoutVar(declaration) &&
+    return isStaticUnparsed(declaration) &&
       markedProperties.has(declaration.value.propertyId.property)
       ? readThroughLibraryVariable(declaration)
       : [declaration];
@@ -312,13 +312,42 @@ function isSubstitutionMarker(declaration: Declaration): boolean {
   );
 }
 
-function isUnparsedWithoutVar(
+function isStaticUnparsed(
   declaration: Declaration,
 ): declaration is UnparsedDeclaration {
   return (
     declaration.property === "unparsed" &&
-    readVariableNames(declaration.value.value).size === 0
+    !readsAtRuntime(declaration.value.value)
   );
+}
+
+// A var() or an env() the runtime resolves, which leaves the declaration to the runtime's own reset
+function readsAtRuntime(parts: readonly TokenOrValue[]): boolean {
+  return parts.some((part) => {
+    switch (part.type) {
+      case "var":
+      case "env":
+        return true;
+      case "function":
+        return readsAtRuntime(part.value.arguments);
+      case "unresolved-color":
+        switch (part.value.type) {
+          case "rgb":
+          case "hsl":
+            return readsAtRuntime(part.value.alpha);
+          case "light-dark":
+            return (
+              readsAtRuntime(part.value.light) ||
+              readsAtRuntime(part.value.dark)
+            );
+          default:
+            part.value satisfies never;
+            return false;
+        }
+      default:
+        return false;
+    }
+  });
 }
 
 function substitutesNothing(parts: readonly TokenOrValue[]): boolean {
