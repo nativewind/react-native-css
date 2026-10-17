@@ -65,7 +65,6 @@ function reportSyntaxWarnings(
  * @param options - Compiler options
  * @returns A `ReactNativeCssStyleSheet` that can be passed to `StyleSheet.register` or used with a custom runtime
  */
-
 export function compile(code: Buffer | string, options: CompilerOptions = {}) {
   const { logger = defaultLogger } = options;
 
