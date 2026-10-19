@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react-native";
+import { fireEvent, render, screen } from "@testing-library/react-native";
 import { View } from "react-native-css/components/View";
 import { registerCSS, testID } from "react-native-css/jest";
 
@@ -38,7 +38,7 @@ test.each([
   ["width: 1IN", { width: 96 }],
   ["width: 2.54CM", { width: 96 }],
   ["margin-left: -1pc", { marginLeft: -16 }],
-  ["margin-top: 0pt", { marginTop: 0 }],
+  ["margin-top: -0.75pt", { marginTop: -1 }],
   ["transform: translateX(1in)", { transform: [{ translateX: 96 }] }],
   [
     "box-shadow: 3pt 6pt 1pc -3pt #000",
@@ -107,3 +107,43 @@ test("an inlined variable holding an infinite absolute length clamps as px does"
 
   expect(styleFor("inch")).toStrictEqual(styleFor("pixel"));
 });
+
+test("a runtime calc() adds an absolute length", () => {
+  registerCSS(`.subject { --width: 10px; width: calc(var(--width) + 1in); }`, {
+    inlineVariables: false,
+  });
+
+  expect(styleFor("subject")).toStrictEqual({ width: 106 });
+});
+
+test("an @property initial value converts", () => {
+  registerCSS(`
+    @property --width { syntax: "<length>"; inherits: false; initial-value: 1in; }
+    .subject { width: var(--width); }
+  `);
+
+  expect(styleFor("subject")).toStrictEqual({ width: 96 });
+});
+
+test.each([
+  [390, { width: 16 }],
+  [380, undefined],
+])(
+  "a container %d pixels wide matches (min-width: 4in): %o",
+  (containerWidth, style) => {
+    registerCSS(`
+      .container { container-name: box; }
+      @container box (min-width: 4in) { .child { width: 1pc; } }
+    `);
+    render(
+      <View testID="container" className="container">
+        <View testID={testID} className="child" />
+      </View>,
+    );
+    fireEvent(screen.getByTestId("container"), "layout", {
+      nativeEvent: { layout: { width: containerWidth, height: 100 } },
+    });
+
+    expect(screen.getByTestId(testID).props.style).toStrictEqual(style);
+  },
+);
