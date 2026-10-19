@@ -20,6 +20,7 @@ import type {
   GradientItemFor_DimensionPercentageFor_LengthValue,
   Length,
   LengthPercentageOrAuto,
+  LengthUnit,
   LengthValue,
   LineDirection,
   LineHeight,
@@ -36,7 +37,7 @@ import type {
   UnresolvedColor,
 } from "lightningcss";
 
-import { ABSOLUTE_UNIT_PIXELS, isStyleFunction } from "../utilities";
+import { isStyleFunction } from "../utilities";
 import { isMappingProperty } from "./atRules";
 import type {
   StyleDescriptor,
@@ -60,6 +61,21 @@ type Parser<T extends Declaration["property"] = Declaration["property"]> = (
   propertyName: string,
   // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
 ) => StyleDescriptor | void;
+
+type AbsoluteLengthUnit = Extract<
+  LengthUnit,
+  "in" | "cm" | "mm" | "q" | "pt" | "pc"
+>;
+
+/** Pixels in each absolute unit: https://www.w3.org/TR/css-values-4/#absolute-lengths */
+const absoluteUnitPixels: Readonly<Record<AbsoluteLengthUnit, number>> = {
+  cm: 96 / 2.54,
+  in: 96,
+  mm: 96 / 25.4,
+  pc: 16,
+  pt: 96 / 72,
+  q: 96 / 101.6,
+};
 
 const propertyRename: Record<string, string> = {
   "background-image": "experimental_backgroundImage",
@@ -1461,7 +1477,10 @@ export function parseLength(
       case "q":
       case "pt":
       case "pc":
-        return round(length.value * ABSOLUTE_UNIT_PIXELS[length.unit]);
+        return parseLength(
+          { unit: "px", value: length.value * absoluteUnitPixels[length.unit] },
+          builder,
+        );
       case "ex":
       case "rex":
       case "ch":

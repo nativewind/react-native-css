@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react-native";
 import { View } from "react-native-css/components/View";
 import { registerCSS, testID } from "react-native-css/jest";
 
-// css-values-4 §6.2: 1in = 2.54cm = 25.4mm = 101.6Q = 72pt = 6pc = 96px
+// https://www.w3.org/TR/css-values-4/#absolute-lengths: 1in = 2.54cm = 25.4mm = 101.6Q = 72pt = 6pc = 96px
 const UNITS = [
   ["1in", 96],
   ["2.54cm", 96],
@@ -26,12 +26,11 @@ test.each(UNITS)("width: %s is %d pixels", (length, pixels) => {
 test.each(UNITS)(
   "a variable holding %s resolves to %d pixels at runtime",
   (length, pixels) => {
-    registerCSS(`
-      .theme { --width: ${length}; }
-      .subject { --width: ${length}; width: var(--width); }
-    `);
+    registerCSS(`.subject { --width: ${length}; width: var(--width); }`, {
+      inlineVariables: false,
+    });
 
-    expect(styleFor("theme subject")).toStrictEqual({ width: pixels });
+    expect(styleFor("subject")).toStrictEqual({ width: pixels });
   },
 );
 
@@ -41,10 +40,10 @@ test("an absolute length converts when rem is not inlined", () => {
   expect(styleFor("subject")).toStrictEqual({ width: 96 });
 });
 
-test("a media query reads an absolute length", () => {
+test("a media query reads an absolute length at 96 pixels an inch", () => {
   registerCSS(`
-    @media (min-width: 4in) { .subject { width: 1pc; } }
-    @media (max-width: 4in) { .subject { height: 1pc; } }
+    @media (min-width: 7.8in) { .subject { width: 1pc; } }
+    @media (min-width: 7.9in) { .subject { height: 1pc; } }
   `);
 
   expect(styleFor("subject")).toStrictEqual({ width: 16 });
@@ -59,4 +58,25 @@ test("a shorthand converts each of its lengths", () => {
     marginBottom: 96,
     marginLeft: 16,
   });
+});
+
+test.each(["width", "border-radius"])(
+  "an infinite absolute %s clamps as an infinite px one does",
+  (property) => {
+    registerCSS(`
+      .inch { ${property}: calc(infinity * 1in); }
+      .pixel { ${property}: calc(infinity * 1px); }
+    `);
+
+    expect(styleFor("inch")).toStrictEqual(styleFor("pixel"));
+  },
+);
+
+test("an inlined variable holding an infinite absolute length clamps as px does", () => {
+  registerCSS(`
+    .inch { --inch-radius: calc(infinity * 1pt); border-radius: var(--inch-radius); }
+    .pixel { --pixel-radius: calc(infinity * 1px); border-radius: var(--pixel-radius); }
+  `);
+
+  expect(styleFor("inch")).toStrictEqual(styleFor("pixel"));
 });
