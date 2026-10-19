@@ -34,6 +34,33 @@ test.each(UNITS)(
   },
 );
 
+test.each([
+  ["width: 1IN", { width: 96 }],
+  ["width: 2.54CM", { width: 96 }],
+  ["margin-left: -1pc", { marginLeft: -16 }],
+  ["margin-top: 0pt", { marginTop: 0 }],
+  ["transform: translateX(1in)", { transform: [{ translateX: 96 }] }],
+  [
+    "box-shadow: 3pt 6pt 1pc -3pt #000",
+    {
+      boxShadow: [
+        {
+          offsetX: 4,
+          offsetY: 8,
+          blurRadius: 16,
+          spreadDistance: -4,
+          color: "#000",
+        },
+      ],
+    },
+  ],
+  ["font-size: 12pt", { fontSize: 16 }],
+] as const)("%s converts to pixels", (declaration, style) => {
+  registerCSS(`.subject { ${declaration}; }`);
+
+  expect(styleFor("subject")).toStrictEqual(style);
+});
+
 test("an absolute length converts when rem is not inlined", () => {
   registerCSS(`.subject { width: 1in; }`, { inlineRem: false });
 
