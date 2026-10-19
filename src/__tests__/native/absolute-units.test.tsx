@@ -129,10 +129,10 @@ test.each([
   [390, { width: 16 }],
   [380, undefined],
 ])(
-  "a container %d pixels wide matches (min-width: 4in): %o",
+  "a container %d pixels wide against (min-width: 4in) styles its child %o",
   (containerWidth, style) => {
     registerCSS(`
-      .container { container-name: box; }
+      .container { container-name: box; container-type: inline-size; }
       @container box (min-width: 4in) { .child { width: 1pc; } }
     `);
     render(
