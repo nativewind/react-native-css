@@ -62,16 +62,6 @@ type Parser<T extends Declaration["property"] = Declaration["property"]> = (
   // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
 ) => StyleDescriptor | void;
 
-/** Pixels in each absolute unit: https://www.w3.org/TR/css-values-4/#absolute-lengths */
-const absoluteUnitPixels = {
-  cm: 96 / 2.54,
-  in: 96,
-  mm: 96 / 25.4,
-  pc: 16,
-  pt: 96 / 72,
-  q: 96 / 101.6,
-} as const satisfies Partial<Record<LengthUnit, number>>;
-
 const propertyRename: Record<string, string> = {
   "background-image": "experimental_backgroundImage",
   // React Native has no border-inline-* props, but ships the equivalent
@@ -1424,6 +1414,16 @@ export function parseLengthDeclaration(
 ) {
   return parseLength(declaration.value, builder);
 }
+
+/** Pixels in each absolute unit: https://www.w3.org/TR/css-values-4/#absolute-lengths */
+const absoluteUnitPixels = {
+  cm: 96 / 2.54,
+  in: 96,
+  mm: 96 / 25.4,
+  pc: 16,
+  pt: 96 / 72,
+  q: 96 / 101.6,
+} as const satisfies Partial<Record<LengthUnit, number>>;
 
 export function parseLength(
   length:
