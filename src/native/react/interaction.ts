@@ -5,6 +5,7 @@ import {
   activeFamily,
   containerLayoutFamily,
   focusFamily,
+  hoverCapableInput,
   hoverFamily,
   type Getter as WeakKey,
 } from "../reactivity";
@@ -67,6 +68,7 @@ export function getInteractionHandler(
           );
           break;
         case "onHoverIn":
+          hoverCapableInput.set(true);
           hoverFamily(weakKey).set(true);
           break;
         case "onHoverOut":

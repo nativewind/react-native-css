@@ -1,4 +1,3 @@
-/* eslint-disable */
 import type {
   CalcFor_Length,
   MediaCondition as CSSMediaCondition,
@@ -45,7 +44,7 @@ export function parseMediaQuery(
   let mediaQuery: MediaCondition | undefined =
     platformCondition && condition
       ? ["&", [platformCondition, condition]]
-      : platformCondition || condition;
+      : (platformCondition ?? condition);
 
   if (!mediaQuery) {
     // Unqualified all/screen apply; not all and not screen do not.
@@ -56,8 +55,51 @@ export function parseMediaQuery(
     mediaQuery = ["!", mediaQuery];
   }
 
+  if (!canMatch(mediaQuery)) {
+    return false;
+  }
+
   builder.addMediaQuery(mediaQuery);
   return true;
+}
+
+// A condition that no device can make true, as an unknown keeps an `and` or a `not` unknown (MQ5 §3.1), compiles to no rule
+export function canMatch(condition: MediaCondition): boolean {
+  return canEvaluateTo(condition, true);
+}
+
+function canEvaluateTo(condition: MediaCondition, truth: boolean): boolean {
+  switch (condition[0]) {
+    case "?":
+      return false;
+    case "!":
+      return canEvaluateTo(condition[1], !truth);
+    case "&":
+      return truth
+        ? condition[1].every((child) => canEvaluateTo(child, true))
+        : condition[1].some((child) => canEvaluateTo(child, false));
+    case "|":
+      return truth
+        ? condition[1].some((child) => canEvaluateTo(child, true))
+        : condition[1].every((child) => canEvaluateTo(child, false));
+    case "!!":
+      return true;
+    case "[]": {
+      const [, , start, , end] = condition;
+      return truth
+        ? start !== null && end !== null
+        : start !== null || end !== null;
+    }
+    case "=":
+    case ">":
+    case ">=":
+    case "<":
+    case "<=":
+      return condition[2] !== null;
+    default:
+      condition satisfies never;
+      return true;
+  }
 }
 
 function parseMediaQueryCondition(
@@ -93,17 +135,18 @@ function parseMediaQueryCondition(
 }
 
 // The keywords Media Queries 4 and 5 give each discrete feature the runtime answers; any other keyword leaves the feature unknown (MQ5 §3.1)
-const FEATURE_KEYWORDS: Readonly<Partial<Record<string, readonly string[]>>> = {
-  "hover": ["none", "hover"],
-  "orientation": ["portrait", "landscape"],
-  "prefers-color-scheme": ["light", "dark"],
-  "prefers-reduced-motion": ["no-preference", "reduce"],
-  "scripting": ["none", "initial-only", "enabled"],
-  "update": ["none", "slow", "fast"],
-};
+const FEATURE_KEYWORDS: ReadonlyMap<string, readonly string[]> = new Map([
+  ["hover", ["none", "hover"]],
+  ["any-hover", ["none", "hover"]],
+  ["orientation", ["portrait", "landscape"]],
+  ["prefers-color-scheme", ["light", "dark"]],
+  ["prefers-reduced-motion", ["no-preference", "reduce"]],
+  ["scripting", ["none", "initial-only", "enabled"]],
+  ["update", ["none", "slow", "fast"]],
+]);
 
 export function isUnknownKeyword(name: string, operand: MediaFeatureOperand) {
-  const keywords = FEATURE_KEYWORDS[name];
+  const keywords = FEATURE_KEYWORDS.get(name);
   return (
     keywords !== undefined &&
     typeof operand === "string" &&
@@ -192,9 +235,11 @@ export function parseMediaFeatureValue(
       }
     case "ratio":
     case "env":
+      return undefined;
+    default:
+      value satisfies never;
+      return undefined;
   }
-
-  return;
 }
 
 export function parseMediaFeatureOperator(
@@ -213,7 +258,9 @@ export function parseMediaFeatureOperator(
       return "<=";
     default:
       operator satisfies never;
-      throw new Error(`Unknown MediaFeatureComparison operator ${operator}`);
+      throw new Error(
+        `Unknown MediaFeatureComparison operator ${JSON.stringify(operator)}`,
+      );
   }
 }
 

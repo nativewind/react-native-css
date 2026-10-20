@@ -1,10 +1,11 @@
 import type {
   ContainerSizeFeatureId,
   ContainerCondition as CSSContainerCondition,
+  MediaFeatureValue as CSSMediaFeatureValue,
   QueryFeatureFor_ContainerSizeFeatureId,
 } from "lightningcss";
 
-import type { MediaCondition } from "./compiler.types";
+import type { MediaCondition, MediaFeatureOperand } from "./compiler.types";
 import {
   isUnknownKeyword,
   parseMediaFeatureOperator,
@@ -12,16 +13,16 @@ import {
 } from "./media-query";
 import type { StylesheetBuilder } from "./stylesheet";
 
-const SIZE_FEATURES: Record<ContainerSizeFeatureId, true> = {
-  "width": true,
-  "height": true,
-  "inline-size": true,
-  "block-size": true,
-  "aspect-ratio": true,
-  "orientation": true,
-};
+const SIZE_FEATURES: ReadonlySet<string> = new Set<ContainerSizeFeatureId>([
+  "width",
+  "height",
+  "inline-size",
+  "block-size",
+  "aspect-ratio",
+  "orientation",
+]);
 
-// A condition holding a size feature the runtime does not know, or a value it cannot resolve, selects no container (CSS Conditional 5 §5.4), so it compiles to nothing
+// Chromium and WebKit drop a container query holding an unknown size feature or env(), so it compiles to nothing; any other value the runtime cannot resolve leaves its feature unknown (CSS Conditional 5 §5.4)
 export function parseContainerCondition(
   condition: CSSContainerCondition,
   builder: StylesheetBuilder,
@@ -68,7 +69,7 @@ function parseFeature(
   feature: QueryFeatureFor_ContainerSizeFeatureId,
   builder: StylesheetBuilder,
 ): MediaCondition | undefined {
-  if (!Object.prototype.hasOwnProperty.call(SIZE_FEATURES, feature.name)) {
+  if (!SIZE_FEATURES.has(feature.name)) {
     return;
   }
 
@@ -76,20 +77,20 @@ function parseFeature(
     case "boolean":
       return ["!!", feature.name];
     case "plain": {
-      const value = parseMediaFeatureValue(feature.value, builder);
+      const value = parseContainerOperand(feature.value, builder);
       return value === undefined || isUnknownKeyword(feature.name, value)
         ? undefined
         : ["=", feature.name, value];
     }
     case "range": {
-      const value = parseMediaFeatureValue(feature.value, builder);
+      const value = parseContainerOperand(feature.value, builder);
       return value === undefined
         ? undefined
         : [parseMediaFeatureOperator(feature.operator), feature.name, value];
     }
     case "interval": {
-      const start = parseMediaFeatureValue(feature.start, builder);
-      const end = parseMediaFeatureValue(feature.end, builder);
+      const start = parseContainerOperand(feature.start, builder);
+      const end = parseContainerOperand(feature.end, builder);
       return start === undefined || end === undefined
         ? undefined
         : [
@@ -105,4 +106,13 @@ function parseFeature(
       feature satisfies never;
       return;
   }
+}
+
+function parseContainerOperand(
+  value: CSSMediaFeatureValue,
+  builder: StylesheetBuilder,
+): MediaFeatureOperand | undefined {
+  return value.type === "env"
+    ? undefined
+    : (parseMediaFeatureValue(value, builder) ?? null);
 }

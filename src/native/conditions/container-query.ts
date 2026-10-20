@@ -1,8 +1,7 @@
-/* eslint-disable */
-import type { MediaFeatureNameFor_ContainerSizeFeatureId } from "lightningcss";
 import type {
   ContainerQuery,
   MediaCondition,
+  MediaFeatureComparison,
   PseudoClassesQuery,
 } from "react-native-css/compiler";
 
@@ -32,6 +31,11 @@ import {
   type Truth,
 } from "./kleene";
 
+type ContainerFeatureName = Extract<
+  MediaCondition,
+  [MediaFeatureComparison, ...unknown[]]
+>[1];
+
 export const DEFAULT_CONTAINER_NAME = "c:___default___";
 
 export function testContainerQueries(
@@ -52,7 +56,7 @@ export function testContainerQuery(
   get: Getter,
 ): boolean {
   const name = query.n ?? DEFAULT_CONTAINER_NAME;
-  const container = inheritedContainers[name]!;
+  const container = inheritedContainers[name];
 
   guards.push(["c", name, container]);
 
@@ -143,7 +147,7 @@ function testContainerMediaCondition(
 }
 
 function getContainerFeatureValue(
-  name: MediaFeatureNameFor_ContainerSizeFeatureId,
+  name: ContainerFeatureName,
   containerKey: WeakKey,
   get: Getter,
 ): MeasuredFeatureValue {
@@ -157,13 +161,14 @@ function getContainerFeatureValue(
       const height = get(containerHeightFamily(containerKey));
       return width / height;
     }
-    case "orientation":
+    case "orientation": {
       const width = get(containerWidthFamily(containerKey));
       const height = get(containerHeightFamily(containerKey));
       return width > height ? "landscape" : "portrait";
+    }
     case "inline-size":
     case "block-size":
     default:
-      return;
+      return undefined;
   }
 }

@@ -5,7 +5,11 @@ import { inspect } from "node:util";
 import { compile, type CompilerOptions } from "react-native-css/compiler";
 import { StyleCollection } from "react-native-css/native";
 
-import { colorScheme, dimensions } from "../native/reactivity";
+import {
+  colorScheme,
+  dimensions,
+  hoverCapableInput,
+} from "../native/reactivity";
 
 declare global {
   /* eslint-disable @typescript-eslint/no-namespace */
@@ -23,6 +27,7 @@ beforeEach(() => {
   dimensions.set(Dimensions.get("window"));
   Appearance.setColorScheme("unspecified");
   colorScheme.set(null);
+  hoverCapableInput.set(false);
 });
 
 const debugDefault = Boolean(

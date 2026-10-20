@@ -201,6 +201,8 @@ export type VariableContextValue = Record<string, StyleDescriptor> & {
 /** Pseudo Classes ************************************************************/
 
 export const hoverFamily = weakFamily(() => observable(false));
+// A hover event proves an input that can hover, which a touchscreen alone cannot
+export const hoverCapableInput = observable(false);
 export const activeFamily = weakFamily(() => observable<boolean>(false));
 export const focusFamily = weakFamily(() => observable<boolean>(false));
 

@@ -1,8 +1,14 @@
+import { Platform } from "react-native";
+
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { View } from "react-native-css/components/View";
 import { registerCSS } from "react-native-css/jest";
 import { colorScheme } from "react-native-css/runtime";
 
+import {
+  DEFAULT_CONTAINER_NAME,
+  testContainerQuery,
+} from "../../native/conditions/container-query";
 import { testMediaQuery } from "../../native/conditions/media-query";
 import { dimensions, vw, type Getter } from "../../native/reactivity";
 
@@ -71,7 +77,7 @@ describe("@media on a 600x400 screen", () => {
     ["not (width > env(safe-area-inset-top))", false],
     ["(width: env(safe-area-inset-top)) or (width > 400px)", true],
     ["not ((width: env(safe-area-inset-top)) and (width > 9999px))", true],
-    ["not all and (width > 10em)", false],
+    ["not all and (width > 10vw)", false],
     ["not (fictional-feature: 3)", false],
     ["(fictional-thing) or (width > 400px)", true],
     ["(width > 400px) and (fictional-thing)", false],
@@ -91,9 +97,8 @@ describe("@media on a 600x400 screen", () => {
     ["(width)", true],
     ["(orientation)", true],
     ["(resolution)", true],
-    ["(hover)", true],
+    ["(hover)", false],
     ["(color)", true],
-    ["(prefers-color-scheme)", true],
     ["(scripting)", true],
     ["(monochrome)", false],
     ["(grid)", false],
@@ -116,8 +121,6 @@ describe("@media on a 600x400 screen", () => {
   });
 
   test.each([
-    ["(hover: hover)", true],
-    ["(hover: none)", false],
     ["(min-color: 8)", true],
     ["(min-color: 9)", false],
     ["(monochrome: 0)", true],
@@ -132,8 +135,7 @@ describe("@media on a 600x400 screen", () => {
   );
 
   test.each([
-    [null, "(prefers-color-scheme: light)", true],
-    [null, "(prefers-color-scheme: dark)", false],
+    ["dark", "(prefers-color-scheme)", true],
     ["dark", "(prefers-color-scheme: dark)", true],
     ["dark", "(prefers-color-scheme: light)", false],
     ["dark", "(prefers-color-scheme: DARK)", true],
@@ -147,6 +149,74 @@ describe("@media on a 600x400 screen", () => {
       expect(mediaMatches(condition)).toBe(expected);
     },
   );
+});
+
+test.each([
+  ["not (width: 10em)", false],
+  ["not (width: 10vw)", false],
+  ["(width: 10vw) or (width > 0px)", true],
+  ["not (min-width: calc(10em + 1vw))", false],
+  ["(min-width: calc(10em + 1vw)) or (width > 0px)", true],
+])(
+  "@media %s, whose length the runtime does not resolve, matches: %s",
+  (condition, expected) => {
+    expect(mediaMatches(condition)).toBe(expected);
+  },
+);
+
+// MQ5 §7.2: hover is the primary input's, and a touchscreen cannot hover
+describe.each([
+  ["ios", "none"],
+  ["android", "none"],
+  ["macos", "hover"],
+  ["windows", "hover"],
+] as const)("on %s the primary input answers hover as %s", (os, hover) => {
+  let platform: jest.ReplaceProperty<typeof Platform.OS>;
+
+  beforeEach(() => {
+    platform = jest.replaceProperty(Platform, "OS", os);
+  });
+
+  afterEach(() => {
+    platform.restore();
+  });
+
+  test.each([
+    ["(hover: hover)", hover === "hover"],
+    ["(hover: none)", hover === "none"],
+    ["(hover)", hover === "hover"],
+  ])("%s matches: %s", (condition, expected) => {
+    expect(mediaMatches(condition)).toBe(expected);
+  });
+});
+
+describe("on iOS, once a pointer hovers an element", () => {
+  test.each([
+    ["(hover: hover)", true],
+    ["(hover: none)", false],
+    ["(any-hover: hover)", true],
+    ["(any-hover: none)", false],
+  ])("%s matches: %s", (condition, expected) => {
+    registerCSS(`
+      .target:hover { opacity: 0.5; }
+      .child { width: 10px; }
+      @media ${condition} { .child { width: 37px; } }
+    `);
+    render(
+      <>
+        <View testID="target" className="target" />
+        <View testID="child" className="child" />
+      </>,
+    );
+    const widthBefore = screen.getByTestId("child").props.style.width;
+
+    fireEvent(screen.getByTestId("target"), "hoverIn");
+
+    expect({
+      before: widthBefore === 37,
+      after: screen.getByTestId("child").props.style.width === 37,
+    }).toStrictEqual({ before: !expected, after: expected });
+  });
 });
 
 describe("@media on a 400x600 screen", () => {
@@ -217,6 +287,14 @@ describe("@container on a 400x200 container", () => {
   test("(width) does not match a container of zero width", () => {
     expect(containerMatches("(width)", { width: 0, height: 200 })).toBe(false);
   });
+
+  // A length the runtime cannot resolve leaves its term unknown, and an `or` keeps its other terms
+  test.each([
+    ["(width > 10in) or (width > 100px)", true],
+    ["not (width > 10in)", false],
+  ])("%s matches: %s", (condition, expected) => {
+    expect(containerMatches(condition)).toBe(expected);
+  });
 });
 
 test("a decided conjunction reads only the term that decided it", () => {
@@ -244,6 +322,28 @@ test("a decided conjunction reads only the term that decided it", () => {
     ),
   ).toBe(false);
   expect(read).toStrictEqual([vw]);
+});
+
+test("a container feature the runtime does not measure applies nowhere, negated or not", () => {
+  const get: Getter = (observable) => observable.get();
+  const containers = { [DEFAULT_CONTAINER_NAME]: { key: {}, props: {} } };
+
+  expect(
+    testContainerQuery(
+      { m: [">", "fictional-feature", 10] },
+      containers,
+      [],
+      get,
+    ),
+  ).toBe(false);
+  expect(
+    testContainerQuery(
+      { m: ["!", [">", "fictional-feature", 10]] },
+      containers,
+      [],
+      get,
+    ),
+  ).toBe(false);
 });
 
 test("an unknown term applies nowhere, negated or not", () => {

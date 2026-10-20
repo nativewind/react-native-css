@@ -5,7 +5,13 @@ import type {
   MediaFeatureComparison,
 } from "react-native-css/compiler";
 
-import { colorScheme, vh, vw, type Getter } from "../reactivity";
+import {
+  colorScheme,
+  hoverCapableInput,
+  vh,
+  vw,
+  type Getter,
+} from "../reactivity";
 import {
   compareMediaFeature,
   isTruthyFeatureValue,
@@ -94,14 +100,17 @@ function getMediaFeatureValue(
   get: Getter,
 ): MeasuredFeatureValue {
   switch (name) {
-    // A Pressable reports hover, so the device answers as one that can hover
+    // A touchscreen, the input of iOS and Android until a pointer hovers, cannot hover (MQ5 §7.2, §7.3)
     case "hover":
-      return "hover";
+    case "any-hover":
+      return get(hoverCapableInput) ||
+        (Platform.OS !== "ios" && Platform.OS !== "android")
+        ? "hover"
+        : "none";
     case "display-mode":
       return Platform.OS;
-    // A device with no preference matches light (MQ5 §12.5.1)
     case "prefers-color-scheme":
-      return get(colorScheme) ?? "light";
+      return get(colorScheme) ?? undefined;
     case "color":
       return BITS_PER_COLOR_COMPONENT;
     // A React Native screen is a full-color bitmap that redraws as fast as scripts change it

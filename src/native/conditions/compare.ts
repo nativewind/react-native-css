@@ -26,6 +26,11 @@ export function compareMediaFeature(
     return UNKNOWN;
   }
 
+  // A descriptor the runtime does not resolve, such as an em or a calc(), has no value to compare with
+  if (typeof left === "object" || typeof right === "object") {
+    return UNKNOWN;
+  }
+
   // = also compares keywords such as landscape
   if (operator === "=") {
     return left === right;
