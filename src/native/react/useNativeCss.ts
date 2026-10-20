@@ -14,7 +14,6 @@ import { VariableContext } from "react-native-css/native-internal";
 
 import type { StyledConfiguration } from "../../runtime.types";
 import { testGuards, type RenderGuard } from "../conditions/guards";
-import { isNonArrayObject } from "../objects";
 import {
   cleanupEffect,
   ContainerContext,
@@ -265,10 +264,7 @@ const adaptImageProps = weakFamily(
     // The computed style is a plain object, so it needs no flattening
     return {
       ...rest,
-      style: {
-        ...(isNonArrayObject(style) ? style : undefined),
-        objectFit: contentFit,
-      },
+      style: Object.assign({}, style, { objectFit: contentFit }),
     };
   },
 );
