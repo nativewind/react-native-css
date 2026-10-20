@@ -2,7 +2,7 @@ type ReduceMotionListener = (isReduceMotionEnabled: boolean) => void;
 
 interface AccessibilityInfoDouble {
   readonly isReduceMotionEnabled?: () => Promise<boolean>;
-  readonly addEventListener: (
+  readonly addEventListener?: (
     event: string,
     listener: ReduceMotionListener,
   ) => { readonly remove: () => void };
@@ -25,6 +25,13 @@ function importReactivityWith(accessibilityInfo: AccessibilityInfoDouble) {
   return jest.requireActual<typeof import("../../native/reactivity")>(
     "../../native/reactivity",
   );
+}
+
+// Every promise the module chains settles before a macrotask runs
+function settle() {
+  return new Promise<void>((resolve) => {
+    setImmediate(resolve);
+  });
 }
 
 function controlledAccessibilityInfo() {
@@ -63,7 +70,7 @@ describe("the reduced-motion preference", () => {
     const { reducedMotion } = importReactivityWith(accessibilityInfo);
 
     answer(true);
-    await Promise.resolve();
+    await settle();
     expect(reducedMotion.get()).toBe("reduce");
 
     change(false);
@@ -76,7 +83,7 @@ describe("the reduced-motion preference", () => {
 
     change(true);
     answer(false);
-    await Promise.resolve();
+    await settle();
 
     expect(reducedMotion.get()).toBe("reduce");
   });
@@ -87,7 +94,7 @@ describe("the reduced-motion preference", () => {
         Promise.reject(new Error("NativeAccessibilityManager unavailable")),
       addEventListener: () => ({ remove: () => undefined }),
     });
-    await Promise.resolve();
+    await settle();
 
     expect(reducedMotion.get()).toBe("no-preference");
   });
@@ -96,8 +103,35 @@ describe("the reduced-motion preference", () => {
     const { reducedMotion } = importReactivityWith({
       addEventListener: () => ({ remove: () => undefined }),
     });
-    await Promise.resolve();
+    await settle();
 
     expect(reducedMotion.get()).toBe("no-preference");
+  });
+
+  test("is no-preference where AccessibilityInfo has no change event, without failing the import", async () => {
+    const { reducedMotion } = importReactivityWith({
+      isReduceMotionEnabled: () => Promise.resolve(true),
+    });
+    await settle();
+
+    expect(reducedMotion.get()).toBe("no-preference");
+  });
+
+  test("an override stands over the device's answer until the device's setting changes", async () => {
+    const { accessibilityInfo, answer, change } = controlledAccessibilityInfo();
+    const { reducedMotion } = importReactivityWith(accessibilityInfo);
+    answer(true);
+    await settle();
+
+    reducedMotion.set("no-preference");
+    expect(reducedMotion.get()).toBe("no-preference");
+
+    reducedMotion.set(undefined);
+    expect(reducedMotion.get()).toBe("reduce");
+
+    reducedMotion.set("no-preference");
+    change(false);
+    change(true);
+    expect(reducedMotion.get()).toBe("reduce");
   });
 });

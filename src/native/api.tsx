@@ -19,7 +19,6 @@ import { usePassthrough } from "./react/usePassthrough";
 import {
   cleanupEffect,
   colorScheme as colorSchemeObs,
-  followSystemReducedMotion,
   reducedMotion as reducedMotionObs,
   VAR_SYMBOL,
   type Effect,
@@ -84,11 +83,7 @@ export const reducedMotion: ReducedMotion = {
     return reducedMotionObs.get();
   },
   set(value) {
-    if (value === null) {
-      void followSystemReducedMotion();
-    } else {
-      reducedMotionObs.set(value);
-    }
+    reducedMotionObs.set(value ?? undefined);
   },
 };
 

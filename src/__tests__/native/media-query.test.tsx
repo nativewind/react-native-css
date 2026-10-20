@@ -1,14 +1,11 @@
-import { AccessibilityInfo, PixelRatio } from "react-native";
+import { PixelRatio } from "react-native";
 
 import { act, render, screen } from "@testing-library/react-native";
 import { View } from "react-native-css/components/View";
 import { registerCSS, testID } from "react-native-css/jest";
 import { colorScheme, reducedMotion } from "react-native-css/runtime";
 
-import {
-  dimensions,
-  reducedMotion as reducedMotionObservable,
-} from "../../native/reactivity";
+import { deviceReducedMotion, dimensions } from "../../native/reactivity";
 
 jest.mock("react-native", () => {
   const RN = jest.requireActual("react-native");
@@ -288,12 +285,22 @@ describe("max-resolution", () => {
 });
 
 describe("a reduced-motion preference AccessibilityInfo has not answered", () => {
+  let answered: ReturnType<typeof deviceReducedMotion.get>;
+
+  beforeEach(() => {
+    answered = deviceReducedMotion.get();
+    deviceReducedMotion.set(undefined);
+  });
+
+  afterEach(() => {
+    deviceReducedMotion.set(answered);
+  });
+
   test.each([
     "(prefers-reduced-motion: reduce)",
     "(prefers-reduced-motion: no-preference)",
     "(prefers-reduced-motion)",
   ])("leaves @media %s unmatched", (query) => {
-    reducedMotionObservable.set(undefined);
     registerCSS(
       `.my-class { color: #000000; } @media ${query} { .my-class { color: #010101; } }`,
     );
@@ -304,36 +311,35 @@ describe("a reduced-motion preference AccessibilityInfo has not answered", () =>
       color: "#000",
     });
   });
+
+  test("a mounted view follows the reduced-motion preference as it changes", () => {
+    registerCSS(`
+  .my-class { color: #000000; }
+  @media (prefers-reduced-motion: no-preference) { .my-class { color: #010101; } }
+  @media (prefers-reduced-motion: reduce) { .my-class { color: #020202; } }`);
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+    expect(component.props.style).toStrictEqual({ color: "#000" });
+
+    act(() => {
+      reducedMotion.set("no-preference");
+    });
+    expect(component.props.style).toStrictEqual({ color: "#010101" });
+
+    act(() => {
+      reducedMotion.set("reduce");
+    });
+    expect(component.props.style).toStrictEqual({ color: "#020202" });
+
+    act(() => {
+      reducedMotion.set("no-preference");
+    });
+    expect(component.props.style).toStrictEqual({ color: "#010101" });
+  });
 });
 
-test("a mounted view follows the reduced-motion preference as it changes", () => {
-  reducedMotionObservable.set(undefined);
-  registerCSS(`
-.my-class { color: #000000; }
-@media (prefers-reduced-motion: no-preference) { .my-class { color: #010101; } }
-@media (prefers-reduced-motion: reduce) { .my-class { color: #020202; } }`);
-
-  render(<View testID={testID} className="my-class" />);
-  const component = screen.getByTestId(testID);
-  expect(component.props.style).toStrictEqual({ color: "#000" });
-
-  act(() => {
-    reducedMotion.set("no-preference");
-  });
-  expect(component.props.style).toStrictEqual({ color: "#010101" });
-
-  act(() => {
-    reducedMotion.set("reduce");
-  });
-  expect(component.props.style).toStrictEqual({ color: "#020202" });
-
-  act(() => {
-    reducedMotion.set("no-preference");
-  });
-  expect(component.props.style).toStrictEqual({ color: "#010101" });
-});
-
-test("reducedMotion.set overrides the device's preference, and set(null) follows the device again", async () => {
+test("reducedMotion.set overrides the device's preference, and set(null) follows the device again at once", () => {
   registerCSS(`
 .my-class { color: #000000; }
 @media (prefers-reduced-motion: reduce) { .my-class { color: #020202; } }`);
@@ -349,23 +355,22 @@ test("reducedMotion.set overrides the device's preference, and set(null) follows
   expect(reducedMotion.get()).toBe("reduce");
   expect(component.props.style).toStrictEqual({ color: "#020202" });
 
-  await act(async () => {
+  act(() => {
     reducedMotion.set(null);
-    await Promise.resolve();
   });
   expect(reducedMotion.get()).toBe("no-preference");
   expect(component.props.style).toStrictEqual({ color: "#000" });
 });
 
 describe("the react-native-css/jest reset", () => {
-  beforeAll(() => {
-    jest
-      .mocked(AccessibilityInfo.isReduceMotionEnabled)
-      .mockResolvedValueOnce(true);
+  test("lets a test override the preference", () => {
+    reducedMotion.set("reduce");
+
+    expect(reducedMotion.get()).toBe("reduce");
   });
 
-  test("starts each test from the preference the device reports", () => {
-    expect(reducedMotion.get()).toBe("reduce");
+  test("starts the next test from the device's preference", () => {
+    expect(reducedMotion.get()).toBe("no-preference");
   });
 });
 

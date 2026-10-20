@@ -238,40 +238,41 @@ Appearance.addChangeListener((event) => colorScheme.set(event.colorScheme));
 
 /** Reduced Motion ************************************************************/
 
-// AccessibilityInfo answers asynchronously; until it does the preference is unknown, so a query on it does not match and a negated one does
-export const reducedMotion = observable<ReducedMotionPreference | undefined>(
-  undefined,
-);
+// AccessibilityInfo answers asynchronously; until it does the device's preference is unknown, so a query on it does not match and a negated one does
+export const deviceReducedMotion = observable<
+  ReducedMotionPreference | undefined
+>(undefined);
 
-function setReducedMotion(isReduceMotionEnabled: boolean) {
-  reducedMotion.set(isReduceMotionEnabled ? "reduce" : "no-preference");
-}
+// A script's override stands over the device's preference until the device's setting changes, as colorScheme's does
+export const reducedMotion = observable<
+  ReducedMotionPreference | undefined,
+  ReducedMotionPreference | undefined
+>((read, override) => override ?? read(deviceReducedMotion));
 
-function seedReducedMotion(isReduceMotionEnabled: boolean) {
-  // A change event that arrived first is newer than what the getter read
-  if (reducedMotion.get() === undefined) {
-    setReducedMotion(isReduceMotionEnabled);
-  }
-}
-
-// React Native rejects where the platform has no accessibility module, and a test double may have no getter at all: either way the user has stated no preference to it
-function readReduceMotionEnabled(): Promise<boolean> {
-  try {
-    return Promise.resolve(AccessibilityInfo.isReduceMotionEnabled());
-  } catch (error) {
-    return Promise.reject(error);
-  }
-}
-
-export function followSystemReducedMotion(): Promise<void> {
+function followDeviceReducedMotion(isReduceMotionEnabled: boolean) {
+  deviceReducedMotion.set(isReduceMotionEnabled ? "reduce" : "no-preference");
   reducedMotion.set(undefined);
-  return readReduceMotionEnabled().then(seedReducedMotion, () =>
-    seedReducedMotion(false),
-  );
 }
 
-AccessibilityInfo.addEventListener("reduceMotionChanged", setReducedMotion);
-followSystemReducedMotion();
+function seedDeviceReducedMotion(isReduceMotionEnabled: boolean) {
+  // A change event that arrived first is newer than what the getter read
+  if (deviceReducedMotion.get() === undefined) {
+    deviceReducedMotion.set(isReduceMotionEnabled ? "reduce" : "no-preference");
+  }
+}
+
+async function readDeviceReducedMotion(): Promise<boolean> {
+  AccessibilityInfo.addEventListener(
+    "reduceMotionChanged",
+    followDeviceReducedMotion,
+  );
+  return await AccessibilityInfo.isReduceMotionEnabled();
+}
+
+// React Native rejects where the platform has no accessibility module, and a test double may lack either call: either way the user has stated no preference to it
+readDeviceReducedMotion().then(seedDeviceReducedMotion, () => {
+  seedDeviceReducedMotion(false);
+});
 
 /** Containers ****************************************************************/
 

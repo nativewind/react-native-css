@@ -3,13 +3,13 @@ import { Appearance, Dimensions } from "react-native";
 import { inspect } from "node:util";
 
 import { compile, type CompilerOptions } from "react-native-css/compiler";
-import { StyleCollection } from "react-native-css/native";
-
 import {
   colorScheme,
-  dimensions,
-  followSystemReducedMotion,
-} from "../native/reactivity";
+  reducedMotion,
+  StyleCollection,
+} from "react-native-css/native";
+
+import { dimensions } from "../native/reactivity";
 
 declare global {
   /* eslint-disable @typescript-eslint/no-namespace */
@@ -22,12 +22,13 @@ declare global {
 
 export const testID = "react-native-css";
 
-beforeEach(async () => {
+// The components a consumer's suite renders read the package's own build, so the reset reaches them through the package's entry
+beforeEach(() => {
   StyleCollection.styles.clear();
   dimensions.set(Dimensions.get("window"));
   Appearance.setColorScheme("unspecified");
   colorScheme.set(null);
-  await followSystemReducedMotion();
+  reducedMotion.set(null);
 });
 
 const debugDefault = Boolean(
