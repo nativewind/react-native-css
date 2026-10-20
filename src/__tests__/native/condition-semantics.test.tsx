@@ -180,6 +180,8 @@ describe("@container on a 400x200 container", () => {
     "(fictional-feature > 10px) or (width > 0px)",
     "(width > env(safe-area-inset-top))",
     "not (width > env(safe-area-inset-top))",
+    "(env(safe-area-inset-top) < width < 500px)",
+    "not (env(safe-area-inset-top) < width < 500px)",
     "(orientation: bogus)",
     "not (orientation: bogus)",
   ])("%s selects no container", (condition) => {
