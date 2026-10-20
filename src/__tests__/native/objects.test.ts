@@ -21,6 +21,16 @@ describe("withDeepPath", () => {
     });
   });
 
+  test("keeps the symbol-keyed properties of the objects on its path", () => {
+    const marker = Symbol("marker");
+    const source = { [marker]: true, style: { [marker]: true, color: "red" } };
+
+    expect(withDeepPath(source, ["style", "opacity"], 0.5)).toStrictEqual({
+      [marker]: true,
+      style: { [marker]: true, color: "red", opacity: 0.5 },
+    });
+  });
+
   test("returns its source for an empty path", () => {
     const source = { style: { color: "red" } };
 

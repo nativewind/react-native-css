@@ -1,5 +1,6 @@
 import { memo } from "react";
 import {
+  Animated,
   Button as RNButton,
   Image as RNImage,
   KeyboardAvoidingView as RNKeyboardAvoidingView,
@@ -388,6 +389,48 @@ test("a target:false mapping into style keeps its value where no inline style me
     borderColor: "#00f",
   });
 });
+
+test.each([
+  ["an inline style object", "style", "style.borderColor", { margin: 1 }],
+  [
+    "an inline style function",
+    "style",
+    "style.borderColor",
+    () => ({ margin: 1 }),
+  ],
+  [
+    "an inline style holding an Animated value",
+    "style",
+    "style.borderColor",
+    { opacity: new Animated.Value(0.5) },
+  ],
+  [
+    "an inline ripple",
+    "android_ripple",
+    "android_ripple.color",
+    { borderless: true },
+  ],
+] as const)(
+  "%s reaches the component as it came beside a target:false mapping into it",
+  (_, prop, destination, inlineValue) => {
+    registerCSS(`.label { color: blue; }`);
+    let received: Readonly<Record<string, unknown>> = {};
+    const Received = (props: Readonly<Record<string, unknown>>) => {
+      received = props;
+      return null;
+    };
+    const Mapped = styled(Received, {
+      labelClassName: {
+        target: false,
+        nativeStyleMapping: { color: destination },
+      },
+    });
+
+    render(<Mapped labelClassName="label" {...{ [prop]: inlineValue }} />);
+
+    expect(received[prop]).toBe(inlineValue);
+  },
+);
 
 test("a mapping builds its props once while the classes stay the same", () => {
   registerCSS(`.c10 { color: orange; opacity: 0.5; } .c11 { color: blue; }`);
