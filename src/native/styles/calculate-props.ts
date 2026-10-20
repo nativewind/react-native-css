@@ -74,7 +74,7 @@ export function calculateProps(
         transformStyles,
         guards,
         target,
-        topLevelTarget,
+        rule.propsUnderTarget ? target : topLevelTarget,
       );
     }
   }

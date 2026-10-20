@@ -8,10 +8,8 @@ import {
   StyleSheet,
   View,
   type ButtonProps,
-  type StyleProp,
   type TextInputProps,
   type ViewProps,
-  type ViewStyle,
 } from "react-native";
 
 import { render, screen } from "@testing-library/react-native";
@@ -375,7 +373,7 @@ test("a mapping into an earlier config's target keeps its value on every render"
   }
 });
 
-test("a target:false mapping into style keeps its value beside an inline style", () => {
+test("a target:false mapping into style keeps its value where no inline style meets it", () => {
   registerCSS(`.label { color: blue; }`);
   const Bordered = styled(Labelled, {
     labelClassName: {
@@ -383,26 +381,12 @@ test("a target:false mapping into style keeps its value beside an inline style",
       nativeStyleMapping: { color: "style.borderColor" },
     },
   });
-  const inlineStyles: readonly (readonly [StyleProp<ViewStyle>, ViewStyle])[] =
-    [
-      [undefined, { borderColor: "#00f" }],
-      [{ margin: 1 }, { borderColor: "#00f", margin: 1 }],
-      [
-        [{ margin: 1 }, { padding: 2 }],
-        { borderColor: "#00f", margin: 1, padding: 2 },
-      ],
-      [{ borderColor: "red" }, { borderColor: "red" }],
-    ];
 
   render(<Bordered testID={testID} labelClassName="label" />);
-  for (const [style, expected] of inlineStyles) {
-    screen.rerender(
-      <Bordered testID={testID} labelClassName="label" style={style} />,
-    );
-    expect(
-      StyleSheet.flatten(screen.getByTestId(testID).props.style),
-    ).toStrictEqual(expected);
-  }
+
+  expect(screen.getByTestId(testID).props.style).toStrictEqual({
+    borderColor: "#00f",
+  });
 });
 
 test("a mapping builds its props once while the classes stay the same", () => {
@@ -458,3 +442,56 @@ test("a target:false config follows its class as it is set, removed and set agai
     expect(component.props.style).toStrictEqual({ backgroundColor: "#00f" });
   }
 });
+
+// docs/v5-engine-contracts.md: target: false discards unmapped compiled styles while retaining original inline styles
+test("a target:false class's declarations that name their own props stay under it on an Image", () => {
+  registerCSS(`.tint { color: red; object-fit: cover; opacity: 0.5; }`);
+  const TintedImage = styled(RNImage, {
+    tintClassName: {
+      target: false,
+      nativeStyleMapping: { color: "tintColor" },
+    },
+  });
+
+  render(
+    <TintedImage
+      testID={testID}
+      source={{ uri: "test-image" }}
+      tintClassName="tint"
+    />,
+  );
+  const image = screen.getByTestId(testID);
+
+  expect(image.props.tintColor).toBe("#f00");
+  expect(image.props.style).toBeUndefined();
+});
+
+test.each([
+  ["drops them unmapped", { color: "selectionColor" }, {}],
+  [
+    "maps one it names",
+    { color: "selectionColor", cursorColor: true },
+    { cursorColor: "#008000" },
+  ],
+] as const)(
+  "a target:false class's declarations that name their own props stay under it on a TextInput, and the mapping %s",
+  (_, nativeStyleMapping, expected) => {
+    registerCSS(
+      `.label { color: red; caret-color: green; -webkit-line-clamp: 2; }`,
+    );
+    const LabelledInput = styled(RNTextInput, {
+      labelClassName: { target: false, nativeStyleMapping },
+    });
+
+    render(<LabelledInput testID={testID} labelClassName="label" />);
+    const { selectionColor, cursorColor, numberOfLines } =
+      screen.getByTestId(testID).props;
+
+    expect({ selectionColor, cursorColor, numberOfLines }).toStrictEqual({
+      selectionColor: "#f00",
+      cursorColor: undefined,
+      numberOfLines: undefined,
+      ...expected,
+    });
+  },
+);

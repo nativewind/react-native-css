@@ -275,6 +275,7 @@ const getRuleVariation = weakFamily((rule: StyleRule) => {
     (config: Config): StyleRule => ({
       ...rule,
       target: collectionTarget(config),
+      ...(config.target === false && { propsUnderTarget: true }),
     }),
   );
 });

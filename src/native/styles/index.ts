@@ -216,7 +216,7 @@ export function getStyledProps(
     styledProps?.important,
   );
 
-  for (const config of mergeConfigs(state.configs)) {
+  for (const config of state.configs) {
     result = deepMergeConfig(config, normal, inline, true);
 
     if (important) {
@@ -565,39 +565,6 @@ const mappedPropsFamily = weakFamily((configs: readonly Config[]) =>
     ),
   ),
 );
-
-function mergeConfigs(configs: readonly Config[]) {
-  return configs.some(hasNativeStyleMapping)
-    ? mergeConfigsFamily(configs)
-    : configs;
-}
-
-// A mapping into a key of another prop merges that prop with its inline value, as a config that targets the prop does
-const mergeConfigsFamily = weakFamily(
-  (configs: readonly Config[]): readonly Config[] => [
-    ...configs.flatMap(mappedPropConfigs),
-    ...configs,
-  ],
-);
-
-function mappedPropConfigs(config: Config): Config[] {
-  const targetProp = Array.isArray(config.target)
-    ? config.target[0]
-    : config.target;
-  const mappedProps = new Set<string>();
-
-  for (const path of Object.values(config.nativeStyleMapping ?? {})) {
-    const [prop, ...keys] = path.split(".");
-    if (prop !== undefined && keys.length > 0 && prop !== targetProp) {
-      mappedProps.add(prop);
-    }
-  }
-
-  return Array.from(mappedProps, (prop) => ({
-    source: config.source,
-    target: [prop],
-  }));
-}
 
 function hasNativeStyleMapping(config: Config) {
   return config.nativeStyleMapping !== undefined;
