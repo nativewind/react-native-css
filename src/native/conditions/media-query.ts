@@ -1,4 +1,3 @@
-/* eslint-disable */
 import { I18nManager, PixelRatio, Platform } from "react-native";
 
 import type {
@@ -12,7 +11,6 @@ import {
   isTruthyFeatureValue,
   testMediaFeatureInterval,
   type MeasuredFeatureValue,
-  type MediaInterval,
 } from "./compare";
 import {
   conjoin,
@@ -28,10 +26,7 @@ type MediaComparison = Extract<
   [MediaFeatureComparison, ...unknown[]]
 >;
 
-type MediaFeatureName =
-  | MediaComparison[1]
-  | MediaInterval[1]
-  | Extract<MediaCondition, ["!!", ...unknown[]]>[1];
+type MediaFeatureName = MediaComparison[1];
 
 // The color feature counts bits per color component
 const BITS_PER_COLOR_COMPONENT = 8;

@@ -81,7 +81,9 @@ function parseMediaQueryCondition(
           return ["|", mediaQueries];
         default:
           query.operator satisfies never;
-          throw new Error(`Unknown media condition operator ${query.operator}`);
+          throw new Error(
+            `Unknown media condition operator ${JSON.stringify(query)}`,
+          );
       }
     }
     default:
