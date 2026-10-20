@@ -1,4 +1,8 @@
-import { Pressable as RNPressable, View as RNView } from "react-native";
+import {
+  Animated,
+  Pressable as RNPressable,
+  View as RNView,
+} from "react-native";
 
 import { render } from "@testing-library/react-native";
 import { copyComponentProperties } from "react-native-css/components/copyComponentProperties";
@@ -673,6 +677,68 @@ describe("both spellings of a style target combine an inline style the same way"
         { backgroundColor: "#f00" },
         { height: 16 },
       ]);
+    },
+  );
+});
+
+describe("an inline value holding no CSS variable reaches the component as it came", () => {
+  const MAPPINGS = [
+    ["style", { className: "style" }, "style"],
+    ["{ target: style }", { className: { target: "style" } }, "style"],
+    [
+      "contentContainerStyle",
+      { className: "contentContainerStyle" },
+      "contentContainerStyle",
+    ],
+    [
+      "{ target: contentContainerStyle }",
+      { className: { target: "contentContainerStyle" } },
+      "contentContainerStyle",
+    ],
+  ] as const;
+
+  function renderReceived(
+    mapping: (typeof MAPPINGS)[number][1],
+    prop: (typeof MAPPINGS)[number][2],
+    value: unknown,
+  ): unknown {
+    registerCSS(`.padded { padding: 4px; }`);
+    const received: Readonly<Record<string, unknown>>[] = [];
+    const Probe = (props: Readonly<Record<string, unknown>>) => {
+      received.push(props);
+      return null;
+    };
+    const Styled = (props: Readonly<Record<string, unknown>>) =>
+      useCssElement(Probe, props, mapping);
+
+    render(<Styled className="padded" {...{ [prop]: value }} />);
+    return received.at(-1)?.[prop];
+  }
+
+  test.each(MAPPINGS)(
+    "%s: the inline style is layered over the class as the same object",
+    (_spelling, mapping, prop) => {
+      const inlineStyle = { height: 16 };
+
+      const received = renderReceived(mapping, prop, inlineStyle);
+
+      expect(received).toStrictEqual([{ padding: 4 }, { height: 16 }]);
+      expect((received as readonly unknown[])[1]).toBe(inlineStyle);
+    },
+  );
+
+  test.each(MAPPINGS)(
+    "%s: an Animated value in the inline style is the same instance",
+    (_spelling, mapping, prop) => {
+      const opacity = new Animated.Value(0.5);
+
+      const received = renderReceived(mapping, prop, { opacity });
+
+      expect(received).toStrictEqual([{ padding: 4 }, { opacity }]);
+      expect(
+        ((received as readonly unknown[])[1] as { readonly opacity: unknown })
+          .opacity,
+      ).toBe(opacity);
     },
   );
 });

@@ -83,81 +83,89 @@ function flattenStyleArray(styleArray: any[]): any {
 }
 
 /**
- * Recursively filters out CSS variable objects (with VAR_SYMBOL) from style values.
- * This prevents CSS variable runtime objects from leaking into React Native component props.
- *
- * @param value - The value to filter (can be any type: object, array, primitive, etc.)
- * @param depth - Internal recursion depth counter to prevent stack overflow (max 100)
- * @returns The filtered value with CSS variables removed, or `undefined` if the entire value
- *          should be filtered out (e.g., empty arrays, objects with only VAR_SYMBOL properties)
- *
- * Filtering behavior:
- * - Objects with VAR_SYMBOL property: returns `undefined` (completely filtered)
- * - Arrays: filters out VAR_SYMBOL objects, returns `undefined` if empty after filtering
- * - Objects: recursively filters properties, returns `undefined` if no properties remain
- * - Primitives (null, undefined, numbers, strings, booleans): returned as-is
- * - Symbol properties: intentionally filtered out for React Native compatibility
+ * Removes the CSS variable objects (with VAR_SYMBOL) an inline value holds, so none reaches a React Native prop.
+ * A value that holds none comes back as it came, so an inline style keeps its identity and a class instance in it,
+ * such as an Animated value, is never rebuilt; an array or plain object that held one, an `undefined` entry or a
+ * Symbol key comes back rebuilt without it, and one left empty comes back `undefined`.
  *
  * @example
  * filterCssVariables({fontSize: 16, color: {[VAR_SYMBOL]: true}}) // {fontSize: 16}
  * filterCssVariables([{margin: 10}, {[VAR_SYMBOL]: true}]) // [{margin: 10}]
  * filterCssVariables({color: {[VAR_SYMBOL]: true}}) // undefined (all props filtered)
  */
-function filterCssVariables(value: any, depth = 0): any | undefined {
+function filterCssVariables(value: unknown, depth = 0): unknown {
   // Prevent stack overflow on deeply nested structures
-  if (depth > 100) {
+  if (depth > 100 || typeof value !== "object" || value === null) {
     return value;
   }
 
-  if (value === null || value === undefined) {
-    return value;
+  if (Object.prototype.hasOwnProperty.call(value, VAR_SYMBOL)) {
+    return undefined;
   }
 
   if (Array.isArray(value)) {
-    // Single-pass filter with map operation
-    const filtered: any[] = [];
-
-    for (const item of value) {
-      const filteredItem = filterCssVariables(item, depth + 1);
-      if (
-        filteredItem !== undefined &&
-        !(
-          typeof filteredItem === "object" &&
-          filteredItem !== null &&
-          Object.prototype.hasOwnProperty.call(filteredItem, VAR_SYMBOL)
-        )
-      ) {
-        filtered.push(filteredItem);
-      }
-    }
-
-    return filtered.length > 0 ? filtered : undefined;
+    return filterCssVariableArray(value as readonly unknown[], depth);
   }
 
-  if (typeof value === "object") {
-    // If the object itself has VAR_SYMBOL, filter it out (check own property only)
-    if (Object.prototype.hasOwnProperty.call(value, VAR_SYMBOL)) {
-      return undefined;
-    }
+  return isPlainObject(value)
+    ? filterCssVariableObject(value as Readonly<Record<string, unknown>>, depth)
+    : value;
+}
 
-    // Otherwise, filter VAR_SYMBOL properties from nested objects
-    const filtered: Record<string, any> = {};
-    let hasProperties = false;
+function filterCssVariableArray(
+  array: readonly unknown[],
+  depth: number,
+): unknown {
+  let filtered: unknown[] | undefined;
 
-    // Use Object.keys to only iterate own string properties (not inherited, not Symbols)
-    // This intentionally filters out Symbol properties for React Native compatibility
-    for (const key of Object.keys(value)) {
-      const filteredValue = filterCssVariables(value[key], depth + 1);
-      if (filteredValue !== undefined) {
-        filtered[key] = filteredValue;
-        hasProperties = true;
+  for (const [index, item] of array.entries()) {
+    const kept = filterCssVariables(item, depth + 1);
+    if (filtered === undefined) {
+      if (kept === item && kept !== undefined) {
+        continue;
       }
+      filtered = array.slice(0, index);
     }
-
-    return hasProperties ? filtered : undefined;
+    if (kept !== undefined) {
+      filtered.push(kept);
+    }
   }
 
-  return value;
+  const result = filtered ?? array;
+  return result.length > 0 ? result : undefined;
+}
+
+function filterCssVariableObject(
+  object: Readonly<Record<string, unknown>>,
+  depth: number,
+): unknown {
+  const keys = Object.keys(object);
+  let filtered: Record<string, unknown> | undefined =
+    Object.getOwnPropertySymbols(object).length > 0 ? {} : undefined;
+
+  for (const [index, key] of keys.entries()) {
+    const value = object[key];
+    const kept = filterCssVariables(value, depth + 1);
+    if (filtered === undefined) {
+      if (kept === value && kept !== undefined) {
+        continue;
+      }
+      filtered = Object.fromEntries(
+        keys.slice(0, index).map((earlier) => [earlier, object[earlier]]),
+      );
+    }
+    if (kept !== undefined) {
+      filtered[key] = kept;
+    }
+  }
+
+  const result = filtered ?? object;
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+function isPlainObject(value: object): boolean {
+  const prototype: unknown = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
 }
 
 export const stylesFamily = family(
