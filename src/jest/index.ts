@@ -4,12 +4,9 @@ import { inspect } from "node:util";
 
 import { compile, type CompilerOptions } from "react-native-css/compiler";
 import { StyleCollection } from "react-native-css/native";
+import { hoverCapableInput } from "react-native-css/native-internal";
 
-import {
-  colorScheme,
-  dimensions,
-  hoverCapableInput,
-} from "../native/reactivity";
+import { colorScheme, dimensions } from "../native/reactivity";
 
 declare global {
   /* eslint-disable @typescript-eslint/no-namespace */
