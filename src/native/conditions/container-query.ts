@@ -1,7 +1,6 @@
 import type {
   ContainerQuery,
   MediaCondition,
-  MediaFeatureComparison,
   PseudoClassesQuery,
 } from "react-native-css/compiler";
 
@@ -20,6 +19,7 @@ import {
   isTruthyFeatureValue,
   testMediaFeatureInterval,
   type MeasuredFeatureValue,
+  type MediaFeatureName,
 } from "./compare";
 import type { RenderGuard } from "./guards";
 import {
@@ -30,11 +30,6 @@ import {
   UNKNOWN,
   type Truth,
 } from "./kleene";
-
-type ContainerFeatureName = Extract<
-  MediaCondition,
-  [MediaFeatureComparison, ...unknown[]]
->[1];
 
 export const DEFAULT_CONTAINER_NAME = "c:___default___";
 
@@ -147,7 +142,7 @@ function testContainerMediaCondition(
 }
 
 function getContainerFeatureValue(
-  name: ContainerFeatureName,
+  name: MediaFeatureName,
   containerKey: WeakKey,
   get: Getter,
 ): MeasuredFeatureValue {

@@ -8,14 +8,21 @@ import { conjoin, UNKNOWN, type Truth } from "./kleene";
 
 export type MediaInterval = Extract<MediaCondition, ["[]", ...unknown[]]>;
 
+export type MediaComparison = Extract<
+  MediaCondition,
+  [MediaFeatureComparison, ...unknown[]]
+>;
+
+export type MediaFeatureName = MediaComparison[1];
+
 // undefined for a feature the runtime does not measure
 export type MeasuredFeatureValue = number | string | undefined;
 
 // Media and container queries share this, so each operator has one meaning; an unmeasured feature or an unresolved operand is unknown (MQ5 §3.1)
 export function compareMediaFeature(
   operator: MediaFeatureComparison,
-  left: MediaFeatureOperand | undefined,
-  right: MediaFeatureOperand | undefined,
+  left: Readonly<MediaFeatureOperand> | undefined,
+  right: Readonly<MediaFeatureOperand> | undefined,
 ): Truth {
   if (
     left === undefined ||
@@ -57,7 +64,7 @@ export function compareMediaFeature(
 
 // The compiler emits a range pair in source order: start, operator, value, operator, end
 export function testMediaFeatureInterval(
-  condition: MediaInterval,
+  condition: Readonly<MediaInterval>,
   value: MeasuredFeatureValue,
 ): Truth {
   const [, , start, startOperator, end, endOperator] = condition;

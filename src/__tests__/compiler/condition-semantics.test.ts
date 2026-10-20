@@ -19,7 +19,7 @@ test.each([
   ).toStrictEqual([]);
 });
 
-// An unknown keeps an `and` or a `not` unknown (MQ5 §3.2), so a condition no device can make true compiles to no rule
+// An unknown keeps an `and` or a `not` unknown (MQ5 §3.1), so a condition no device can make true compiles to no rule
 test.each([
   "@container style(--foo: bar)",
   "@container not style(--foo: bar)",
@@ -30,6 +30,9 @@ test.each([
   "@media not (orientation: bogus)",
   "@media not ((width > 100px) or (orientation: bogus))",
   "@media not (env(safe-area-inset-top) < width < env(safe-area-inset-bottom))",
+  "@media not (env(safe-area-inset-top) < width < 800px)",
+  "@media not (400px < width < env(safe-area-inset-bottom))",
+  "@media not ((env(safe-area-inset-top) < width < 800px) or (width < 0px))",
 ])("%s, which no device can make true, emits no block", (prelude) => {
   expect(
     compileChildConditions(`${prelude} { .child { color: red } }`),
@@ -43,18 +46,7 @@ test.each<[string, Pick<StyleRule, "m" | "cq">]>([
   ],
   [
     "@media (width > env(safe-area-inset-top)) or (width > 400px)",
-    {
-      m: [
-        [
-          "|",
-          [
-            [">", "width", null],
-            [">", "width", 400],
-          ],
-        ],
-      ],
-      cq: undefined,
-    },
+    { m: [["|", [["?"], [">", "width", 400]]]], cq: undefined },
   ],
   [
     "@container (width > 10in) or (width > 100px)",
@@ -76,10 +68,6 @@ test.each<[string, Pick<StyleRule, "m" | "cq">]>([
   [
     "@media not (400px < width < 800px)",
     { m: [["!", ["[]", "width", 400, "<", 800, "<"]]], cq: undefined },
-  ],
-  [
-    "@media not (env(safe-area-inset-top) < width < 800px)",
-    { m: [["!", ["[]", "width", null, "<", 800, "<"]]], cq: undefined },
   ],
   [
     "@container (width > 10em)",

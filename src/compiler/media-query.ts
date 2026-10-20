@@ -63,12 +63,15 @@ export function parseMediaQuery(
   return true;
 }
 
-// A condition that no device can make true, as an unknown keeps an `and` or a `not` unknown (MQ5 §3.1), compiles to no rule
-export function canMatch(condition: MediaCondition): boolean {
+// A condition its unknown terms and unresolved operands leave no way to be true compiles to no rule, as an unknown keeps an `and` or a `not` unknown (MQ5 §3.1)
+export function canMatch(condition: Readonly<MediaCondition>): boolean {
   return canEvaluateTo(condition, true);
 }
 
-function canEvaluateTo(condition: MediaCondition, truth: boolean): boolean {
+function canEvaluateTo(
+  condition: Readonly<MediaCondition>,
+  truth: boolean,
+): boolean {
   switch (condition[0]) {
     case "?":
       return false;
@@ -134,10 +137,12 @@ function parseMediaQueryCondition(
   }
 }
 
-// The keywords Media Queries 4 and 5 give each discrete feature the runtime answers; any other keyword leaves the feature unknown (MQ5 §3.1)
+// The keywords Media Queries 4 and 5 give these discrete features, and any other keyword leaves the feature unknown (MQ5 §3.1); display-mode is left out, since the library answers it with platform names
 const FEATURE_KEYWORDS: ReadonlyMap<string, readonly string[]> = new Map([
   ["hover", ["none", "hover"]],
   ["any-hover", ["none", "hover"]],
+  ["pointer", ["none", "coarse", "fine"]],
+  ["any-pointer", ["none", "coarse", "fine"]],
   ["orientation", ["portrait", "landscape"]],
   ["prefers-color-scheme", ["light", "dark"]],
   ["prefers-reduced-motion", ["no-preference", "reduce"]],
@@ -145,7 +150,10 @@ const FEATURE_KEYWORDS: ReadonlyMap<string, readonly string[]> = new Map([
   ["update", ["none", "slow", "fast"]],
 ]);
 
-export function isUnknownKeyword(name: string, operand: MediaFeatureOperand) {
+export function isUnknownKeyword(
+  name: string,
+  operand: Readonly<MediaFeatureOperand>,
+) {
   const keywords = FEATURE_KEYWORDS.get(name);
   return (
     keywords !== undefined &&
@@ -162,37 +170,45 @@ function parseFeature(
     case "boolean":
       return ["!!", feature.name];
     case "plain": {
-      const operand = parseMediaFeatureOperand(feature.value, builder);
-      return isUnknownKeyword(feature.name, operand)
+      const operand = parseFeatureOperand(feature.value, builder);
+      return operand === undefined || isUnknownKeyword(feature.name, operand)
         ? ["?"]
         : ["=", feature.name, operand];
     }
-    case "range":
-      return [
-        parseMediaFeatureOperator(feature.operator),
-        feature.name,
-        parseMediaFeatureOperand(feature.value, builder),
-      ];
-    case "interval":
-      return [
-        "[]",
-        feature.name,
-        parseMediaFeatureOperand(feature.start, builder),
-        parseMediaFeatureOperator(feature.startOperator),
-        parseMediaFeatureOperand(feature.end, builder),
-        parseMediaFeatureOperator(feature.endOperator),
-      ];
+    case "range": {
+      const operand = parseFeatureOperand(feature.value, builder);
+      return operand === undefined
+        ? ["?"]
+        : [parseMediaFeatureOperator(feature.operator), feature.name, operand];
+    }
+    case "interval": {
+      const start = parseFeatureOperand(feature.start, builder);
+      const end = parseFeatureOperand(feature.end, builder);
+      return start === undefined || end === undefined
+        ? ["?"]
+        : [
+            "[]",
+            feature.name,
+            start,
+            parseMediaFeatureOperator(feature.startOperator),
+            end,
+            parseMediaFeatureOperator(feature.endOperator),
+          ];
+    }
     default:
       feature satisfies never;
       throw new Error(`Unknown media feature ${JSON.stringify(feature)}`);
   }
 }
 
-function parseMediaFeatureOperand(
+// No browser takes env() as a feature's value, so the caller drops a feature holding one; any other value the compiler cannot resolve compiles to null, which leaves its term unknown
+export function parseFeatureOperand(
   value: CSSMediaFeatureValue,
   builder: StylesheetBuilder,
-): MediaFeatureOperand {
-  return parseMediaFeatureValue(value, builder) ?? null;
+): MediaFeatureOperand | undefined {
+  return value.type === "env"
+    ? undefined
+    : (parseMediaFeatureValue(value, builder) ?? null);
 }
 
 export function parseMediaFeatureValue(

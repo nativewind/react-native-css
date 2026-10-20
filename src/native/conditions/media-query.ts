@@ -1,9 +1,6 @@
 import { I18nManager, PixelRatio, Platform } from "react-native";
 
-import type {
-  MediaCondition,
-  MediaFeatureComparison,
-} from "react-native-css/compiler";
+import type { MediaCondition } from "react-native-css/compiler";
 
 import {
   colorScheme,
@@ -17,6 +14,8 @@ import {
   isTruthyFeatureValue,
   testMediaFeatureInterval,
   type MeasuredFeatureValue,
+  type MediaComparison,
+  type MediaFeatureName,
 } from "./compare";
 import {
   conjoin,
@@ -26,13 +25,6 @@ import {
   UNKNOWN,
   type Truth,
 } from "./kleene";
-
-type MediaComparison = Extract<
-  MediaCondition,
-  [MediaFeatureComparison, ...unknown[]]
->;
-
-type MediaFeatureName = MediaComparison[1];
 
 // The color feature counts bits per color component
 const BITS_PER_COLOR_COMPONENT = 8;
@@ -70,7 +62,10 @@ function test(mediaQuery: MediaCondition, get: Getter): Truth {
   }
 }
 
-function testComparison(mediaQuery: MediaComparison, get: Getter): Truth {
+function testComparison(
+  mediaQuery: Readonly<MediaComparison>,
+  get: Getter,
+): Truth {
   const [operator, name, value] = mediaQuery;
 
   switch (name) {
@@ -86,6 +81,11 @@ function testComparison(mediaQuery: MediaComparison, get: Getter): Truth {
       return (
         value === "native" || compareMediaFeature(operator, Platform.OS, value)
       );
+    // any-pointer matches each kind of pointer the device has, where pointer names the primary one (MQ5 §7.3)
+    case "any-pointer":
+      return operator === "=" && typeof value === "string"
+        ? availablePointers(get).includes(value)
+        : UNKNOWN;
     default:
       return compareMediaFeature(
         operator,
@@ -100,13 +100,12 @@ function getMediaFeatureValue(
   get: Getter,
 ): MeasuredFeatureValue {
   switch (name) {
-    // A touchscreen, the input of iOS and Android until a pointer hovers, cannot hover (MQ5 §7.2, §7.3)
     case "hover":
     case "any-hover":
-      return get(hoverCapableInput) ||
-        (Platform.OS !== "ios" && Platform.OS !== "android")
-        ? "hover"
-        : "none";
+      return pointsFinely(get) ? "hover" : "none";
+    case "pointer":
+    case "any-pointer":
+      return pointsFinely(get) ? "fine" : "coarse";
     case "display-mode":
       return Platform.OS;
     case "prefers-color-scheme":
@@ -133,4 +132,20 @@ function getMediaFeatureValue(
     default:
       return undefined;
   }
+}
+
+// A touchscreen, the input of iOS and Android until a pointer hovers an element with a :hover style, cannot hover and points coarsely (MQ5 §7.1, §7.2)
+function pointsFinely(get: Getter): boolean {
+  return (
+    get(hoverCapableInput) ||
+    (Platform.OS !== "ios" && Platform.OS !== "android")
+  );
+}
+
+function availablePointers(get: Getter): readonly string[] {
+  if (Platform.OS !== "ios" && Platform.OS !== "android") {
+    return ["fine"];
+  }
+
+  return get(hoverCapableInput) ? ["coarse", "fine"] : ["coarse"];
 }

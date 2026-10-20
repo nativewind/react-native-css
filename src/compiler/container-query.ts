@@ -1,15 +1,14 @@
 import type {
   ContainerSizeFeatureId,
   ContainerCondition as CSSContainerCondition,
-  MediaFeatureValue as CSSMediaFeatureValue,
   QueryFeatureFor_ContainerSizeFeatureId,
 } from "lightningcss";
 
-import type { MediaCondition, MediaFeatureOperand } from "./compiler.types";
+import type { MediaCondition } from "./compiler.types";
 import {
   isUnknownKeyword,
+  parseFeatureOperand,
   parseMediaFeatureOperator,
-  parseMediaFeatureValue,
 } from "./media-query";
 import type { StylesheetBuilder } from "./stylesheet";
 
@@ -77,20 +76,20 @@ function parseFeature(
     case "boolean":
       return ["!!", feature.name];
     case "plain": {
-      const value = parseContainerOperand(feature.value, builder);
+      const value = parseFeatureOperand(feature.value, builder);
       return value === undefined || isUnknownKeyword(feature.name, value)
         ? undefined
         : ["=", feature.name, value];
     }
     case "range": {
-      const value = parseContainerOperand(feature.value, builder);
+      const value = parseFeatureOperand(feature.value, builder);
       return value === undefined
         ? undefined
         : [parseMediaFeatureOperator(feature.operator), feature.name, value];
     }
     case "interval": {
-      const start = parseContainerOperand(feature.start, builder);
-      const end = parseContainerOperand(feature.end, builder);
+      const start = parseFeatureOperand(feature.start, builder);
+      const end = parseFeatureOperand(feature.end, builder);
       return start === undefined || end === undefined
         ? undefined
         : [
@@ -106,13 +105,4 @@ function parseFeature(
       feature satisfies never;
       return;
   }
-}
-
-function parseContainerOperand(
-  value: CSSMediaFeatureValue,
-  builder: StylesheetBuilder,
-): MediaFeatureOperand | undefined {
-  return value.type === "env"
-    ? undefined
-    : (parseMediaFeatureValue(value, builder) ?? null);
 }

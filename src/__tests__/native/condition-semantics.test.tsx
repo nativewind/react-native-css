@@ -81,7 +81,6 @@ describe("@media on a 600x400 screen", () => {
     ["not (fictional-feature: 3)", false],
     ["(fictional-thing) or (width > 400px)", true],
     ["(width > 400px) and (fictional-thing)", false],
-    ["not (pointer: fine)", false],
     ["(orientation: bogus)", false],
     ["not (orientation: bogus)", false],
     ["not (hover: bogus)", false],
@@ -164,39 +163,65 @@ test.each([
   },
 );
 
-// MQ5 §7.2: hover is the primary input's, and a touchscreen cannot hover
-describe.each([
-  ["ios", "none"],
-  ["android", "none"],
-  ["macos", "hover"],
-  ["windows", "hover"],
-] as const)("on %s the primary input answers hover as %s", (os, hover) => {
-  let platform: jest.ReplaceProperty<typeof Platform.OS>;
-
-  beforeEach(() => {
-    platform = jest.replaceProperty(Platform, "OS", os);
-  });
-
-  afterEach(() => {
-    platform.restore();
-  });
-
-  test.each([
-    ["(hover: hover)", hover === "hover"],
-    ["(hover: none)", hover === "none"],
-    ["(hover)", hover === "hover"],
-  ])("%s matches: %s", (condition, expected) => {
-    expect(mediaMatches(condition)).toBe(expected);
-  });
+// No browser takes env() as a feature's value, so a range pair with an env() bound is unknown whatever its other bound answers (MQ5 §3.1)
+test.each([
+  ["not (env(safe-area-inset-top) < width < 800px)", 900],
+  ["not (400px < width < env(safe-area-inset-bottom))", 300],
+  ["not ((env(safe-area-inset-top) < width < 800px) or (width < 0px))", 900],
+])("@media %s on a %ipx-wide screen matches: false", (condition, width) => {
+  expect(mediaMatches(condition, { width, height: 400 })).toBe(false);
 });
 
+// MQ5 §7.1, §7.2: pointer and hover are the primary input's, and a touchscreen cannot hover and points coarsely
+describe.each([
+  ["ios", "none", "coarse"],
+  ["android", "none", "coarse"],
+  ["macos", "hover", "fine"],
+  ["windows", "hover", "fine"],
+] as const)(
+  "on %s the primary input answers hover as %s and pointer as %s",
+  (os, hover, pointer) => {
+    let platform: jest.ReplaceProperty<typeof Platform.OS>;
+
+    beforeEach(() => {
+      platform = jest.replaceProperty(Platform, "OS", os);
+    });
+
+    afterEach(() => {
+      platform.restore();
+    });
+
+    test.each([
+      ["(hover: hover)", hover === "hover"],
+      ["(hover: none)", hover === "none"],
+      ["(hover)", hover === "hover"],
+      ["(pointer: fine)", pointer === "fine"],
+      ["(pointer: coarse)", pointer === "coarse"],
+      ["not (pointer: fine)", pointer === "coarse"],
+      ["(pointer)", true],
+      ["(any-pointer: fine)", pointer === "fine"],
+      ["(any-pointer: coarse)", pointer === "coarse"],
+      ["(any-pointer: none)", false],
+      ["(any-pointer)", true],
+      ["(hover: none) and (pointer: coarse)", hover === "none"],
+    ])("%s matches: %s", (condition, expected) => {
+      expect(mediaMatches(condition)).toBe(expected);
+    });
+  },
+);
+
+// MQ5 §7.3: any-pointer matches the touchscreen's coarse pointer beside a fine one that hovers
 describe("on iOS, once a pointer hovers an element", () => {
   test.each([
-    ["(hover: hover)", true],
-    ["(hover: none)", false],
-    ["(any-hover: hover)", true],
-    ["(any-hover: none)", false],
-  ])("%s matches: %s", (condition, expected) => {
+    ["(hover: hover)", false, true],
+    ["(hover: none)", true, false],
+    ["(any-hover: hover)", false, true],
+    ["(any-hover: none)", true, false],
+    ["(pointer: fine)", false, true],
+    ["(pointer: coarse)", true, false],
+    ["(any-pointer: fine)", false, true],
+    ["(any-pointer: coarse)", true, true],
+  ])("%s matches: %s before and %s after", (condition, before, after) => {
     registerCSS(`
       .target:hover { opacity: 0.5; }
       .child { width: 10px; }
@@ -215,7 +240,7 @@ describe("on iOS, once a pointer hovers an element", () => {
     expect({
       before: widthBefore === 37,
       after: screen.getByTestId("child").props.style.width === 37,
-    }).toStrictEqual({ before: !expected, after: expected });
+    }).toStrictEqual({ before, after });
   });
 });
 
