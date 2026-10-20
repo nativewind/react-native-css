@@ -107,3 +107,42 @@ export function setDeepPath(
 
   return target;
 }
+
+export function isPlainObject(
+  value: unknown,
+): value is Readonly<Record<string, unknown>> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export function withDeepPath(
+  source: Readonly<Record<string, unknown>>,
+  paths: readonly string[],
+  value: unknown,
+): Readonly<Record<string, unknown>> {
+  const [path, ...rest] = paths;
+  if (path === undefined) {
+    return source;
+  }
+
+  const child = source[path];
+  return {
+    ...source,
+    [path]:
+      rest.length === 0
+        ? value
+        : withDeepPath(isPlainObject(child) ? child : {}, rest, value),
+  };
+}
+
+export function withoutKeys(
+  source: Readonly<Record<string, unknown>>,
+  keys: readonly string[],
+): Readonly<Record<string, unknown>> {
+  if (!keys.some((key) => key in source)) {
+    return source;
+  }
+
+  return Object.fromEntries(
+    Object.entries(source).filter(([key]) => !keys.includes(key)),
+  );
+}

@@ -2,6 +2,12 @@
 import type { InlineVariable, StyleRule } from "react-native-css/compiler";
 import { specificityCompareFn } from "react-native-css/utilities";
 
+import {
+  getDeepPath,
+  isPlainObject,
+  withDeepPath,
+  withoutKeys,
+} from "../objects";
 import { getInteractionHandler } from "../react/interaction";
 import type { ComponentState, Config } from "../react/useNativeCss";
 import {
@@ -200,20 +206,17 @@ export function getStyledProps(
   const computedTargets: { path: string[]; value: unknown }[] = [];
   const consumedSources: string[] = [];
 
-  for (const config of state.configs) {
-    result = deepMergeConfig(
-      config,
-      nativeStyleMapping(config, adaptProps(styledProps?.normal)),
-      inline,
-      true,
-    );
+  // The computed props are shared by every render, so each config maps the props the config before it produced
+  let normal = adaptProps(styledProps?.normal);
+  let important = adaptProps(styledProps?.important);
 
-    if (styledProps?.important) {
-      result = deepMergeConfig(
-        config,
-        result,
-        nativeStyleMapping(config, adaptProps(styledProps.important)),
-      );
+  for (const config of state.configs) {
+    normal = nativeStyleMapping(config, normal);
+    result = deepMergeConfig(config, normal, inline, true);
+
+    if (important) {
+      important = nativeStyleMapping(config, important);
+      result = deepMergeConfig(config, result, important);
     }
 
     if (result && config.target) {
@@ -545,61 +548,48 @@ function deepMergeConfig(
 
 function nativeStyleMapping(
   config: Config,
-  props: Record<string, any> | undefined,
+  props: Readonly<Record<string, unknown>> | undefined,
 ) {
   if (!props) {
     return props;
   }
-  if (!config.nativeStyleMapping) {
-    if (config.target === false) delete props.style;
+
+  const mapped = config.nativeStyleMapping
+    ? mapNativeStyles(config, config.nativeStyleMapping, props)
+    : props;
+
+  return config.target === false ? withoutKeys(mapped, ["style"]) : mapped;
+}
+
+function mapNativeStyles(
+  config: Config,
+  mapping: Readonly<Record<string, string>>,
+  props: Readonly<Record<string, unknown>>,
+) {
+  const sourcePath =
+    config.target === false
+      ? ["style"]
+      : typeof config.target === "string"
+        ? [config.target]
+        : config.target;
+  const source: unknown = getDeepPath(props, sourcePath);
+
+  if (!isPlainObject(source)) {
     return props;
   }
 
-  let source: Record<string, any> | undefined;
+  const remaining = withoutKeys(source, Object.keys(mapping));
+  let result =
+    config.target === false || remaining === source
+      ? props
+      : withDeepPath(props, sourcePath, remaining);
 
-  if (typeof config.target === "string") {
-    source = props[config.target];
-  } else if (config.target === false) {
-    source = props["style"];
-  } else {
-    const tokens = [...config.target];
-    const lastToken = tokens.pop()!;
-
-    source = props;
-    for (const token of tokens) {
-      source = source[token];
-      if (!source) {
-        return props;
-      }
+  for (const [key, path] of Object.entries(mapping)) {
+    const value = source[key];
+    if (value !== undefined) {
+      result = withDeepPath(result, path.split("."), value);
     }
-
-    source = source[lastToken];
   }
 
-  if (!source) {
-    return props;
-  }
-
-  for (const [key, path] of Object.entries(config.nativeStyleMapping)) {
-    const styleValue = source[key];
-
-    delete source[key];
-
-    if (styleValue === undefined) {
-      continue;
-    }
-
-    let target = props;
-    const tokens = path.split(".");
-    const lastToken = tokens.pop();
-    for (const token of tokens) {
-      target[token] ??= {};
-      target = target[token];
-    }
-
-    target[lastToken!] = styleValue;
-  }
-
-  if (config.target === false) delete props.style;
-  return props;
+  return result;
 }

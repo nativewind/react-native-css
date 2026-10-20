@@ -181,6 +181,39 @@ test.each([false, true])(
   },
 );
 
+test("a mapping onto a nested target waits for its class, then maps on every render", () => {
+  registerCSS(`.faded { opacity: 0.5; } .label { color: blue; }`);
+  const Base = (props: {
+    style?: StyleProp<ViewStyle>;
+    nested?: { style?: StyleProp<ViewStyle> };
+    accessibilityLabel?: string;
+  }) => (
+    <View
+      testID={testID}
+      accessibilityLabel={props.accessibilityLabel}
+      style={[props.style, props.nested?.style]}
+    />
+  );
+  const Labelled = styled(Base, {
+    className: "style",
+    labelClassName: {
+      target: "nested.style",
+      nativeStyleMapping: { color: "accessibilityLabel" },
+    },
+  });
+
+  render(<Labelled className="faded" />);
+  expect(screen.getByTestId(testID).props.accessibilityLabel).toBeUndefined();
+
+  for (let round = 0; round < 2; round++) {
+    screen.rerender(<Labelled className="faded" labelClassName="label" />);
+    expect(screen.getByTestId(testID).props.accessibilityLabel).toBe("#00f");
+    expect(StyleSheet.flatten(screen.getByTestId(testID).props.style)).toEqual({
+      opacity: 0.5,
+    });
+  }
+});
+
 test("passThrough resolves three segment targets and updates without leaking root props", () => {
   registerCSS(`.first { width: 40px; } .second { width: 80px; }`);
   interface Props {
