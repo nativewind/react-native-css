@@ -85,14 +85,6 @@ function testComparison(mediaQuery: MediaComparison, get: Getter): Truth {
       return (
         value === "native" || compareMediaFeature(operator, Platform.OS, value)
       );
-    case "min-width":
-      return compareMediaFeature(">=", get(vw), value);
-    case "max-width":
-      return compareMediaFeature("<=", get(vw), value);
-    case "min-height":
-      return compareMediaFeature(">=", get(vh), value);
-    case "max-height":
-      return compareMediaFeature("<=", get(vh), value);
     default:
       return compareMediaFeature(
         operator,
