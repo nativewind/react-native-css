@@ -232,66 +232,30 @@ test("light-dark()", () => {
   });
 });
 
-test("prefers-reduced-motion", () => {
-  // `motion-reduce:` compiles to `reduce`, `motion-safe:` to `no-preference`,
-  // and a bare `@media (prefers-reduced-motion)` to the boolean (`!!`) form.
-  // The native runtime evaluates these against the reduceMotion observable
-  // (see native/media-query.test.tsx).
+test.each([
+  [
+    "(prefers-reduced-motion: reduce)",
+    ["=", "prefers-reduced-motion", "reduce"],
+  ],
+  [
+    "(prefers-reduced-motion: no-preference)",
+    ["=", "prefers-reduced-motion", "no-preference"],
+  ],
+  ["(prefers-reduced-motion)", ["!!", "prefers-reduced-motion"]],
+  [
+    "(prefers-reduced-motion: REDUCE)",
+    ["=", "prefers-reduced-motion", "reduce"],
+  ],
+  ["(prefers-color-scheme: DARK)", ["=", "prefers-color-scheme", "dark"]],
+  ["IOS", ["=", "platform", "ios"]],
+  ["(grid: 1)", ["=", "grid", true]],
+  ["(color: 8)", ["=", "color", 8]],
+  ["(-webkit-device-pixel-ratio: 2)", ["=", "-webkit-device-pixel-ratio", 2]],
+])("@media %s compiles to its condition", (query, condition) => {
   expect(
-    compile(
-      `@media (prefers-reduced-motion: reduce) { .my-class { opacity: 0 } }`,
-    ).stylesheet(),
+    compile(`@media ${query} { .my-class { opacity: 0 } }`).stylesheet(),
   ).toStrictEqual({
-    s: [
-      [
-        "my-class",
-        [
-          {
-            s: [2, 1],
-            m: [["=", "prefers-reduced-motion", "reduce"]],
-            d: [{ opacity: 0 }],
-          },
-        ],
-      ],
-    ],
-  });
-
-  expect(
-    compile(
-      `@media (prefers-reduced-motion: no-preference) { .my-class { opacity: 0 } }`,
-    ).stylesheet(),
-  ).toStrictEqual({
-    s: [
-      [
-        "my-class",
-        [
-          {
-            s: [2, 1],
-            m: [["=", "prefers-reduced-motion", "no-preference"]],
-            d: [{ opacity: 0 }],
-          },
-        ],
-      ],
-    ],
-  });
-
-  expect(
-    compile(
-      `@media (prefers-reduced-motion) { .my-class { opacity: 0 } }`,
-    ).stylesheet(),
-  ).toStrictEqual({
-    s: [
-      [
-        "my-class",
-        [
-          {
-            s: [2, 1],
-            m: [["!!", "prefers-reduced-motion"]],
-            d: [{ opacity: 0 }],
-          },
-        ],
-      ],
-    ],
+    s: [["my-class", [{ s: [2, 1], m: [condition], d: [{ opacity: 0 }] }]]],
   });
 });
 

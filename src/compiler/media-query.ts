@@ -8,6 +8,7 @@ import type {
   QueryFeatureFor_MediaFeatureId,
 } from "lightningcss";
 
+import { asciiLowerCase } from "../utilities/ascii-case";
 import type {
   MediaCondition,
   MediaFeatureComparison,
@@ -32,7 +33,8 @@ export function parseMediaQuery(
 
     // These all/screen are not conditions, they always apply
     if (query.mediaType !== "all" && query.mediaType !== "screen") {
-      platformCondition = ["=", "platform", query.mediaType];
+      // Media types are ASCII case-insensitive (MQ4 §3), and lightningcss lowercases only all, print and screen
+      platformCondition = ["=", "platform", asciiLowerCase(query.mediaType)];
     }
   }
 
@@ -146,8 +148,8 @@ export function parseMediaFeatureValue(
 ): StyleDescriptor {
   switch (value.type) {
     case "ident":
-      // A keyword is ASCII case-insensitive (css-values-4 §4.1), so `DARK` names the scheme `dark` does
-      return value.value.replace(/[A-Z]/g, (letter) => letter.toLowerCase());
+      // Keywords are ASCII case-insensitive (css-values-4 §4.1)
+      return asciiLowerCase(value.value);
     case "boolean":
     case "integer":
     case "number":
