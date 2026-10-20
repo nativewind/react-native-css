@@ -8,8 +8,7 @@ import {
   reducedMotion,
   StyleCollection,
 } from "react-native-css/native";
-
-import { dimensions } from "../native/reactivity";
+import { dimensions } from "react-native-css/native-internal";
 
 declare global {
   /* eslint-disable @typescript-eslint/no-namespace */
