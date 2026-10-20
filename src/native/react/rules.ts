@@ -18,6 +18,7 @@ import {
   type VariableContextValue,
 } from "../reactivity";
 import { stylesFamily } from "../styles";
+import { collectionTarget } from "./collection-target";
 import type { ComponentState, Config } from "./useNativeCss";
 
 export const INLINE_RULE_SYMBOL = Symbol("react-native-css.inlineRule");
@@ -270,13 +271,12 @@ export function updateRules(
  * Cache for reference equality.
  */
 const getRuleVariation = weakFamily((rule: StyleRule) => {
-  return weakFamily((config: Config): StyleRule => {
-    // A target:false config collects its declarations under its own source key until nativeStyleMapping moves them; style belongs to whichever config targets it
-    return {
+  return weakFamily(
+    (config: Config): StyleRule => ({
       ...rule,
-      target: config.target === false ? [config.source] : config.target,
-    };
-  });
+      target: collectionTarget(config),
+    }),
+  );
 });
 
 function pushInlineRule(

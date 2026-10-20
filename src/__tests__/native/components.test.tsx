@@ -1,6 +1,8 @@
 import {
   Button as RNButton,
+  Image as RNImage,
   KeyboardAvoidingView as RNKeyboardAvoidingView,
+  Text as RNText,
   TextInput as RNTextInput,
   StyleSheet,
   View,
@@ -9,7 +11,7 @@ import {
   type ViewProps,
 } from "react-native";
 
-import { render } from "@testing-library/react-native";
+import { render, screen } from "@testing-library/react-native";
 import { copyComponentProperties } from "react-native-css/components/copyComponentProperties";
 import { KeyboardAvoidingView } from "react-native-css/components/KeyboardAvoidingView";
 import { TextInput } from "react-native-css/components/TextInput";
@@ -287,4 +289,110 @@ test("a declaration no mapping entry names is dropped, not moved into style", ()
     <Shorthand testID="shorthand" {...{ labelClassName: "d1" }} />,
   ).getByTestId("shorthand");
   expect(shorthand.props).not.toHaveProperty("style");
+});
+
+test("a target:false mapping on an image with object-fit holds on every render", () => {
+  registerCSS(
+    `.contain { object-fit: contain; width: 10px; } .tint { color: red; }`,
+  );
+  const TintedImage = styled(RNImage, {
+    tintClassName: {
+      target: false,
+      nativeStyleMapping: { color: "tintColor" },
+    },
+    className: "style",
+  });
+  const element = () => (
+    <TintedImage
+      testID={testID}
+      source={{ uri: "test-image" }}
+      className="contain"
+      tintClassName="tint"
+    />
+  );
+
+  render(element());
+  for (let round = 0; round < 3; round++) {
+    const image = screen.getByTestId(testID);
+    expect(image.props.tintColor).toBe("#f00");
+    expect(StyleSheet.flatten(image.props.style)).toEqual({
+      width: 10,
+      objectFit: "contain",
+    });
+    screen.rerender(element());
+  }
+});
+
+test("a target:false mapping after a style config leaves style alone on every render", () => {
+  registerCSS(`.base { font-size: 12px; } .selection { color: red; }`);
+  const SelectableText = styled(RNText, {
+    className: "style",
+    selectionClassName: {
+      target: false,
+      nativeStyleMapping: { color: "selectionColor" },
+    },
+  });
+  const element = () => (
+    <SelectableText
+      testID={testID}
+      className="base"
+      selectionClassName="selection"
+    />
+  );
+
+  render(element());
+  for (let round = 0; round < 3; round++) {
+    const text = screen.getByTestId(testID);
+    expect(text.props.selectionColor).toBe("#f00");
+    expect(text.props.style).toStrictEqual({ fontSize: 12 });
+    screen.rerender(element());
+  }
+});
+
+test("a mapping into an earlier config's target keeps its value on every render", () => {
+  registerCSS(`.faded { opacity: 0.5; } .label { color: blue; }`);
+  const Bordered = styled(Labelled, {
+    className: "style",
+    labelClassName: {
+      target: false,
+      nativeStyleMapping: { color: "style.borderColor" },
+    },
+  });
+  const element = () => (
+    <Bordered testID={testID} className="faded" labelClassName="label" />
+  );
+
+  render(element());
+  for (let round = 0; round < 3; round++) {
+    expect(screen.getByTestId(testID).props.style).toStrictEqual({
+      opacity: 0.5,
+      borderColor: "#00f",
+    });
+    screen.rerender(element());
+  }
+});
+
+test("a target:false config follows its class as it is set, removed and set again", () => {
+  registerCSS(`.c8 { background-color: blue; } .c9 { color: orange; }`);
+  const Styled = styled(Labelled, {
+    className: "style",
+    labelClassName: {
+      target: false,
+      nativeStyleMapping: { color: "labelColor" },
+    },
+  });
+
+  render(<Styled testID={testID} className="c8" />);
+  for (const [labelClassName, labelColor] of [
+    ["c9", "#ffa500"],
+    [undefined, undefined],
+    ["c9", "#ffa500"],
+  ] as const) {
+    screen.rerender(
+      <Styled testID={testID} className="c8" labelClassName={labelClassName} />,
+    );
+    const component = screen.getByTestId(testID);
+    expect(component.props.labelColor).toBe(labelColor);
+    expect(component.props.style).toStrictEqual({ backgroundColor: "#00f" });
+  }
 });

@@ -107,3 +107,40 @@ export function setDeepPath(
 
   return target;
 }
+
+export function isNonArrayObject(
+  value: unknown,
+): value is Readonly<Record<string, unknown>> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export function withDeepPath(
+  source: Readonly<Record<string, unknown>>,
+  paths: readonly string[],
+  value: unknown,
+): Readonly<Record<string, unknown>> {
+  const [path, ...rest] = paths;
+  if (path === undefined) {
+    return source;
+  }
+
+  const child = source[path];
+  return {
+    ...source,
+    [path]:
+      rest.length === 0
+        ? value
+        : withDeepPath(isNonArrayObject(child) ? child : {}, rest, value),
+  };
+}
+
+export function withoutKeys(
+  source: Readonly<Record<string, unknown>>,
+  keys: readonly string[],
+): Readonly<Record<string, unknown>> {
+  return keys.reduce((result, key) => {
+    if (!(key in result)) return result;
+    const { [key]: removed, ...rest } = result;
+    return rest;
+  }, source);
+}

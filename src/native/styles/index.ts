@@ -2,6 +2,13 @@
 import type { InlineVariable, StyleRule } from "react-native-css/compiler";
 import { specificityCompareFn } from "react-native-css/utilities";
 
+import {
+  getDeepPath,
+  isNonArrayObject,
+  withDeepPath,
+  withoutKeys,
+} from "../objects";
+import { collectionTarget } from "../react/collection-target";
 import { getInteractionHandler } from "../react/interaction";
 import type { ComponentState, Config } from "../react/useNativeCss";
 import {
@@ -200,20 +207,18 @@ export function getStyledProps(
   const computedTargets: { path: string[]; value: unknown }[] = [];
   const consumedSources: string[] = [];
 
-  for (const config of state.configs) {
-    result = deepMergeConfig(
-      config,
-      nativeStyleMapping(config, adaptProps(styledProps?.normal)),
-      inline,
-      true,
-    );
+  // The computed props are shared by every render, and every config is mapped before any merges, so each merge and each kept target sees every mapping
+  const normal = mapEveryConfig(state.configs, adaptProps(styledProps?.normal));
+  const important = mapEveryConfig(
+    state.configs,
+    adaptProps(styledProps?.important),
+  );
 
-    if (styledProps?.important) {
-      result = deepMergeConfig(
-        config,
-        result,
-        nativeStyleMapping(config, adaptProps(styledProps.important)),
-      );
+  for (const config of state.configs) {
+    result = deepMergeConfig(config, normal, inline, true);
+
+    if (important) {
+      result = deepMergeConfig(config, result, important);
     }
 
     if (result && config.target) {
@@ -543,61 +548,42 @@ function deepMergeConfig(
   return result;
 }
 
+function mapEveryConfig(
+  configs: readonly Config[],
+  props: Readonly<Record<string, unknown>> | undefined,
+) {
+  return configs.reduce(
+    (mapped, config) => nativeStyleMapping(config, mapped),
+    props,
+  );
+}
+
 function nativeStyleMapping(
   config: Config,
-  props: Record<string, any> | undefined,
+  props: Readonly<Record<string, unknown>> | undefined,
 ) {
-  if (!props) {
-    return props;
-  }
-  if (!config.nativeStyleMapping) {
+  if (!props || !config.nativeStyleMapping) {
     return props;
   }
 
-  let source: Record<string, any> | undefined;
+  const collection = collectionTarget(config);
+  const sourcePath = typeof collection === "string" ? [collection] : collection;
+  const source: unknown = getDeepPath(props, sourcePath);
 
-  if (typeof config.target === "string") {
-    source = props[config.target];
-  } else if (config.target === false) {
-    source = props[config.source];
-  } else {
-    const tokens = [...config.target];
-    const lastToken = tokens.pop()!;
-
-    source = props;
-    for (const token of tokens) {
-      source = source[token];
-      if (!source) {
-        return props;
-      }
-    }
-
-    source = source[lastToken];
-  }
-
-  if (!source) {
+  if (!isNonArrayObject(source)) {
     return props;
   }
+
+  const remaining = withoutKeys(source, Object.keys(config.nativeStyleMapping));
+  let result =
+    remaining === source ? props : withDeepPath(props, sourcePath, remaining);
 
   for (const [key, path] of Object.entries(config.nativeStyleMapping)) {
-    const styleValue = source[key];
-
-    delete source[key];
-
-    if (styleValue === undefined) {
-      continue;
+    const value = source[key];
+    if (value !== undefined) {
+      result = withDeepPath(result, path.split("."), value);
     }
-
-    let target = props;
-    const tokens = path.split(".");
-    const lastToken = tokens.pop();
-    for (const token of tokens) {
-      target[token] ??= {};
-      target = target[token];
-    }
-
-    target[lastToken!] = styleValue;
   }
 
-  return props;
+  return result;
 }
