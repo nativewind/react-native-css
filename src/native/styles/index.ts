@@ -565,18 +565,16 @@ const mappedPropsFamily = weakFamily((configs: readonly Config[]) => {
       );
 });
 
-function hasNativeStyleMapping(config: Config) {
+type MappingConfig = Config & Required<Pick<Config, "nativeStyleMapping">>;
+
+function hasNativeStyleMapping(config: Config): config is MappingConfig {
   return config.nativeStyleMapping !== undefined;
 }
 
 function nativeStyleMapping(
-  config: Config,
+  config: MappingConfig,
   props: Readonly<Record<string, unknown>>,
 ) {
-  if (!config.nativeStyleMapping) {
-    return props;
-  }
-
   const sourcePath = targetPath(collectionTarget(config));
   const source: unknown = getDeepPath(props, sourcePath);
 
