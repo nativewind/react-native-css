@@ -257,14 +257,14 @@ export function mappingToConfig(mapping: StyledConfiguration<any>) {
 
 // Apply native Image fitting once per computed props object, before normal, inline, and important props merge.
 // The compiler's contentFit mapping remains available to Expo Image adapters.
-const adaptImageProps = weakFamily(
-  (props: Readonly<Record<string, unknown>>) => {
-    if (!("contentFit" in props)) return props;
-    const { contentFit, style, ...rest } = props;
+const fittedImagePropsFamily = weakFamily(
+  ({ contentFit, style, ...rest }: Readonly<Record<string, unknown>>) => ({
+    ...rest,
     // The computed style is a plain object, so it needs no flattening
-    return {
-      ...rest,
-      style: Object.assign({}, style, { objectFit: contentFit }),
-    };
-  },
+    style: Object.assign({}, style, { objectFit: contentFit }),
+  }),
 );
+
+function adaptImageProps(props: Readonly<Record<string, unknown>>) {
+  return "contentFit" in props ? fittedImagePropsFamily(props) : props;
+}

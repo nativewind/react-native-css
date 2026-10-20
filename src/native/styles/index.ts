@@ -548,21 +548,22 @@ function mapEveryConfig(
     return props;
   }
 
-  const adapted = adaptProps(props);
-  return configs.some(hasNativeStyleMapping)
-    ? mappedPropsFamily(configs)(adapted)
-    : adapted;
+  return mappedPropsFamily(configs)(adaptProps(props));
 }
 
-// Mapping builds new objects, so it runs once per configs and computed props, and a render that changes neither hands React the same objects
-const mappedPropsFamily = weakFamily((configs: readonly Config[]) =>
-  weakFamily((props: Readonly<Record<string, unknown>>) =>
-    configs.reduce(
-      (mapped, config) => nativeStyleMapping(config, mapped),
-      props,
-    ),
-  ),
-);
+// Mapping builds new objects, so it runs once per configs and computed props, and a render that changes neither maps nothing again
+const mappedPropsFamily = weakFamily((configs: readonly Config[]) => {
+  const mappingConfigs = configs.filter(hasNativeStyleMapping);
+
+  return mappingConfigs.length === 0
+    ? (props: Readonly<Record<string, unknown>>) => props
+    : weakFamily((props: Readonly<Record<string, unknown>>) =>
+        mappingConfigs.reduce(
+          (mapped, config) => nativeStyleMapping(config, mapped),
+          props,
+        ),
+      );
+});
 
 function hasNativeStyleMapping(config: Config) {
   return config.nativeStyleMapping !== undefined;
