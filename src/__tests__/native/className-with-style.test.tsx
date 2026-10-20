@@ -701,6 +701,7 @@ describe("an inline value holding no CSS variable reaches the component as it ca
     mapping: (typeof MAPPINGS)[number][1],
     prop: (typeof MAPPINGS)[number][2],
     value: unknown,
+    className = "padded",
   ): unknown {
     registerCSS(`.padded { padding: 4px; }`);
     const received: Readonly<Record<string, unknown>>[] = [];
@@ -711,7 +712,7 @@ describe("an inline value holding no CSS variable reaches the component as it ca
     const Styled = (props: Readonly<Record<string, unknown>>) =>
       useCssElement(Probe, props, mapping);
 
-    render(<Styled className="padded" {...{ [prop]: value }} />);
+    render(<Styled className={className} {...{ [prop]: value }} />);
     return received.at(-1)?.[prop];
   }
 
@@ -739,6 +740,17 @@ describe("an inline value holding no CSS variable reaches the component as it ca
         ((received as readonly unknown[])[1] as { readonly opacity: unknown })
           .opacity,
       ).toBe(opacity);
+    },
+  );
+
+  test.each(MAPPINGS)(
+    "%s: with no class style beside it, the inline style is the same object",
+    (_spelling, mapping, prop) => {
+      const inlineStyle = { height: 16 };
+
+      expect(renderReceived(mapping, prop, inlineStyle, "unstyled")).toBe(
+        inlineStyle,
+      );
     },
   );
 });
