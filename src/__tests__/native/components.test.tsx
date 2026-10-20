@@ -1,3 +1,4 @@
+import { memo } from "react";
 import {
   Button as RNButton,
   Image as RNImage,
@@ -7,8 +8,10 @@ import {
   StyleSheet,
   View,
   type ButtonProps,
+  type StyleProp,
   type TextInputProps,
   type ViewProps,
+  type ViewStyle,
 } from "react-native";
 
 import { render, screen } from "@testing-library/react-native";
@@ -370,6 +373,65 @@ test("a mapping into an earlier config's target keeps its value on every render"
     });
     screen.rerender(element());
   }
+});
+
+test("a target:false mapping into style keeps its value beside an inline style", () => {
+  registerCSS(`.label { color: blue; }`);
+  const Bordered = styled(Labelled, {
+    labelClassName: {
+      target: false,
+      nativeStyleMapping: { color: "style.borderColor" },
+    },
+  });
+  const inlineStyles: readonly (readonly [StyleProp<ViewStyle>, ViewStyle])[] =
+    [
+      [undefined, { borderColor: "#00f" }],
+      [{ margin: 1 }, { borderColor: "#00f", margin: 1 }],
+      [
+        [{ margin: 1 }, { padding: 2 }],
+        { borderColor: "#00f", margin: 1, padding: 2 },
+      ],
+      [{ borderColor: "red" }, { borderColor: "red" }],
+    ];
+
+  render(<Bordered testID={testID} labelClassName="label" />);
+  for (const [style, expected] of inlineStyles) {
+    screen.rerender(
+      <Bordered testID={testID} labelClassName="label" style={style} />,
+    );
+    expect(
+      StyleSheet.flatten(screen.getByTestId(testID).props.style),
+    ).toStrictEqual(expected);
+  }
+});
+
+test("a mapping builds its props once while the classes stay the same", () => {
+  registerCSS(`.c10 { color: orange; opacity: 0.5; } .c11 { color: blue; }`);
+  let renders = 0;
+  const CountedLabelled = memo((props: LabelledProps) => {
+    renders++;
+    return <View {...props} />;
+  });
+  const Styled = styled(CountedLabelled, {
+    className: { target: "style", nativeStyleMapping: { color: "labelColor" } },
+    borderClassName: {
+      target: false,
+      nativeStyleMapping: { color: "style.borderColor" },
+    },
+  });
+  const element = () => (
+    <Styled testID={testID} className="c10" borderClassName="c11" />
+  );
+
+  render(element());
+  screen.rerender(element());
+  screen.rerender(element());
+
+  expect(renders).toBe(1);
+  expect(screen.getByTestId(testID).props).toMatchObject({
+    labelColor: "#ffa500",
+    style: { opacity: 0.5, borderColor: "#00f" },
+  });
 });
 
 test("a target:false config follows its class as it is set, removed and set again", () => {

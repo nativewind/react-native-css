@@ -59,7 +59,7 @@ export function calculateProps(
 
       if (typeof ruleTarget === "string") {
         target = target[ruleTarget] ??= {};
-      } else if (ruleTarget) {
+      } else {
         for (const path of ruleTarget) {
           target = target[path] ??= {};
         }

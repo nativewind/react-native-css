@@ -119,4 +119,21 @@ describe("a mapping on an image with object-fit", () => {
       expect(style()?.objectFit).toBe("contain");
     },
   );
+
+  test("keeps the same style object while its classes stay the same", () => {
+    registerCSS(`.contain { object-fit: contain; } .tint { color: red; }`);
+    const element = () => (
+      <TintedImage
+        source={{ uri: "test-image" }}
+        className="contain"
+        tintClassName="tint"
+      />
+    );
+
+    render(element());
+    const firstStyle = props().style;
+    screen.rerender(element());
+
+    expect(props().style).toBe(firstStyle);
+  });
 });

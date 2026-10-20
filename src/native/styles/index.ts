@@ -19,6 +19,7 @@ import {
   hoverFamily,
   observable,
   VAR_SYMBOL,
+  weakFamily,
   type Effect,
   type VariableContextValue,
 } from "../reactivity";
@@ -195,8 +196,8 @@ export function getStyledProps(
   state: ComponentState,
   inline: Record<string, any> | undefined | null,
   adaptProps: (
-    props: Record<string, any> | undefined,
-  ) => Record<string, any> | undefined = (props) => props,
+    props: Readonly<Record<string, unknown>>,
+  ) => Readonly<Record<string, unknown>> = (props) => props,
 ) {
   let result: Record<string, any> | undefined;
 
@@ -208,13 +209,14 @@ export function getStyledProps(
   const consumedSources: string[] = [];
 
   // The computed props are shared by every render, and every config is mapped before any merges, so each merge and each kept target sees every mapping
-  const normal = mapEveryConfig(state.configs, adaptProps(styledProps?.normal));
+  const normal = mapEveryConfig(state.configs, adaptProps, styledProps?.normal);
   const important = mapEveryConfig(
     state.configs,
-    adaptProps(styledProps?.important),
+    adaptProps,
+    styledProps?.important,
   );
 
-  for (const config of state.configs) {
+  for (const config of mergeConfigs(state.configs)) {
     result = deepMergeConfig(config, normal, inline, true);
 
     if (important) {
@@ -345,7 +347,7 @@ function mergeDefinedProps(
     const value = right[key];
     if (value === undefined) continue;
     // Non-object values (strings, numbers, booleans, null, arrays): always assign
-    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    if (!isNonArrayObject(value)) {
       result[key] = value;
       continue;
     }
@@ -399,13 +401,10 @@ function deepMergeConfig(
             const leftStyle = left.style;
 
             // For arrays or objects, check if we need to create a style array
-            const leftIsObject =
-              typeof leftStyle === "object" && !Array.isArray(leftStyle);
-            const rightIsObject =
-              typeof filteredRightStyle === "object" &&
-              !Array.isArray(filteredRightStyle);
-
-            if (leftIsObject && rightIsObject) {
+            if (
+              isNonArrayObject(leftStyle) &&
+              isNonArrayObject(filteredRightStyle)
+            ) {
               if (hasNonOverlappingProperties(leftStyle, filteredRightStyle)) {
                 result.style = [leftStyle, filteredRightStyle];
               } else {
@@ -500,15 +499,7 @@ function deepMergeConfig(
         }
       } else if (left && finalKey in left) {
         const leftValue = left[finalKey];
-        const leftIsObj =
-          typeof leftValue === "object" &&
-          leftValue !== null &&
-          !Array.isArray(leftValue);
-        const rightIsObj =
-          typeof rightValue === "object" &&
-          rightValue !== null &&
-          !Array.isArray(rightValue);
-        if (leftIsObj && rightIsObj) {
+        if (isNonArrayObject(leftValue) && isNonArrayObject(rightValue)) {
           if (hasNonOverlappingProperties(leftValue, rightValue)) {
             result[finalKey] = [leftValue, rightValue];
           } else {
@@ -550,19 +541,73 @@ function deepMergeConfig(
 
 function mapEveryConfig(
   configs: readonly Config[],
+  adaptProps: (
+    props: Readonly<Record<string, unknown>>,
+  ) => Readonly<Record<string, unknown>>,
   props: Readonly<Record<string, unknown>> | undefined,
 ) {
-  return configs.reduce(
-    (mapped, config) => nativeStyleMapping(config, mapped),
-    props,
-  );
+  if (!props) {
+    return props;
+  }
+
+  const adapted = adaptProps(props);
+  return configs.some(hasNativeStyleMapping)
+    ? mappedPropsFamily(configs)(adapted)
+    : adapted;
+}
+
+// Mapping builds new objects, so it runs once per configs and computed props, and a render that changes neither hands React the same objects
+const mappedPropsFamily = weakFamily((configs: readonly Config[]) =>
+  weakFamily((props: Readonly<Record<string, unknown>>) =>
+    configs.reduce(
+      (mapped, config) => nativeStyleMapping(config, mapped),
+      props,
+    ),
+  ),
+);
+
+function mergeConfigs(configs: readonly Config[]) {
+  return configs.some(hasNativeStyleMapping)
+    ? mergeConfigsFamily(configs)
+    : configs;
+}
+
+// A mapping into a key of another prop merges that prop with its inline value, as a config that targets the prop does
+const mergeConfigsFamily = weakFamily(
+  (configs: readonly Config[]): readonly Config[] => [
+    ...configs.flatMap(mappedPropConfigs),
+    ...configs,
+  ],
+);
+
+function mappedPropConfigs(config: Config): Config[] {
+  const targetProp = Array.isArray(config.target)
+    ? config.target[0]
+    : config.target;
+  const mappedProps = new Set<string>();
+
+  for (const path of Object.values(config.nativeStyleMapping ?? {})) {
+    const [prop, ...keys] = path.split(".");
+    if (prop !== undefined && keys.length > 0 && prop !== targetProp) {
+      mappedProps.add(prop);
+    }
+  }
+
+  return Array.from(mappedProps, (prop) => ({
+    source: config.source,
+    target: [prop],
+  }));
+}
+
+function hasNativeStyleMapping(config: Config) {
+  return config.nativeStyleMapping !== undefined;
 }
 
 function nativeStyleMapping(
   config: Config,
-  props: Readonly<Record<string, unknown>> | undefined,
+  props: Readonly<Record<string, unknown>>,
 ) {
-  if (!props || !config.nativeStyleMapping) {
+  if (!config.nativeStyleMapping) {
     return props;
   }
 
