@@ -1,7 +1,7 @@
 type ReduceMotionListener = (isReduceMotionEnabled: boolean) => void;
 
 interface AccessibilityInfoDouble {
-  readonly isReduceMotionEnabled: () => Promise<boolean>;
+  readonly isReduceMotionEnabled?: () => Promise<boolean>;
   readonly addEventListener: (
     event: string,
     listener: ReduceMotionListener,
@@ -85,6 +85,15 @@ describe("the reduced-motion preference", () => {
     const { reducedMotion } = importReactivityWith({
       isReduceMotionEnabled: () =>
         Promise.reject(new Error("NativeAccessibilityManager unavailable")),
+      addEventListener: () => ({ remove: () => undefined }),
+    });
+    await Promise.resolve();
+
+    expect(reducedMotion.get()).toBe("no-preference");
+  });
+
+  test("is no-preference where AccessibilityInfo has no getter, without failing the import", async () => {
+    const { reducedMotion } = importReactivityWith({
       addEventListener: () => ({ remove: () => undefined }),
     });
     await Promise.resolve();

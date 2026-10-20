@@ -150,3 +150,11 @@ export interface ColorScheme {
   get: () => ColorSchemeName | null | undefined;
   set: (value: ColorSchemeName | null | undefined) => void;
 }
+
+export type ReducedMotionPreference = "no-preference" | "reduce";
+
+export interface ReducedMotion {
+  get: () => ReducedMotionPreference | undefined;
+  /** `null` follows the device's setting again */
+  set: (value: ReducedMotionPreference | null) => void;
+}

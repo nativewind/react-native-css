@@ -9,6 +9,7 @@ import { Appearance } from "react-native";
 import type {
   ColorScheme,
   Props,
+  ReducedMotion,
   StyledConfiguration,
   StyledOptions,
 } from "react-native-css";
@@ -69,6 +70,22 @@ export const colorScheme: ColorScheme = {
   },
   set(name) {
     Appearance.setColorScheme(name ?? "unspecified");
+  },
+};
+
+export const reducedMotion: ReducedMotion = {
+  get() {
+    // Server rendering has no window, and React Native's jest environment a window without matchMedia
+    if (typeof window === "undefined" || !("matchMedia" in window)) {
+      return undefined;
+    }
+
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      ? "reduce"
+      : "no-preference";
+  },
+  set() {
+    // The browser evaluates prefers-reduced-motion in the stylesheet itself, so a script cannot override it
   },
 };
 

@@ -341,6 +341,27 @@ test("container queries", () => {
   });
 });
 
+test("a container query keyword compiles in lowercase", () => {
+  expect(
+    compile(
+      `@container (orientation: LANDSCAPE) { .child { opacity: 0 } }`,
+    ).stylesheet(),
+  ).toStrictEqual({
+    s: [
+      [
+        "child",
+        [
+          {
+            cq: [{ m: ["=", "orientation", "landscape"] }],
+            d: [{ opacity: 0 }],
+            s: [2, 1],
+          },
+        ],
+      ],
+    ],
+  });
+});
+
 test("warnings", () => {
   const compiled = compile(`
 .my-class {
