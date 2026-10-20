@@ -8,7 +8,7 @@ import {
   withDeepPath,
   withoutKeys,
 } from "../objects";
-import { collectionTarget } from "../react/collection-target";
+import { collectionTarget, targetPath } from "../react/collection-target";
 import { getInteractionHandler } from "../react/interaction";
 import type { ComponentState, Config } from "../react/useNativeCss";
 import {
@@ -224,9 +224,7 @@ export function getStyledProps(
     }
 
     if (result && config.target) {
-      const path = Array.isArray(config.target)
-        ? config.target
-        : [config.target];
+      const path = targetPath(config.target);
       let target = result;
       for (const key of path.slice(0, -1)) target = target?.[key];
       const key = path[path.length - 1];
@@ -578,8 +576,7 @@ function nativeStyleMapping(
     return props;
   }
 
-  const collection = collectionTarget(config);
-  const sourcePath = typeof collection === "string" ? [collection] : collection;
+  const sourcePath = targetPath(collectionTarget(config));
   const source: unknown = getDeepPath(props, sourcePath);
 
   if (!isNonArrayObject(source)) {

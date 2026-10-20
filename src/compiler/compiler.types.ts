@@ -73,9 +73,7 @@ export interface StyleRule {
   dv?: number;
 
   // Target override
-  target?: string | string[];
-  // The props a declaration names land under the target too, as a target:false config collects them
-  propsUnderTarget?: true;
+  target?: string | string[] | CollectedTarget;
 
   /**
    * Conditionals
@@ -96,6 +94,11 @@ export interface StyleRule {
 
   /** Animations */
   a?: boolean;
+}
+
+// A target:false config's rules collect their declarations, and the props those name, under its source key, where its mapping reads them
+export interface CollectedTarget {
+  readonly collect: string;
 }
 
 export type StyleDeclaration =
