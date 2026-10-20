@@ -234,27 +234,34 @@ export const colorScheme = observable<ColorSchemeName | null | undefined>(
 );
 Appearance.addChangeListener((event) => colorScheme.set(event.colorScheme));
 
-/** Reduce Motion ************************************************************/
+/** Reduced Motion ************************************************************/
 
-// AccessibilityInfo answers asynchronously, so motion counts as enabled until it does; Android reports its animator scale (react-native#31221)
-export const reduceMotion = observable(false);
+export type ReducedMotionPreference = "no-preference" | "reduce";
 
-// Every media feature imports this module, so a platform without AccessibilityInfo must not throw here
-try {
-  AccessibilityInfo.isReduceMotionEnabled()
-    .then((enabled) => reduceMotion.set(enabled))
-    .catch(() => undefined);
-} catch {
-  // Motion stays enabled
+// AccessibilityInfo answers asynchronously, and until it does the preference is unknown and matches no query
+export const reducedMotion = observable<ReducedMotionPreference | undefined>(
+  undefined,
+);
+
+function setReducedMotion(isReduceMotionEnabled: boolean) {
+  reducedMotion.set(isReduceMotionEnabled ? "reduce" : "no-preference");
 }
 
-try {
-  AccessibilityInfo.addEventListener("reduceMotionChanged", (enabled) =>
-    reduceMotion.set(enabled),
-  );
-} catch {
-  // The flag keeps the value the seed resolved to
-}
+AccessibilityInfo.addEventListener("reduceMotionChanged", setReducedMotion);
+AccessibilityInfo.isReduceMotionEnabled().then(
+  (isReduceMotionEnabled) => {
+    // A change event that arrived first is newer than what the getter read
+    if (reducedMotion.get() === undefined) {
+      setReducedMotion(isReduceMotionEnabled);
+    }
+  },
+  // React Native rejects where the platform has no accessibility module, so the user has stated no preference to it
+  () => {
+    if (reducedMotion.get() === undefined) {
+      reducedMotion.set("no-preference");
+    }
+  },
+);
 
 /** Containers ****************************************************************/
 

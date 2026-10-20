@@ -1,14 +1,17 @@
-// src/native/reactivity.ts is the root of every media feature — colorScheme, vw/vh,
-// containers and reduceMotion all live there. Seeding reduceMotion reaches out to
-// AccessibilityInfo at module scope, so a host without a native AccessibilityInfo
-// must not take the whole module down with it.
-//
-// A Proxy over requireActual rather than a spread: spreading react-native eagerly
-// triggers its lazy DevMenu getter and throws.
-const noopSubscription = { remove: () => undefined };
+type ReduceMotionListener = (isReduceMotionEnabled: boolean) => void;
 
-const withAccessibilityInfo =
-  (accessibilityInfo: unknown) => (): Record<string, unknown> => {
+interface AccessibilityInfoDouble {
+  readonly isReduceMotionEnabled: () => Promise<boolean>;
+  readonly addEventListener: (
+    event: string,
+    listener: ReduceMotionListener,
+  ) => { readonly remove: () => void };
+}
+
+function importReactivityWith(accessibilityInfo: AccessibilityInfoDouble) {
+  jest.resetModules();
+  // A Proxy over requireActual rather than a spread: spreading react-native eagerly triggers its lazy DevMenu getter and throws
+  jest.doMock("react-native", () => {
     const actual = jest.requireActual<Record<string, unknown>>("react-native");
 
     return new Proxy(actual, {
@@ -17,73 +20,75 @@ const withAccessibilityInfo =
           ? accessibilityInfo
           : Reflect.get(target, property),
     });
+  });
+
+  return jest.requireActual<typeof import("../../native/reactivity")>(
+    "../../native/reactivity",
+  );
+}
+
+function controlledAccessibilityInfo() {
+  const listeners: ReduceMotionListener[] = [];
+  let answer: (isReduceMotionEnabled: boolean) => void = () => undefined;
+  const answered = new Promise<boolean>((resolve) => {
+    answer = resolve;
+  });
+
+  return {
+    accessibilityInfo: {
+      isReduceMotionEnabled: () => answered,
+      addEventListener: (event: string, listener: ReduceMotionListener) => {
+        if (event === "reduceMotionChanged") listeners.push(listener);
+        return { remove: () => undefined };
+      },
+    },
+    answer,
+    change: (isReduceMotionEnabled: boolean) => {
+      for (const listener of listeners) listener(isReduceMotionEnabled);
+    },
   };
+}
 
-describe("an AccessibilityInfo without isReduceMotionEnabled", () => {
-  test("does not stop the reactivity module importing", () => {
-    jest.resetModules();
-    jest.doMock(
-      "react-native",
-      withAccessibilityInfo({ addEventListener: () => noopSubscription }),
-    );
+describe("the reduced-motion preference", () => {
+  test("is unknown until AccessibilityInfo answers", () => {
+    const { accessibilityInfo } = controlledAccessibilityInfo();
 
-    const reactivity = jest.requireActual<
-      typeof import("../../native/reactivity")
-    >("../../native/reactivity");
+    const { reducedMotion } = importReactivityWith(accessibilityInfo);
 
-    expect(reactivity.reduceMotion.get()).toBe(false);
-    expect(reactivity.colorScheme).toBeDefined();
-    expect(reactivity.vw).toBeDefined();
+    expect(reducedMotion.get()).toBeUndefined();
   });
-});
 
-describe("an AccessibilityInfo whose getter rejects", () => {
-  test("leaves the safe default in place and does not reject unhandled", async () => {
-    jest.resetModules();
-    jest.doMock(
-      "react-native",
-      withAccessibilityInfo({
-        isReduceMotionEnabled: () =>
-          Promise.reject(new Error("NativeAccessibilityManager unavailable")),
-        addEventListener: () => noopSubscription,
-      }),
-    );
+  test("takes AccessibilityInfo's answer, then follows its change event", async () => {
+    const { accessibilityInfo, answer, change } = controlledAccessibilityInfo();
+    const { reducedMotion } = importReactivityWith(accessibilityInfo);
 
-    const reactivity = jest.requireActual<
-      typeof import("../../native/reactivity")
-    >("../../native/reactivity");
+    answer(true);
+    await Promise.resolve();
+    expect(reducedMotion.get()).toBe("reduce");
+
+    change(false);
+    expect(reducedMotion.get()).toBe("no-preference");
+  });
+
+  test("keeps a change event over an answer that resolves after it", async () => {
+    const { accessibilityInfo, answer, change } = controlledAccessibilityInfo();
+    const { reducedMotion } = importReactivityWith(accessibilityInfo);
+
+    change(true);
+    answer(false);
     await Promise.resolve();
 
-    expect(reactivity.reduceMotion.get()).toBe(false);
+    expect(reducedMotion.get()).toBe("reduce");
   });
-});
 
-describe("a working AccessibilityInfo", () => {
-  test("seeds reduceMotion from it and stays live on the change event", async () => {
-    jest.resetModules();
-    let changed: ((enabled: boolean) => void) | undefined;
-    jest.doMock(
-      "react-native",
-      withAccessibilityInfo({
-        isReduceMotionEnabled: () => Promise.resolve(true),
-        addEventListener: (event: string, listener: (v: boolean) => void) => {
-          if (event === "reduceMotionChanged") changed = listener;
-          return noopSubscription;
-        },
-      }),
-    );
-
-    const reactivity = jest.requireActual<
-      typeof import("../../native/reactivity")
-    >("../../native/reactivity");
+  test("is no-preference where AccessibilityInfo rejects, without an unhandled rejection", async () => {
+    const { reducedMotion } = importReactivityWith({
+      isReduceMotionEnabled: () =>
+        Promise.reject(new Error("NativeAccessibilityManager unavailable")),
+      addEventListener: () => ({ remove: () => undefined }),
+    });
     await Promise.resolve();
 
-    // The seed is what connects the observable to the OS at all; without it the
-    // flag is a value the library only ever writes to itself
-    expect(reactivity.reduceMotion.get()).toBe(true);
-
-    expect(changed).toBeDefined();
-    changed?.(false);
-    expect(reactivity.reduceMotion.get()).toBe(false);
+    expect(reducedMotion.get()).toBe("no-preference");
   });
 });

@@ -1,23 +1,23 @@
-/* eslint-disable */
 import { I18nManager, PixelRatio, Platform } from "react-native";
 
 import type { MediaCondition } from "react-native-css/compiler";
 
-import { colorScheme, reduceMotion, vh, vw, type Getter } from "../reactivity";
+import { colorScheme, reducedMotion, vh, vw, type Getter } from "../reactivity";
 
 export function testMediaQuery(mediaQueries: MediaCondition[], get: Getter) {
   return mediaQueries.every((query) => test(query, get));
 }
 
-function test(mediaQuery: MediaCondition, get: Getter): Boolean {
+function test(mediaQuery: MediaCondition, get: Getter): boolean {
   switch (mediaQuery[0]) {
     case "[]":
       return false;
     case "!!":
-      // MQ5: a feature in a boolean context is true unless its value is `no-preference`
-      return mediaQuery[1] === "prefers-reduced-motion"
-        ? get(reduceMotion)
-        : false;
+      // (prefers-reduced-motion) alone matches every value but no-preference (MQ5 §2.4.2)
+      return (
+        mediaQuery[1] === "prefers-reduced-motion" &&
+        get(reducedMotion) === "reduce"
+      );
     case "!":
       return !test(mediaQuery[1], get);
     case "&":
@@ -38,7 +38,7 @@ function test(mediaQuery: MediaCondition, get: Getter): Boolean {
   }
 }
 
-function testComparison(mediaQuery: MediaCondition, get: Getter): Boolean {
+function testComparison(mediaQuery: MediaCondition, get: Getter): boolean {
   const value = mediaQuery[2];
 
   switch (mediaQuery[1]) {
@@ -52,8 +52,7 @@ function testComparison(mediaQuery: MediaCondition, get: Getter): Boolean {
       return value === get(colorScheme);
     }
     case "prefers-reduced-motion": {
-      // An unknown value matches nothing (MQ5), so this is an equality, not a two-way branch
-      return value === (get(reduceMotion) ? "reduce" : "no-preference");
+      return value === get(reducedMotion);
     }
     case "display-mode":
       return value === "native" || Platform.OS === value;

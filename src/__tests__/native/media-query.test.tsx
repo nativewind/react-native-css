@@ -5,7 +5,7 @@ import { View } from "react-native-css/components/View";
 import { registerCSS, testID } from "react-native-css/jest";
 import { colorScheme } from "react-native-css/runtime";
 
-import { dimensions, reduceMotion } from "../../native/reactivity";
+import { dimensions, reducedMotion } from "../../native/reactivity";
 
 jest.mock("react-native", () => {
   const RN = jest.requireActual("react-native");
@@ -284,157 +284,48 @@ describe("max-resolution", () => {
   });
 });
 
-// Outside the describe below, whose beforeEach overwrites the value before any
-// assertion can see it. The documented cold-start default is motion ENABLED: the
-// getter is async with no synchronous counterpart, so the first paint answers from
-// this, and seeding true would suppress motion-safe: styling for every user.
-test("reduceMotion defaults to false before AccessibilityInfo answers", () => {
-  expect(reduceMotion.get()).toBe(false);
+describe("a reduced-motion preference AccessibilityInfo has not answered", () => {
+  test.each([
+    "(prefers-reduced-motion: reduce)",
+    "(prefers-reduced-motion: no-preference)",
+    "(prefers-reduced-motion)",
+  ])("leaves @media %s unmatched", (query) => {
+    registerCSS(
+      `.my-class { color: #000000; } @media ${query} { .my-class { color: #010101; } }`,
+    );
+
+    render(<View testID={testID} className="my-class" />);
+
+    expect(screen.getByTestId(testID).props.style).toStrictEqual({
+      color: "#000",
+    });
+  });
 });
 
-describe("prefers-reduced-motion", () => {
-  // reduceMotion and colorScheme are module-global observables; reset them so
-  // each test starts from a known state (motion enabled, light scheme).
-  beforeEach(() => {
-    act(() => {
-      reduceMotion.set(false);
-      colorScheme.set("light");
-    });
+test("a mounted view follows the reduced-motion preference as it changes", () => {
+  registerCSS(`
+.my-class { color: #000000; }
+@media (prefers-reduced-motion: no-preference) { .my-class { color: #010101; } }
+@media (prefers-reduced-motion: reduce) { .my-class { color: #020202; } }`);
+
+  render(<View testID={testID} className="my-class" />);
+  const component = screen.getByTestId(testID);
+  expect(component.props.style).toStrictEqual({ color: "#000" });
+
+  act(() => {
+    reducedMotion.set("no-preference");
   });
+  expect(component.props.style).toStrictEqual({ color: "#010101" });
 
-  test("reduce (motion-reduce:) — applies only when reduce motion is enabled", () => {
-    registerCSS(`
-.my-class { color: blue; }
-
-@media (prefers-reduced-motion: reduce) {
-  .my-class { color: red; }
-}`);
-
-    render(<View testID={testID} className="my-class" />);
-    const component = screen.getByTestId(testID);
-
-    // Default: motion enabled → the reduce rule does not apply.
-    expect(component.props.style).toStrictEqual({ color: "#00f" });
-
-    act(() => {
-      reduceMotion.set(true);
-    });
-    expect(component.props.style).toStrictEqual({ color: "#f00" });
-
-    // Reactive both ways — toggling the OS flag off restores the base style.
-    act(() => {
-      reduceMotion.set(false);
-    });
-    expect(component.props.style).toStrictEqual({ color: "#00f" });
+  act(() => {
+    reducedMotion.set("reduce");
   });
+  expect(component.props.style).toStrictEqual({ color: "#020202" });
 
-  test("no-preference (motion-safe:) — applies only when reduce motion is disabled", () => {
-    registerCSS(`
-.my-class { color: blue; }
-
-@media (prefers-reduced-motion: no-preference) {
-  .my-class { color: red; }
-}`);
-
-    render(<View testID={testID} className="my-class" />);
-    const component = screen.getByTestId(testID);
-
-    // Default: motion enabled → no-preference matches.
-    expect(component.props.style).toStrictEqual({ color: "#f00" });
-
-    act(() => {
-      reduceMotion.set(true);
-    });
-    expect(component.props.style).toStrictEqual({ color: "#00f" });
+  act(() => {
+    reducedMotion.set("no-preference");
   });
-
-  test("composes with prefers-color-scheme via `and`", () => {
-    registerCSS(`
-.my-class { color: blue; }
-
-@media (prefers-reduced-motion: reduce) and (prefers-color-scheme: dark) {
-  .my-class { color: red; }
-}`);
-
-    render(<View testID={testID} className="my-class" />);
-    const component = screen.getByTestId(testID);
-
-    expect(component.props.style).toStrictEqual({ color: "#00f" });
-
-    // Only reduce motion — the rule still needs dark.
-    act(() => {
-      reduceMotion.set(true);
-    });
-    expect(component.props.style).toStrictEqual({ color: "#00f" });
-
-    // Both conditions now hold.
-    act(() => {
-      colorScheme.set("dark");
-    });
-    expect(component.props.style).toStrictEqual({ color: "#f00" });
-  });
-
-  test("negation — not (prefers-reduced-motion: reduce)", () => {
-    registerCSS(`
-.my-class { color: blue; }
-
-@media not all and (prefers-reduced-motion: reduce) {
-  .my-class { color: red; }
-}`);
-
-    render(<View testID={testID} className="my-class" />);
-    const component = screen.getByTestId(testID);
-
-    // Motion enabled → not(reduce) is true → the rule applies.
-    expect(component.props.style).toStrictEqual({ color: "#f00" });
-
-    act(() => {
-      reduceMotion.set(true);
-    });
-    expect(component.props.style).toStrictEqual({ color: "#00f" });
-  });
-
-  test("bare boolean — @media (prefers-reduced-motion) is equivalent to reduce", () => {
-    registerCSS(`
-.my-class { color: blue; }
-
-@media (prefers-reduced-motion) {
-  .my-class { color: red; }
-}`);
-
-    render(<View testID={testID} className="my-class" />);
-    const component = screen.getByTestId(testID);
-
-    // Bare boolean form matches when reduce motion is enabled (CSS: bare ≡ reduce).
-    expect(component.props.style).toStrictEqual({ color: "#00f" });
-
-    act(() => {
-      reduceMotion.set(true);
-    });
-    expect(component.props.style).toStrictEqual({ color: "#f00" });
-  });
-
-  test("an unrecognised value never matches", () => {
-    // The compiler emits ["=", name, value] for any value, with no allowlist, so
-    // this condition is reachable. MQ5 makes an unknown value false — a two-way
-    // branch on `no-preference` would alias everything else to `reduce`.
-    registerCSS(`
-.my-class { color: blue; }
-
-@media (prefers-reduced-motion: bogus-value) {
-  .my-class { color: red; }
-}`);
-
-    render(<View testID={testID} className="my-class" />);
-    const component = screen.getByTestId(testID);
-
-    expect(component.props.style).toStrictEqual({ color: "#00f" });
-
-    act(() => {
-      reduceMotion.set(true);
-    });
-    expect(component.props.style).toStrictEqual({ color: "#00f" });
-  });
+  expect(component.props.style).toStrictEqual({ color: "#010101" });
 });
 
 // Chromium 153, Firefox 155 and WebKit 26.6 agree on every row: [query, reduce/light, reduce/dark, no-preference/light, no-preference/dark]
@@ -448,6 +339,13 @@ const BROWSER_MEDIA_ROWS = [
   [
     "(prefers-reduced-motion: reduce) and (min-width: 1px)",
     true,
+    true,
+    false,
+    false,
+  ],
+  [
+    "(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)",
+    false,
     true,
     false,
     false,
@@ -476,20 +374,13 @@ const MEDIA_STATES = [
 describe.each(BROWSER_MEDIA_ROWS)(
   "@media %s matches as browsers match it",
   (query, ...matches) => {
-    afterEach(() => {
-      act(() => {
-        reduceMotion.set(false);
-        colorScheme.set("light");
-      });
-    });
-
     test.each(
       MEDIA_STATES.map(
         ([motion, scheme], index) => [motion, scheme, matches[index]] as const,
       ),
     )("under %s motion in the %s scheme: %s", (motion, scheme, expected) => {
       act(() => {
-        reduceMotion.set(motion === "reduce");
+        reducedMotion.set(motion);
         colorScheme.set(scheme);
       });
       registerCSS(
