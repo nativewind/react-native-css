@@ -73,6 +73,12 @@ describe("@media on a 600x400 screen", () => {
     ["(fictional-thing) or (width > 400px)", true],
     ["(width > 400px) and (fictional-thing)", false],
     ["not (pointer: fine)", false],
+    ["(orientation: bogus)", false],
+    ["not (orientation: bogus)", false],
+    ["not (hover: bogus)", false],
+    ["not (prefers-color-scheme: bogus)", false],
+    ["not (scripting: bogus)", false],
+    ["not (update: bogus)", false],
   ])("an undecidable term in %s matches: %s", (condition, expected) => {
     expect(mediaMatches(condition)).toBe(expected);
   });
@@ -143,6 +149,8 @@ describe("@container on a 400x200 container", () => {
     "(fictional-feature > 10px) or (width > 0px)",
     "(width > env(safe-area-inset-top))",
     "not (width > env(safe-area-inset-top))",
+    "(orientation: bogus)",
+    "not (orientation: bogus)",
   ])("%s selects no container", (condition) => {
     expect(containerMatches(condition)).toBe(false);
   });

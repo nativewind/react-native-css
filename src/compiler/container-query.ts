@@ -6,6 +6,7 @@ import type {
 
 import type { MediaCondition } from "./compiler.types";
 import {
+  isUnknownKeyword,
   parseMediaFeatureOperator,
   parseMediaFeatureValue,
 } from "./media-query";
@@ -76,7 +77,9 @@ function parseFeature(
       return ["!!", feature.name];
     case "plain": {
       const value = parseMediaFeatureValue(feature.value, builder);
-      return value === undefined ? undefined : ["=", feature.name, value];
+      return value === undefined || isUnknownKeyword(feature.name, value)
+        ? undefined
+        : ["=", feature.name, value];
     }
     case "range": {
       const value = parseMediaFeatureValue(feature.value, builder);

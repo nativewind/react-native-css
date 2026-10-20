@@ -8,6 +8,7 @@ import type {
   QueryFeatureFor_MediaFeatureId,
 } from "lightningcss";
 
+import { asciiLowerCase } from "../utilities/ascii-case";
 import type {
   MediaCondition,
   MediaFeatureComparison,
@@ -89,6 +90,25 @@ function parseMediaQueryCondition(
   }
 }
 
+// The keywords Media Queries 4 and 5 give each discrete feature the runtime answers; any other keyword leaves the feature unknown (MQ5 §3.1)
+const FEATURE_KEYWORDS: Readonly<Partial<Record<string, readonly string[]>>> = {
+  "hover": ["none", "hover"],
+  "orientation": ["portrait", "landscape"],
+  "prefers-color-scheme": ["light", "dark"],
+  "prefers-reduced-motion": ["no-preference", "reduce"],
+  "scripting": ["none", "initial-only", "enabled"],
+  "update": ["none", "slow", "fast"],
+};
+
+export function isUnknownKeyword(name: string, operand: MediaFeatureOperand) {
+  const keywords = FEATURE_KEYWORDS[name];
+  return (
+    keywords !== undefined &&
+    typeof operand === "string" &&
+    !keywords.includes(asciiLowerCase(operand))
+  );
+}
+
 function parseFeature(
   feature: QueryFeatureFor_MediaFeatureId,
   builder: StylesheetBuilder,
@@ -96,12 +116,12 @@ function parseFeature(
   switch (feature.type) {
     case "boolean":
       return ["!!", feature.name];
-    case "plain":
-      return [
-        "=",
-        feature.name,
-        parseMediaFeatureOperand(feature.value, builder),
-      ];
+    case "plain": {
+      const operand = parseMediaFeatureOperand(feature.value, builder);
+      return isUnknownKeyword(feature.name, operand)
+        ? ["?"]
+        : ["=", feature.name, operand];
+    }
     case "range":
       return [
         parseMediaFeatureOperator(feature.operator),
