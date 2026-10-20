@@ -105,7 +105,7 @@ export function isUnknownKeyword(name: string, operand: MediaFeatureOperand) {
   return (
     keywords !== undefined &&
     typeof operand === "string" &&
-    !keywords.includes(asciiLowerCase(operand))
+    !keywords.includes(operand)
   );
 }
 
@@ -159,6 +159,8 @@ export function parseMediaFeatureValue(
     case "boolean":
       return value.value ? 1 : 0;
     case "ident":
+      // Keywords are ASCII case-insensitive (css-values-4 §4.1)
+      return asciiLowerCase(value.value);
     case "integer":
     case "number":
       return value.value;

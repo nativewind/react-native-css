@@ -14,13 +14,16 @@ afterEach(() => {
   });
 });
 
-function mediaMatches(condition: string): boolean {
+function mediaMatches(
+  condition: string,
+  size = { width: 600, height: 400 },
+): boolean {
   registerCSS(`
     .child { width: 10px; }
     @media ${condition} { .child { width: 37px; } }
   `);
   act(() => {
-    dimensions.set({ ...dimensions.get(), width: 600, height: 400 });
+    dimensions.set({ ...dimensions.get(), ...size });
   });
   const { unmount } = render(<View testID="child" className="child" />);
   const { width } = screen.getByTestId("child").props.style;
@@ -95,8 +98,20 @@ describe("@media on a 600x400 screen", () => {
     ["(monochrome)", false],
     ["(grid)", false],
     ["not (monochrome)", true],
+    ["(color-index)", false],
+    ["(display-mode)", true],
     ["(dir)", false],
   ])("the boolean context %s matches: %s", (condition, expected) => {
+    expect(mediaMatches(condition)).toBe(expected);
+  });
+
+  // css-values-4 §4.1: a keyword matches in any case
+  test.each([
+    ["(orientation: LANDSCAPE)", true],
+    ["not (orientation: LANDSCAPE)", false],
+    ["(orientation: PORTRAIT)", false],
+    ["not (orientation: PORTRAIT)", true],
+  ])("the keyword in %s matches: %s", (condition, expected) => {
     expect(mediaMatches(condition)).toBe(expected);
   });
 
@@ -121,6 +136,8 @@ describe("@media on a 600x400 screen", () => {
     [null, "(prefers-color-scheme: dark)", false],
     ["dark", "(prefers-color-scheme: dark)", true],
     ["dark", "(prefers-color-scheme: light)", false],
+    ["dark", "(prefers-color-scheme: DARK)", true],
+    ["dark", "(prefers-color-scheme: Light)", false],
   ] as const)(
     "with a %p preference, %s matches: %s",
     (scheme, condition, expected) => {
@@ -130,6 +147,20 @@ describe("@media on a 600x400 screen", () => {
       expect(mediaMatches(condition)).toBe(expected);
     },
   );
+});
+
+describe("@media on a 400x600 screen", () => {
+  const portrait = { width: 400, height: 600 };
+
+  // css-values-4 §4.1: a keyword matches in any case
+  test.each([
+    ["(orientation: portrait)", true],
+    ["(orientation: PORTRAIT)", true],
+    ["not (orientation: PORTRAIT)", false],
+    ["(orientation: Landscape)", false],
+  ])("the keyword in %s matches: %s", (condition, expected) => {
+    expect(mediaMatches(condition, portrait)).toBe(expected);
+  });
 });
 
 describe("@container on a 400x200 container", () => {
@@ -169,6 +200,15 @@ describe("@container on a 400x200 container", () => {
     ["(aspect-ratio)", true],
     ["not (width)", false],
   ])("the boolean context %s matches: %s", (condition, expected) => {
+    expect(containerMatches(condition)).toBe(expected);
+  });
+
+  // css-values-4 §4.1: a keyword matches in any case
+  test.each([
+    ["(orientation: LANDSCAPE)", true],
+    ["not (orientation: LANDSCAPE)", false],
+    ["(orientation: Portrait)", false],
+  ])("the keyword in %s matches: %s", (condition, expected) => {
     expect(containerMatches(condition)).toBe(expected);
   });
 
