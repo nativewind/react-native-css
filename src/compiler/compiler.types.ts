@@ -239,7 +239,8 @@ export interface ContainerQuery {
  * This array is sorted by most common values when parsing a StyleSheet
  */
 export type SpecificityArray = SpecificityValue[];
-export type SpecificityValue = number | undefined;
+/** `null` is what a native runtime reads for an unset slot, because the sheet reaches it as JSON. */
+export type SpecificityValue = number | null | undefined;
 
 /******************************    Compiler    ********************************/
 
