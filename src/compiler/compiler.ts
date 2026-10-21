@@ -10,6 +10,7 @@ import {
   type PropertyRule,
   type Rule,
   type Visitor,
+  type Warning,
 } from "lightningcss";
 
 import {
@@ -41,6 +42,21 @@ import { StylesheetBuilder } from "./stylesheet";
 import { supportsConditionValid } from "./supports";
 
 const defaultLogger = debug("react-native-css:compiler");
+
+// lightningcss reports this package's own at-rule as unknown
+const OWN_AT_RULE_WARNING = "Unknown at rule: @nativeMapping";
+
+// lightningcss passes a rule it cannot parse through and the visitor drops it, so its warning is the only signal; only the first pass reads the author's CSS
+function reportSyntaxWarnings(
+  builder: StylesheetBuilder,
+  warnings: Warning[],
+): void {
+  for (const warning of warnings) {
+    if (warning.message !== OWN_AT_RULE_WARNING) {
+      builder.addSyntaxWarning(warning.message);
+    }
+  }
+}
 
 /**
  * Converts a CSS file to a collection of style declarations that can be used with the StyleSheet API
@@ -170,13 +186,15 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
     };
   }
 
-  const { code: firstPass } = lightningcss({
+  const { code: firstPass, warnings: firstPassWarnings } = lightningcss({
     code: typeof code === "string" ? new TextEncoder().encode(code) : code,
     include: Features.DoublePositionGradients | Features.ColorFunction,
     exclude: Features.VendorPrefixes,
     visitor: firstPassVisitor,
     filename: options.filename ?? "style.css",
     projectRoot: options.projectRoot ?? process.cwd(),
+    // A rule or declaration that fails to parse is dropped and its siblings survive (css-syntax-3 §5)
+    errorRecovery: true,
   });
 
   if (isLoggerEnabled) {
@@ -229,7 +247,10 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
     visitor,
     filename: options.filename ?? "style.css",
     projectRoot: options.projectRoot ?? process.cwd(),
+    errorRecovery: true,
   });
+
+  reportSyntaxWarnings(builder, firstPassWarnings);
 
   return {
     stylesheet: () => builder.getNativeStyleSheet(),

@@ -2308,7 +2308,7 @@ export function parseLineHeight(
             "style",
             "line-height",
             typeof length.value === "number"
-              ? length.value
+              ? String(length.value)
               : JSON.stringify(length.value),
           );
           return;

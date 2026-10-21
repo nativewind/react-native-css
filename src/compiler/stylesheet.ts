@@ -9,6 +9,7 @@ import type {
   AnimationKeyframes,
   AnimationRecord,
   CompilerOptions,
+  CompilerWarnings,
   ContainerQuery,
   MediaCondition,
   ReactNativeCssStyleSheet,
@@ -68,8 +69,9 @@ export class StylesheetBuilder {
       ruleOrder: number;
       warningProperty?: string;
       warningProperties: string[];
-      warningValues: Record<string, unknown[]>;
+      warningValues: Record<string, string[]>;
       warningFunctions: string[];
+      syntaxWarnings: Set<string>;
     } = {
       ruleSets: {},
       rem: 14,
@@ -77,6 +79,7 @@ export class StylesheetBuilder {
       warningProperties: [],
       warningValues: {},
       warningFunctions: [],
+      syntaxWarnings: new Set(),
     },
     private selectors: SelectorList = [],
   ) {}
@@ -198,18 +201,17 @@ export class StylesheetBuilder {
   }
 
   addWarning(type: "property" | "value", property: string): void;
-  addWarning(type: "style", property: string, value: unknown): void;
+  addWarning(type: "style", property: string, value: string): void;
   addWarning(
     type: "property" | "style" | "value",
     property: string,
-    value?: unknown,
+    value: string = property,
   ): void {
     switch (type) {
       case "property":
         this.shared.warningProperties.push(property);
         break;
       case "value": {
-        value = property;
         property = this.shared.warningProperty ?? "";
 
         if (!property) {
@@ -227,12 +229,13 @@ export class StylesheetBuilder {
     }
   }
 
-  getWarnings() {
-    const result: {
-      properties?: string[];
-      values?: Record<string, unknown[]>;
-      functions?: string[];
-    } = {};
+  // A lightningcss message carries no position, so a repeated mistake is one entry
+  addSyntaxWarning(message: string): void {
+    this.shared.syntaxWarnings.add(message);
+  }
+
+  getWarnings(): CompilerWarnings {
+    const result: CompilerWarnings = {};
 
     if (this.shared.warningProperties.length) {
       result.properties = this.shared.warningProperties;
@@ -244,6 +247,10 @@ export class StylesheetBuilder {
 
     if (this.shared.warningFunctions.length) {
       result.functions = this.shared.warningFunctions;
+    }
+
+    if (this.shared.syntaxWarnings.size) {
+      result.syntax = [...this.shared.syntaxWarnings];
     }
 
     return result;

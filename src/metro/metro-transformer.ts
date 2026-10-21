@@ -6,6 +6,7 @@ import type {
 
 import { compile, type CompilerOptions } from "../compiler";
 import { getNativeInjectionCode } from "./injection-code";
+import { reportCompilerWarnings, type WarningLevel } from "./warnings";
 
 type TransformResponse = Awaited<
   ReturnType<typeof import("metro-transform-worker").transform>
@@ -17,7 +18,9 @@ const worker =
 
 export async function transform(
   config: JsTransformerConfig & {
-    reactNativeCSS?: CompilerOptions | undefined;
+    reactNativeCSS?:
+      | (CompilerOptions & { warnings?: WarningLevel | undefined })
+      | undefined;
   },
   projectRoot: string,
   filePath: string,
@@ -39,11 +42,23 @@ export async function transform(
 
   const css = cssFile.output[0].data.css.code.toString();
 
-  const productionJS = compile(css, {
-    ...config.reactNativeCSS,
+  const { warnings: warningLevel, ...compilerOptions } =
+    config.reactNativeCSS ?? {};
+
+  const compiled = compile(css, {
+    ...compilerOptions,
     filename: filePath,
     projectRoot: projectRoot,
-  }).stylesheet();
+  });
+
+  const productionJS = compiled.stylesheet();
+
+  // Nothing downstream of the transformer sees the compile result, so this is the one place a build can report it
+  reportCompilerWarnings(compiled.warnings(), {
+    filename: filePath,
+    projectRoot,
+    level: warningLevel,
+  });
 
   data = Buffer.from(getNativeInjectionCode([], [productionJS]));
 
