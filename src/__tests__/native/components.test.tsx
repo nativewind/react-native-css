@@ -1,6 +1,7 @@
 import { memo } from "react";
 import {
   Animated,
+  PlatformColor,
   Button as RNButton,
   Image as RNImage,
   KeyboardAvoidingView as RNKeyboardAvoidingView,
@@ -402,23 +403,15 @@ test.each([
     "style",
     "style.borderColor",
     { margin: 1 },
-    { margin: 1 },
     { margin: 1, borderColor: "#00f" },
-  ],
-  [
-    "an inline style function",
-    "style",
-    "style.borderColor",
-    inlineStyleFunction,
-    inlineStyleFunction,
-    inlineStyleFunction,
+    { margin: 1, borderColor: "#00f" },
   ],
   [
     "an inline style holding an Animated value",
     "style",
     "style.borderColor",
     { opacity: animatedOpacity },
-    { opacity: animatedOpacity },
+    { opacity: animatedOpacity, borderColor: "#00f" },
     { opacity: animatedOpacity, borderColor: "#00f" },
   ],
   [
@@ -426,8 +419,16 @@ test.each([
     "android_ripple",
     "android_ripple.color",
     { borderless: true },
-    { borderless: true },
     { borderless: true, color: "#00f" },
+    { borderless: true, color: "#00f" },
+  ],
+  [
+    "an inline style function",
+    "style",
+    "style.borderColor",
+    inlineStyleFunction,
+    inlineStyleFunction,
+    { borderColor: "#00f" },
   ],
   [
     "an inline style array",
@@ -435,14 +436,14 @@ test.each([
     "style.borderColor",
     inlineStyleArray,
     inlineStyleArray,
-    [inlineStyleArray, { borderColor: "#00f" }],
+    { borderColor: "#00f" },
   ],
   [
     "an inline style of false",
     "style",
     "style.borderColor",
     false,
-    { borderColor: "#00f" },
+    false,
     { borderColor: "#00f" },
   ],
   [
@@ -450,11 +451,11 @@ test.each([
     "style",
     "style.borderColor",
     null,
-    { borderColor: "#00f" },
+    null,
     { borderColor: "#00f" },
   ],
 ] as const)(
-  "%s beside a target:false mapping into it takes the normal value below it and the !important one over it",
+  "%s beside a target:false mapping into it settles key by key where it is an object, and whole where it is not",
   (_, prop, destination, inlineValue, withNormal, withImportant) => {
     for (const [css, expected] of [
       [`.label { color: blue; }`, withNormal],
@@ -746,6 +747,144 @@ test.each([
     );
   },
 );
+
+const receivedProps = (
+  mapping: Parameters<typeof styled>[1],
+  props: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> => {
+  let received: Readonly<Record<string, unknown>> = {};
+  const Received = (receivedByComponent: Readonly<Record<string, unknown>>) => {
+    received = receivedByComponent;
+    return null;
+  };
+  const Mapped = styled(Received, mapping);
+  const { unmount } = render(<Mapped {...props} />);
+  unmount();
+  return received;
+};
+
+test("an !important platform color beats a string beside it, inline or normal", () => {
+  registerCSS(`
+    .normal-caret { caret-color: red; color: red; }
+    .important-caret { --platform: platformColor(systemBlue); caret-color: var(--platform) !important; color: var(--platform) !important; }
+  `);
+  const platformBlue = PlatformColor("systemBlue");
+
+  expect(
+    receivedProps(
+      { className: "style" },
+      { className: "important-caret", cursorColor: "green" },
+    ).cursorColor,
+  ).toStrictEqual(platformBlue);
+  expect(
+    receivedProps(
+      { className: "style" },
+      { className: "normal-caret important-caret" },
+    ).cursorColor,
+  ).toStrictEqual(platformBlue);
+  expect(
+    receivedProps(
+      { className: { target: false, nativeStyleMapping: { color: "color" } } },
+      { className: "normal-caret important-caret", color: "green" },
+    ).color,
+  ).toStrictEqual(platformBlue);
+
+  render(<Button title="t" className="important-caret" color="blue" />);
+  expect(screen.UNSAFE_getByType(RNButton).props.color).toStrictEqual(
+    platformBlue,
+  );
+});
+
+test.each([
+  ["no header class", {}],
+  ["a header class that matches nothing", { headerClassName: "unmatched" }],
+  ["inline options of null", { options: null }],
+] as const)(
+  "an !important mapping beside a two-key target keeps its value with %s and the target:false config last",
+  (_, props) => {
+    registerCSS(`.tint { color: red !important; }`);
+
+    expect(
+      receivedProps(
+        {
+          headerClassName: "options.headerStyle",
+          tintClassName: {
+            target: false,
+            nativeStyleMapping: { color: "options.headerTintColor" },
+          },
+        },
+        { tintClassName: "tint", ...props },
+      ).options,
+    ).toStrictEqual({ headerTintColor: "#f00" });
+  },
+);
+
+test.each([null, false] as const)(
+  "an inline ripple of %p clears a class ripple, as it does without one",
+  (inlineRipple) => {
+    registerCSS(`.ripple { -rn-ripple-color: red; }`);
+
+    expect(
+      receivedProps(
+        { className: "style" },
+        { className: "ripple", android_ripple: inlineRipple },
+      ).android_ripple,
+    ).toBe(inlineRipple);
+  },
+);
+
+test("an !important mapping into a hitSlop side replaces an inline hitSlop number", () => {
+  registerCSS(`.slop { width: 10px !important; }`);
+
+  expect(
+    receivedProps(
+      {
+        slopClassName: {
+          target: false,
+          nativeStyleMapping: { width: "hitSlop.top" },
+        },
+      },
+      { slopClassName: "slop", hitSlop: 5 },
+    ).hitSlop,
+  ).toStrictEqual({ top: 10 });
+});
+
+test("a mapping into an entry of a transform keeps the transform an array", () => {
+  registerCSS(
+    `.turned { transform: rotate(45deg) translateX(10px); } .label { color: red; }`,
+  );
+
+  expect(
+    receivedProps(
+      {
+        className: "style",
+        labelClassName: {
+          target: false,
+          nativeStyleMapping: { color: "style.transform.1.label" },
+        },
+      },
+      { className: "turned", labelClassName: "label" },
+    ).style,
+  ).toStrictEqual({
+    transform: [{ rotate: "45deg" }, { translateX: 10, label: "#f00" }],
+  });
+});
+
+test("an empty inline object leaves a mapped array as it is", () => {
+  registerCSS(`.turned { transform: rotate(45deg); }`);
+
+  expect(
+    receivedProps(
+      {
+        turnClassName: {
+          target: false,
+          nativeStyleMapping: { transform: "turns" },
+        },
+      },
+      { turnClassName: "turned", turns: {} },
+    ).turns,
+  ).toStrictEqual([{ rotate: "45deg" }]);
+});
 
 test("a memoized child renders once under an !important ripple while the classes stay the same", () => {
   registerCSS(

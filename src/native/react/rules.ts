@@ -50,9 +50,8 @@ export function updateRules(
 
   for (const config of state.configs) {
     const source = currentProps?.[config.source];
-    const shallowTarget = Array.isArray(config.target)
-      ? config.target[0]
-      : config.target;
+    const shallowTarget =
+      typeof config.target === "object" ? config.target[0] : config.target;
 
     guards.push(["a", config.source, source]);
     if (shallowTarget) {
