@@ -1,4 +1,4 @@
-import { withDeepPath, withoutKeys } from "../../native/objects";
+import { valueAtPath, withDeepPath, withoutKeys } from "../../native/objects";
 
 describe("withDeepPath", () => {
   test("sets a nested value on copies of the objects on its path, leaving the source untouched", () => {
@@ -71,5 +71,27 @@ describe("withoutKeys", () => {
 
     expect(withoutKeys(source, ["color"])).toStrictEqual({ opacity: 1 });
     expect(source).toStrictEqual({ color: "red", opacity: 1 });
+  });
+});
+
+describe("valueAtPath", () => {
+  test("reads the value at the end of its path, through objects and arrays", () => {
+    const source = { style: { transform: [{ rotate: "45deg" }] } };
+
+    expect(valueAtPath(source, ["style", "transform", "0", "rotate"])).toBe(
+      "45deg",
+    );
+  });
+
+  test("answers undefined for a key the path misses or a value it cannot read into", () => {
+    expect(valueAtPath({ style: {} }, ["style", "color"])).toBeUndefined();
+    expect(valueAtPath({ style: "red" }, ["style", "color"])).toBeUndefined();
+    expect(valueAtPath(null, ["style"])).toBeUndefined();
+  });
+
+  test("returns its source for an empty path", () => {
+    const source = { style: {} };
+
+    expect(valueAtPath(source, [])).toBe(source);
   });
 });

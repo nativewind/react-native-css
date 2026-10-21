@@ -12,17 +12,7 @@ export function getDeepPath(source: any, paths: string | string[] | false) {
   }
 
   if (Array.isArray(paths)) {
-    let target = source;
-
-    for (const path of paths) {
-      if (typeof target !== "object" || !target || !(path in target)) {
-        return undefined;
-      }
-
-      target = target[path];
-    }
-
-    return target;
+    return valueAtPath(source, paths);
   } else if (transformKeys.has(paths)) {
     return Array.isArray(source?.transform)
       ? source.transform.find((t: any) => t[paths] !== undefined)
@@ -30,6 +20,20 @@ export function getDeepPath(source: any, paths: string | string[] | false) {
   } else {
     return source?.[paths];
   }
+}
+
+export function valueAtPath(source: unknown, path: readonly string[]): unknown {
+  let value = source;
+
+  for (const key of path) {
+    if (typeof value !== "object" || value === null || !(key in value)) {
+      return undefined;
+    }
+
+    value = Reflect.get(value, key);
+  }
+
+  return value;
 }
 
 export function applyShorthand(value: any) {

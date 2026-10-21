@@ -1,4 +1,4 @@
-import type { StyleRule } from "react-native-css/compiler";
+import type { CollectedTarget, StyleRule } from "react-native-css/compiler";
 
 import type { Config } from "./useNativeCss";
 
@@ -9,14 +9,14 @@ export function collectionTarget(config: Config): RuleTarget {
   return config.target === false ? { collect: config.source } : config.target;
 }
 
-export function targetPath(target: RuleTarget): string[] {
+export function targetPath(target: RuleTarget): readonly string[] {
   if (typeof target === "string") {
     return [target];
   }
 
-  return "collect" in target ? [target.collect] : target;
+  return collectsProps(target) ? [target.collect] : target;
 }
 
-export function collectsProps(target: RuleTarget): boolean {
+export function collectsProps(target: RuleTarget): target is CollectedTarget {
   return typeof target === "object" && "collect" in target;
 }

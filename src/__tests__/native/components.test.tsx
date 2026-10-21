@@ -413,24 +413,133 @@ test.each([
 ] as const)(
   "%s reaches the component as it came beside a target:false mapping into it",
   (_, prop, destination, inlineValue) => {
-    registerCSS(`.label { color: blue; }`);
+    for (const css of [
+      `.label { color: blue; }`,
+      `.label { color: blue !important; }`,
+    ]) {
+      registerCSS(css);
+      let received: Readonly<Record<string, unknown>> = {};
+      const Received = (props: Readonly<Record<string, unknown>>) => {
+        received = props;
+        return null;
+      };
+      const Mapped = styled(Received, {
+        labelClassName: {
+          target: false,
+          nativeStyleMapping: { color: destination },
+        },
+      });
+
+      const { unmount } = render(
+        <Mapped labelClassName="label" {...{ [prop]: inlineValue }} />,
+      );
+
+      expect({ css, value: received[prop] }).toStrictEqual({
+        css,
+        value: inlineValue,
+      });
+      unmount();
+    }
+  },
+);
+
+test.each([
+  [
+    "one config's normal and !important declarations",
+    `.mapped { color: blue; background-color: red !important; }`,
+    {
+      labelClassName: {
+        target: false,
+        nativeStyleMapping: {
+          color: "style.borderColor",
+          backgroundColor: "style.backgroundColor",
+        },
+      },
+    },
+    { labelClassName: "mapped" },
+    { style: { borderColor: "#00f", backgroundColor: "#f00" } },
+  ],
+  [
+    "two configs, one of them !important",
+    `.border { color: blue; } .fill { color: red !important; }`,
+    {
+      borderClassName: {
+        target: false,
+        nativeStyleMapping: { color: "style.borderColor" },
+      },
+      fillClassName: {
+        target: false,
+        nativeStyleMapping: { color: "style.backgroundColor" },
+      },
+    },
+    { borderClassName: "border", fillClassName: "fill" },
+    { style: { borderColor: "#00f", backgroundColor: "#f00" } },
+  ],
+  [
+    "a ripple's normal and !important declarations",
+    `.ripple { color: blue; border-radius: 4px !important; }`,
+    {
+      rippleClassName: {
+        target: false,
+        nativeStyleMapping: {
+          color: "android_ripple.color",
+          borderRadius: "android_ripple.radius",
+        },
+      },
+    },
+    { rippleClassName: "ripple" },
+    { android_ripple: { color: "#00f", radius: 4 } },
+  ],
+] as const)(
+  "%s mapped into one prop by target:false configs meet key by key",
+  (_, css, mapping, classNames, expected) => {
+    registerCSS(css);
     let received: Readonly<Record<string, unknown>> = {};
     const Received = (props: Readonly<Record<string, unknown>>) => {
       received = props;
       return null;
     };
-    const Mapped = styled(Received, {
-      labelClassName: {
-        target: false,
-        nativeStyleMapping: { color: destination },
-      },
-    });
+    const Mapped = styled(Received, mapping);
 
-    render(<Mapped labelClassName="label" {...{ [prop]: inlineValue }} />);
+    render(<Mapped {...classNames} />);
 
-    expect(received[prop]).toBe(inlineValue);
+    expect(received).toStrictEqual(expected);
   },
 );
+
+test("a mapping reads the props as computed, so the configs' order changes nothing", () => {
+  registerCSS(`.base { border-color: green; } .label { color: blue; }`);
+  const labelClassName = {
+    target: false,
+    nativeStyleMapping: { color: "style.borderColor" },
+  } as const;
+  const className = {
+    target: "style",
+    nativeStyleMapping: { borderColor: "badgeColor" },
+  } as const;
+
+  const rendered = [
+    { labelClassName, className },
+    { className, labelClassName },
+  ].map((mapping) => {
+    let received: Readonly<Record<string, unknown>> = {};
+    const Received = (props: Readonly<Record<string, unknown>>) => {
+      received = props;
+      return null;
+    };
+    const Mapped = styled(Received, mapping);
+    const { unmount } = render(
+      <Mapped className="base" labelClassName="label" />,
+    );
+    unmount();
+    return received;
+  });
+
+  expect(rendered).toStrictEqual([
+    { style: { borderColor: "#00f" }, badgeColor: "#008000" },
+    { style: { borderColor: "#00f" }, badgeColor: "#008000" },
+  ]);
+});
 
 test("a mapping builds its props once while the classes stay the same", () => {
   registerCSS(`.c10 { color: orange; opacity: 0.5; } .c11 { color: blue; }`);
