@@ -7,6 +7,7 @@ import {
   isPlainObject,
   valueAtPath,
   withDeepPaths,
+  withoutKeys,
   withoutKeysAt,
 } from "../objects";
 import { collectionTarget, targetPath } from "../react/collection-target";
@@ -314,13 +315,17 @@ export function getStyledProps(
       target[path[path.length - 1]!] = value;
     }
     const base = inline ? mergeDefinedProps(normal, inline) : { ...normal };
+    const unset: string[] = [];
     for (const key of untargetedKeys(state.configs, normal, important)) {
       const value = layerImportant(base[key], important?.[key]);
       if (value === undefined) {
-        delete result[key];
+        unset.push(key);
       } else {
         result[key] = value;
       }
+    }
+    if (unset.length > 0) {
+      result = { ...withoutKeys(result, unset) };
     }
     for (const source of consumedSources) {
       delete result[source];
@@ -621,17 +626,29 @@ function untargetedKeys(
   normal: Readonly<Record<string, unknown>> | undefined,
   important: Readonly<Record<string, unknown>> | undefined,
 ): readonly string[] {
-  const owned = new Set(
-    configs.flatMap((config) =>
-      config.target === false
-        ? [config.source]
-        : [config.source, ...targetPath(config.target).slice(0, 1)],
-    ),
-  );
-  return [
-    ...new Set([...Object.keys(normal ?? {}), ...Object.keys(important ?? {})]),
-  ].filter((key) => !owned.has(key));
+  const owned = ownedPropsFamily(configs);
+  const keys: string[] = [];
+  for (const props of [normal ?? {}, important ?? {}]) {
+    for (const key of Object.keys(props)) {
+      if (!owned.has(key) && !keys.includes(key)) {
+        keys.push(key);
+      }
+    }
+  }
+  return keys;
 }
+
+// A config owns its source and its target's first key, and a component keeps one configs array, so this runs once per component
+const ownedPropsFamily = weakFamily(
+  (configs: readonly Readonly<Config>[]): ReadonlySet<string> =>
+    new Set(
+      configs.flatMap((config) =>
+        config.target === false
+          ? [config.source]
+          : [config.source, ...targetPath(config.target).slice(0, 1)],
+      ),
+    ),
+);
 
 // !important beats inline, as in the cascade, key by key where both are plain objects; an inline value no key merge can enter, such as a style function or an array, stands
 function layerImportant(below: unknown, important: unknown): unknown {

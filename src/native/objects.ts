@@ -149,6 +149,11 @@ export function withDeepPaths(
 
   const result = copyOf(source);
   for (const [path, value] of pathed) {
+    const key = path[path.length - 1];
+    if (key === undefined) {
+      continue;
+    }
+
     let target = result;
     for (const segment of path.slice(0, -1)) {
       const child = target[segment];
@@ -156,7 +161,7 @@ export function withDeepPaths(
       target[segment] = next;
       target = next;
     }
-    target[path[path.length - 1]!] = value;
+    target[key] = value;
   }
 
   return result;
