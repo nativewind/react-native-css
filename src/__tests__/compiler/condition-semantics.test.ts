@@ -1,4 +1,12 @@
+import type {
+  ContainerCondition as CSSContainerCondition,
+  MediaCondition as CSSMediaCondition,
+} from "lightningcss";
 import { compile, type StyleRule } from "react-native-css/compiler";
+
+import { parseContainerCondition } from "../../compiler/container-query";
+import { parseMediaQueryCondition } from "../../compiler/media-query";
+import { StylesheetBuilder } from "../../compiler/stylesheet";
 
 function compileChildConditions(css: string): Pick<StyleRule, "m" | "cq">[] {
   return (compile(css).stylesheet().s ?? []).flatMap(([className, rules]) =>
@@ -49,7 +57,7 @@ test.each<[string, Pick<StyleRule, "m" | "cq">]>([
     { m: [["|", [["?"], [">", "width", 400]]]], cq: undefined },
   ],
   [
-    "@container (width > 10in) or (width > 100px)",
+    "@container (width > 10ch) or (width > 100px)",
     {
       m: undefined,
       cq: [
@@ -92,3 +100,37 @@ test("a media query list keeps the branch a device can match beside one none can
     ),
   ).toStrictEqual([{ m: [[">", "width", 400]], cq: undefined }]);
 });
+
+// lightningcss 1.33's error recovery emits <general-enclosed> as a condition the 1.30 types do not list, which MQ5 §3.1 leaves unknown
+const UNLISTED_CONDITIONS = [
+  ["condition", { type: "unknown", value: [] }],
+  ["operator", { type: "operation", operator: "xor", conditions: [] }],
+] as const;
+
+test.each(UNLISTED_CONDITIONS)(
+  "a media %s lightningcss's types do not list compiles to an unknown term",
+  (_, unlisted) => {
+    const condition: unknown = unlisted;
+
+    expect(
+      parseMediaQueryCondition(
+        condition as CSSMediaCondition,
+        new StylesheetBuilder({}),
+      ),
+    ).toStrictEqual(["?"]);
+  },
+);
+
+test.each(UNLISTED_CONDITIONS)(
+  "a container %s lightningcss's types do not list selects no container",
+  (_, unlisted) => {
+    const condition: unknown = unlisted;
+
+    expect(
+      parseContainerCondition(
+        condition as CSSContainerCondition,
+        new StylesheetBuilder({}),
+      ),
+    ).toBeUndefined();
+  },
+);

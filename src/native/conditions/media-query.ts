@@ -11,20 +11,12 @@ import {
 } from "../reactivity";
 import {
   compareMediaFeature,
-  isTruthyFeatureValue,
-  testMediaFeatureInterval,
+  evaluateCondition,
   type MeasuredFeatureValue,
   type MediaComparison,
   type MediaFeatureName,
 } from "./compare";
-import {
-  conjoin,
-  disjoin,
-  matches,
-  negate,
-  UNKNOWN,
-  type Truth,
-} from "./kleene";
+import { disjoin, matches, type Truth } from "./kleene";
 
 // The color feature counts bits per color component
 const BITS_PER_COLOR_COMPONENT = 8;
@@ -34,32 +26,10 @@ export function testMediaQuery(mediaQueries: MediaCondition[], get: Getter) {
 }
 
 function test(mediaQuery: MediaCondition, get: Getter): Truth {
-  switch (mediaQuery[0]) {
-    case "?":
-      return UNKNOWN;
-    case "!!":
-      return isTruthyFeatureValue(getMediaFeatureValue(mediaQuery[1], get));
-    case "[]":
-      return testMediaFeatureInterval(
-        mediaQuery,
-        getMediaFeatureValue(mediaQuery[1], get),
-      );
-    case "!":
-      return negate(test(mediaQuery[1], get));
-    case "&":
-      return conjoin(mediaQuery[1], (query) => test(query, get));
-    case "|":
-      return disjoin(mediaQuery[1], (query) => test(query, get));
-    case ">":
-    case ">=":
-    case "<":
-    case "<=":
-    case "=":
-      return testComparison(mediaQuery, get);
-    default:
-      mediaQuery satisfies never;
-      return UNKNOWN;
-  }
+  return evaluateCondition(mediaQuery, {
+    read: (name) => getMediaFeatureValue(name, get),
+    compare: (comparison) => testComparison(comparison, get),
+  });
 }
 
 function testComparison(
@@ -102,10 +72,10 @@ function getMediaFeatureValue(
   switch (name) {
     case "hover":
     case "any-hover":
-      return pointsFinely(get) ? "hover" : "none";
+      return pointerAccuracy(get) === "fine" ? "hover" : "none";
     case "pointer":
     case "any-pointer":
-      return pointsFinely(get) ? "fine" : "coarse";
+      return pointerAccuracy(get);
     case "display-mode":
       return Platform.OS;
     case "prefers-color-scheme":
@@ -134,18 +104,50 @@ function getMediaFeatureValue(
   }
 }
 
-// A touchscreen, the input of iOS and Android until a pointer hovers an element with a :hover style, cannot hover and points coarsely (MQ5 §7.1, §7.2)
-function pointsFinely(get: Getter): boolean {
-  return (
-    get(hoverCapableInput) ||
-    (Platform.OS !== "ios" && Platform.OS !== "android")
-  );
+type PrimaryInput = "touchscreen" | "mouse" | "remote";
+
+// A TV's remote moves focus rather than a pointer, and Mac Catalyst runs an iOS app under a mouse
+function primaryInput(): PrimaryInput {
+  if (Platform.isTV) {
+    return "remote";
+  }
+
+  if (Platform.OS === "ios") {
+    return Platform.isMacCatalyst === true ? "mouse" : "touchscreen";
+  }
+
+  return Platform.OS === "android" ? "touchscreen" : "mouse";
+}
+
+// A touchscreen cannot hover and points coarsely until a pointer hovers an element with a :hover style, which React Native reports on iOS and Android only with its shouldPressibilityUseW3CPointerEventsForHover flag on (MQ5 §7.1, §7.2)
+function pointerAccuracy(get: Getter): "none" | "coarse" | "fine" {
+  const input = primaryInput();
+
+  switch (input) {
+    case "remote":
+      return "none";
+    case "mouse":
+      return "fine";
+    case "touchscreen":
+      return get(hoverCapableInput) ? "fine" : "coarse";
+    default:
+      input satisfies never;
+      return "none";
+  }
 }
 
 function availablePointers(get: Getter): readonly string[] {
-  if (Platform.OS !== "ios" && Platform.OS !== "android") {
-    return ["fine"];
-  }
+  const input = primaryInput();
 
-  return get(hoverCapableInput) ? ["coarse", "fine"] : ["coarse"];
+  switch (input) {
+    case "remote":
+      return ["none"];
+    case "mouse":
+      return ["fine"];
+    case "touchscreen":
+      return get(hoverCapableInput) ? ["coarse", "fine"] : ["coarse"];
+    default:
+      input satisfies never;
+      return ["none"];
+  }
 }

@@ -4,7 +4,7 @@ import type {
   MediaFeatureOperand,
 } from "react-native-css/compiler";
 
-import { conjoin, UNKNOWN, type Truth } from "./kleene";
+import { conjoin, disjoin, negate, UNKNOWN, type Truth } from "./kleene";
 
 export type MediaInterval = Extract<MediaCondition, ["[]", ...unknown[]]>;
 
@@ -17,6 +17,41 @@ export type MediaFeatureName = MediaComparison[1];
 
 // undefined for a feature the runtime does not measure
 export type MeasuredFeatureValue = number | string | undefined;
+
+// A media query and a container query differ only in how a feature is read and compared
+export interface FeatureReader {
+  readonly read: (name: MediaFeatureName) => MeasuredFeatureValue;
+  readonly compare: (comparison: Readonly<MediaComparison>) => Truth;
+}
+
+export function evaluateCondition(
+  condition: MediaCondition,
+  reader: FeatureReader,
+): Truth {
+  switch (condition[0]) {
+    case "?":
+      return UNKNOWN;
+    case "!!":
+      return isTruthyFeatureValue(reader.read(condition[1]));
+    case "[]":
+      return testMediaFeatureInterval(condition, reader.read(condition[1]));
+    case "!":
+      return negate(evaluateCondition(condition[1], reader));
+    case "&":
+      return conjoin(condition[1], (term) => evaluateCondition(term, reader));
+    case "|":
+      return disjoin(condition[1], (term) => evaluateCondition(term, reader));
+    case ">":
+    case ">=":
+    case "<":
+    case "<=":
+    case "=":
+      return reader.compare(condition);
+    default:
+      condition satisfies never;
+      return UNKNOWN;
+  }
+}
 
 // Media and container queries share this, so each operator has one meaning; an unmeasured feature or an unresolved operand is unknown (MQ5 §3.1)
 export function compareMediaFeature(

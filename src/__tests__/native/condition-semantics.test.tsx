@@ -223,6 +223,44 @@ describe.each([
   },
 );
 
+// MQ5 §7.1: a TV's remote is no pointing device, and Mac Catalyst points with a mouse
+describe.each([
+  ["a TV", "none", "none", { isTV: true, isMacCatalyst: false }],
+  ["Mac Catalyst", "hover", "fine", { isTV: false, isMacCatalyst: true }],
+] as const)(
+  "on %s the primary input answers hover as %s and pointer as %s",
+  (_, hover, pointer, flags) => {
+    beforeEach(() => {
+      jest.spyOn(Platform, "isTV", "get").mockReturnValue(flags.isTV);
+      if (Platform.OS !== "ios") {
+        throw new Error("the suite runs on the iOS preset");
+      }
+      jest
+        .spyOn(Platform, "isMacCatalyst", "get")
+        .mockReturnValue(flags.isMacCatalyst);
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    test.each([
+      ["(hover: hover)", hover === "hover"],
+      ["(hover: none)", hover === "none"],
+      ["(any-hover: none)", hover === "none"],
+      ["(pointer: fine)", pointer === "fine"],
+      ["(pointer: coarse)", false],
+      ["(pointer: none)", pointer === "none"],
+      ["(pointer)", pointer !== "none"],
+      ["(any-pointer: none)", pointer === "none"],
+      ["(any-pointer: fine)", pointer === "fine"],
+      ["(any-pointer)", pointer !== "none"],
+    ])("%s matches: %s", (condition, expected) => {
+      expect(mediaMatches(condition)).toBe(expected);
+    });
+  },
+);
+
 // MQ5 §7.3: any-pointer matches the touchscreen's coarse pointer beside a fine one that hovers
 describe("on iOS, once a pointer hovers an element", () => {
   test.each([
@@ -326,10 +364,10 @@ describe("@container on a 400x200 container", () => {
     expect(containerMatches("(width)", { width: 0, height: 200 })).toBe(false);
   });
 
-  // A length the runtime cannot resolve leaves its term unknown, and an `or` keeps its other terms
+  // A length the runtime cannot resolve, such as one that needs a font's metrics, leaves its term unknown, and an `or` keeps its other terms
   test.each([
-    ["(width > 10in) or (width > 100px)", true],
-    ["not (width > 10in)", false],
+    ["(width > 10ch) or (width > 100px)", true],
+    ["not (width > 10ch)", false],
   ])("%s matches: %s", (condition, expected) => {
     expect(containerMatches(condition)).toBe(expected);
   });

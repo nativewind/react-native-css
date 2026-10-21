@@ -1,15 +1,10 @@
 import type {
   ContainerSizeFeatureId,
   ContainerCondition as CSSContainerCondition,
-  QueryFeatureFor_ContainerSizeFeatureId,
 } from "lightningcss";
 
 import type { MediaCondition } from "./compiler.types";
-import {
-  isUnknownKeyword,
-  parseFeatureOperand,
-  parseMediaFeatureOperator,
-} from "./media-query";
+import { parseQueryFeature } from "./media-query";
 import type { StylesheetBuilder } from "./stylesheet";
 
 const SIZE_FEATURES: ReadonlySet<string> = new Set<ContainerSizeFeatureId>([
@@ -21,14 +16,16 @@ const SIZE_FEATURES: ReadonlySet<string> = new Set<ContainerSizeFeatureId>([
   "orientation",
 ]);
 
-// Chromium and WebKit drop a container query holding an unknown size feature or env(), so it compiles to nothing; any other value the runtime cannot resolve leaves its feature unknown (CSS Conditional 5 §5.4)
+// Chromium and WebKit drop a container query holding an unknown size feature, a keyword its feature does not take or env(), so it compiles to nothing; any other value the runtime cannot resolve leaves its feature unknown (CSS Conditional 5 §5.4)
 export function parseContainerCondition(
   condition: CSSContainerCondition,
   builder: StylesheetBuilder,
 ): MediaCondition | undefined {
   switch (condition.type) {
     case "feature":
-      return parseFeature(condition.value, builder);
+      return SIZE_FEATURES.has(condition.value.name)
+        ? parseQueryFeature(condition.value, builder)
+        : undefined;
     case "not": {
       const query = parseContainerCondition(condition.value, builder);
       return query ? ["!", query] : undefined;
@@ -60,49 +57,6 @@ export function parseContainerCondition(
       return ["?"];
     default:
       condition satisfies never;
-      return;
-  }
-}
-
-function parseFeature(
-  feature: QueryFeatureFor_ContainerSizeFeatureId,
-  builder: StylesheetBuilder,
-): MediaCondition | undefined {
-  if (!SIZE_FEATURES.has(feature.name)) {
-    return;
-  }
-
-  switch (feature.type) {
-    case "boolean":
-      return ["!!", feature.name];
-    case "plain": {
-      const value = parseFeatureOperand(feature.value, builder);
-      return value === undefined || isUnknownKeyword(feature.name, value)
-        ? undefined
-        : ["=", feature.name, value];
-    }
-    case "range": {
-      const value = parseFeatureOperand(feature.value, builder);
-      return value === undefined
-        ? undefined
-        : [parseMediaFeatureOperator(feature.operator), feature.name, value];
-    }
-    case "interval": {
-      const start = parseFeatureOperand(feature.start, builder);
-      const end = parseFeatureOperand(feature.end, builder);
-      return start === undefined || end === undefined
-        ? undefined
-        : [
-            "[]",
-            feature.name,
-            start,
-            parseMediaFeatureOperator(feature.startOperator),
-            end,
-            parseMediaFeatureOperator(feature.endOperator),
-          ];
-    }
-    default:
-      feature satisfies never;
       return;
   }
 }

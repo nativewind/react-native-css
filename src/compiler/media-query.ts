@@ -4,6 +4,7 @@ import type {
   MediaFeatureComparison as CSSMediaFeatureComparison,
   MediaFeatureValue as CSSMediaFeatureValue,
   MediaQuery as CSSMediaQuery,
+  QueryFeatureFor_ContainerSizeFeatureId,
   QueryFeatureFor_MediaFeatureId,
 } from "lightningcss";
 
@@ -105,13 +106,13 @@ function canEvaluateTo(
   }
 }
 
-function parseMediaQueryCondition(
+export function parseMediaQueryCondition(
   query: CSSMediaCondition,
   builder: StylesheetBuilder,
 ): MediaCondition {
   switch (query.type) {
     case "feature":
-      return parseFeature(query.value, builder);
+      return parseQueryFeature(query.value, builder) ?? ["?"];
     case "not":
       return ["!", parseMediaQueryCondition(query.value, builder)];
     case "operation": {
@@ -126,14 +127,13 @@ function parseMediaQueryCondition(
           return ["|", mediaQueries];
         default:
           query.operator satisfies never;
-          throw new Error(
-            `Unknown media condition operator ${JSON.stringify(query)}`,
-          );
+          return ["?"];
       }
     }
     default:
       query satisfies never;
-      throw new Error(`Unknown media condition ${JSON.stringify(query)}`);
+      // A lightningcss newer than its types emits conditions they do not list, such as error recovery's <general-enclosed>, which MQ5 §3.1 leaves unknown
+      return ["?"];
   }
 }
 
@@ -150,7 +150,7 @@ const FEATURE_KEYWORDS: ReadonlyMap<string, readonly string[]> = new Map([
   ["update", ["none", "slow", "fast"]],
 ]);
 
-export function isUnknownKeyword(
+function isUnknownKeyword(
   name: string,
   operand: Readonly<MediaFeatureOperand>,
 ) {
@@ -162,30 +162,33 @@ export function isUnknownKeyword(
   );
 }
 
-function parseFeature(
-  feature: QueryFeatureFor_MediaFeatureId,
+// A feature holding env() or a keyword it does not take compiles to undefined, which a media query reads as unknown and a container query as no query
+export function parseQueryFeature(
+  feature:
+    | QueryFeatureFor_MediaFeatureId
+    | QueryFeatureFor_ContainerSizeFeatureId,
   builder: StylesheetBuilder,
-): MediaCondition {
+): MediaCondition | undefined {
   switch (feature.type) {
     case "boolean":
       return ["!!", feature.name];
     case "plain": {
       const operand = parseFeatureOperand(feature.value, builder);
       return operand === undefined || isUnknownKeyword(feature.name, operand)
-        ? ["?"]
+        ? undefined
         : ["=", feature.name, operand];
     }
     case "range": {
       const operand = parseFeatureOperand(feature.value, builder);
       return operand === undefined
-        ? ["?"]
+        ? undefined
         : [parseMediaFeatureOperator(feature.operator), feature.name, operand];
     }
     case "interval": {
       const start = parseFeatureOperand(feature.start, builder);
       const end = parseFeatureOperand(feature.end, builder);
       return start === undefined || end === undefined
-        ? ["?"]
+        ? undefined
         : [
             "[]",
             feature.name,
@@ -197,12 +200,12 @@ function parseFeature(
     }
     default:
       feature satisfies never;
-      throw new Error(`Unknown media feature ${JSON.stringify(feature)}`);
+      return undefined;
   }
 }
 
-// No browser takes env() as a feature's value, so the caller drops a feature holding one; any other value the compiler cannot resolve compiles to null, which leaves its term unknown
-export function parseFeatureOperand(
+// No browser takes env() as a media feature's value, and Chromium and WebKit drop a container query holding one, so a feature holding it compiles to undefined; any other value the compiler cannot resolve compiles to null, which leaves its term unknown
+function parseFeatureOperand(
   value: CSSMediaFeatureValue,
   builder: StylesheetBuilder,
 ): MediaFeatureOperand | undefined {

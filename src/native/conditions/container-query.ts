@@ -16,20 +16,12 @@ import {
 import { testAttributes } from "./attributes";
 import {
   compareMediaFeature,
-  isTruthyFeatureValue,
-  testMediaFeatureInterval,
+  evaluateCondition,
   type MeasuredFeatureValue,
   type MediaFeatureName,
 } from "./compare";
 import type { RenderGuard } from "./guards";
-import {
-  conjoin,
-  disjoin,
-  matches,
-  negate,
-  UNKNOWN,
-  type Truth,
-} from "./kleene";
+import { matches, type Truth } from "./kleene";
 
 export const DEFAULT_CONTAINER_NAME = "c:___default___";
 
@@ -101,44 +93,14 @@ function testContainerMediaCondition(
   containerKey: WeakKey,
   get: Getter,
 ): Truth {
-  switch (condition[0]) {
-    case "?":
-      return UNKNOWN;
-    case "!":
-      return negate(
-        testContainerMediaCondition(condition[1], containerKey, get),
-      );
-    case "&":
-      return conjoin(condition[1], (query) =>
-        testContainerMediaCondition(query, containerKey, get),
-      );
-    case "|":
-      return disjoin(condition[1], (query) =>
-        testContainerMediaCondition(query, containerKey, get),
-      );
-    case "!!":
-      return isTruthyFeatureValue(
-        getContainerFeatureValue(condition[1], containerKey, get),
-      );
-    case "[]":
-      return testMediaFeatureInterval(
-        condition,
-        getContainerFeatureValue(condition[1], containerKey, get),
-      );
-    case ">":
-    case ">=":
-    case "<":
-    case "<=":
-    case "=":
-      return compareMediaFeature(
-        condition[0],
-        getContainerFeatureValue(condition[1], containerKey, get),
-        condition[2],
-      );
-    default:
-      condition satisfies never;
-      return UNKNOWN;
-  }
+  const read = (name: MediaFeatureName) =>
+    getContainerFeatureValue(name, containerKey, get);
+
+  return evaluateCondition(condition, {
+    read,
+    compare: ([operator, name, value]) =>
+      compareMediaFeature(operator, read(name), value),
+  });
 }
 
 function getContainerFeatureValue(
