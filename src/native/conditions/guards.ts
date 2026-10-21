@@ -2,6 +2,7 @@
 import type { ComponentState } from "../react/useNativeCss";
 import type {
   ContainerContextValue,
+  ContainerRegistration,
   VariableContextValue,
 } from "../reactivity";
 
@@ -9,7 +10,7 @@ export type RenderGuard =
   | ["a", string, any]
   | ["d", string, any]
   | ["v", string, any]
-  | ["c", string, WeakKey];
+  | ["c", string, ContainerRegistration | undefined];
 
 export function testGuards(
   state: ComponentState,
