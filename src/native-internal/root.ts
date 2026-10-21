@@ -16,6 +16,7 @@ const rootVariableFamily = () => {
             return value;
           }
 
+          // A `:root` declaration belongs to no element, so it reads the root's directionality.
           if (testMediaQuery(mediaQuery, read)) {
             return value;
           }

@@ -33,3 +33,18 @@ test.each([false, true])(
     expect(screen.getByTestId("ltr")).toHaveStyle({ width: isRTL ? 10 : 37 });
   },
 );
+
+test.each<[string, "rtl" | undefined, boolean]>([
+  ['[dir="RTL"]', "rtl", true],
+  ['[dir="RTL" i]', "rtl", true],
+  ['[dir="RTL" s]', "rtl", false],
+  ['[dir="rtl"]', undefined, false],
+])(".t%s over the dir prop %p matches: %s", (attribute, direction, matches) => {
+  Object.defineProperty(I18nManager, "isRTL", {
+    configurable: true,
+    value: true,
+  });
+  registerCSS(`.t { width: 10px; } .t${attribute} { width: 37px; }`);
+  render(<View testID="t" className="t" dir={direction} />);
+  expect(screen.getByTestId("t")).toHaveStyle({ width: matches ? 37 : 10 });
+});

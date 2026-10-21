@@ -4,6 +4,14 @@ import { StyleCollection } from "react-native-css/native-internal";
 
 import { testRule } from "../conditions";
 import { DEFAULT_CONTAINER_NAME } from "../conditions/container-query";
+import {
+  DECLARED_DIRECTIONS_VARIABLE,
+  resolveDeclaredDirectionality,
+  resolveInheritedDirections,
+  resolvePublishedDirections,
+  resolveUaDirectionRule,
+  type ElementDirectionality,
+} from "../conditions/directionality";
 import type { RenderGuard } from "../conditions/guards";
 import { getDeepPath } from "../objects";
 import {
@@ -46,6 +54,28 @@ export function updateRules(
 
   let animated = false;
   let pressable = false;
+
+  const directionality: ElementDirectionality = {
+    declared: resolveDeclaredDirectionality(currentProps?.dir),
+    inherited: resolveInheritedDirections(inheritedVariables),
+  };
+  guards.push(["a", "dir", currentProps?.dir]);
+  guards.push([
+    "v",
+    DECLARED_DIRECTIONS_VARIABLE,
+    inheritedVariables[DECLARED_DIRECTIONS_VARIABLE],
+  ]);
+
+  if (directionality.declared !== undefined) {
+    variables = { ...inheritedVariables };
+    rules.add(resolveUaDirectionRule(directionality.declared));
+  } else if (
+    currentProps &&
+    Object.prototype.hasOwnProperty.call(currentProps, "dir")
+  ) {
+    // Provide a scope while nothing is declared too, so a dir that comes or goes keeps a consistent render tree
+    variables = inheritedVariables;
+  }
 
   for (const config of state.configs) {
     const source = currentProps?.[config.source];
@@ -125,6 +155,7 @@ export function updateRules(
           currentProps,
           guards,
           inheritedContainers,
+          directionality,
         )
       ) {
         continue;
@@ -236,6 +267,14 @@ export function updateRules(
     for (const variable of inlineVariables) {
       rules.add(variable);
     }
+  }
+
+  // Written after every merge above: a declaration is the element's own, so nothing inherited or inline may shadow it.
+  if (directionality.declared !== undefined && variables) {
+    variables[DECLARED_DIRECTIONS_VARIABLE] = resolvePublishedDirections(
+      directionality.declared,
+      directionality.inherited,
+    );
   }
 
   // Generate a StyleObservable for this unique set of rules / variables
