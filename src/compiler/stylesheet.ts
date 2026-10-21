@@ -161,15 +161,15 @@ export class StylesheetBuilder {
 
     if (this.shared.rootVariables) {
       stylesheetOptions.vr = Object.entries(this.shared.rootVariables).map(
-        // Reverse these so the most specific variables are first
-        ([key, value]) => [key, value.reverse()] as const,
+        // Most specific first, on a copy: the builder can be read again
+        ([key, value]) => [key, value.toReversed()] as const,
       );
     }
 
     if (this.shared.universalVariables) {
       stylesheetOptions.vu = Object.entries(this.shared.universalVariables).map(
-        // Reverse these so the most specific variables are first
-        ([key, value]) => [key, value.reverse()] as const,
+        // Most specific first, on a copy: the builder can be read again
+        ([key, value]) => [key, value.toReversed()] as const,
       );
     }
 
