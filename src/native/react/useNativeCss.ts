@@ -29,9 +29,9 @@ import { getStyledProps, stylesFamily } from "../styles";
 import { updateRules } from "./rules";
 
 export type Config = {
-  source: string;
-  target: string[] | string | false;
-  nativeStyleMapping?: Record<string, string>;
+  readonly source: string;
+  readonly target: readonly string[] | string | false;
+  readonly nativeStyleMapping?: Readonly<Record<string, string>>;
 };
 
 export type ComponentState = {

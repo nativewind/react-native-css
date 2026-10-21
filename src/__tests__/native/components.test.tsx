@@ -394,11 +394,14 @@ test("a target:false mapping into style keeps its value where no inline style me
 const animatedOpacity = new Animated.Value(0.5);
 const inlineStyleFunction = () => ({ margin: 1 });
 
+const inlineStyleArray = [{ margin: 1 }];
+
 test.each([
   [
     "an inline style object",
     "style",
     "style.borderColor",
+    { margin: 1 },
     { margin: 1 },
     { margin: 1, borderColor: "#00f" },
   ],
@@ -408,11 +411,13 @@ test.each([
     "style.borderColor",
     inlineStyleFunction,
     inlineStyleFunction,
+    inlineStyleFunction,
   ],
   [
     "an inline style holding an Animated value",
     "style",
     "style.borderColor",
+    { opacity: animatedOpacity },
     { opacity: animatedOpacity },
     { opacity: animatedOpacity, borderColor: "#00f" },
   ],
@@ -421,13 +426,38 @@ test.each([
     "android_ripple",
     "android_ripple.color",
     { borderless: true },
+    { borderless: true },
     { borderless: true, color: "#00f" },
   ],
+  [
+    "an inline style array",
+    "style",
+    "style.borderColor",
+    inlineStyleArray,
+    inlineStyleArray,
+    [inlineStyleArray, { borderColor: "#00f" }],
+  ],
+  [
+    "an inline style of false",
+    "style",
+    "style.borderColor",
+    false,
+    { borderColor: "#00f" },
+    { borderColor: "#00f" },
+  ],
+  [
+    "an inline style of null",
+    "style",
+    "style.borderColor",
+    null,
+    { borderColor: "#00f" },
+    { borderColor: "#00f" },
+  ],
 ] as const)(
-  "%s stands beside a target:false mapping into it, and meets an !important one key by key",
-  (_, prop, destination, inlineValue, withImportant) => {
+  "%s beside a target:false mapping into it takes the normal value below it and the !important one over it",
+  (_, prop, destination, inlineValue, withNormal, withImportant) => {
     for (const [css, expected] of [
-      [`.label { color: blue; }`, inlineValue],
+      [`.label { color: blue; }`, withNormal],
       [`.label { color: blue !important; }`, withImportant],
     ] as const) {
       registerCSS(css);
@@ -651,6 +681,106 @@ test("a mapping reads the props as computed, not what another mapping wrote, in 
     { style: { borderColor: "#00f" }, badgeColor: "#008000" },
     { style: { borderColor: "#00f" }, badgeColor: "#008000" },
   ]);
+});
+
+interface HeaderOptions {
+  readonly headerStyle?: Readonly<Record<string, unknown>>;
+  readonly headerTintColor?: string;
+  readonly title?: string;
+}
+
+interface HeaderProps {
+  readonly options?: HeaderOptions;
+}
+
+test.each([
+  ["normal", "first", "no inline options", "", undefined],
+  ["normal", "last", "no inline options", "", undefined],
+  ["!important", "first", "no inline options", " !important", undefined],
+  ["!important", "last", "no inline options", " !important", undefined],
+  ["normal", "first", "inline options", "", { title: "Home" }],
+  ["normal", "last", "inline options", "", { title: "Home" }],
+  ["!important", "first", "inline options", " !important", { title: "Home" }],
+  ["!important", "last", "inline options", " !important", { title: "Home" }],
+] as const)(
+  "a %s mapping into a sibling of a two-key target keeps its value with the target:false config %s and %s",
+  (_, position, __, importance, inlineOptions) => {
+    registerCSS(
+      `.header { background-color: blue; } .tint { color: red${importance}; }`,
+    );
+    const seen: (HeaderOptions | undefined)[] = [];
+    const Header = (props: HeaderProps) => {
+      seen.push(props.options);
+      return null;
+    };
+    const header = { headerClassName: "options.headerStyle" } as const;
+    const tint = {
+      tintClassName: {
+        target: false,
+        nativeStyleMapping: { color: "options.headerTintColor" },
+      },
+    } as const;
+    const Mapped = styled(
+      Header,
+      position === "first" ? { ...tint, ...header } : { ...header, ...tint },
+    );
+    const element = () => (
+      <Mapped
+        headerClassName="header"
+        tintClassName="tint"
+        {...(inlineOptions ? { options: inlineOptions } : {})}
+      />
+    );
+
+    render(element());
+    screen.rerender(element());
+    screen.rerender(element());
+
+    expect(seen.at(-1)).toStrictEqual({
+      ...inlineOptions,
+      headerStyle: { backgroundColor: "#00f" },
+      headerTintColor: "#f00",
+    });
+    expect(new Set(seen.map((options) => JSON.stringify(options))).size).toBe(
+      1,
+    );
+  },
+);
+
+test("a memoized child renders once under an !important ripple while the classes stay the same", () => {
+  registerCSS(
+    `.box { opacity: 0.5; } .ripple { color: blue; border-radius: 4px !important; }`,
+  );
+  let renders = 0;
+  const CountedView = memo(
+    (props: ViewProps & { android_ripple?: unknown }) => {
+      renders++;
+      return <View {...props} />;
+    },
+  );
+  const Styled = styled(CountedView, {
+    className: "style",
+    rippleClassName: {
+      target: false,
+      nativeStyleMapping: {
+        color: "android_ripple.color",
+        borderRadius: "android_ripple.radius",
+      },
+    },
+  });
+  const element = () => (
+    <Styled testID={testID} className="box" rippleClassName="ripple" />
+  );
+
+  render(element());
+  screen.rerender(element());
+  screen.rerender(element());
+
+  expect(renders).toBe(1);
+  expect(screen.getByTestId(testID).props.android_ripple).toStrictEqual({
+    color: "#00f",
+    radius: 4,
+  });
 });
 
 test("a mapping builds its props once while the classes stay the same", () => {

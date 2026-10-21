@@ -73,7 +73,7 @@ export interface StyleRule {
   dv?: number;
 
   // Target override
-  target?: string | string[] | CollectedTarget;
+  target?: string | readonly string[] | CollectedTarget;
 
   /**
    * Conditionals

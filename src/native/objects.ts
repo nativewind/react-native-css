@@ -2,7 +2,10 @@
 import { ShortHandSymbol } from "../native/styles/constants";
 import { transformKeys } from "../native/styles/defaults";
 
-export function getDeepPath(source: any, paths: string | string[] | false) {
+export function getDeepPath(
+  source: any,
+  paths: string | readonly string[] | false,
+) {
   if (!source) {
     return;
   }
@@ -11,7 +14,7 @@ export function getDeepPath(source: any, paths: string | string[] | false) {
     return undefined;
   }
 
-  if (Array.isArray(paths)) {
+  if (typeof paths !== "string") {
     return valueAtPath(source, paths);
   } else if (transformKeys.has(paths)) {
     return Array.isArray(source?.transform)
