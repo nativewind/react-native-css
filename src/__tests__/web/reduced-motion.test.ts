@@ -48,3 +48,17 @@ test.each([
     expect(reducedMotion.get()).toBeUndefined();
   });
 });
+
+test("a server keeps no override, since it renders every visitor's page in one process", () => {
+  const browserWindow: unknown = globalThis.window;
+  Reflect.deleteProperty(globalThis, "window");
+
+  try {
+    reducedMotion.set("reduce");
+    expect(reducedMotion.get()).toBeUndefined();
+  } finally {
+    Reflect.set(globalThis, "window", browserWindow);
+  }
+
+  expect(reducedMotion.get()).toBeUndefined();
+});

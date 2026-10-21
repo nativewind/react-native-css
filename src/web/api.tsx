@@ -99,7 +99,10 @@ export const reducedMotion: ReducedMotion = {
   },
   // The browser evaluates the stylesheet's @media rules itself, so an override reaches what scripts read and not the CSS, which MQ5 §13's requestOverride() will reach once a browser ships it
   set(value) {
-    reducedMotionOverride = value ?? undefined;
+    // A server renders every visitor's page in one process, so only a browser keeps an override
+    if (typeof window !== "undefined") {
+      reducedMotionOverride = value ?? undefined;
+    }
   },
 };
 
