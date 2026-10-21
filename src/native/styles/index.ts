@@ -4,8 +4,9 @@ import { specificityCompareFn } from "react-native-css/utilities";
 
 import {
   isNonArrayObject,
+  isPlainObject,
   valueAtPath,
-  withDeepPath,
+  withDeepPaths,
   withoutKeysAt,
 } from "../objects";
 import { collectionTarget, targetPath } from "../react/collection-target";
@@ -205,7 +206,10 @@ export function getStyledProps(
 
   // Each config merges a complete props object. Preserve its full target path
   // before the next config merges unrelated inline props over that object.
-  const computedTargets: { path: readonly string[]; value: unknown }[] = [];
+  const computedTargets: {
+    readonly path: readonly string[];
+    readonly value: unknown;
+  }[] = [];
   const consumedSources: string[] = [];
 
   // The computed props are shared by every render, and every config is mapped before any merges, so each merge and each kept target sees every mapping
@@ -219,10 +223,8 @@ export function getStyledProps(
   for (const config of state.configs) {
     result = deepMergeConfig(config, normal, inline, true);
 
-    if (important) {
-      result = config.target
-        ? deepMergeConfig(config, result, important)
-        : mergeUnownedProps(result, important, inline);
+    if (important && config.target) {
+      result = deepMergeConfig(config, result, important);
     }
 
     if (result && config.target) {
@@ -310,6 +312,15 @@ export function getStyledProps(
           : { ...existing };
       }
       target[path[path.length - 1]!] = value;
+    }
+    const base = inline ? mergeDefinedProps(normal, inline) : { ...normal };
+    for (const key of untargetedKeys(state.configs, normal, important)) {
+      const value = layerImportant(base[key], important?.[key]);
+      if (value === undefined) {
+        delete result[key];
+      } else {
+        result[key] = value;
+      }
     }
     for (const source of consumedSources) {
       delete result[source];
@@ -540,7 +551,7 @@ function deepMergeConfig(
 }
 
 function mapEveryConfig(
-  configs: readonly Config[],
+  configs: readonly Readonly<Config>[],
   adaptProps: (
     props: Readonly<Record<string, unknown>>,
   ) => Readonly<Record<string, unknown>>,
@@ -554,7 +565,7 @@ function mapEveryConfig(
 }
 
 // Mapping builds new objects, so it runs once per configs and computed props, and a render that changes neither maps nothing again
-const mappedPropsFamily = weakFamily((configs: readonly Config[]) => {
+const mappedPropsFamily = weakFamily((configs: readonly Readonly<Config>[]) => {
   const mappingConfigs = configs.filter(hasNativeStyleMapping);
 
   return mappingConfigs.length === 0
@@ -593,51 +604,42 @@ function nativeStyleMapping(
     props,
   );
 
-  return sources.reduce(
-    (result, { config, source }) =>
-      Object.entries(config.nativeStyleMapping).reduce(
-        (written, [key, path]) => {
-          const value = source[key];
-          return value === undefined
-            ? written
-            : withDeepPath(written, path.split("."), value);
-        },
-        result,
-      ),
+  return withDeepPaths(
     stripped,
+    sources.flatMap(({ config, source }) =>
+      Object.entries(config.nativeStyleMapping).flatMap(([key, path]) => {
+        const value = source[key];
+        return value === undefined ? [] : [[path.split("."), value] as const];
+      }),
+    ),
   );
 }
 
-// A config with no target owns none of the props its mapping writes, so an inline value of one stands, as for a normal declaration, and the config's normal and !important objects meet key by key
-function mergeUnownedProps(
-  merged: Readonly<Record<string, unknown>>,
-  important: Readonly<Record<string, unknown>>,
-  inline: Readonly<Record<string, unknown>> | undefined | null,
-) {
-  const result: Record<string, unknown> = { ...merged };
+// A prop no config targets takes its normal value, then the inline one, then the !important one, whatever the configs' order
+function untargetedKeys(
+  configs: readonly Readonly<Config>[],
+  normal: Readonly<Record<string, unknown>> | undefined,
+  important: Readonly<Record<string, unknown>> | undefined,
+): readonly string[] {
+  const owned = new Set(
+    configs.flatMap((config) =>
+      config.target === false
+        ? [config.source]
+        : [config.source, ...targetPath(config.target).slice(0, 1)],
+    ),
+  );
+  return [
+    ...new Set([...Object.keys(normal ?? {}), ...Object.keys(important ?? {})]),
+  ].filter((key) => !owned.has(key));
+}
 
-  for (const [key, value] of Object.entries(important)) {
-    if (value === undefined || suppliesProp(inline, key)) {
-      continue;
-    }
-    const current = result[key];
-    result[key] =
-      isNonArrayObject(current) && isNonArrayObject(value)
-        ? { ...current, ...value }
-        : value;
+// !important beats inline, as in the cascade, key by key where both are plain objects; an inline value no key merge can enter, such as a style function or an array, stands
+function layerImportant(below: unknown, important: unknown): unknown {
+  if (important === undefined) {
+    return below;
   }
-
-  return result;
-}
-
-// An inline value counts as mergeDefinedProps counts it: not undefined, and no empty plain object
-function suppliesProp(
-  inline: Readonly<Record<string, unknown>> | undefined | null,
-  key: string,
-) {
-  const value = inline?.[key];
-  return (
-    value !== undefined &&
-    !(isNonArrayObject(value) && Object.keys(value).length === 0)
-  );
+  if (isPlainObject(important) && below !== undefined && below !== null) {
+    return isPlainObject(below) ? { ...below, ...important } : below;
+  }
+  return important;
 }

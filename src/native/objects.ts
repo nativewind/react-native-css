@@ -118,24 +118,48 @@ export function isNonArrayObject(
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export function withDeepPath(
-  source: Readonly<Record<string, unknown>>,
-  paths: readonly string[],
+export function isPlainObject(
   value: unknown,
+): value is Readonly<Record<string, unknown>> {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const prototype: unknown = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+// Writes each value at its path in order, copying each object on the way once however many writes reach it
+export function withDeepPaths(
+  source: Readonly<Record<string, unknown>>,
+  writes: readonly (readonly [readonly string[], unknown])[],
 ): Readonly<Record<string, unknown>> {
-  const [path, ...rest] = paths;
-  if (path === undefined) {
+  const pathed = writes.filter(([path]) => path.length > 0);
+  if (pathed.length === 0) {
     return source;
   }
 
-  const child = source[path];
-  return {
-    ...source,
-    [path]:
-      rest.length === 0
-        ? value
-        : withDeepPath(isNonArrayObject(child) ? child : {}, rest, value),
+  const copies = new Set<unknown>();
+  const isCopy = (value: unknown): value is Record<string, unknown> =>
+    copies.has(value);
+  const copyOf = (value: unknown): Record<string, unknown> => {
+    const copy = { ...(isNonArrayObject(value) ? value : {}) };
+    copies.add(copy);
+    return copy;
   };
+
+  const result = copyOf(source);
+  for (const [path, value] of pathed) {
+    let target = result;
+    for (const segment of path.slice(0, -1)) {
+      const child = target[segment];
+      const next = isCopy(child) ? child : copyOf(child);
+      target[segment] = next;
+      target = next;
+    }
+    target[path[path.length - 1]!] = value;
+  }
+
+  return result;
 }
 
 export function withoutKeys(

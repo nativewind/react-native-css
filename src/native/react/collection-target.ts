@@ -5,11 +5,11 @@ import type { Config } from "./useNativeCss";
 type RuleTarget = NonNullable<StyleRule["target"]>;
 
 // A target:false config collects under its own source prop, which getStyledProps strips once its mapping has run; style belongs to the configs that target it
-export function collectionTarget(config: Config): RuleTarget {
+export function collectionTarget(config: Readonly<Config>): RuleTarget {
   return config.target === false ? { collect: config.source } : config.target;
 }
 
-export function targetPath(target: RuleTarget): readonly string[] {
+export function targetPath(target: Readonly<RuleTarget>): readonly string[] {
   if (typeof target === "string") {
     return [target];
   }
@@ -17,6 +17,8 @@ export function targetPath(target: RuleTarget): readonly string[] {
   return collectsProps(target) ? [target.collect] : target;
 }
 
-export function collectsProps(target: RuleTarget): target is CollectedTarget {
+export function collectsProps(
+  target: Readonly<RuleTarget>,
+): target is Readonly<CollectedTarget> {
   return typeof target === "object" && "collect" in target;
 }

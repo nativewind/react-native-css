@@ -14,6 +14,7 @@ import {
 } from "react-native";
 
 import { render, screen } from "@testing-library/react-native";
+import { Button } from "react-native-css/components/Button";
 import { copyComponentProperties } from "react-native-css/components/copyComponentProperties";
 import { KeyboardAvoidingView } from "react-native-css/components/KeyboardAvoidingView";
 import { TextInput } from "react-native-css/components/TextInput";
@@ -390,33 +391,45 @@ test("a target:false mapping into style keeps its value where no inline style me
   });
 });
 
+const animatedOpacity = new Animated.Value(0.5);
+const inlineStyleFunction = () => ({ margin: 1 });
+
 test.each([
-  ["an inline style object", "style", "style.borderColor", { margin: 1 }],
+  [
+    "an inline style object",
+    "style",
+    "style.borderColor",
+    { margin: 1 },
+    { margin: 1, borderColor: "#00f" },
+  ],
   [
     "an inline style function",
     "style",
     "style.borderColor",
-    () => ({ margin: 1 }),
+    inlineStyleFunction,
+    inlineStyleFunction,
   ],
   [
     "an inline style holding an Animated value",
     "style",
     "style.borderColor",
-    { opacity: new Animated.Value(0.5) },
+    { opacity: animatedOpacity },
+    { opacity: animatedOpacity, borderColor: "#00f" },
   ],
   [
     "an inline ripple",
     "android_ripple",
     "android_ripple.color",
     { borderless: true },
+    { borderless: true, color: "#00f" },
   ],
 ] as const)(
-  "%s reaches the component as it came beside a target:false mapping into it",
-  (_, prop, destination, inlineValue) => {
-    for (const css of [
-      `.label { color: blue; }`,
-      `.label { color: blue !important; }`,
-    ]) {
+  "%s stands beside a target:false mapping into it, and meets an !important one key by key",
+  (_, prop, destination, inlineValue, withImportant) => {
+    for (const [css, expected] of [
+      [`.label { color: blue; }`, inlineValue],
+      [`.label { color: blue !important; }`, withImportant],
+    ] as const) {
       registerCSS(css);
       let received: Readonly<Record<string, unknown>> = {};
       const Received = (props: Readonly<Record<string, unknown>>) => {
@@ -436,10 +449,109 @@ test.each([
 
       expect({ css, value: received[prop] }).toStrictEqual({
         css,
-        value: inlineValue,
+        value: expected,
       });
       unmount();
     }
+  },
+);
+
+test("the built-in Button takes an !important class's color over its color prop", () => {
+  registerCSS(`.important { color: red !important; } .plain { color: red; }`);
+
+  render(<Button title="t" className="important" color="blue" />);
+  expect(screen.UNSAFE_getByType(RNButton).props.color).toBe("#f00");
+
+  screen.rerender(<Button title="t" className="plain" color="blue" />);
+  expect(screen.UNSAFE_getByType(RNButton).props.color).toBe("blue");
+});
+
+const labelMapping = {
+  target: false,
+  nativeStyleMapping: { color: "labelColor" },
+} as const;
+
+test.each([
+  ["alone", { labelClassName: labelMapping }],
+  [
+    "after a style config",
+    { className: "style", labelClassName: labelMapping },
+  ],
+  [
+    "before a style config",
+    { labelClassName: labelMapping, className: "style" },
+  ],
+] as const)(
+  "a target:false mapping's !important value beats an inline value of its prop, %s",
+  (_, mapping) => {
+    registerCSS(`.box { opacity: 0.5; } .label { color: blue !important; }`);
+    let received: Readonly<Record<string, unknown>> = {};
+    const Received = (props: Readonly<Record<string, unknown>>) => {
+      received = props;
+      return null;
+    };
+    const Mapped = styled(Received, mapping);
+
+    render(
+      <Mapped className="box" labelClassName="label" labelColor="green" />,
+    );
+
+    expect(received.labelColor).toBe("#00f");
+  },
+);
+
+test.each([
+  ["after", { className: "style", labelClassName: false }],
+  ["before", { labelClassName: false, className: "style" }],
+] as const)(
+  "a style config's own !important prop beats its inline value with a bare false config %s it",
+  (_, mapping) => {
+    registerCSS(
+      `.caret { caret-color: red !important; } .label { color: blue; }`,
+    );
+    let received: Readonly<Record<string, unknown>> = {};
+    const Received = (props: Readonly<Record<string, unknown>>) => {
+      received = props;
+      return null;
+    };
+    const Mapped = styled(Received, mapping);
+
+    render(
+      <Mapped className="caret" labelClassName="label" cursorColor="green" />,
+    );
+
+    expect(received.cursorColor).toBe("#f00");
+  },
+);
+
+test.each(["first", "last"] as const)(
+  "a ripple's normal and !important declarations meet key by key with a style config %s",
+  (order) => {
+    registerCSS(
+      `.box { opacity: 0.5; } .ripple { color: blue; border-radius: 4px !important; }`,
+    );
+    const rippleClassName = {
+      target: false,
+      nativeStyleMapping: {
+        color: "android_ripple.color",
+        borderRadius: "android_ripple.radius",
+      },
+    } as const;
+    let received: Readonly<Record<string, unknown>> = {};
+    const Received = (props: Readonly<Record<string, unknown>>) => {
+      received = props;
+      return null;
+    };
+    const Mapped = styled(
+      Received,
+      order === "first"
+        ? { className: "style", rippleClassName }
+        : { rippleClassName, className: "style" },
+    );
+
+    render(<Mapped className="box" rippleClassName="ripple" />);
+
+    expect(received.android_ripple).toStrictEqual({ color: "#00f", radius: 4 });
   },
 );
 
