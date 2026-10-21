@@ -4,7 +4,6 @@ import { Appearance, type ViewStyle } from "react-native";
 
 import type { StyleDescriptor } from "react-native-css/compiler";
 import { VariableContext } from "react-native-css/native-internal";
-import { resolveColorScheme } from "react-native-css/utilities";
 
 import type {
   ColorScheme,
@@ -19,6 +18,7 @@ import { usePassthrough } from "./react/usePassthrough";
 import {
   cleanupEffect,
   colorScheme as colorSchemeObs,
+  resolveColorScheme,
   VAR_SYMBOL,
   type Effect,
   type Getter,

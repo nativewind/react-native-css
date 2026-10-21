@@ -143,8 +143,16 @@ const everyLayerOn = (scheme: Scheme) => ({
 const opposite = (scheme: Scheme): Scheme =>
   scheme === "light" ? "dark" : "light";
 
+const readColorScheme = (): Scheme => {
+  const scheme = colorScheme.get();
+  if (scheme !== "light" && scheme !== "dark") {
+    throw new Error(`colorScheme.get() answered ${String(scheme)}`);
+  }
+  return scheme;
+};
+
 const expectEveryLayerToAgree = (): void => {
-  expect(readEveryLayer()).toStrictEqual(everyLayerOn(colorScheme.get()));
+  expect(readEveryLayer()).toStrictEqual(everyLayerOn(readColorScheme()));
 };
 
 const recordAppearanceEvents = (): {
@@ -306,7 +314,7 @@ describe.each([
     const earlierStyle: unknown = screen.getByTestId(testID).props.style;
     render(<View testID={LATE_TEST_ID} className="my-class" />);
 
-    expect(earlierStyle).toStrictEqual(STYLE_FOR[colorScheme.get()]);
+    expect(earlierStyle).toStrictEqual(STYLE_FOR[readColorScheme()]);
     expect(screen.getByTestId(LATE_TEST_ID).props.style).toStrictEqual(
       earlierStyle,
     );

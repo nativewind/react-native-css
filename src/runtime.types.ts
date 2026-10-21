@@ -16,11 +16,7 @@ import type {
   ViewStyle,
 } from "react-native";
 
-import type {
-  DotNotation,
-  ResolvedColorScheme,
-  ResolveDotPath,
-} from "react-native-css/utilities";
+import type { DotNotation, ResolveDotPath } from "react-native-css/utilities";
 
 /********************************     API      ********************************/
 
@@ -151,6 +147,6 @@ export type RNStyle = ViewStyle & TextStyle & ImageStyle;
 /********************************    Globals    ********************************/
 
 export interface ColorScheme {
-  get: () => ResolvedColorScheme;
+  get: () => ColorSchemeName | null | undefined;
   set: (value: ColorSchemeName | null | undefined) => void;
 }
