@@ -163,11 +163,13 @@ function filterCssVariableObject(
       }
       filtered = {};
       for (const earlier of keys.slice(0, index)) {
-        Object.defineProperty(
-          filtered,
+        const earlierDescriptor = Object.getOwnPropertyDescriptor(
+          object,
           earlier,
-          Object.getOwnPropertyDescriptor(object, earlier)!,
         );
+        if (earlierDescriptor !== undefined) {
+          Object.defineProperty(filtered, earlier, earlierDescriptor);
+        }
       }
     }
     if (isAccessor) {
@@ -484,14 +486,17 @@ function combineStyleLayers(
  */
 function deepMergeConfig(
   config: Config,
-  normal: Readonly<Record<string, any>> | undefined,
-  inline: Readonly<Record<string, any>> | undefined | null,
-  important: Readonly<Record<string, any>> | undefined,
-) {
-  const result = mergeDefinedProps(normal, inline ?? {});
+  normal: Readonly<Record<string, unknown>> | undefined,
+  inline: Readonly<Record<string, unknown>> | undefined | null,
+  important: Readonly<Record<string, unknown>> | undefined,
+): Record<string, unknown> {
+  const result: Record<string, unknown> = mergeDefinedProps(
+    normal,
+    inline ?? {},
+  );
 
   if (inline && config.source in inline && config.target !== config.source) {
-    delete result[config.source];
+    Reflect.deleteProperty(result, config.source);
   }
 
   const target = config.target;
@@ -510,19 +515,19 @@ function deepMergeConfig(
 }
 
 function propsAt(
-  props: Readonly<Record<string, any>> | undefined,
+  props: Readonly<Record<string, unknown>> | undefined,
   key: string,
-): Readonly<Record<string, any>> | undefined {
-  const value: unknown = props?.[key];
+): Readonly<Record<string, unknown>> | undefined {
+  const value = props?.[key];
   return isStyleObject(value) ? value : undefined;
 }
 
 function combineAtPath(
-  container: Record<string, any>,
+  container: Record<string, unknown>,
   path: readonly string[],
-  normal: Readonly<Record<string, any>> | undefined,
-  inline: Readonly<Record<string, any>> | undefined,
-  important: Readonly<Record<string, any>> | undefined,
+  normal: Readonly<Record<string, unknown>> | undefined,
+  inline: Readonly<Record<string, unknown>> | undefined,
+  important: Readonly<Record<string, unknown>> | undefined,
 ): void {
   const [key, ...rest] = path;
   if (key === undefined) {
@@ -536,7 +541,7 @@ function combineAtPath(
       important?.[key],
     );
     if (combined === undefined) {
-      delete container[key];
+      Reflect.deleteProperty(container, key);
     } else {
       container[key] = combined;
     }

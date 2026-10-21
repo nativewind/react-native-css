@@ -17,6 +17,10 @@ import {
   type StyledConfiguration,
   type StyledProps,
 } from "react-native-css/native";
+import { VAR_SYMBOL } from "react-native-css/native/reactivity";
+
+// What vars({ "--brand": "red" }) returns
+const brandVariable = { [VAR_SYMBOL]: "inline", brand: "red" };
 
 test("className with inline style props should coexist when different properties", () => {
   registerCSS(`.text-red { color: red; }`);
@@ -753,4 +757,161 @@ describe("an inline value holding no CSS variable reaches the component as it ca
       );
     },
   );
+});
+
+describe("every spelling of a style target combines its class, inline and !important values the same way", () => {
+  const SPELLINGS = [
+    ["the shorthand", { className: "style" }, "style"],
+    ["the object form", { className: { target: "style" } }, "style"],
+    [
+      "a shorthand into contentContainerStyle",
+      { className: "contentContainerStyle" },
+      "contentContainerStyle",
+    ],
+    [
+      "an object form into contentContainerStyle",
+      { className: { target: "contentContainerStyle" } },
+      "contentContainerStyle",
+    ],
+  ] as const;
+
+  function received(
+    mapping: (typeof SPELLINGS)[number][1],
+    prop: (typeof SPELLINGS)[number][2],
+    className: string,
+    value?: unknown,
+  ): unknown {
+    registerCSS(`
+      .padded { padding: 4px; }
+      .bg-imp { background-color: red !important; }
+      .themed { color: var(--brand, blue); }
+    `);
+    const props: Readonly<Record<string, unknown>>[] = [];
+    const Probe = (probeProps: Readonly<Record<string, unknown>>) => {
+      props.push(probeProps);
+      return null;
+    };
+    const Styled = (styledProps: Readonly<Record<string, unknown>>) =>
+      useCssElement(Probe, styledProps, mapping);
+
+    render(
+      <Styled
+        className={className}
+        {...(value === undefined ? {} : { [prop]: value })}
+      />,
+    );
+    return props.at(-1)?.[prop];
+  }
+
+  test.each(SPELLINGS)(
+    "%s: an inline value that adds no style leaves the class's",
+    (_spelling, mapping, prop) => {
+      for (const value of [null, false, [], {}, { height: undefined }]) {
+        expect(received(mapping, prop, "padded", value)).toStrictEqual({
+          padding: 4,
+        });
+      }
+    },
+  );
+
+  test.each(SPELLINGS)(
+    "%s: an inline vars() sets the variable and reaches the component as no style of its own",
+    (_spelling, mapping, prop) => {
+      expect(
+        received(mapping, prop, "padded themed", brandVariable),
+      ).toStrictEqual({ padding: 4, color: "red" });
+    },
+  );
+
+  test.each(SPELLINGS)(
+    "%s: an !important class layers over the inline value, which is the same object",
+    (_spelling, mapping, prop) => {
+      const inline = { height: 16 };
+
+      const value = received(mapping, prop, "padded bg-imp", inline);
+
+      expect(value).toStrictEqual([
+        { padding: 4 },
+        { height: 16 },
+        { backgroundColor: "#f00" },
+      ]);
+      expect((value as readonly unknown[])[1]).toBe(inline);
+    },
+  );
+
+  test.each(SPELLINGS)(
+    "%s: an !important class with no inline value flattens into the class's",
+    (_spelling, mapping, prop) => {
+      expect(received(mapping, prop, "padded bg-imp")).toStrictEqual({
+        padding: 4,
+        backgroundColor: "#f00",
+      });
+    },
+  );
+});
+
+describe("an inline value the CSS variable filter finds nothing in reaches the component as it came", () => {
+  function receivedStyle(style: unknown): unknown {
+    registerCSS(`.padded { padding: 4px; }`);
+    const props: Readonly<Record<string, unknown>>[] = [];
+    const Probe = (probeProps: Readonly<Record<string, unknown>>) => {
+      props.push(probeProps);
+      return null;
+    };
+    const Styled = (styledProps: Readonly<Record<string, unknown>>) =>
+      useCssElement(Probe, styledProps, { className: "style" });
+
+    render(<Styled className="padded" style={style} />);
+    return (props.at(-1)?.style as readonly unknown[])[1];
+  }
+
+  test("an empty transform, which clears the class's, and NaN", () => {
+    const inline = { height: 16, transform: [], opacity: Number.NaN };
+
+    expect(receivedStyle(inline)).toBe(inline);
+  });
+
+  test("an accessor, which the filter never runs", () => {
+    const read = jest.fn(() => 0.5);
+    const inline = { height: 16 };
+    Object.defineProperty(inline, "opacity", { enumerable: true, get: read });
+
+    expect(receivedStyle(inline)).toBe(inline);
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  test("an accessor beside a CSS variable is copied without running", () => {
+    const read = jest.fn(() => 0.5);
+    const inline: Record<string, unknown> = {
+      height: 16,
+      color: brandVariable,
+    };
+    Object.defineProperty(inline, "opacity", { enumerable: true, get: read });
+
+    const kept = receivedStyle(inline) as Readonly<Record<string, unknown>>;
+
+    expect(Object.keys(kept)).toStrictEqual(["height", "opacity"]);
+    expect(read).not.toHaveBeenCalled();
+  });
+});
+
+test("Pressable: a callback style between a class and an !important class keeps all three, in order", () => {
+  registerCSS(`
+    .padded { padding: 4px; }
+    .bg-imp { background-color: red !important; }
+  `);
+
+  const component = render(
+    <Pressable
+      testID={testID}
+      className="padded bg-imp"
+      style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}
+    />,
+  ).getByTestId(testID);
+
+  expect(component.props.style).toStrictEqual([
+    { padding: 4 },
+    { opacity: 1 },
+    { backgroundColor: "#f00" },
+  ]);
 });
