@@ -6,7 +6,7 @@ import {
   isNonArrayObject,
   valueAtPath,
   withDeepPath,
-  withoutKeys,
+  withoutKeysAt,
 } from "../objects";
 import { collectionTarget, targetPath } from "../react/collection-target";
 import { getInteractionHandler } from "../react/interaction";
@@ -587,19 +587,11 @@ function nativeStyleMapping(
     return isNonArrayObject(source) ? [{ config, sourcePath, source }] : [];
   });
 
-  const stripped = sources.reduce((result, { config, sourcePath }) => {
-    const current = valueAtPath(result, sourcePath);
-    if (!isNonArrayObject(current)) {
-      return result;
-    }
-    const remaining = withoutKeys(
-      current,
-      Object.keys(config.nativeStyleMapping),
-    );
-    return remaining === current
-      ? result
-      : withDeepPath(result, sourcePath, remaining);
-  }, props);
+  const stripped = sources.reduce(
+    (result, { config, sourcePath }) =>
+      withoutKeysAt(result, sourcePath, Object.keys(config.nativeStyleMapping)),
+    props,
+  );
 
   return sources.reduce(
     (result, { config, source }) =>

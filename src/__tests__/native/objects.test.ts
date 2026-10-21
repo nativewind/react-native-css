@@ -1,4 +1,9 @@
-import { valueAtPath, withDeepPath, withoutKeys } from "../../native/objects";
+import {
+  valueAtPath,
+  withDeepPath,
+  withoutKeys,
+  withoutKeysAt,
+} from "../../native/objects";
 
 describe("withDeepPath", () => {
   test("sets a nested value on copies of the objects on its path, leaving the source untouched", () => {
@@ -93,5 +98,28 @@ describe("valueAtPath", () => {
     const source = { style: {} };
 
     expect(valueAtPath(source, [])).toBe(source);
+  });
+});
+
+describe("withoutKeysAt", () => {
+  test("drops the keys from a copy of the object at its path, leaving the source untouched", () => {
+    const style = { color: "red", opacity: 1 };
+    const source = { nested: { style }, testID: "view" };
+
+    const result = withoutKeysAt(source, ["nested", "style"], ["color"]);
+
+    expect(result).toStrictEqual({
+      nested: { style: { opacity: 1 } },
+      testID: "view",
+    });
+    expect(source).toStrictEqual({ nested: { style }, testID: "view" });
+  });
+
+  test("returns its source when its path meets no object or the object has none of the keys", () => {
+    const source = { style: { opacity: 1 }, label: "x" };
+
+    expect(withoutKeysAt(source, ["label", "style"], ["color"])).toBe(source);
+    expect(withoutKeysAt(source, ["missing"], ["color"])).toBe(source);
+    expect(withoutKeysAt(source, ["style"], ["color"])).toBe(source);
   });
 });

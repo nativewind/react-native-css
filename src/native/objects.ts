@@ -148,3 +148,22 @@ export function withoutKeys(
     return rest;
   }, source);
 }
+
+export function withoutKeysAt(
+  source: Readonly<Record<string, unknown>>,
+  paths: readonly string[],
+  keys: readonly string[],
+): Readonly<Record<string, unknown>> {
+  const [path, ...rest] = paths;
+  if (path === undefined) {
+    return withoutKeys(source, keys);
+  }
+
+  const child = source[path];
+  if (!isNonArrayObject(child)) {
+    return source;
+  }
+
+  const updated = withoutKeysAt(child, rest, keys);
+  return updated === child ? source : { ...source, [path]: updated };
+}
