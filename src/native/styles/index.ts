@@ -83,14 +83,16 @@ function flattenStyleArray(styleArray: any[]): any {
 }
 
 /**
- * Removes the CSS variable objects (with VAR_SYMBOL) an inline value holds, so none reaches a React Native prop.
- * A value that holds none comes back as it came, so an inline style keeps its identity and a class instance in it,
- * such as an Animated value, is never rebuilt; an array or plain object that held one, an `undefined` entry or a
- * Symbol key comes back rebuilt without it, and one left empty comes back `undefined`.
+ * Removes the CSS variable objects (with VAR_SYMBOL) an inline value holds, and an object's `undefined` keys, so
+ * neither reaches a React Native prop; a style array keeps its `null` and `undefined` layers, which React Native
+ * skips. A value that holds neither comes back as it came, an empty one included, so an inline style keeps its
+ * identity and a class instance in it, such as an Animated value, is never rebuilt; one that held some comes back
+ * rebuilt without them, and `undefined` once nothing is left. Only data properties are read, so an accessor, such as
+ * a Reanimated shared value's `value`, never runs.
  *
  * @example
  * filterCssVariables({fontSize: 16, color: {[VAR_SYMBOL]: true}}) // {fontSize: 16}
- * filterCssVariables([{margin: 10}, {[VAR_SYMBOL]: true}]) // [{margin: 10}]
+ * filterCssVariables([{margin: 10}, {[VAR_SYMBOL]: true}, null]) // [{margin: 10}, null]
  * filterCssVariables({color: {[VAR_SYMBOL]: true}}) // undefined (all props filtered)
  */
 function filterCssVariables(value: unknown, depth = 0): unknown {
@@ -120,19 +122,23 @@ function filterCssVariableArray(
 
   for (const [index, item] of array.entries()) {
     const kept = filterCssVariables(item, depth + 1);
+    // A layer that filtered to nothing leaves, and an undefined layer as written stays
+    const leaves = kept === undefined && item !== undefined;
     if (filtered === undefined) {
-      if (kept === item && kept !== undefined) {
+      if (!leaves && Object.is(kept, item)) {
         continue;
       }
       filtered = array.slice(0, index);
     }
-    if (kept !== undefined) {
+    if (!leaves) {
       filtered.push(kept);
     }
   }
 
-  const result = filtered ?? array;
-  return result.length > 0 ? result : undefined;
+  if (filtered === undefined) {
+    return array;
+  }
+  return filtered.length > 0 ? filtered : undefined;
 }
 
 function filterCssVariableObject(
@@ -140,27 +146,41 @@ function filterCssVariableObject(
   depth: number,
 ): unknown {
   const keys = Object.keys(object);
-  let filtered: Record<string, unknown> | undefined =
-    Object.getOwnPropertySymbols(object).length > 0 ? {} : undefined;
+  let filtered: Record<string, unknown> | undefined;
 
   for (const [index, key] of keys.entries()) {
-    const value = object[key];
-    const kept = filterCssVariables(value, depth + 1);
+    const descriptor = Object.getOwnPropertyDescriptor(object, key);
+    const value: unknown = descriptor?.value;
+    const kept =
+      descriptor === undefined || !("value" in descriptor)
+        ? value
+        : filterCssVariables(value, depth + 1);
+    const isAccessor = descriptor !== undefined && !("value" in descriptor);
+    const leaves = !isAccessor && kept === undefined;
     if (filtered === undefined) {
-      if (kept === value && kept !== undefined) {
+      if (isAccessor || (!leaves && Object.is(kept, value))) {
         continue;
       }
-      filtered = Object.fromEntries(
-        keys.slice(0, index).map((earlier) => [earlier, object[earlier]]),
-      );
+      filtered = {};
+      for (const earlier of keys.slice(0, index)) {
+        Object.defineProperty(
+          filtered,
+          earlier,
+          Object.getOwnPropertyDescriptor(object, earlier)!,
+        );
+      }
     }
-    if (kept !== undefined) {
+    if (isAccessor) {
+      Object.defineProperty(filtered, key, descriptor);
+    } else if (!leaves) {
       filtered[key] = kept;
     }
   }
 
-  const result = filtered ?? object;
-  return Object.keys(result).length > 0 ? result : undefined;
+  if (filtered === undefined) {
+    return object;
+  }
+  return Object.keys(filtered).length > 0 ? filtered : undefined;
 }
 
 function isPlainObject(value: object): boolean {
@@ -213,16 +233,9 @@ export function getStyledProps(
       config,
       nativeStyleMapping(config, adaptProps(styledProps?.normal)),
       inline,
-      true,
-    );
-
-    if (styledProps?.important) {
-      result = deepMergeConfig(
-        config,
-        result,
+      styledProps?.important &&
         nativeStyleMapping(config, adaptProps(styledProps.important)),
-      );
-    }
+    );
 
     if (result && config.target) {
       const path = Array.isArray(config.target)
@@ -332,8 +345,8 @@ export function getStyledProps(
  *
  * Empty object detection uses inline `for...in` instead of a separate function or
  * `Object.keys().length` — avoids both function call overhead and intermediate array
- * allocation on a hot path (called per-prop per-render). Consistent with how the
- * `["style"]` target path handles this via `filterCssVariables({})` returning `undefined`.
+ * allocation on a hot path (called per-prop per-render). A config's target adds nothing
+ * for an empty object the same way, through `addsStyle`.
  *
  * @param left - The computed NativeWind props (className-derived styles)
  * @param right - The inline props from the component (guaranteed non-null by caller; may contain undefined values)
@@ -370,164 +383,178 @@ function isStyleCallback(value: unknown): value is StyleCallback {
   return typeof value === "function";
 }
 
-// Pressable calls a function style with its pressed state, so a merge keeps a callback a callback
-function composeStyleCallback(left: unknown, right: unknown): StyleCallback {
-  return (state) => [
-    isStyleCallback(left) ? left(state) : left,
-    isStyleCallback(right) ? right(state) : right,
-  ];
-}
-
-function isStyleObject(value: unknown): value is Record<string, unknown> {
+function isStyleObject(
+  value: unknown,
+): value is Readonly<Record<string, unknown>> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-// An inline style object can carry an identity a copy would lose (an animated style), so only computed values are flattened
-type StyleLayering = "flattened" | "layered";
-
-/** Combines two values of one style prop, `right` taking precedence */
-function combineStyleValues(
-  left: unknown,
-  right: unknown,
-  layering: StyleLayering,
-): unknown {
-  if (isStyleCallback(left) || isStyleCallback(right)) {
-    return composeStyleCallback(left, right);
+// A falsy style, an empty style array and an empty style object, such as contentContainerStyle={{}}, add nothing to a style prop
+function addsStyle(value: unknown): boolean {
+  if (value === undefined || value === null || value === false) {
+    return false;
   }
-
-  if (
-    isStyleObject(left) &&
-    isStyleObject(right) &&
-    !hasNonOverlappingProperties(left, right)
-  ) {
-    return right;
+  if (Array.isArray(value)) {
+    return value.length > 0;
   }
-
-  switch (layering) {
-    case "flattened":
-      return flattenStyleArray(
-        Array.isArray(left) ? [...left, right] : [left, right],
-      );
-    case "layered":
-      return [left, right];
-    default:
-      return layering satisfies never;
+  if (isStyleObject(value)) {
+    for (const _ in value) {
+      return true;
+    }
+    return false;
   }
+  return true;
 }
 
-function deepMergeConfig(
-  config: Config,
-  left: Record<string, any> | undefined,
-  right: Record<string, any> | undefined | null,
-  rightIsInline = false,
-) {
-  if (!right) {
-    return { ...left };
+// A later style object that sets every key of an earlier one hides it, as React Native's flattening would
+function hides(later: unknown, earlier: unknown): boolean {
+  return (
+    isStyleObject(later) &&
+    isStyleObject(earlier) &&
+    !hasNonOverlappingProperties(earlier, later)
+  );
+}
+
+// Pressable calls a function style with its state, so a style prop holding one stays a function
+function composeStyleCallback(
+  computed: unknown,
+  inline: unknown,
+  important: unknown,
+): StyleCallback {
+  return (state) =>
+    [computed, inline, important]
+      .filter(addsStyle)
+      .map((layer) => (isStyleCallback(layer) ? layer(state) : layer));
+}
+
+// Both values come from this library, so they flatten into one object, which no caller holds
+function combineComputedStyles(computed: unknown, important: unknown): unknown {
+  if (!addsStyle(important)) {
+    return computed;
   }
+  if (!addsStyle(computed) || hides(important, computed)) {
+    return important;
+  }
+  const layers: readonly unknown[] = Array.isArray(computed)
+    ? [...(computed as readonly unknown[]), important]
+    : [computed, important];
+  return flattenStyleArray([...layers]);
+}
 
-  // Handle style merging to support both className and inline style props
-  let result: Record<string, any>;
-  if (config.target) {
-    if (
-      Array.isArray(config.target) &&
-      config.target.length === 1 &&
-      config.target[0] === "style"
-    ) {
-      // Special handling for style target when we have inline styles
-      result = { ...left, ...right };
+/**
+ * Combines a style prop's three values in the cascade's order: the class's, the element's inline value, then the
+ * class's `!important` declarations ([CSS Cascade 5 §6.1](https://www.w3.org/TR/css-cascade-5/#cascade-sort)).
+ * The inline value is layered and never copied, so it keeps its identity, such as an animated style's; a value that
+ * the next one hides is left out.
+ */
+function combineStyleLayers(
+  computed: unknown,
+  inline: unknown,
+  important: unknown,
+): unknown {
+  const addsComputed = addsStyle(computed);
+  const addsInline = addsStyle(inline);
+  const addsImportant = addsStyle(important);
 
-      // Handle null/undefined inline styles
-      if (right?.style === null || right?.style === undefined) {
-        if (left?.style) {
-          result.style = left.style;
-        }
-      } else if (!rightIsInline && right?.style && left?.style) {
-        // Merging non-inline styles (e.g., important styles)
-        result.style = combineStyleValues(left.style, right.style, "flattened");
-      }
-    } else {
-      result = mergeDefinedProps(left, right);
-    }
-  } else {
-    result = mergeDefinedProps(left, right);
+  if (!addsInline || (addsImportant && hides(important, inline))) {
+    return combineComputedStyles(computed, important);
   }
 
   if (
-    right &&
-    rightIsInline &&
-    config.source in right &&
-    config.target !== config.source
+    (addsComputed && isStyleCallback(computed)) ||
+    isStyleCallback(inline) ||
+    (addsImportant && isStyleCallback(important))
   ) {
+    return addsComputed || addsImportant
+      ? composeStyleCallback(computed, inline, important)
+      : inline;
+  }
+
+  const below = addsComputed && !hides(inline, computed) ? computed : undefined;
+  if (below === undefined) {
+    return addsImportant ? [inline, important] : inline;
+  }
+  return addsImportant ? [below, inline, important] : [below, inline];
+}
+
+/**
+ * Merges a config's computed props with the element's inline props and the class's `!important` ones. Every prop
+ * takes the inline value over the computed one, and an `!important` one over both; the config's target, whichever
+ * way the mapping spells it, combines its three values as a style prop, through every object on its path.
+ */
+function deepMergeConfig(
+  config: Config,
+  normal: Readonly<Record<string, any>> | undefined,
+  inline: Readonly<Record<string, any>> | undefined | null,
+  important: Readonly<Record<string, any>> | undefined,
+) {
+  const result = mergeDefinedProps(normal, inline ?? {});
+
+  if (inline && config.source in inline && config.target !== config.source) {
     delete result[config.source];
   }
 
-  /**
-   *  If target is a path, deep merge until we get to the last key
-   */
-  if (Array.isArray(config.target)) {
-    if (config.target.length > 1) {
-      const key = config.target[0]!;
-      result[key] = deepMergeConfig(
-        { source: config.source, target: config.target.slice(1) },
-        left?.[key],
-        right?.[key],
-        rightIsInline,
-      );
-    }
-
-    // For length-1 array targets (e.g. ["contentContainerStyle"]), the loop
-    // above runs 0 iterations. Merge the target prop so inline styles don't
-    // silently overwrite className-computed styles (same as string target path).
-    const finalKey = config.target[config.target.length - 1];
-    if (config.target.length === 1 && finalKey && rightIsInline) {
-      let rightValue = right?.[finalKey];
-      if (rightValue !== undefined) {
-        rightValue = filterCssVariables(rightValue);
-      }
-      if (rightValue === undefined || rightValue === null) {
-        // Inline is empty or fully filtered — preserve className-computed value
-        if (left && finalKey in left) {
-          result[finalKey] = left[finalKey];
-        } else {
-          // No left value either — remove unfiltered inline value from result
-          delete result[finalKey];
-        }
-      } else if (left && finalKey in left) {
-        result[finalKey] = combineStyleValues(
-          left[finalKey],
-          rightValue,
-          "layered",
-        );
-      } else {
-        // No left value — use filtered right value (not the unfiltered one from mergeDefinedProps)
-        result[finalKey] = rightValue;
-      }
-    }
-
-    return result;
-  }
-
   const target = config.target;
-
   if (target === undefined || target === false) {
-    return result;
+    return important ? mergeDefinedProps(result, important) : result;
   }
 
-  let rightValue = right?.[target];
-
-  // Strip any inline variables from the target
-  if (rightIsInline && rightValue !== undefined) {
-    rightValue = filterCssVariables(rightValue);
-  }
-
-  if (rightValue !== undefined) {
-    result[target] =
-      left && target in left
-        ? combineStyleValues(left[target], rightValue, "layered")
-        : rightValue;
-  }
-
+  combineAtPath(
+    result,
+    typeof target === "string" ? [target] : target,
+    normal,
+    inline ?? undefined,
+    important,
+  );
   return result;
+}
+
+function propsAt(
+  props: Readonly<Record<string, any>> | undefined,
+  key: string,
+): Readonly<Record<string, any>> | undefined {
+  const value: unknown = props?.[key];
+  return isStyleObject(value) ? value : undefined;
+}
+
+function combineAtPath(
+  container: Record<string, any>,
+  path: readonly string[],
+  normal: Readonly<Record<string, any>> | undefined,
+  inline: Readonly<Record<string, any>> | undefined,
+  important: Readonly<Record<string, any>> | undefined,
+): void {
+  const [key, ...rest] = path;
+  if (key === undefined) {
+    return;
+  }
+
+  if (rest.length === 0) {
+    const combined = combineStyleLayers(
+      normal?.[key],
+      filterCssVariables(inline?.[key]),
+      important?.[key],
+    );
+    if (combined === undefined) {
+      delete container[key];
+    } else {
+      container[key] = combined;
+    }
+    return;
+  }
+
+  const next = mergeDefinedProps(
+    propsAt(normal, key),
+    propsAt(inline, key) ?? {},
+  );
+  combineAtPath(
+    next,
+    rest,
+    propsAt(normal, key),
+    propsAt(inline, key),
+    propsAt(important, key),
+  );
+  container[key] = next;
 }
 
 function nativeStyleMapping(
