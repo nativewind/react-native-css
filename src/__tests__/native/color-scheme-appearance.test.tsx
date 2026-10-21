@@ -151,8 +151,12 @@ const readColorScheme = (): Scheme => {
   return scheme;
 };
 
-const expectEveryLayerToAgree = (): void => {
-  expect(readEveryLayer()).toStrictEqual(everyLayerOn(readColorScheme()));
+// React Native 0.82 to 0.87 cache a setColorScheme request at the call, so an Appearance subscriber that renders before the platform reports reads the request; this library's own layers wait for the report
+const expectLibraryLayersToAgree = (): void => {
+  const scheme = readColorScheme();
+  expect(screen.getByTestId(testID).props.style).toStrictEqual(
+    STYLE_FOR[scheme],
+  );
 };
 
 const recordAppearanceEvents = (): {
@@ -213,12 +217,12 @@ describe.each([
     }
   });
 
-  test("every layer agrees until the platform applies a request, then takes it", () => {
+  test("the class layer and colorScheme.get() keep the scheme in force until the platform applies a request, then every layer takes it", () => {
     act(() => {
       colorScheme.set(other);
     });
 
-    expectEveryLayerToAgree();
+    expectLibraryLayersToAgree();
 
     act(() => {
       deliver(device.applyPendingOverrides());
@@ -247,13 +251,13 @@ describe.each([
     },
   );
 
-  test("a request and its hand-back made before the platform applies either leave every layer on the system scheme", () => {
+  test("a request and its hand-back made before the platform applies either leave the library's layers, then every layer, on the system scheme", () => {
     act(() => {
       colorScheme.set(other);
       colorScheme.set(null);
     });
 
-    expectEveryLayerToAgree();
+    expectLibraryLayersToAgree();
 
     let sent: readonly Scheme[] = [];
     act(() => {
@@ -272,7 +276,7 @@ describe.each([
       colorScheme.set(system);
     });
 
-    expectEveryLayerToAgree();
+    expectLibraryLayersToAgree();
 
     let sent: readonly Scheme[] = [];
     act(() => {
@@ -295,6 +299,22 @@ describe.each([
 
     expect(sent).toStrictEqual([]);
     expect(readEveryLayer()).toStrictEqual(everyLayerOn(system));
+  });
+
+  test("a request after app code hands Appearance back with null still reaches the platform", () => {
+    // React Native 0.81 documented setColorScheme(null) as the hand-back; from 0.82 Appearance caches the null as it came
+    act(() => {
+      Reflect.apply(Appearance.setColorScheme, Appearance, [null]);
+    });
+    act(() => {
+      colorScheme.set(other);
+    });
+    act(() => {
+      deliver(device.applyPendingOverrides());
+    });
+
+    expect(device.readSetColorSchemeCalls().at(-1)).toBe(other);
+    expect(readEveryLayer()).toStrictEqual(everyLayerOn(other));
   });
 
   test("a scheme set through Appearance itself moves every layer once the platform applies it", () => {
