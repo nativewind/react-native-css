@@ -133,6 +133,37 @@ test("an invalid numeric animation name is omitted without throwing", () => {
   expect(style()?.animationName).toBeUndefined();
 });
 
+const clearedAnimation = {
+  animationName: undefined,
+  animationDelay: undefined,
+  animationDirection: undefined,
+  animationDuration: undefined,
+  animationFillMode: undefined,
+  animationIterationCount: undefined,
+  animationPlayState: undefined,
+  animationTimingFunction: undefined,
+};
+
+// Chromium 153, Firefox 155 and WebKit 26.6 reset every animation longhand for `initial`, `unset` and a var() that resolves to nothing
+describe.each([undefined, false] as const)(
+  "an animation reset with inlineVariables=%s",
+  (inlineVariables) => {
+    test.each(["initial", "unset", "var(--missing)"])(
+      "animation: %s after a written animation leaves no animation",
+      (reset) => {
+        registerCSS(
+          `${keyframes} .earlier { animation: slide-in 1s; } .reset { animation: ${reset}; }`,
+          { inlineVariables },
+        );
+        render(<View testID={testID} className="earlier reset" />);
+        expect(screen.getByTestId(testID).props.style).toStrictEqual(
+          clearedAnimation,
+        );
+      },
+    );
+  },
+);
+
 test("multiple animation names preserve keyframe order and timing metadata", () => {
   registerCSS(`${keyframes} .motion {
     animation: slide-in 1s linear 250ms 2 alternate both,

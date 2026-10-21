@@ -5,7 +5,11 @@ import type {
   StyleDescriptor,
   StyleFunction,
 } from "react-native-css/compiler";
-import { isStyleDescriptorArray } from "react-native-css/utilities";
+import {
+  isInheritedColorLookup,
+  isStyleDescriptorArray,
+  isStyleFunction,
+} from "react-native-css/utilities";
 
 import type { RenderGuard } from "../conditions/guards";
 import { type Getter, type VariableContextValue } from "../reactivity";
@@ -54,9 +58,21 @@ export type ResolveValueOptions = {
   renderGuards?: RenderGuard[];
   variableHistory?: Set<string>;
   variableCycles?: Set<string>;
+  /** Resolving the element's own `color`, where css-color-3 §4.4 makes `currentcolor` the inherited colour */
+  computingColor?: boolean;
+  /** Where a var() that substitutes nothing is recorded, since a list drops the entry it leaves */
+  substitution?: Substitution;
   /** Pass down to perform recursive calculations and avoid circular dependencies */
   calculateProps?: typeof calculateProps;
 };
+
+/** What the var()s in the value being resolved left it (css-variables-1 §3.1) */
+export interface Substitution {
+  /** A var() had no value and no fallback, which leaves any value invalid at computed-value time */
+  failed: boolean;
+  /** Every entry of a list substituted nothing, which leaves a property's value invalid and a custom property's empty */
+  emptied: boolean;
+}
 
 export function resolveValue(
   value: StyleDescriptor,
@@ -91,15 +107,23 @@ export function resolveValue(
       }
 
       if (isStyleDescriptorArray(value)) {
-        value = value
-          .map((d) => resolveValue(d, get, options))
-          .filter((d) => d !== undefined);
+        let substitutedNothing = value.length > 0;
+        const entries = value.flatMap((entry) => {
+          const resolved: unknown = resolveValue(entry, get, options);
 
-        if (castToArray && !Array.isArray(value)) {
-          return [value];
-        } else {
-          return value;
+          if (isEmptySubstitution(entry, resolved)) {
+            return [];
+          }
+
+          substitutedNothing = false;
+          return resolved === undefined ? [] : [resolved];
+        });
+
+        if (substitutedNothing && options.substitution) {
+          options.substitution.emptied = true;
         }
+
+        return entries;
       }
 
       const name = value[1];
@@ -109,7 +133,7 @@ export function resolveValue(
       };
 
       if (name === "var") {
-        return varResolver(simpleResolve, value, get, options);
+        return resolveVariable(value, get, options);
       } else if (name in functionResolvers) {
         const fn = functionResolvers[name as keyof typeof functionResolvers];
 
@@ -165,4 +189,45 @@ export function resolveValue(
       return castToArray && value && !Array.isArray(value) ? [value] : value;
     }
   }
+}
+
+// css-variables-1 §3: a var() whose value or fallback is empty substitutes nothing
+export function isEmptySubstitution(
+  descriptor: StyleDescriptor,
+  value: unknown,
+): boolean {
+  return (
+    isStyleFunction(descriptor) &&
+    descriptor[1] === "var" &&
+    Array.isArray(value) &&
+    value.length === 0
+  );
+}
+
+function resolveVariable(
+  fn: StyleFunction,
+  get: Getter,
+  options: ResolveValueOptions,
+): unknown {
+  if (options.computingColor && isInheritedColorLookup(fn)) {
+    const inheritedScope: ResolveValueOptions = {
+      ...options,
+      inlineVariables: undefined,
+      computingColor: false,
+    };
+
+    return varResolver(
+      (inner) => resolveValue(inner, get, inheritedScope),
+      fn,
+      get,
+      inheritedScope,
+    );
+  }
+
+  return varResolver(
+    (inner) => resolveValue(inner, get, options),
+    fn,
+    get,
+    options,
+  );
 }

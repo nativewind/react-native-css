@@ -271,3 +271,207 @@ test("variable overriding with classes", () => {
   const component = screen.getByTestId(testID);
   expect(component.props.style).toStrictEqual({ color: "#f00" });
 });
+
+// Chromium 153, Firefox 155 and WebKit 26.6 read a custom property's name as its own, never as a property every object inherits
+test.each(["constructor", "toString", "hasOwnProperty"])(
+  "var(--%s) with no declaration takes its fallback",
+  (name) => {
+    registerCSS(`
+      .parent { --unrelated: 1px; }
+      .other { --unrelated: 2px; }
+      .test { color: var(--${name}, green); }
+    `);
+
+    render(
+      <View className="parent">
+        <View testID={testID} className="test" />
+      </View>,
+    );
+
+    expect(screen.getByTestId(testID).props.style).toStrictEqual({
+      color: "green",
+    });
+  },
+);
+
+test("var(--constructor) reads the ancestor's declaration", () => {
+  registerCSS(`
+    .parent { --constructor: blue; }
+    .other { --constructor: red; }
+    .test { color: var(--constructor); }
+  `);
+
+  render(
+    <View className="parent">
+      <View testID={testID} className="test" />
+    </View>,
+  );
+
+  expect(screen.getByTestId(testID).props.style).toStrictEqual({
+    color: "blue",
+  });
+});
+
+// Chromium 153, Firefox 155 and WebKit 26.6 make each member of a cycle the guaranteed-invalid value (css-variables-1 §2.3), wherever it is declared
+test.each([
+  ["*", "universal-cycle"],
+  [":root", "root-cycle"],
+])("a cycle declared on %s leaves var() its fallback", (selector, name) => {
+  registerCSS(`
+    ${selector} { --${name}-a: var(--${name}-b); --${name}-b: var(--${name}-a); }
+    .other { --${name}-a: 1px; --${name}-b: 1px; }
+    .test { color: var(--${name}-a, green); }
+  `);
+
+  render(<View testID={testID} className="test" />);
+
+  expect(screen.getByTestId(testID).props.style).toStrictEqual({
+    color: "green",
+  });
+});
+
+// Chromium 153, Firefox 155 and WebKit 26.6 compute a variable read inside a function from the variable's own computed value, wherever either is declared
+test.each([
+  [
+    "after",
+    ".child { --order-source: 3px; --order-middle: var(--order-source); --order-reader: calc(var(--order-middle) * 2); width: var(--order-reader, 5px); }",
+  ],
+  [
+    "before",
+    ".child { --order-reader: calc(var(--order-middle) * 2); --order-middle: var(--order-source); --order-source: 3px; width: var(--order-reader, 5px); }",
+  ],
+  [
+    "inside an undeclared variable's fallback, before",
+    ".child { --order-reader: var(--order-absent, calc(var(--order-middle) * 2)); --order-middle: var(--order-source); --order-source: 3px; width: var(--order-reader); }",
+  ],
+])(
+  "a variable read inside a function declared %s the chain it reads resolves through it",
+  (_order, css) => {
+    registerCSS(css);
+
+    render(<View testID={testID} className="child" />);
+
+    expect(screen.getByTestId(testID).props.style).toStrictEqual({ width: 6 });
+  },
+);
+
+// Chromium 153, Firefox 155 and WebKit 26.6 give every member of a cycle the guaranteed-invalid value however few rules declare it, and resolve a variable two branches read in both
+test.each([
+  [
+    "a cycle declared once leaves var() its fallback",
+    ".child { --cycle-once-a: var(--cycle-once-b); --cycle-once-b: var(--cycle-once-a); color: var(--cycle-once-b, green); }",
+    { color: "green" },
+  ],
+  [
+    "a cycle read twice in one declaration takes each fallback",
+    ".child { --cycle-x: var(--cycle-y); --cycle-y: var(--cycle-x); width: calc(var(--cycle-x, 2px) + var(--cycle-x, 3px)); } .other { --cycle-x: 1px; --cycle-y: 1px; }",
+    { width: 5 },
+  ],
+  [
+    "a variable two branches read is no cycle",
+    ".child { --diamond-reader: calc(var(--diamond-left) + var(--diamond-right)); --diamond-left: var(--diamond-base); --diamond-right: var(--diamond-base); --diamond-base: 3px; width: var(--diamond-reader, 1px); }",
+    { width: 6 },
+  ],
+])("%s", (_name, css, style) => {
+  registerCSS(css);
+
+  render(<View testID={testID} className="child" />);
+
+  expect(screen.getByTestId(testID).props.style).toStrictEqual(style);
+});
+
+// Chromium 153, Firefox 155 and WebKit 26.6 read a variable the same way whether or not the compiler inlines it
+describe.each([
+  ["inlined", {}],
+  ["kept", { inlineVariables: false }],
+] as const)("with every variable %s", (_route, options) => {
+  // css-variables-1 §2.3, §3.1: a value that reads the guaranteed-invalid value is the guaranteed-invalid value, so var() takes its fallback
+  test.each([
+    [
+      "a cycle",
+      ".child { --cycle-a: var(--cycle-b); --cycle-b: var(--cycle-a); --cycle-reader: var(--cycle-a) 2px; width: var(--cycle-reader, 5px); }",
+    ],
+    [
+      "a variable no rule gives the element",
+      ".child { --theme-reader: var(--theme) 2px; width: var(--theme-reader, 5px); } .light { --theme: 1px; } .dark { --theme: 2px; }",
+    ],
+  ])(
+    "a variable whose value reads %s leaves var() its fallback",
+    (_reads, css) => {
+      registerCSS(css, options);
+
+      render(<View testID={testID} className="child" />);
+
+      expect(screen.getByTestId(testID).props.style).toStrictEqual({
+        width: 5,
+      });
+    },
+  );
+
+  test("a variable two rules declare is read from the rule that applies, through one declared once", () => {
+    registerCSS(
+      ".child { --size-reader: var(--size); width: var(--size-reader, 5px); } .small { --size: 3px; } .large { --size: 4px; }",
+      options,
+    );
+
+    render(<View testID={testID} className="child large" />);
+
+    expect(screen.getByTestId(testID).props.style).toStrictEqual({ width: 4 });
+  });
+
+  // css-variables-1 §3.1: a value a var() substitutes that the property cannot take leaves the declaration invalid at computed-value time, as if it were `unset`; written, the same value is ignored
+  test.each([
+    [
+      "",
+      ".first { text-shadow: 9px 9px 0 #010203 } .second { --shadow: 2px; text-shadow: var(--shadow) }",
+    ],
+    [
+      " !important",
+      ".first { text-shadow: 9px 9px 0 #010203 !important } .second { --shadow: 2px; text-shadow: var(--shadow) !important }",
+    ],
+    [
+      " after a nested rule",
+      ".first { text-shadow: 9px 9px 0 #010203 } .second { & .descendant { color: red } --shadow: 2px; text-shadow: var(--shadow) }",
+    ],
+  ])(
+    "a substituted value the property cannot take resets it%s, where the earlier rule's would stand if it were written",
+    (_placement, css) => {
+      registerCSS(css, options);
+
+      render(<View testID={testID} className="first second" />);
+
+      expect(screen.getByTestId(testID).props.style).toStrictEqual({
+        textShadowColor: undefined,
+        textShadowOffset: undefined,
+        textShadowRadius: undefined,
+      });
+    },
+  );
+
+  test.each([
+    [
+      "the property",
+      ".first { width: 9px } .second { --size: 2px; width: var(--size); width: calc(1px + red) }",
+      { width: 2 },
+    ],
+    [
+      "another property",
+      ".first { width: 9px } .second { --shadow: 2px; text-shadow: var(--shadow); width: calc(1px + red) }",
+      {
+        width: 9,
+        textShadowColor: undefined,
+        textShadowOffset: undefined,
+        textShadowRadius: undefined,
+      },
+    ],
+  ])(
+    "a written value the property cannot take is ignored beside a substitution of %s",
+    (_substituted, css, style) => {
+      registerCSS(css, options);
+
+      render(<View testID={testID} className="first second" />);
+
+      expect(screen.getByTestId(testID).props.style).toStrictEqual(style);
+    },
+  );
+});
