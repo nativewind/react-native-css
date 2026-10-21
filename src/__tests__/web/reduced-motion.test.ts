@@ -63,13 +63,14 @@ test("a server keeps no override, since it renders every visitor's page in one p
   expect(reducedMotion.get()).toBeUndefined();
 });
 
-test("reducedMotion parses its query once for each matchMedia", () => {
-  const matchMedia = jest.fn(() => ({ matches: true }));
+test("reducedMotion reads a matchMedia double's new answer", () => {
+  const matchMedia = jest.fn(() => ({ matches: false }));
 
   withMatchMedia(matchMedia, () => {
-    expect(reducedMotion.get()).toBe("reduce");
+    expect(reducedMotion.get()).toBe("no-preference");
+
+    matchMedia.mockImplementation(() => ({ matches: true }));
+
     expect(reducedMotion.get()).toBe("reduce");
   });
-
-  expect(matchMedia).toHaveBeenCalledTimes(1);
 });

@@ -1,17 +1,9 @@
-import { Appearance, Dimensions } from "react-native";
-
 import { inspect } from "node:util";
 
 import { compile, type CompilerOptions } from "react-native-css/compiler";
-import {
-  colorScheme,
-  reducedMotion,
-  StyleCollection,
-} from "react-native-css/native";
-import {
-  deviceReducedMotion,
-  dimensions,
-} from "react-native-css/native-internal";
+import { StyleCollection } from "react-native-css/native";
+
+import { resetBetweenTests } from "./reset";
 
 declare global {
   /* eslint-disable @typescript-eslint/no-namespace */
@@ -24,21 +16,7 @@ declare global {
 
 export const testID = "react-native-css";
 
-// A test may fire React Native's reduceMotionChanged, so each test starts from the answer the file's first test began with
-let deviceReducedMotionAtStart:
-  | { readonly answer: ReturnType<typeof deviceReducedMotion.get> }
-  | undefined;
-
-// The components a consumer's suite renders read the package's own build, so the reset reaches them through the package's entry
-beforeEach(() => {
-  StyleCollection.styles.clear();
-  dimensions.set(Dimensions.get("window"));
-  Appearance.setColorScheme("unspecified");
-  colorScheme.set(null);
-  deviceReducedMotionAtStart ??= { answer: deviceReducedMotion.get() };
-  deviceReducedMotion.set(deviceReducedMotionAtStart.answer);
-  reducedMotion.set(null);
-});
+beforeEach(resetBetweenTests);
 
 const debugDefault = Boolean(
   process.env.REACT_NATIVE_CSS_TEST_DEBUG &&

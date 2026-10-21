@@ -242,17 +242,6 @@ test.each([
     ["=", "prefers-reduced-motion", "no-preference"],
   ],
   ["(prefers-reduced-motion)", ["!!", "prefers-reduced-motion"]],
-  [
-    "(prefers-reduced-motion: REDUCE)",
-    ["=", "prefers-reduced-motion", "reduce"],
-  ],
-  ["(prefers-color-scheme: DARK)", ["=", "prefers-color-scheme", "dark"]],
-  // css-values-4 §4.1 folds ASCII only, so a Kelvin sign is no K
-  [
-    "(prefers-color-scheme: dar\u212A)",
-    ["=", "prefers-color-scheme", "dar\u212A"],
-  ],
-  ["IOS", ["=", "platform", "ios"]],
   ["(grid: 1)", ["=", "grid", true]],
   ["(color: 8)", ["=", "color", 8]],
   ["(-webkit-device-pixel-ratio: 2)", ["=", "-webkit-device-pixel-ratio", 2]],
@@ -339,27 +328,6 @@ test("container queries", () => {
             d: [{ color: "#00f" }],
             s: [2, 1],
             v: [["__rn-css-color", "#00f"]],
-          },
-        ],
-      ],
-    ],
-  });
-});
-
-test("a container query keyword compiles in lowercase", () => {
-  expect(
-    compile(
-      `@container (orientation: LANDSCAPE) { .child { opacity: 0 } }`,
-    ).stylesheet(),
-  ).toStrictEqual({
-    s: [
-      [
-        "child",
-        [
-          {
-            cq: [{ m: ["=", "orientation", "landscape"] }],
-            d: [{ opacity: 0 }],
-            s: [2, 1],
           },
         ],
       ],

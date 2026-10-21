@@ -259,9 +259,16 @@ function toReducedMotionPreference(
   return isReduceMotionEnabled ? "reduce" : "no-preference";
 }
 
+// The answer AccessibilityInfo's read gave, which the jest helper restores between tests; a change event after it is newer
+export const deviceReducedMotionAnswer = observable<
+  ReducedMotionPreference | undefined
+>(undefined);
+
 // A consumer's test double may leave out AccessibilityInfo or its change event, and the read below still answers
 function followReduceMotionChanges(
-  accessibilityInfo: Partial<typeof AccessibilityInfo> | undefined,
+  accessibilityInfo:
+    | Readonly<Partial<Pick<typeof AccessibilityInfo, "addEventListener">>>
+    | undefined,
 ): void {
   if (typeof accessibilityInfo?.addEventListener !== "function") {
     return;
@@ -282,6 +289,7 @@ void Promise.resolve()
   .then(() => AccessibilityInfo.isReduceMotionEnabled())
   .then(toReducedMotionPreference, () => "no-preference" as const)
   .then((answer) => {
+    deviceReducedMotionAnswer.set(answer);
     // A change event that arrived first is newer than the answer
     if (deviceReducedMotion.get() === undefined) {
       deviceReducedMotion.set(answer);

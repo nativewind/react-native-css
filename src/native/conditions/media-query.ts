@@ -13,7 +13,7 @@ function test(mediaQuery: MediaCondition, get: Getter): boolean {
     case "[]":
       return false;
     case "!!":
-      // (prefers-reduced-motion) alone matches every value but no-preference (MQ5 §2.4.2)
+      // (prefers-reduced-motion) alone matches reduce, its one value besides no-preference (MQ5 §2.4.2), and nothing before the device answers
       return (
         mediaQuery[1] === "prefers-reduced-motion" &&
         get(reducedMotion) === "reduce"

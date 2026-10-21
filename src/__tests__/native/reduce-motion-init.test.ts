@@ -59,6 +59,24 @@ function controlledAccessibilityInfo() {
 }
 
 describe("the reduced-motion preference", () => {
+  test("lets an answer that arrives after the jest helper's reset through, and is reset to it once a test changes it", async () => {
+    const { accessibilityInfo, answer, change } = controlledAccessibilityInfo();
+    const { reducedMotion } = importReactivityWith(accessibilityInfo);
+    const { resetBetweenTests } =
+      jest.requireActual<typeof import("../../jest/reset")>("../../jest/reset");
+
+    resetBetweenTests();
+    answer(true);
+    await settle();
+    expect(reducedMotion.get()).toBe("reduce");
+
+    change(false);
+    expect(reducedMotion.get()).toBe("no-preference");
+
+    resetBetweenTests();
+    expect(reducedMotion.get()).toBe("reduce");
+  });
+
   test("is unknown until AccessibilityInfo answers", () => {
     const { accessibilityInfo } = controlledAccessibilityInfo();
 

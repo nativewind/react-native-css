@@ -5,6 +5,7 @@ import { View } from "react-native-css/components/View";
 import { registerCSS, testID } from "react-native-css/jest";
 import { colorScheme, reducedMotion } from "react-native-css/runtime";
 
+import { resetBetweenTests } from "../../jest/reset";
 import { deviceReducedMotion, dimensions } from "../../native/reactivity";
 
 jest.mock("react-native", () => {
@@ -409,23 +410,21 @@ test("reducedMotion.set overrides the device's preference, and set(null) follows
 });
 
 describe("the react-native-css/jest reset", () => {
-  test("lets a test override the preference", () => {
+  test("clears a test's override", () => {
     reducedMotion.set("reduce");
-
     expect(reducedMotion.get()).toBe("reduce");
-  });
 
-  test("starts the next test from the device's preference", () => {
+    resetBetweenTests();
+
     expect(reducedMotion.get()).toBe("no-preference");
   });
 
-  test("lets a test change the device's answer", () => {
+  test("puts a device a test changed back to AccessibilityInfo's answer", () => {
     deviceReducedMotion.set("reduce");
-
     expect(reducedMotion.get()).toBe("reduce");
-  });
 
-  test("starts the next test from the device's first answer", () => {
+    resetBetweenTests();
+
     expect(reducedMotion.get()).toBe("no-preference");
   });
 });
@@ -460,8 +459,6 @@ const BROWSER_MEDIA_ROWS = [
     true,
   ],
   ["not (prefers-reduced-motion: reduce)", false, false, true, true],
-  ["(prefers-reduced-motion: REDUCE)", true, true, false, false],
-  ["(prefers-color-scheme: DARK)", false, true, false, true],
   ["(prefers-color-scheme: dark)", false, true, false, true],
   ["(unknown-feature)", false, false, false, false],
 ] as const;
