@@ -19,7 +19,7 @@ import { copyComponentProperties } from "react-native-css/components/copyCompone
 import { KeyboardAvoidingView } from "react-native-css/components/KeyboardAvoidingView";
 import { TextInput } from "react-native-css/components/TextInput";
 import { registerCSS, testID } from "react-native-css/jest";
-import { styled, useCssElement } from "react-native-css/native";
+import { styled, useCssElement, useNativeCss } from "react-native-css/native";
 import type {
   StyledConfiguration,
   StyledProps,
@@ -759,3 +759,11 @@ test.each([
     });
   },
 );
+
+test("useNativeCss renders a component it is given no props for", () => {
+  const Bare = () => useNativeCss(View, null);
+
+  render(<Bare />);
+
+  expect(screen.UNSAFE_getByType(View).props.style).toBeUndefined();
+});

@@ -7,7 +7,6 @@ import {
   isPlainObject,
   valueAtPath,
   withDeepPaths,
-  withoutKeys,
   withoutKeysAt,
 } from "../objects";
 import { collectionTarget, targetPath } from "../react/collection-target";
@@ -315,17 +314,8 @@ export function getStyledProps(
       target[path[path.length - 1]!] = value;
     }
     const base = mergeDefinedProps(normal, inline ?? {});
-    const unset: string[] = [];
     for (const key of untargetedKeys(state.configs, normal, important)) {
-      const value = layerImportant(base[key], important?.[key]);
-      if (value === undefined) {
-        unset.push(key);
-      } else {
-        result[key] = value;
-      }
-    }
-    if (unset.length > 0) {
-      result = { ...withoutKeys(result, unset) };
+      result[key] = layerImportant(base[key], important?.[key]);
     }
     for (const source of consumedSources) {
       delete result[source];
