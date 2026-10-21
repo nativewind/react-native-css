@@ -101,6 +101,14 @@ describe("@media on a 600x400 screen", () => {
     expect(mediaMatches(condition)).toBe(expected);
   });
 
+  // MQ4 §3: a media type, such as this library's platform types, matches in any case
+  test.each([
+    ["IOS", true],
+    ["not IOS", false],
+  ])("the media type in %s matches on iOS: %s", (condition, expected) => {
+    expect(mediaMatches(condition)).toBe(expected);
+  });
+
   // css-values-4 §4.1: a keyword matches in any case
   test.each([
     ["(orientation: LANDSCAPE)", true],

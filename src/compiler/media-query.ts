@@ -34,7 +34,8 @@ export function parseMediaQuery(
 
     // These all/screen are not conditions, they always apply
     if (query.mediaType !== "all" && query.mediaType !== "screen") {
-      platformCondition = ["=", "platform", query.mediaType];
+      // Media types are ASCII case-insensitive (MQ4 §3), and lightningcss lowercases only all, print and screen
+      platformCondition = ["=", "platform", asciiLowerCase(query.mediaType)];
     }
   }
 
