@@ -89,7 +89,7 @@ function testContainerPseudoCondition(
 }
 
 function testContainerMediaCondition(
-  condition: MediaCondition,
+  condition: Readonly<MediaCondition>,
   containerKey: WeakKey,
   get: Getter,
 ): Truth {

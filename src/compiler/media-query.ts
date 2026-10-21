@@ -214,7 +214,7 @@ function parseFeatureOperand(
     : (parseMediaFeatureValue(value, builder) ?? null);
 }
 
-export function parseMediaFeatureValue(
+function parseMediaFeatureValue(
   value: CSSMediaFeatureValue,
   builder: StylesheetBuilder,
 ): StyleDescriptor {
@@ -261,7 +261,7 @@ export function parseMediaFeatureValue(
   }
 }
 
-export function parseMediaFeatureOperator(
+function parseMediaFeatureOperator(
   operator: CSSMediaFeatureComparison,
 ): MediaFeatureComparison {
   switch (operator) {

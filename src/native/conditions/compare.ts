@@ -25,7 +25,7 @@ export interface FeatureReader {
 }
 
 export function evaluateCondition(
-  condition: MediaCondition,
+  condition: Readonly<MediaCondition>,
   reader: FeatureReader,
 ): Truth {
   switch (condition[0]) {
