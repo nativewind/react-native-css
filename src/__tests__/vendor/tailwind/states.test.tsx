@@ -65,8 +65,9 @@ test("mixed", async () => {
   expect(component).toHaveStyle({ color: "#fff" });
 });
 
+// selectionColor is the band behind the selected text, which CSS styles with background-color
 test("selection", async () => {
-  await render(<TextInput testID={testID} className="selection:text-black" />);
+  await render(<TextInput testID={testID} className="selection:bg-black" />);
 
   const component = screen.getByTestId(testID);
   expect(component.props).toEqual({
@@ -75,6 +76,41 @@ test("selection", async () => {
     children: undefined,
     style: {},
   });
+});
+
+test("selection: the selected text color does not reach the element", async () => {
+  const { warnings } = await render(
+    <TextInput testID={testID} className="selection:text-black" />,
+  );
+
+  expect(screen.getByTestId(testID).props).toEqual({
+    testID,
+    children: undefined,
+  });
+
+  expect(warnings()).toStrictEqual({
+    values: { "::selection": ["color"] },
+  });
+});
+
+test.each([
+  [
+    "its own custom property",
+    "selection:[--brand:#123456] selection:bg-(--brand)",
+  ],
+  ["the element's custom property", "[--brand:#123456] selection:bg-(--brand)"],
+  [
+    "its own color as currentcolor",
+    "selection:text-[#123456] selection:bg-current",
+  ],
+  [
+    "the element's color as currentcolor",
+    "text-[#123456] selection:bg-current",
+  ],
+])("selection: reads %s", async (_name, className) => {
+  await render(<TextInput testID={testID} className={className} />);
+
+  expect(screen.getByTestId(testID).props.selectionColor).toBe("#123456");
 });
 
 test("ltr:", async () => {

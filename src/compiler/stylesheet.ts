@@ -1,7 +1,7 @@
 import type { SelectorList } from "lightningcss";
 
 import {
-  isStyleDescriptorArray,
+  postProcessStyleFunction,
   Specificity,
   specificityCompareFn,
 } from "../utilities";
@@ -11,6 +11,7 @@ import type {
   CompilerOptions,
   ContainerQuery,
   MediaCondition,
+  PseudoElement,
   ReactNativeCssStyleSheet,
   StyleDeclaration,
   StyleDescriptor,
@@ -21,10 +22,7 @@ import type {
   VariableRecord,
   VariableValue,
 } from "./compiler.types";
-import {
-  modifyRuleForPlaceholder,
-  modifyRuleForSelection,
-} from "./pseudo-elements";
+import { scopeRuleToPseudoElement } from "./pseudo-elements";
 import { getClassNameSelectors, toRNProperty } from "./selector-builder";
 
 type BuilderMode = "style" | "media" | "container" | "keyframes";
@@ -447,16 +445,27 @@ export class StylesheetBuilder {
       this.options,
     );
 
+    const warnedPseudoElements = new Set<PseudoElement>();
+
     for (const selector of normalizedSelectors) {
       // We are going to be apply the current rule to n selectors, so we clone the rule
       let rule: StyleRule | undefined = this.cloneRule(this.rule);
+      const pseudoElement =
+        selector.type === "className" ? selector.pseudoElement : undefined;
 
-      if (selector.type === "className" && selector.pseudoElementQuery) {
-        if (selector.pseudoElementQuery.includes("selection")) {
-          rule = modifyRuleForSelection(rule);
-        } else if (selector.pseudoElementQuery.includes("placeholder")) {
-          rule = modifyRuleForPlaceholder(rule);
+      if (pseudoElement) {
+        const scoped = scopeRuleToPseudoElement(rule, pseudoElement);
+
+        // One authored rule reports once, however many selectors it expands to
+        if (!warnedPseudoElements.has(pseudoElement)) {
+          warnedPseudoElements.add(pseudoElement);
+
+          for (const property of scoped.dropped) {
+            this.addWarning("style", `::${pseudoElement}`, property);
+          }
         }
+
+        rule = scoped.rule;
       }
 
       if (!rule) {
@@ -540,10 +549,15 @@ export class StylesheetBuilder {
         const extraRulesArray = extraRules.get(this.rule);
         if (extraRulesArray) {
           for (const extraRule of extraRulesArray) {
-            this.addRuleToRuleSet(
-              className,
-              this.createRuleFromPartial(rule, extraRule),
-            );
+            const merged = this.createRuleFromPartial(rule, extraRule);
+            // An extra rule brings its own declarations, so they are scoped as well
+            const scopedExtraRule = pseudoElement
+              ? scopeRuleToPseudoElement(merged, pseudoElement).rule
+              : merged;
+
+            if (scopedExtraRule) {
+              this.addRuleToRuleSet(className, scopedExtraRule);
+            }
           }
         }
       } else {
@@ -615,40 +629,6 @@ function isStyleFunction(
       typeof value[0] === "object" &&
       Object.keys(value[0]).length === 0,
   );
-}
-
-function postProcessStyleFunction(value: StyleDescriptor): [
-  // Should it be delayed
-  boolean,
-  // Does it use variables
-  boolean,
-] {
-  if (!Array.isArray(value)) {
-    return [false, false];
-  }
-
-  if (isStyleDescriptorArray(value)) {
-    let shouldDelay = false;
-    let usesVariables = false;
-    for (const v of value) {
-      const [delayed, variables] = postProcessStyleFunction(v);
-      shouldDelay ||= delayed;
-      usesVariables ||= variables;
-    }
-
-    return [shouldDelay, usesVariables];
-  }
-
-  let [shouldDelay, usesVariables] = postProcessStyleFunction(value[2]);
-
-  usesVariables ||= value[1] === "var";
-  shouldDelay ||= value[3] === 1 || usesVariables;
-
-  if (shouldDelay) {
-    return [true, usesVariables];
-  }
-
-  return [false, false];
 }
 
 function allEqual(...params: unknown[]) {
