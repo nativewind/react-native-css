@@ -73,7 +73,7 @@ export interface StyleRule {
   dv?: number;
 
   // Target override
-  target?: string | string[] | false;
+  target?: string | readonly string[] | CollectedTarget;
 
   /**
    * Conditionals
@@ -94,6 +94,11 @@ export interface StyleRule {
 
   /** Animations */
   a?: boolean;
+}
+
+// A target:false config's rules collect their declarations, and the props those name, under its source key, where its mapping reads them
+export interface CollectedTarget {
+  readonly collect: string;
 }
 
 export type StyleDeclaration =
