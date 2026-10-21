@@ -1,0 +1,9 @@
+$brand: #f00;
+
+.sassy {
+  color: $brand;
+
+  &.nested {
+    color: #00f;
+  }
+}
