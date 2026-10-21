@@ -13,7 +13,11 @@ import type {
   StyledOptions,
 } from "react-native-css";
 
-import type { ReactComponent, Styled } from "../runtime.types";
+import type {
+  CustomPropertyValue,
+  ReactComponent,
+  Styled,
+} from "../runtime.types";
 import { assignStyle } from "./assign-style";
 
 const defaultMapping: StyledConfiguration<ComponentType<{ style: unknown }>> = {
@@ -72,44 +76,64 @@ export const colorScheme: ColorScheme = {
   },
 };
 
+// undefined leaves the property unset, and drops out of a list
+function serializeCustomProperty(
+  value: CustomPropertyValue,
+): string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .map((member) => serializeCustomProperty(member))
+      .filter((member) => member !== undefined)
+      .join(",");
+  }
+
+  return String(value);
+}
+
+function toCustomProperties(variables: Record<string, CustomPropertyValue>) {
+  const properties: Record<string, string> = {};
+
+  for (const [key, value] of Object.entries(variables)) {
+    const serialized = serializeCustomProperty(value);
+
+    if (serialized !== undefined) {
+      properties[key.startsWith("--") ? key : `--${key}`] = serialized;
+    }
+  }
+
+  return properties;
+}
+
 /**
  * @deprecated Use `<VariableContextProvider />` instead.
  */
-export function vars(variables: Record<string, string | number>) {
-  const $variables: Record<string, string> = {};
-
-  for (const [key, value] of Object.entries(variables)) {
-    if (key.startsWith("--")) {
-      $variables[key] = value.toString();
-    } else {
-      $variables[`--${key}`] = value.toString();
-    }
-  }
-  return $variables;
+export function vars(variables: Record<string, CustomPropertyValue>) {
+  return toCustomProperties(variables);
 }
 
 export function VariableContextProvider(
-  props: PropsWithChildren<{ value: Record<`--${string}`, string | number> }>,
+  props: PropsWithChildren<{
+    value: Record<`--${string}`, CustomPropertyValue>;
+  }>,
 ) {
   const style = useMemo(() => {
     return {
       display: "contents",
-      ...Object.fromEntries(
-        Object.entries(props.value).map(([key, value]) => [
-          key.startsWith("--") ? key : `--${key}`,
-          value,
-        ]),
-      ),
+      ...toCustomProperties(props.value),
     };
   }, [props.value]);
 
   return <div style={style}>{props.children}</div>;
 }
 
-export const useNativeVariable = () => {
+export const useNativeVariable = (_name: string): never => {
   throw new Error("useNativeVariable is not supported in web");
 };
 
-export const useUnstableNativeVariable = () => {
+export const useUnstableNativeVariable = (_name: string): never => {
   throw new Error("useUnstableNativeVariable is not supported in web");
 };
