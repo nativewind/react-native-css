@@ -31,8 +31,8 @@ describe("on a primary input that hovers", () => {
     const parent = screen.getByTestId(parentID);
     const child = screen.getByTestId(childID);
 
-    expect(parent).toHaveStyle(undefined);
-    expect(child).toHaveStyle(undefined);
+    expect(parent).not.toHaveStyle({ color: "#fff" });
+    expect(child).not.toHaveStyle({ color: "#fff" });
 
     fireEvent(parent, "hoverIn");
 
@@ -53,13 +53,13 @@ describe("on a primary input that hovers", () => {
     const parent = screen.getByTestId(parentID);
     const child = screen.getByTestId(childID);
 
-    expect(grandparent).toHaveStyle(undefined);
-    expect(parent).toHaveStyle(undefined);
-    expect(child).toHaveStyle(undefined);
+    expect(grandparent).not.toHaveStyle({ color: "#fff" });
+    expect(parent).not.toHaveStyle({ color: "#fff" });
+    expect(child).not.toHaveStyle({ color: "#fff" });
 
     fireEvent(grandparent, "hoverIn");
 
-    expect(child).toHaveStyle(undefined);
+    expect(child).not.toHaveStyle({ color: "#fff" });
 
     fireEvent(parent, "hoverIn");
 
@@ -77,7 +77,7 @@ test("group-hover does not apply on a touchscreen", async () => {
 
   fireEvent(screen.getByTestId(parentID), "hoverIn");
 
-  expect(screen.getByTestId(childID)).toHaveStyle(undefined);
+  expect(screen.getByTestId(childID)).not.toHaveStyle({ color: "#fff" });
 });
 
 test("arbitrary groups - single className", async () => {
@@ -90,8 +90,8 @@ test("arbitrary groups - single className", async () => {
   const parent = screen.getByTestId(parentID);
   const child = screen.getByTestId(childID);
 
-  expect(parent).toHaveStyle(undefined);
-  expect(child).toHaveStyle(undefined);
+  expect(parent).not.toHaveStyle({ color: "#fff" });
+  expect(child).not.toHaveStyle({ color: "#fff" });
 
   rerender(
     <View testID={parentID} className="group test">
@@ -112,8 +112,8 @@ test("arbitrary groups - multiple className", async () => {
   const parent = screen.getByTestId(parentID);
   const child = screen.getByTestId(childID);
 
-  expect(parent).toHaveStyle(undefined);
-  expect(child).toHaveStyle(undefined);
+  expect(parent).not.toHaveStyle({ color: "#fff" });
+  expect(child).not.toHaveStyle({ color: "#fff" });
 
   rerender(
     <View testID={parentID} className="group test">
@@ -121,8 +121,8 @@ test("arbitrary groups - multiple className", async () => {
     </View>,
   );
 
-  expect(parent).toHaveStyle(undefined);
-  expect(child).toHaveStyle(undefined);
+  expect(parent).not.toHaveStyle({ color: "#fff" });
+  expect(child).not.toHaveStyle({ color: "#fff" });
 
   rerender(
     <View testID={parentID} className="group test test2">
@@ -146,8 +146,8 @@ test("arbitrary groups - props", async () => {
   const parent = screen.getByTestId(parentID);
   const child = screen.getByTestId(childID);
 
-  expect(parent).toHaveStyle(undefined);
-  expect(child).toHaveStyle(undefined);
+  expect(parent).not.toHaveStyle({ color: "#fff" });
+  expect(child).not.toHaveStyle({ color: "#fff" });
 
   rerender(
     <View testID={parentID} className="group" accessibilityLabel="works">

@@ -24,13 +24,13 @@ describe("on a primary input that hovers", () => {
 
     const component = screen.getByTestId(testID);
 
-    expect(component).toHaveStyle(undefined);
+    expect(component).not.toHaveStyle({ color: "#fff" });
 
     fireEvent(component, "hoverIn");
     expect(component).toHaveStyle({ color: "#fff" });
 
     fireEvent(component, "hoverOut");
-    expect(component).toHaveStyle(undefined);
+    expect(component).not.toHaveStyle({ color: "#fff" });
   });
 
   test("mixed", async () => {
@@ -39,13 +39,13 @@ describe("on a primary input that hovers", () => {
     );
 
     const component = screen.getByTestId(testID);
-    expect(component).toHaveStyle(undefined);
+    expect(component).not.toHaveStyle({ color: "#fff" });
 
     fireEvent(component, "pressIn");
-    expect(component).toHaveStyle(undefined);
+    expect(component).not.toHaveStyle({ color: "#fff" });
 
     fireEvent(component, "hoverIn");
-    expect(component).toHaveStyle(undefined);
+    expect(component).not.toHaveStyle({ color: "#fff" });
 
     fireEvent(component, "focus");
     expect(component).toHaveStyle({ color: "#fff" });
@@ -59,7 +59,7 @@ test("hover does not apply on a touchscreen", async () => {
   const component = screen.getByTestId(testID);
   fireEvent(component, "hoverIn");
 
-  expect(component).toHaveStyle(undefined);
+  expect(component).not.toHaveStyle({ color: "#fff" });
 });
 
 test("focus", async () => {
@@ -67,13 +67,13 @@ test("focus", async () => {
 
   const component = screen.getByTestId(testID);
 
-  expect(component).toHaveStyle(undefined);
+  expect(component).not.toHaveStyle({ color: "#fff" });
 
   fireEvent(component, "focus");
   expect(component).toHaveStyle({ color: "#fff" });
 
   fireEvent(component, "blur");
-  expect(component).toHaveStyle(undefined);
+  expect(component).not.toHaveStyle({ color: "#fff" });
 });
 
 test("active", async () => {
@@ -81,13 +81,13 @@ test("active", async () => {
 
   const component = screen.getByTestId(testID);
 
-  expect(component).toHaveStyle(undefined);
+  expect(component).not.toHaveStyle({ color: "#fff" });
 
   fireEvent(component, "pressIn");
   expect(component).toHaveStyle({ color: "#fff" });
 
   fireEvent(component, "pressOut");
-  expect(component).toHaveStyle(undefined);
+  expect(component).not.toHaveStyle({ color: "#fff" });
 });
 
 test("selection", async () => {
