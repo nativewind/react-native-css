@@ -235,7 +235,7 @@ export const colorScheme = observable<HeldColorScheme>(
 );
 Appearance.addChangeListener((event) => colorScheme.set(event.colorScheme));
 
-// A held value that is not a scheme is a follow-the-system request, so the reported scheme answers, then light (MQ5 §12.5.1)
+// A held value that is not a scheme is a follow-the-system request, so the reported scheme answers, then light (MQ5 §12.5)
 export function resolveColorScheme(held: HeldColorScheme): "light" | "dark" {
   if (held === "light" || held === "dark") {
     return held;

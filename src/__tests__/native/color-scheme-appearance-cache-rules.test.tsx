@@ -199,7 +199,7 @@ const { setColorScheme: setColorSchemeThroughAppearance } = jest.requireMock<{
   setColorScheme: (requested: unknown) => void;
 }>("react-native/Libraries/Utilities/Appearance");
 
-// Only the band that caches a request leaves JS without the OS scheme, so it falls back to light (MQ5 §12.5.1)
+// Only the band that caches a request leaves JS without the OS scheme, so it falls back to light (MQ5 §12.5)
 const schemeAfterDirectHandBack: Readonly<Record<string, "light" | "dark">> = {
   "<=0.81.5": "dark",
   "0.82.0-0.84.1": "light",
