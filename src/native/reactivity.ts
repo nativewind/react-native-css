@@ -12,6 +12,10 @@ import type { StyleDescriptor } from "react-native-css/compiler";
 export type Effect = {
   observers: Set<Observable<any, any>>;
   run(): void;
+  /** Dependencies recorded by the last cleanupEffect() */
+  dependencies?: Observable<any, any>[];
+  /** Dependency values recorded by the last cleanupEffect() */
+  snapshots?: [Observable<any, any>, unknown][];
 };
 
 export type Observable<Value, Arg = Value> = {
@@ -130,11 +134,26 @@ export function observable<Value, Arg = Value>(
 
 export function cleanupEffect(effect: Effect) {
   if (!effect) return;
-  const dependencies = Array.from(effect.observers);
+  const dependencies = (effect.dependencies = Array.from(effect.observers));
+  // Snapshot before detaching so computed observables return cached values
+  effect.snapshots = dependencies.map(
+    (observable) =>
+      [observable, observable.get()] as [Observable<any, any>, unknown],
+  );
   effect.observers.clear();
   for (const dep of dependencies) {
     dep.unsubscribe(effect);
   }
+}
+
+/** Whether any of the effect's dependencies changed since cleanupEffect() */
+export function hasChangedDependencies(effect: Effect): boolean {
+  const snapshots = effect.snapshots;
+  if (!snapshots) return false;
+  for (const [observable, value] of snapshots) {
+    if (!Object.is(observable.get(), value)) return true;
+  }
+  return false;
 }
 
 /** Family Helpers ************************************************************/
