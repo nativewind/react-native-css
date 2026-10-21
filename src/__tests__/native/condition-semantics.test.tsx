@@ -172,6 +172,19 @@ test.each([
   expect(mediaMatches(condition, { width, height: 400 })).toBe(false);
 });
 
+// MQ5 §3.1: a bound the compiler cannot resolve leaves its comparison unknown, so the other bound alone can make a range pair false
+test.each([
+  [900, true],
+  [600, false],
+])(
+  "@media not (1in < width < 800px) on a %ipx-wide screen matches: %s",
+  (width, expected) => {
+    expect(
+      mediaMatches("not (1in < width < 800px)", { width, height: 400 }),
+    ).toBe(expected);
+  },
+);
+
 // MQ5 §7.1, §7.2: pointer and hover are the primary input's, and a touchscreen cannot hover and points coarsely
 describe.each([
   ["ios", "none", "coarse"],

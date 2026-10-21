@@ -81,11 +81,11 @@ function testComparison(
       return (
         value === "native" || compareMediaFeature(operator, Platform.OS, value)
       );
-    // any-pointer matches each kind of pointer the device has, where pointer names the primary one (MQ5 §7.3)
+    // any-pointer matches when any pointer the device has matches, where pointer answers for the primary one (MQ5 §7.3)
     case "any-pointer":
-      return operator === "=" && typeof value === "string"
-        ? availablePointers(get).includes(value)
-        : UNKNOWN;
+      return disjoin(availablePointers(get), (pointer) =>
+        compareMediaFeature(operator, pointer, value),
+      );
     default:
       return compareMediaFeature(
         operator,
