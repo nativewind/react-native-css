@@ -418,6 +418,16 @@ describe("the react-native-css/jest reset", () => {
   test("starts the next test from the device's preference", () => {
     expect(reducedMotion.get()).toBe("no-preference");
   });
+
+  test("lets a test change the device's answer", () => {
+    deviceReducedMotion.set("reduce");
+
+    expect(reducedMotion.get()).toBe("reduce");
+  });
+
+  test("starts the next test from the device's first answer", () => {
+    expect(reducedMotion.get()).toBe("no-preference");
+  });
 });
 
 // Chromium 153, Firefox 155 and WebKit 26.6 agree on every row: [query, reduce/light, reduce/dark, no-preference/light, no-preference/dark]

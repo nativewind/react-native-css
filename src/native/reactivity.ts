@@ -259,15 +259,23 @@ function toReducedMotionPreference(
   return isReduceMotionEnabled ? "reduce" : "no-preference";
 }
 
-// A test double may leave out the change event, and the read below still answers
-if (typeof AccessibilityInfo.addEventListener === "function") {
-  AccessibilityInfo.addEventListener(
+// A consumer's test double may leave out AccessibilityInfo or its change event, and the read below still answers
+function followReduceMotionChanges(
+  accessibilityInfo: Partial<typeof AccessibilityInfo> | undefined,
+): void {
+  if (typeof accessibilityInfo?.addEventListener !== "function") {
+    return;
+  }
+
+  accessibilityInfo.addEventListener(
     "reduceMotionChanged",
     (isReduceMotionEnabled: boolean) => {
       deviceReducedMotion.set(toReducedMotionPreference(isReduceMotionEnabled));
     },
   );
 }
+
+followReduceMotionChanges(AccessibilityInfo);
 
 // React Native rejects where the platform has no accessibility module, and a test double may leave out the call: either way the user has stated no preference to it
 void Promise.resolve()

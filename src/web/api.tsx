@@ -78,6 +78,12 @@ export const colorScheme: ColorScheme = {
   },
 };
 
+// A MediaQueryList keeps its matches current, so each matchMedia parses the query once
+const reduceMotionQueries = new WeakMap<
+  typeof window.matchMedia,
+  MediaQueryList
+>();
+
 export const reducedMotion: ReducedMotion =
   browserPreference<ReducedMotionPreference>(() => {
     // Server rendering has no window, and React Native's jest environment a window without matchMedia
@@ -88,9 +94,14 @@ export const reducedMotion: ReducedMotion =
       return undefined;
     }
 
-    return window.matchMedia("(prefers-reduced-motion: reduce)").matches
-      ? "reduce"
-      : "no-preference";
+    const matchMedia = window.matchMedia;
+    let query = reduceMotionQueries.get(matchMedia);
+    if (query === undefined) {
+      query = matchMedia.call(window, "(prefers-reduced-motion: reduce)");
+      reduceMotionQueries.set(matchMedia, query);
+    }
+
+    return query.matches ? "reduce" : "no-preference";
   });
 
 /**

@@ -1,4 +1,4 @@
-// The browser evaluates the stylesheet's @media rules itself, so an override reaches what scripts read and not the CSS, which MQ5 §13's requestOverride() will reach once a browser ships it
+// The browser evaluates the stylesheet's @media rules and matchMedia() itself, so an override changes only what get() returns, where MQ5 §13's requestOverride() would reach both once a browser ships it
 export function browserPreference<Value>(
   readBrowser: () => Value | undefined,
 ): {

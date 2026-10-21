@@ -8,7 +8,9 @@ interface AccessibilityInfoDouble {
   ) => { readonly remove: () => void };
 }
 
-function importReactivityWith(accessibilityInfo: AccessibilityInfoDouble) {
+function importReactivityWith(
+  accessibilityInfo: AccessibilityInfoDouble | undefined,
+) {
   jest.resetModules();
   // A Proxy over requireActual rather than a spread: spreading react-native eagerly triggers its lazy DevMenu getter and throws
   jest.doMock("react-native", () => {
@@ -103,6 +105,13 @@ describe("the reduced-motion preference", () => {
     const { reducedMotion } = importReactivityWith({
       addEventListener: () => ({ remove: () => undefined }),
     });
+    await settle();
+
+    expect(reducedMotion.get()).toBe("no-preference");
+  });
+
+  test("is no-preference where react-native has no AccessibilityInfo, without failing the import", async () => {
+    const { reducedMotion } = importReactivityWith(undefined);
     await settle();
 
     expect(reducedMotion.get()).toBe("no-preference");

@@ -155,6 +155,6 @@ export type ReducedMotionPreference = "no-preference" | "reduce";
 
 export interface ReducedMotion {
   get: () => ReducedMotionPreference | undefined;
-  /** Overrides the device's setting until `null`, which follows the device again */
+  /** Overrides the device's setting until `null`, which follows the device again; on web it changes only what `get()` returns */
   set: (value: ReducedMotionPreference | null) => void;
 }

@@ -247,6 +247,11 @@ test.each([
     ["=", "prefers-reduced-motion", "reduce"],
   ],
   ["(prefers-color-scheme: DARK)", ["=", "prefers-color-scheme", "dark"]],
+  // css-values-4 §4.1 folds ASCII only, so a Kelvin sign is no K
+  [
+    "(prefers-color-scheme: dar\u212A)",
+    ["=", "prefers-color-scheme", "dar\u212A"],
+  ],
   ["IOS", ["=", "platform", "ios"]],
   ["(grid: 1)", ["=", "grid", true]],
   ["(color: 8)", ["=", "color", 8]],
