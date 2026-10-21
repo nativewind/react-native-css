@@ -13,62 +13,84 @@ import { colorScheme } from "react-native-css/runtime";
 
 import { colorScheme as colorSchemeObservable } from "../../native/reactivity";
 
-// A device applies setColorScheme later and always reports the scheme in force, so the fake holds each write until the test applies it
-jest.mock("react-native/Libraries/Utilities/NativeAppearance", () => {
-  const operatingSystemScheme = "light";
-  let appliedScheme: ColorSchemeName = operatingSystemScheme;
-  let pendingRequest: string | undefined;
-  const setColorSchemeCalls: string[] = [];
+type Scheme = "light" | "dark";
+type Platform = "ios" | "android";
 
-  const resolveRequest = (request: string): ColorSchemeName =>
-    request === "unspecified"
-      ? operatingSystemScheme
-      : (request as ColorSchemeName);
+// A device applies an override after the call returns and sends appearanceChanged only when its scheme moves, as RCTAppearance and AppearanceModule do
+jest.mock("react-native/Libraries/Utilities/NativeAppearance", () => {
+  let platform = "ios";
+  let systemScheme = "light";
+  let override: string | null = null;
+  let sentScheme = "light";
+  let pendingOverrides: string[] = [];
+  let setColorSchemeCalls: string[] = [];
+
+  const schemeInForce = () => override ?? systemScheme;
+  const sendIfMoved = (sent: string[]) => {
+    if (schemeInForce() !== sentScheme) {
+      sentScheme = schemeInForce();
+      sent.push(sentScheme);
+    }
+  };
 
   return {
     __esModule: true,
     default: {
       addListener: () => undefined,
-      getColorScheme: () => appliedScheme,
       removeListeners: () => undefined,
+      // RCTAppearance answers the scheme it last sent; AppearanceModule reads the configuration in force
+      getColorScheme: () => (platform === "ios" ? sentScheme : schemeInForce()),
       setColorScheme: (next: string) => {
         setColorSchemeCalls.push(next);
-        pendingRequest = next;
+        pendingOverrides.push(next);
       },
-      applyPendingWrite: () => {
-        if (pendingRequest !== undefined) {
-          appliedScheme = resolveRequest(pendingRequest);
-          pendingRequest = undefined;
+      startDevice: (nextPlatform: string, scheme: string) => {
+        platform = nextPlatform;
+        systemScheme = scheme;
+        override = null;
+        sentScheme = scheme;
+        pendingOverrides = [];
+        setColorSchemeCalls = [];
+      },
+      // iOS applies the overrides of one main-queue turn together; Android applies each posted override in turn
+      applyPendingOverrides: (): string[] => {
+        const applied =
+          platform === "ios" ? pendingOverrides.slice(-1) : pendingOverrides;
+        pendingOverrides = [];
+        const sent: string[] = [];
+        for (const next of applied) {
+          override = next === "unspecified" || next === "auto" ? null : next;
+          sendIfMoved(sent);
         }
-        return appliedScheme;
+        return sent;
+      },
+      changeSystemScheme: (scheme: string): string[] => {
+        systemScheme = scheme;
+        const sent: string[] = [];
+        sendIfMoved(sent);
+        return sent;
       },
       readSetColorSchemeCalls: () => [...setColorSchemeCalls],
-      writeDeviceScheme: (next: ColorSchemeName) => {
-        appliedScheme = next;
-        pendingRequest = undefined;
-      },
     },
   };
 });
 
-interface FakeNativeAppearance {
-  applyPendingWrite: () => ColorSchemeName;
+interface DeviceDouble {
+  startDevice: (platform: Platform, scheme: Scheme) => void;
+  applyPendingOverrides: () => Scheme[];
+  changeSystemScheme: (scheme: Scheme) => Scheme[];
   readSetColorSchemeCalls: () => string[];
-  writeDeviceScheme: (next: ColorSchemeName) => void;
 }
 
-const nativeAppearanceModule: { default: FakeNativeAppearance } =
-  jest.requireMock("react-native/Libraries/Utilities/NativeAppearance");
-const nativeAppearance = nativeAppearanceModule.default;
+const device = jest.requireMock<{ default: DeviceDouble }>(
+  "react-native/Libraries/Utilities/NativeAppearance",
+).default;
 
-const applyAndEchoPlatformWrite = (): void => {
-  const applied = nativeAppearance.applyPendingWrite();
-  DeviceEventEmitter.emit("appearanceChanged", { colorScheme: applied });
-};
-
-const emitOperatingSystemChange = (scheme: ColorSchemeName): void => {
-  nativeAppearance.writeDeviceScheme(scheme);
-  DeviceEventEmitter.emit("appearanceChanged", { colorScheme: scheme });
+const deliver = (sent: readonly Scheme[]): readonly Scheme[] => {
+  for (const scheme of sent) {
+    DeviceEventEmitter.emit("appearanceChanged", { colorScheme: scheme });
+  }
+  return sent;
 };
 
 const subscribeToAppearance = (onStoreChange: () => void): (() => void) => {
@@ -78,38 +100,14 @@ const subscribeToAppearance = (onStoreChange: () => void): (() => void) => {
   };
 };
 
-const readAppearanceColorScheme = (): ReturnType<
-  typeof Appearance.getColorScheme
-> => Appearance.getColorScheme();
+const readAppearance = (): ColorSchemeName | null | undefined =>
+  Appearance.getColorScheme();
 
 // The store react-native's useColorScheme builds, which the jest preset replaces with a constant
 const SubscribedColorScheme = () => {
-  const scheme = useSyncExternalStore(
-    subscribeToAppearance,
-    readAppearanceColorScheme,
-  );
+  const scheme = useSyncExternalStore(subscribeToAppearance, readAppearance);
 
   return <Text testID="subscribed-color-scheme">{scheme ?? "unset"}</Text>;
-};
-
-const readSubscribedColorScheme = (): unknown =>
-  screen.getByTestId("subscribed-color-scheme").props.children;
-
-const recordChangeEvents = (): {
-  heard: ColorSchemeName[];
-  stop: () => void;
-} => {
-  const heard: ColorSchemeName[] = [];
-  const subscription = Appearance.addChangeListener((event) => {
-    heard.push(event.colorScheme);
-  });
-
-  return {
-    heard,
-    stop: () => {
-      subscription.remove();
-    },
-  };
 };
 
 const TRI_STATE_CSS = `
@@ -123,162 +121,220 @@ const TRI_STATE_CSS = `
   .my-class { color: red; }
 }`;
 
-const BLUE = { color: "#00f" } as const;
-const RED = { color: "#f00" } as const;
+const STYLE_FOR: Readonly<Record<Scheme, { readonly color: string }>> = {
+  light: { color: "#00f" },
+  dark: { color: "#f00" },
+};
 
-beforeEach(() => {
-  act(() => {
-    emitOperatingSystemChange("light");
-  });
+const LATE_TEST_ID = "late-element";
+
+const readEveryLayer = () => ({
+  classLayer: screen.getByTestId(testID).props.style,
+  colorSchemeGet: colorScheme.get(),
+  subscribed: screen.getByTestId("subscribed-color-scheme").props.children,
 });
 
-test("colorScheme.set writes through to Appearance", () => {
-  act(() => {
-    colorScheme.set("dark");
-  });
-
-  expect(nativeAppearance.readSetColorSchemeCalls().at(-1)).toBe("dark");
-  expect(Appearance.getColorScheme()).toBe("dark");
-
-  act(() => {
-    colorScheme.set("light");
-  });
-
-  expect(nativeAppearance.readSetColorSchemeCalls().at(-1)).toBe("light");
-  expect(Appearance.getColorScheme()).toBe("light");
+const everyLayerOn = (scheme: Scheme) => ({
+  classLayer: STYLE_FOR[scheme],
+  colorSchemeGet: scheme,
+  subscribed: scheme,
 });
 
-test("colorScheme.set announces the requested scheme before the platform applies it", () => {
-  const { heard, stop } = recordChangeEvents();
+const opposite = (scheme: Scheme): Scheme =>
+  scheme === "light" ? "dark" : "light";
 
-  act(() => {
-    colorScheme.set("dark");
-  });
+const expectEveryLayerToAgree = (): void => {
+  expect(readEveryLayer()).toStrictEqual(everyLayerOn(colorScheme.get()));
+};
 
-  expect(heard).toStrictEqual(["dark"]);
-  expect(Appearance.getColorScheme()).toBe("dark");
-  expect(colorScheme.get()).toBe("dark");
+const recordAppearanceEvents = (): {
+  sentByCaller: () => readonly unknown[];
+  stop: () => void;
+} => {
+  const emit = jest.spyOn(DeviceEventEmitter, "emit");
 
-  stop();
-});
+  return {
+    sentByCaller: () =>
+      emit.mock.calls.filter(([event]) => event === "appearanceChanged"),
+    stop: () => {
+      emit.mockRestore();
+    },
+  };
+};
 
-test("the platform echo that follows repeats the scheme and settles there", () => {
-  const { heard, stop } = recordChangeEvents();
+describe.each([
+  ["ios", "light"],
+  ["ios", "dark"],
+  ["android", "light"],
+  ["android", "dark"],
+] as const)("on %s with a %s system scheme", (platform, system) => {
+  const other = opposite(system);
 
-  act(() => {
-    colorScheme.set("dark");
-  });
-  act(() => {
-    applyAndEchoPlatformWrite();
-  });
-
-  expect(heard).toStrictEqual(["dark", "dark"]);
-  expect(Appearance.getColorScheme()).toBe("dark");
-  expect(colorScheme.get()).toBe("dark");
-
-  stop();
-});
-
-test("a colorScheme.set to the scheme already in force announces nothing", () => {
-  const { heard, stop } = recordChangeEvents();
-
-  act(() => {
-    colorScheme.set("light");
-  });
-
-  expect(Appearance.getColorScheme()).toBe("light");
-  expect(heard).toStrictEqual([]);
-
-  stop();
-});
-
-test("a repeated colorScheme.set announces nothing the second time", () => {
-  act(() => {
-    colorScheme.set("dark");
-  });
-
-  const { heard, stop } = recordChangeEvents();
-
-  act(() => {
-    colorScheme.set("dark");
-  });
-
-  expect(heard).toStrictEqual([]);
-
-  stop();
-});
-
-test("a reader subscribed the way useColorScheme is moves with colorScheme.set", () => {
-  render(<SubscribedColorScheme />);
-  expect(readSubscribedColorScheme()).toBe("light");
-
-  act(() => {
-    colorScheme.set("dark");
-  });
-
-  expect(readSubscribedColorScheme()).toBe("dark");
-});
-
-test("the class layer and a subscribed reader agree after one colorScheme.set", () => {
-  registerCSS(TRI_STATE_CSS);
-  render(
-    <>
-      <View testID={testID} className="my-class" />
-      <SubscribedColorScheme />
-    </>,
-  );
-
-  act(() => {
-    colorScheme.set("dark");
-  });
-
-  expect(screen.getByTestId(testID).props.style).toStrictEqual(RED);
-  expect(readSubscribedColorScheme()).toBe("dark");
-  expect(colorScheme.get()).toBe("dark");
-});
-
-test("the class layer resolves the scheme the same way colorScheme.get() does", () => {
-  registerCSS(TRI_STATE_CSS);
-  render(<View testID={testID} className="my-class" />);
-
-  act(() => {
-    colorScheme.set(null);
-  });
-
-  expect(colorScheme.get()).toBe("light");
-  expect(screen.getByTestId(testID).props.style).toStrictEqual(BLUE);
-});
-
-test.each([null, "unspecified"] as const)(
-  "set(%p) hands the scheme back without announcing a scheme of its own",
-  (handBack) => {
+  beforeEach(() => {
+    device.startDevice(platform, system);
     act(() => {
-      colorScheme.set("dark");
+      DeviceEventEmitter.emit("appearanceChanged", { colorScheme: system });
     });
-
-    const { heard, stop } = recordChangeEvents();
-
-    act(() => {
-      colorScheme.set(handBack);
-    });
-
-    expect(nativeAppearance.readSetColorSchemeCalls().at(-1)).toBe(
-      "unspecified",
+    registerCSS(TRI_STATE_CSS);
+    render(
+      <>
+        <View testID={testID} className="my-class" />
+        <SubscribedColorScheme />
+      </>,
     );
-    expect(heard).toStrictEqual([]);
+  });
+
+  test("colorScheme.set hands each request to Appearance and sends no event of its own", () => {
+    const { sentByCaller, stop } = recordAppearanceEvents();
 
     act(() => {
-      applyAndEchoPlatformWrite();
+      colorScheme.set(other);
+      colorScheme.set(null);
+      colorScheme.set("unspecified");
     });
 
-    expect(heard).toStrictEqual(["light"]);
-    expect(colorScheme.get()).toBe("light");
+    expect(device.readSetColorSchemeCalls().slice(-3)).toStrictEqual([
+      other,
+      "unspecified",
+      "unspecified",
+    ]);
+    expect(sentByCaller()).toStrictEqual([]);
 
     stop();
-  },
-);
+  });
 
-test("a held follow-the-system request renders the scheme Appearance reports on both layers", () => {
+  test("every layer agrees until the platform applies a request, then takes it", () => {
+    act(() => {
+      colorScheme.set(other);
+    });
+
+    expectEveryLayerToAgree();
+
+    act(() => {
+      deliver(device.applyPendingOverrides());
+    });
+
+    expect(readEveryLayer()).toStrictEqual(everyLayerOn(other));
+  });
+
+  test.each([null, "unspecified"] as const)(
+    "set(%p) returns every layer to the system scheme",
+    (handBack) => {
+      act(() => {
+        colorScheme.set(other);
+      });
+      act(() => {
+        deliver(device.applyPendingOverrides());
+      });
+      act(() => {
+        colorScheme.set(handBack);
+      });
+      act(() => {
+        deliver(device.applyPendingOverrides());
+      });
+
+      expect(readEveryLayer()).toStrictEqual(everyLayerOn(system));
+    },
+  );
+
+  test("a request and its hand-back made before the platform applies either leave every layer on the system scheme", () => {
+    act(() => {
+      colorScheme.set(other);
+      colorScheme.set(null);
+    });
+
+    expectEveryLayerToAgree();
+
+    let sent: readonly Scheme[] = [];
+    act(() => {
+      sent = deliver(device.applyPendingOverrides());
+    });
+
+    expect(sent).toStrictEqual(platform === "ios" ? [] : [other, system]);
+    expect(readEveryLayer()).toStrictEqual(everyLayerOn(system));
+  });
+
+  test("each scheme the platform applies moves every layer, ending on the last request", () => {
+    act(() => {
+      colorScheme.set(other);
+    });
+    act(() => {
+      colorScheme.set(system);
+    });
+
+    expectEveryLayerToAgree();
+
+    let sent: readonly Scheme[] = [];
+    act(() => {
+      sent = deliver(device.applyPendingOverrides());
+    });
+
+    expect(sent).toStrictEqual(platform === "ios" ? [] : [other, system]);
+    expect(readEveryLayer()).toStrictEqual(everyLayerOn(system));
+  });
+
+  test("a request for the scheme in force sends nothing and moves no layer", () => {
+    act(() => {
+      colorScheme.set(system);
+    });
+
+    let sent: readonly Scheme[] = [];
+    act(() => {
+      sent = deliver(device.applyPendingOverrides());
+    });
+
+    expect(sent).toStrictEqual([]);
+    expect(readEveryLayer()).toStrictEqual(everyLayerOn(system));
+  });
+
+  test("a scheme set through Appearance itself moves every layer once the platform applies it", () => {
+    act(() => {
+      Appearance.setColorScheme(other);
+    });
+    act(() => {
+      deliver(device.applyPendingOverrides());
+    });
+
+    expect(readEveryLayer()).toStrictEqual(everyLayerOn(other));
+  });
+
+  test("an element mounted before the platform applies a request renders what one mounted earlier renders", () => {
+    act(() => {
+      colorScheme.set(null);
+      Appearance.setColorScheme(other);
+    });
+    const earlierStyle: unknown = screen.getByTestId(testID).props.style;
+    render(<View testID={LATE_TEST_ID} className="my-class" />);
+
+    expect(earlierStyle).toStrictEqual(STYLE_FOR[colorScheme.get()]);
+    expect(screen.getByTestId(LATE_TEST_ID).props.style).toStrictEqual(
+      earlierStyle,
+    );
+  });
+
+  test("an OS change moves every layer, and none while a request overrides it", () => {
+    act(() => {
+      deliver(device.changeSystemScheme(other));
+    });
+
+    expect(readEveryLayer()).toStrictEqual(everyLayerOn(other));
+
+    act(() => {
+      colorScheme.set(other);
+    });
+    act(() => {
+      deliver(device.applyPendingOverrides());
+    });
+    act(() => {
+      deliver(device.changeSystemScheme(system));
+    });
+
+    expect(readEveryLayer()).toStrictEqual(everyLayerOn(other));
+  });
+});
+
+test("a value Appearance reports that names no scheme resolves to light on both layers", () => {
+  device.startDevice("ios", "dark");
   registerCSS(TRI_STATE_CSS);
   render(<View testID={testID} className="my-class" />);
 
@@ -287,18 +343,5 @@ test("a held follow-the-system request renders the scheme Appearance reports on 
   });
 
   expect(colorScheme.get()).toBe("light");
-  expect(screen.getByTestId(testID).props.style).toStrictEqual(BLUE);
-});
-
-test("an OS change event repaints a mounted element", () => {
-  registerCSS(TRI_STATE_CSS);
-
-  render(<View testID={testID} className="my-class" />);
-  expect(screen.getByTestId(testID).props.style).toStrictEqual(BLUE);
-
-  act(() => {
-    emitOperatingSystemChange("dark");
-  });
-
-  expect(screen.getByTestId(testID).props.style).toStrictEqual(RED);
+  expect(screen.getByTestId(testID).props.style).toStrictEqual(STYLE_FOR.light);
 });

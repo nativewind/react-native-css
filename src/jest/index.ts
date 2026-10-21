@@ -22,7 +22,7 @@ beforeEach(() => {
   StyleCollection.styles.clear();
   dimensions.set(Dimensions.get("window"));
   Appearance.setColorScheme("unspecified");
-  colorScheme.set(null);
+  colorScheme.set(Appearance.getColorScheme());
 });
 
 const debugDefault = Boolean(

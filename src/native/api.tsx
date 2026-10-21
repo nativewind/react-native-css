@@ -1,9 +1,10 @@
 /* eslint-disable  */
 import { useContext, useEffect, useState, type ComponentType } from "react";
-import { Appearance, DeviceEventEmitter, type ViewStyle } from "react-native";
+import { Appearance, type ViewStyle } from "react-native";
 
 import type { StyleDescriptor } from "react-native-css/compiler";
 import { VariableContext } from "react-native-css/native-internal";
+import { resolveColorScheme } from "react-native-css/utilities";
 
 import type {
   ColorScheme,
@@ -18,8 +19,6 @@ import { usePassthrough } from "./react/usePassthrough";
 import {
   cleanupEffect,
   colorScheme as colorSchemeObs,
-  holdsRequestNotScheme,
-  resolveColorScheme,
   VAR_SYMBOL,
   type Effect,
   type Getter,
@@ -74,19 +73,11 @@ export const colorScheme: ColorScheme = {
     return resolveColorScheme(colorSchemeObs.get());
   },
   set(value) {
-    const previous = Appearance.getColorScheme();
-    // Resolved before the write, since react-native 0.82.0-0.84.1 caches a follow-the-system request verbatim
-    const inForce = resolveColorScheme(colorSchemeObs.get());
-
-    const request = value ?? "unspecified";
-    Appearance.setColorScheme(request);
-    colorSchemeObs.set(request === "unspecified" ? null : request);
-
-    // Appearance.setColorScheme notifies no listener, so the scheme is announced on the event Appearance itself handles
-    if ((value === "dark" || value === "light") && value !== previous) {
-      DeviceEventEmitter.emit("appearanceChanged", { colorScheme: value });
-    } else if (holdsRequestNotScheme(Appearance.getColorScheme())) {
-      DeviceEventEmitter.emit("appearanceChanged", { colorScheme: inForce });
+    // Appearance answers null only without its native module, where nothing but this library holds a scheme
+    if (Appearance.getColorScheme() === null) {
+      colorSchemeObs.set(value);
+    } else {
+      Appearance.setColorScheme(value ?? "unspecified");
     }
   },
 };
