@@ -120,7 +120,8 @@ function filterCssVariableArray(
 ): unknown {
   let filtered: unknown[] | undefined;
 
-  for (const [index, item] of array.entries()) {
+  for (let index = 0; index < array.length; index++) {
+    const item = array[index];
     const kept = filterCssVariables(item, depth + 1);
     // A layer that filtered to nothing leaves, and an undefined layer as written stays
     const leaves = kept === undefined && item !== undefined;
@@ -148,7 +149,9 @@ function filterCssVariableObject(
   const keys = Object.keys(object);
   let filtered: Record<string, unknown> | undefined;
 
-  for (const [index, key] of keys.entries()) {
+  let seen = 0;
+  for (const key of keys) {
+    const index = seen++;
     const descriptor = Object.getOwnPropertyDescriptor(object, key);
     const value: unknown = descriptor?.value;
     const kept =
@@ -437,10 +440,11 @@ function combineComputedStyles(computed: unknown, important: unknown): unknown {
   if (!addsStyle(computed) || hides(important, computed)) {
     return important;
   }
-  const layers: readonly unknown[] = Array.isArray(computed)
-    ? [...(computed as readonly unknown[]), important]
-    : [computed, important];
-  return flattenStyleArray([...layers]);
+  return flattenStyleArray(
+    Array.isArray(computed)
+      ? [...(computed as readonly unknown[]), important]
+      : [computed, important],
+  );
 }
 
 /**
@@ -504,13 +508,7 @@ function deepMergeConfig(
     return important ? mergeDefinedProps(result, important) : result;
   }
 
-  combineAtPath(
-    result,
-    typeof target === "string" ? [target] : target,
-    normal,
-    inline ?? undefined,
-    important,
-  );
+  combineAtPath(result, target, 0, normal, inline ?? undefined, important);
   return result;
 }
 
@@ -522,19 +520,21 @@ function propsAt(
   return isStyleObject(value) ? value : undefined;
 }
 
+// A target is a key or a path of keys, read by index: Babel compiles a destructured path to a helper call and a copy on every render
 function combineAtPath(
   container: Record<string, unknown>,
-  path: readonly string[],
+  target: string | readonly string[],
+  depth: number,
   normal: Readonly<Record<string, unknown>> | undefined,
   inline: Readonly<Record<string, unknown>> | undefined,
   important: Readonly<Record<string, unknown>> | undefined,
 ): void {
-  const [key, ...rest] = path;
+  const key = typeof target === "string" ? target : target[depth];
   if (key === undefined) {
     return;
   }
 
-  if (rest.length === 0) {
+  if (typeof target === "string" || depth === target.length - 1) {
     const combined = combineStyleLayers(
       normal?.[key],
       filterCssVariables(inline?.[key]),
@@ -554,7 +554,8 @@ function combineAtPath(
   );
   combineAtPath(
     next,
-    rest,
+    target,
+    depth + 1,
     propsAt(normal, key),
     propsAt(inline, key),
     propsAt(important, key),
