@@ -36,7 +36,12 @@ import type {
   UnresolvedColor,
 } from "lightningcss";
 
-import { isStyleFunction } from "../utilities";
+import {
+  isStyleFunction,
+  propertyRename,
+  toRNProperty,
+  transitionStyleKey,
+} from "../utilities";
 import { isMappingProperty } from "./atRules";
 import type {
   StyleDescriptor,
@@ -44,7 +49,6 @@ import type {
   StyleRule,
 } from "./compiler.types";
 import { parseEasingFunction, parseIterationCount } from "./keyframes";
-import { toRNProperty } from "./selectors";
 import type { StylesheetBuilder } from "./stylesheet";
 
 const CommaSeparator = Symbol("CommaSeparator");
@@ -60,19 +64,6 @@ type Parser<T extends Declaration["property"] = Declaration["property"]> = (
   propertyName: string,
   // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
 ) => StyleDescriptor | void;
-
-const propertyRename: Record<string, string> = {
-  "background-image": "experimental_backgroundImage",
-  // React Native has no border-inline-* props, but ships the equivalent
-  // RTL-aware border-start-* / border-end-* props
-  "border-inline-end-color": "border-end-color",
-  "border-inline-end-width": "border-end-width",
-  "border-inline-start-color": "border-start-color",
-  "border-inline-start-width": "border-start-width",
-  "border-block-start-width": "border-top-width",
-  "border-block-end-width": "border-bottom-width",
-  "font-variant-caps": "font-variant",
-};
 
 // React Native only supports a uniform borderStyle, so per-side border
 // styles have no native equivalent and are dropped. "solid" is dropped
@@ -99,6 +90,8 @@ const unparsedRuntimeParsing = new Set([
   "scale",
   "text-shadow",
   "transform",
+  "transition",
+  "transition-property",
   "translate",
 ]);
 
@@ -3060,13 +3053,8 @@ export function addTransitionValue(
         declaration.property,
         declaration.value
           .map((v) => v.property)
-          .filter(
-            (v) =>
-              (v in parsers && !["visibility"].includes(v)) ||
-              v === "all" ||
-              v === "none",
-          )
-          .map((v) => toRNProperty(v)),
+          .filter((v) => v in parsers || v === "all" || v === "none")
+          .flatMap((v) => transitionStyleKey(v) ?? []),
       );
       return;
     }
