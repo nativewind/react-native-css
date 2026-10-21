@@ -576,7 +576,7 @@ function hasNativeStyleMapping(
   return config.nativeStyleMapping !== undefined;
 }
 
-// Every mapping reads the props as computed, and every mapped key leaves its source before any destination is written, so no mapping reads what another wrote and the configs' order changes nothing
+// Every mapping reads the props as computed, and every mapped key leaves its source before any destination is written, so no mapping reads what another wrote
 function nativeStyleMapping(
   configs: readonly MappingConfig[],
   props: Readonly<Record<string, unknown>>,

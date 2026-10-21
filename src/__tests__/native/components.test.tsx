@@ -507,7 +507,7 @@ test.each([
   },
 );
 
-test("a mapping reads the props as computed, so the configs' order changes nothing", () => {
+test("a mapping reads the props as computed, not what another mapping wrote, in either order", () => {
   registerCSS(`.base { border-color: green; } .label { color: blue; }`);
   const labelClassName = {
     target: false,
