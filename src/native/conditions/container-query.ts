@@ -108,11 +108,11 @@ interface ContainerFeatureContext {
 const CONTAINER_FEATURES: FeatureReader<ContainerFeatureContext> = {
   read: (name, { containerKey, get }) =>
     getContainerFeatureValue(name, containerKey, get),
-  compare: ([operator, name, value], { containerKey, get }) =>
+  compare: (comparison, { containerKey, get }) =>
     compareMediaFeature(
-      operator,
-      getContainerFeatureValue(name, containerKey, get),
-      value,
+      comparison[0],
+      getContainerFeatureValue(comparison[1], containerKey, get),
+      comparison[2],
     ),
 };
 

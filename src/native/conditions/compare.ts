@@ -124,16 +124,14 @@ export function compareMediaFeature(
   }
 }
 
-// The compiler emits a range pair in source order: start, operator, value, operator, end
+// The compiler emits a range pair in source order: start, operator, value, operator, end; it is read by index, since Babel compiles a destructured tuple to a helper call that costs more than the comparisons
 export function testMediaFeatureInterval(
   condition: Readonly<MediaInterval>,
   value: MeasuredFeatureValue,
 ): Truth {
-  const [, , start, startOperator, end, endOperator] = condition;
-
   return and(
-    compareMediaFeature(startOperator, start, value),
-    compareMediaFeature(endOperator, value, end),
+    compareMediaFeature(condition[3], condition[2], value),
+    compareMediaFeature(condition[5], value, condition[4]),
   );
 }
 

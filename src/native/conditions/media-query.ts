@@ -32,7 +32,10 @@ function testComparison(
   mediaQuery: Readonly<MediaComparison>,
   get: Getter,
 ): Truth {
-  const [operator, name, value] = mediaQuery;
+  // Read by index, since Babel compiles a destructured tuple to a helper call that costs more than the comparison
+  const operator = mediaQuery[0];
+  const name = mediaQuery[1];
+  const value = mediaQuery[2];
 
   switch (name) {
     // dir and platform are this library's conditions rather than media features, so neither has a boolean context
