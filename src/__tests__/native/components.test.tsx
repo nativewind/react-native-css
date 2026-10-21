@@ -849,6 +849,26 @@ test("an !important mapping into a hitSlop side replaces an inline hitSlop numbe
   ).toStrictEqual({ top: 10 });
 });
 
+test("an !important mapping of a whole prop replaces a normal mapping into one of its keys", () => {
+  registerCSS(`.side { width: 10px; } .whole { height: 20px !important; }`);
+
+  expect(
+    receivedProps(
+      {
+        sideClassName: {
+          target: false,
+          nativeStyleMapping: { width: "hitSlop.top" },
+        },
+        wholeClassName: {
+          target: false,
+          nativeStyleMapping: { height: "hitSlop" },
+        },
+      },
+      { sideClassName: "side", wholeClassName: "whole" },
+    ).hitSlop,
+  ).toBe(20);
+});
+
 test("a mapping into an entry of a transform keeps the transform an array", () => {
   registerCSS(
     `.turned { transform: rotate(45deg) translateX(10px); } .label { color: red; }`,
