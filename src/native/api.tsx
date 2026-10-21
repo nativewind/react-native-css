@@ -18,6 +18,7 @@ import { usePassthrough } from "./react/usePassthrough";
 import {
   cleanupEffect,
   colorScheme as colorSchemeObs,
+  toVariableRecord,
   VAR_SYMBOL,
   type Effect,
   type Getter,
@@ -123,8 +124,6 @@ export function useNativeVariable(name: string) {
 export function vars(variables: Record<string, StyleDescriptor>): ViewStyle {
   return Object.assign(
     { [VAR_SYMBOL]: "inline" },
-    Object.fromEntries(
-      Object.entries(variables).map(([k, v]) => [k.replace(/^--/, ""), v]),
-    ),
+    toVariableRecord(variables),
   ) as ViewStyle;
 }
