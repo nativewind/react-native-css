@@ -235,6 +235,18 @@ This API only allows for setting CSS variables as primitive values. For more com
 > [!IMPORTANT]  
 > By using `VariableContext` you may need to disable the `inlineVariable` optimization
 
+## Color scheme
+
+`colorScheme.get()` returns the scheme in effect, and `colorScheme.set()` forces `"dark"` or `"light"`; `colorScheme.set(null)` follows the system again.
+
+```ts
+import { colorScheme } from "react-native-css";
+
+colorScheme.set("dark");
+```
+
+On native, the forced scheme answers every `prefers-color-scheme` condition. On web no page can override `prefers-color-scheme`, so `set()` puts a `dark` or `light` class on `<html>` and sets its `color-scheme`. Rules keyed on that class, such as a dark variant declared as `@custom-variant dark (&:where(.dark, .dark *))`, and every `light-dark()` value follow it. A rule inside `@media (prefers-color-scheme: dark)` keeps the system's answer.
+
 ## Optimizations
 
 CSS is a dynamic styling language that use highly optimized engines that are not available in React Native. Instead, we optimize the styles to improve performance
