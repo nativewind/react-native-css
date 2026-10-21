@@ -871,6 +871,12 @@ describe("an inline value the CSS variable filter finds nothing in reaches the c
     expect(receivedStyle(inline)).toBe(inline);
   });
 
+  test("a style array's undefined layer, which React Native skips", () => {
+    const inline = [{ height: 16 }, undefined];
+
+    expect(receivedStyle(inline)).toBe(inline);
+  });
+
   test("an accessor, which the filter never runs", () => {
     const read = jest.fn(() => 0.5);
     const inline = { height: 16 };
@@ -914,4 +920,24 @@ test("Pressable: a callback style between a class and an !important class keeps 
     { opacity: 1 },
     { backgroundColor: "#f00" },
   ]);
+});
+
+test("a target:false mapping's !important value beats the element's value of that prop", () => {
+  registerCSS(`.label { color: red !important; }`);
+  const props: Readonly<Record<string, unknown>>[] = [];
+  const Probe = (probeProps: Readonly<Record<string, unknown>>) => {
+    props.push(probeProps);
+    return null;
+  };
+  const Labelled = (styledProps: Readonly<Record<string, unknown>>) =>
+    useCssElement(Probe, styledProps, {
+      labelClassName: {
+        target: false,
+        nativeStyleMapping: { color: "accessibilityLabel" },
+      },
+    });
+
+  render(<Labelled labelClassName="label" accessibilityLabel="inline" />);
+
+  expect(props.at(-1)?.accessibilityLabel).toBe("#f00");
 });
