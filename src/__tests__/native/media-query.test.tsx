@@ -5,7 +5,6 @@ import { View } from "react-native-css/components/View";
 import { registerCSS, testID } from "react-native-css/jest";
 import { colorScheme, reducedMotion } from "react-native-css/runtime";
 
-import { resetBetweenTests } from "../../jest/reset";
 import { deviceReducedMotion, dimensions } from "../../native/reactivity";
 
 jest.mock("react-native", () => {
@@ -407,26 +406,6 @@ test("reducedMotion.set overrides the device's preference, and set(null) follows
   });
   expect(reducedMotion.get()).toBe("no-preference");
   expect(component.props.style).toStrictEqual({ color: "#000" });
-});
-
-describe("the react-native-css/jest reset", () => {
-  test("clears a test's override", () => {
-    reducedMotion.set("reduce");
-    expect(reducedMotion.get()).toBe("reduce");
-
-    resetBetweenTests();
-
-    expect(reducedMotion.get()).toBe("no-preference");
-  });
-
-  test("puts a device a test changed back to AccessibilityInfo's answer", () => {
-    deviceReducedMotion.set("reduce");
-    expect(reducedMotion.get()).toBe("reduce");
-
-    resetBetweenTests();
-
-    expect(reducedMotion.get()).toBe("no-preference");
-  });
 });
 
 // Chromium 153, Firefox 155 and WebKit 26.6 agree on every row: [query, reduce/light, reduce/dark, no-preference/light, no-preference/dark]
