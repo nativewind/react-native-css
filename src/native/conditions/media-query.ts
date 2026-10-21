@@ -2,6 +2,7 @@
 import { I18nManager, PixelRatio, Platform } from "react-native";
 
 import type { MediaCondition } from "react-native-css/compiler";
+
 import {
   colorScheme,
   resolveColorScheme,

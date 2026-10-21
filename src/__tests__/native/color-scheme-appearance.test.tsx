@@ -76,10 +76,10 @@ jest.mock("react-native/Libraries/Utilities/NativeAppearance", () => {
 });
 
 interface DeviceDouble {
-  startDevice: (platform: Platform, scheme: Scheme) => void;
-  applyPendingOverrides: () => Scheme[];
-  changeSystemScheme: (scheme: Scheme) => Scheme[];
-  readSetColorSchemeCalls: () => string[];
+  readonly startDevice: (platform: Platform, scheme: Scheme) => void;
+  readonly applyPendingOverrides: () => readonly Scheme[];
+  readonly changeSystemScheme: (scheme: Scheme) => readonly Scheme[];
+  readonly readSetColorSchemeCalls: () => readonly string[];
 }
 
 const device = jest.requireMock<{ default: DeviceDouble }>(
@@ -195,20 +195,22 @@ describe.each([
   test("colorScheme.set hands each request to Appearance and sends no event of its own", () => {
     const { sentByCaller, stop } = recordAppearanceEvents();
 
-    act(() => {
-      colorScheme.set(other);
-      colorScheme.set(null);
-      colorScheme.set("unspecified");
-    });
+    try {
+      act(() => {
+        colorScheme.set(other);
+        colorScheme.set(null);
+        colorScheme.set("unspecified");
+      });
 
-    expect(device.readSetColorSchemeCalls().slice(-3)).toStrictEqual([
-      other,
-      "unspecified",
-      "unspecified",
-    ]);
-    expect(sentByCaller()).toStrictEqual([]);
-
-    stop();
+      expect(device.readSetColorSchemeCalls().slice(-3)).toStrictEqual([
+        other,
+        "unspecified",
+        "unspecified",
+      ]);
+      expect(sentByCaller()).toStrictEqual([]);
+    } finally {
+      stop();
+    }
   });
 
   test("every layer agrees until the platform applies a request, then takes it", () => {
