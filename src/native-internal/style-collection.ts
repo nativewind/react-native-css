@@ -66,7 +66,7 @@ globalThis.__react_native_css_style_collection ??= {
       {
         s: [0],
         p: {
-          h: 1,
+          a: 1,
         },
       },
     ]);
