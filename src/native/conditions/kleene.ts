@@ -7,48 +7,18 @@ export function negate(value: Truth): Truth {
   return value === UNKNOWN ? UNKNOWN : !value;
 }
 
-// Evaluating a term subscribes to what it reads, so a decided conjunction evaluates no further terms
-export function conjoin<Term>(
-  terms: readonly Term[],
-  evaluate: (term: Term) => Truth,
-): Truth {
-  let unknown = false;
-
-  for (const term of terms) {
-    const value = evaluate(term);
-
-    if (value === false) {
-      return false;
-    }
-
-    if (value === UNKNOWN) {
-      unknown = true;
-    }
+export function and(left: Truth, right: Truth): Truth {
+  if (left === false || right === false) {
+    return false;
   }
-
-  return unknown ? UNKNOWN : true;
+  return left === UNKNOWN || right === UNKNOWN ? UNKNOWN : true;
 }
 
-// Evaluating a term subscribes to what it reads, so a decided disjunction evaluates no further terms
-export function disjoin<Term>(
-  terms: readonly Term[],
-  evaluate: (term: Term) => Truth,
-): Truth {
-  let unknown = false;
-
-  for (const term of terms) {
-    const value = evaluate(term);
-
-    if (value === true) {
-      return true;
-    }
-
-    if (value === UNKNOWN) {
-      unknown = true;
-    }
+export function or(left: Truth, right: Truth): Truth {
+  if (left === true || right === true) {
+    return true;
   }
-
-  return unknown ? UNKNOWN : false;
+  return left === UNKNOWN || right === UNKNOWN ? UNKNOWN : false;
 }
 
 // A rule applies only on true, so unknown converts to false (MQ5 §3.1)

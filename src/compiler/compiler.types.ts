@@ -181,9 +181,9 @@ export type MediaCondition =
   // Not
   | ["!", MediaCondition]
   // And
-  | ["&", MediaCondition[]]
+  | ["&", readonly MediaCondition[]]
   // Or
-  | ["|", MediaCondition[]]
+  | ["|", readonly MediaCondition[]]
   // Comparison
   | [
       MediaFeatureComparison,

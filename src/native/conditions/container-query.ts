@@ -17,6 +17,7 @@ import { testAttributes } from "./attributes";
 import {
   compareMediaFeature,
   evaluateCondition,
+  type FeatureReader,
   type MeasuredFeatureValue,
   type MediaFeatureName,
 } from "./compare";
@@ -93,15 +94,27 @@ function testContainerMediaCondition(
   containerKey: WeakKey,
   get: Getter,
 ): Truth {
-  const read = (name: MediaFeatureName) =>
-    getContainerFeatureValue(name, containerKey, get);
-
-  return evaluateCondition(condition, {
-    read,
-    compare: ([operator, name, value]) =>
-      compareMediaFeature(operator, read(name), value),
+  return evaluateCondition(condition, CONTAINER_FEATURES, {
+    containerKey,
+    get,
   });
 }
+
+interface ContainerFeatureContext {
+  readonly containerKey: WeakKey;
+  readonly get: Getter;
+}
+
+const CONTAINER_FEATURES: FeatureReader<ContainerFeatureContext> = {
+  read: (name, { containerKey, get }) =>
+    getContainerFeatureValue(name, containerKey, get),
+  compare: ([operator, name, value], { containerKey, get }) =>
+    compareMediaFeature(
+      operator,
+      getContainerFeatureValue(name, containerKey, get),
+      value,
+    ),
+};
 
 function getContainerFeatureValue(
   name: MediaFeatureName,

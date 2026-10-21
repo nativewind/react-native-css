@@ -12,14 +12,6 @@ import {
 import { testMediaQuery } from "../../native/conditions/media-query";
 import { dimensions, vw, type Getter } from "../../native/reactivity";
 
-const initialColorScheme = colorScheme.get();
-
-afterEach(() => {
-  act(() => {
-    colorScheme.set(initialColorScheme);
-  });
-});
-
 function mediaMatches(
   condition: string,
   size = { width: 600, height: 400 },
@@ -132,6 +124,17 @@ describe("@media on a 600x400 screen", () => {
       expect(mediaMatches(condition)).toBe(expected);
     },
   );
+
+  // The Compatibility Standard's -webkit-device-pixel-ratio is resolution in dppx, and PixelRatio.get() is 2 under Jest
+  test.each([
+    ["(min-resolution: 2dppx)", true],
+    ["(-webkit-min-device-pixel-ratio: 2)", true],
+    ["(-webkit-device-pixel-ratio: 2)", true],
+    ["(-webkit-min-device-pixel-ratio: 3)", false],
+    ["not (-webkit-min-device-pixel-ratio: 3)", true],
+  ])("at a pixel ratio of 2, %s matches: %s", (condition, expected) => {
+    expect(mediaMatches(condition)).toBe(expected);
+  });
 
   test.each([
     ["dark", "(prefers-color-scheme)", true],

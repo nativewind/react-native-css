@@ -4,7 +4,7 @@ import type {
   MediaFeatureOperand,
 } from "react-native-css/compiler";
 
-import { conjoin, disjoin, negate, UNKNOWN, type Truth } from "./kleene";
+import { and, negate, or, UNKNOWN, type Truth } from "./kleene";
 
 export type MediaInterval = Extract<MediaCondition, ["[]", ...unknown[]]>;
 
@@ -18,35 +18,62 @@ export type MediaFeatureName = MediaComparison[1];
 // undefined for a feature the runtime does not measure
 export type MeasuredFeatureValue = number | string | undefined;
 
-// A media query and a container query differ only in how a feature is read and compared
-export interface FeatureReader {
-  readonly read: (name: MediaFeatureName) => MeasuredFeatureValue;
-  readonly compare: (comparison: Readonly<MediaComparison>) => Truth;
+// A media query and a container query differ only in how a feature is read and compared; the context is what a reading needs, passed along so an evaluation allocates nothing
+export interface FeatureReader<Context> {
+  readonly read: (
+    name: MediaFeatureName,
+    context: Context,
+  ) => MeasuredFeatureValue;
+  readonly compare: (
+    comparison: Readonly<MediaComparison>,
+    context: Context,
+  ) => Truth;
 }
 
-export function evaluateCondition(
+export function evaluateCondition<Context>(
   condition: Readonly<MediaCondition>,
-  reader: FeatureReader,
+  reader: FeatureReader<Context>,
+  context: Context,
 ): Truth {
   switch (condition[0]) {
     case "?":
       return UNKNOWN;
     case "!!":
-      return isTruthyFeatureValue(reader.read(condition[1]));
+      return isTruthyFeatureValue(reader.read(condition[1], context));
     case "[]":
-      return testMediaFeatureInterval(condition, reader.read(condition[1]));
+      return testMediaFeatureInterval(
+        condition,
+        reader.read(condition[1], context),
+      );
     case "!":
-      return negate(evaluateCondition(condition[1], reader));
-    case "&":
-      return conjoin(condition[1], (term) => evaluateCondition(term, reader));
-    case "|":
-      return disjoin(condition[1], (term) => evaluateCondition(term, reader));
+      return negate(evaluateCondition(condition[1], reader, context));
+    // Evaluating a term subscribes to what it reads, so a decided conjunction or disjunction evaluates no further terms
+    case "&": {
+      let truth: Truth = true;
+      for (const term of condition[1]) {
+        truth = and(truth, evaluateCondition(term, reader, context));
+        if (truth === false) {
+          return false;
+        }
+      }
+      return truth;
+    }
+    case "|": {
+      let truth: Truth = false;
+      for (const term of condition[1]) {
+        truth = or(truth, evaluateCondition(term, reader, context));
+        if (truth === true) {
+          return true;
+        }
+      }
+      return truth;
+    }
     case ">":
     case ">=":
     case "<":
     case "<=":
     case "=":
-      return reader.compare(condition);
+      return reader.compare(condition, context);
     default:
       condition satisfies never;
       return UNKNOWN;
@@ -104,12 +131,9 @@ export function testMediaFeatureInterval(
 ): Truth {
   const [, , start, startOperator, end, endOperator] = condition;
 
-  return conjoin(
-    [
-      compareMediaFeature(startOperator, start, value),
-      compareMediaFeature(endOperator, value, end),
-    ],
-    (truth) => truth,
+  return and(
+    compareMediaFeature(startOperator, start, value),
+    compareMediaFeature(endOperator, value, end),
   );
 }
 

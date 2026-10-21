@@ -6,6 +6,7 @@ import { colorScheme, vh, vw, type Getter } from "../reactivity";
 import {
   compareMediaFeature,
   evaluateCondition,
+  type FeatureReader,
   type MeasuredFeatureValue,
   type MediaComparison,
   type MediaFeatureName,
@@ -15,15 +16,16 @@ import { matches, type Truth } from "./kleene";
 // The color feature counts bits per color component
 const BITS_PER_COLOR_COMPONENT = 8;
 
-export function testMediaQuery(mediaQueries: MediaCondition[], get: Getter) {
-  return mediaQueries.every((query) => matches(test(query, get)));
-}
-
-function test(mediaQuery: Readonly<MediaCondition>, get: Getter): Truth {
-  return evaluateCondition(mediaQuery, {
-    read: (name) => getMediaFeatureValue(name, get),
-    compare: (comparison) => testComparison(comparison, get),
-  });
+export function testMediaQuery(
+  mediaQueries: readonly MediaCondition[],
+  get: Getter,
+): boolean {
+  for (const query of mediaQueries) {
+    if (!matches(evaluateCondition(query, MEDIA_FEATURES, get))) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function testComparison(
@@ -84,7 +86,9 @@ function getMediaFeatureValue(
       return get(vw);
     case "height":
       return get(vh);
+    // -webkit-device-pixel-ratio is resolution in dppx (https://compat.spec.whatwg.org/#css-media-queries-webkit-device-pixel-ratio)
     case "resolution":
+    case "-webkit-device-pixel-ratio":
       return PixelRatio.get();
     case "orientation":
       return get(vh) < get(vw) ? "landscape" : "portrait";
@@ -92,6 +96,11 @@ function getMediaFeatureValue(
       return undefined;
   }
 }
+
+const MEDIA_FEATURES: FeatureReader<Getter> = {
+  read: getMediaFeatureValue,
+  compare: testComparison,
+};
 
 type PrimaryInput = "touchscreen" | "mouse" | "remote";
 
@@ -108,7 +117,7 @@ function primaryInput(): PrimaryInput {
   return Platform.OS === "android" ? "touchscreen" : "mouse";
 }
 
-// MQ5 §7 answers for the primary input, as Safari and Chrome do on a phone or tablet with or without a mouse attached; the inputs beside it are not visible to JavaScript, so any-pointer and any-hover answer for it too
+// MQ5 §7 answers for the primary input, as Safari and Chrome do on a phone or tablet; React Native reports no other input device, so any-pointer and any-hover answer for the primary input too
 const PRIMARY_INPUT_FEATURES = {
   touchscreen: { pointer: "coarse", hover: "none" },
   mouse: { pointer: "fine", hover: "hover" },
