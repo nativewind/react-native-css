@@ -1,7 +1,14 @@
-import { StrictMode } from "react";
+import {
+  Activity,
+  startTransition,
+  StrictMode,
+  Suspense,
+  use,
+  type ReactElement,
+} from "react";
 import { Text } from "react-native";
 
-import { act, render } from "@testing-library/react-native";
+import { act, render, renderAsync } from "@testing-library/react-native";
 import { View } from "react-native-css/components/View";
 import { registerCSS } from "react-native-css/jest";
 import { useNativeVariable } from "react-native-css/native";
@@ -10,7 +17,9 @@ import {
   StyleCollection,
 } from "react-native-css/native-internal";
 
-import { cleanupEffect, observable, vw } from "../../native/reactivity";
+import * as useNativeCssModule from "../../native/react/useNativeCss";
+import { cleanupEffect, observable, vh, vw } from "../../native/reactivity";
+import * as calculatePropsModule from "../../native/styles/calculate-props";
 
 test("cleaned observers receive no later notifications", () => {
   const value = observable(0);
@@ -156,6 +165,137 @@ test("StrictMode viewport consumers remain reactive and release subscriptions", 
   });
 });
 
+function captureConsoleErrors() {
+  const error = jest.spyOn(console, "error").mockImplementation(jest.fn());
+  return {
+    messages: () => error.mock.calls.map(([message]) => String(message)),
+    restore: () => {
+      error.mockRestore();
+    },
+  };
+}
+
+const neverResolves = new Promise<never>(jest.fn());
+
+test("a viewport change between render and commit reaches the element once it commits", () => {
+  registerCSS(".audit-render-window { width: 10vw; }");
+  const original = vw.get();
+  const errors = captureConsoleErrors();
+  function ResizeDuringRender() {
+    vw.set(800);
+    return null;
+  }
+  try {
+    const screen = render(
+      <>
+        <View testID="sample" className="audit-render-window" />
+        <ResizeDuringRender />
+      </>,
+    );
+    expect(errors.messages()).toEqual([]);
+    expect(screen.getByTestId("sample").props.style.width).toBe(80);
+    screen.unmount();
+  } finally {
+    errors.restore();
+    act(() => {
+      vw.set(original);
+    });
+  }
+});
+
+function NeverResolves() {
+  return use(neverResolves);
+}
+
+test("a render React discards leaves no subscription and takes no later update", async () => {
+  registerCSS(".audit-discarded-render { width: 10vw; }");
+  const original = vw.get();
+  const before = vw.observers.size;
+  const errors = captureConsoleErrors();
+  try {
+    const screen = await renderAsync(
+      <Suspense fallback={<Text testID="fallback">loading</Text>}>
+        <View testID="sample" className="audit-discarded-render" />
+        <NeverResolves />
+      </Suspense>,
+    );
+    expect(screen.getByTestId("fallback")).toBeTruthy();
+    expect(screen.queryByTestId("sample")).toBeNull();
+    expect(vw.observers.size).toBe(before);
+    await act(() => {
+      vw.set(900);
+      return Promise.resolve();
+    });
+    expect(errors.messages()).toEqual([]);
+    await screen.unmountAsync();
+  } finally {
+    errors.restore();
+    act(() => {
+      vw.set(original);
+    });
+  }
+});
+
+test("mounting an element computes its styles once", () => {
+  registerCSS(".audit-single-computation { width: 10vw; }");
+  const computations = jest.spyOn(calculatePropsModule, "calculateProps");
+  try {
+    const screen = render(
+      <View testID="sample" className="audit-single-computation" />,
+    );
+    expect(screen.getByTestId("sample").props.style.width).toBeGreaterThan(0);
+    expect(computations).toHaveBeenCalledTimes(1);
+    screen.unmount();
+  } finally {
+    computations.mockRestore();
+  }
+});
+
+test("a render React discards leaves the committed element subscribed", async () => {
+  registerCSS(
+    ".audit-kept-first { width: 10vw; } .audit-kept-second { width: 20px; }",
+  );
+  const original = vw.get();
+  function Sample({
+    className,
+    suspended,
+  }: {
+    className: string;
+    suspended: boolean;
+  }) {
+    return (
+      <>
+        <View testID="sample" className={className} />
+        <Suspense fallback={null}>
+          {suspended ? <NeverResolves /> : null}
+        </Suspense>
+      </>
+    );
+  }
+  const screen = render(
+    <Sample className="audit-kept-first" suspended={false} />,
+  );
+  try {
+    await act(() => {
+      startTransition(() => {
+        screen.rerender(<Sample className="audit-kept-second" suspended />);
+      });
+      return Promise.resolve();
+    });
+    expect(screen.getByTestId("sample").props.style.width).toBe(original / 10);
+    await act(() => {
+      vw.set(1000);
+      return Promise.resolve();
+    });
+    expect(screen.getByTestId("sample").props.style.width).toBe(100);
+  } finally {
+    screen.unmount();
+    act(() => {
+      vw.set(original);
+    });
+  }
+});
+
 test("class changes detach the old rule subscription", () => {
   registerCSS(
     ".audit-rule-first { width: 10px; } .audit-rule-second { width: 20px; }",
@@ -170,3 +310,60 @@ test("class changes detach the old rule subscription", () => {
   screen.unmount();
   expect(second.observers.size).toBe(0);
 });
+
+function setViewport(width: number, height: number) {
+  act(() => {
+    vw.set(width);
+    vh.set(height);
+  });
+}
+
+const ELEMENT_MOUNTS = [
+  ["mounted once", (element: ReactElement) => render(element)],
+  [
+    "whose effects StrictMode ran twice",
+    (element: ReactElement) => render(<StrictMode>{element}</StrictMode>),
+  ],
+  [
+    "that Activity hid and showed again",
+    (element: ReactElement) => {
+      const screen = render(<Activity mode="visible">{element}</Activity>);
+      screen.rerender(<Activity mode="hidden">{element}</Activity>);
+      screen.rerender(<Activity mode="visible">{element}</Activity>);
+      return screen;
+    },
+  ],
+] as const;
+
+test.each(ELEMENT_MOUNTS)(
+  "a viewport change that moves no rule renders nothing and computes no styles on an element %s",
+  (_shape, mount) => {
+    registerCSS(`
+      .audit-rule-unmoved { height: 5px; }
+      @media (min-width: 600px) { .audit-rule-unmoved { width: 10px; } }
+    `);
+    const originalWidth = vw.get();
+    const originalHeight = vh.get();
+    setViewport(500, 500);
+    const screen = mount(
+      <View testID="sample" className="audit-rule-unmoved" />,
+    );
+    const renders = jest.spyOn(useNativeCssModule, "useNativeCss");
+    const computations = jest.spyOn(calculatePropsModule, "calculateProps");
+    try {
+      act(() => {
+        vw.set(550);
+      });
+      expect(renders).not.toHaveBeenCalled();
+      expect(computations).not.toHaveBeenCalled();
+      expect(screen.getByTestId("sample").props.style).toStrictEqual({
+        height: 5,
+      });
+    } finally {
+      computations.mockRestore();
+      renders.mockRestore();
+      screen.unmount();
+      setViewport(originalWidth, originalHeight);
+    }
+  },
+);
