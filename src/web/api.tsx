@@ -20,6 +20,7 @@ import type {
   Styled,
 } from "../runtime.types";
 import { assignStyle } from "./assign-style";
+import { browserPreference } from "./browser-preference";
 
 const defaultMapping: StyledConfiguration<ComponentType<{ style: unknown }>> = {
   className: "style",
@@ -77,14 +78,8 @@ export const colorScheme: ColorScheme = {
   },
 };
 
-let reducedMotionOverride: ReducedMotionPreference | undefined;
-
-export const reducedMotion: ReducedMotion = {
-  get() {
-    if (reducedMotionOverride !== undefined) {
-      return reducedMotionOverride;
-    }
-
+export const reducedMotion: ReducedMotion =
+  browserPreference<ReducedMotionPreference>(() => {
     // Server rendering has no window, and React Native's jest environment a window without matchMedia
     if (
       typeof window === "undefined" ||
@@ -96,15 +91,7 @@ export const reducedMotion: ReducedMotion = {
     return window.matchMedia("(prefers-reduced-motion: reduce)").matches
       ? "reduce"
       : "no-preference";
-  },
-  // The browser evaluates the stylesheet's @media rules itself, so an override reaches what scripts read and not the CSS, which MQ5 §13's requestOverride() will reach once a browser ships it
-  set(value) {
-    // A server renders every visitor's page in one process, so only a browser keeps an override
-    if (typeof window !== "undefined") {
-      reducedMotionOverride = value ?? undefined;
-    }
-  },
-};
+  });
 
 /**
  * @deprecated Use `<VariableContextProvider />` instead.
