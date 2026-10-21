@@ -6,6 +6,7 @@ import { getInteractionHandler } from "../react/interaction";
 import type { ComponentState, Config } from "../react/useNativeCss";
 import {
   activeFamily,
+  containerActiveFamily,
   containerLayoutFamily,
   family,
   focusFamily,
@@ -184,6 +185,33 @@ export const stylesFamily = family(
   },
 );
 
+/** The style a config resolves from `stylesObs`, merged with the element's inline style. */
+export function getStyledTarget(
+  state: ComponentState,
+  stylesObs: NonNullable<ComponentState["stylesObs"]>,
+  inline: Record<string, any> | undefined | null,
+  config: Config,
+) {
+  const styledProps = stylesObs.get(state.styleEffect);
+
+  let result = deepMergeConfig(
+    config,
+    nativeStyleMapping(config, styledProps?.normal),
+    inline,
+    true,
+  );
+
+  if (styledProps?.important) {
+    result = deepMergeConfig(
+      config,
+      result,
+      nativeStyleMapping(config, styledProps.important),
+    );
+  }
+
+  return result?.style;
+}
+
 export function getStyledProps(
   state: ComponentState,
   inline: Record<string, any> | undefined | null,
@@ -264,6 +292,24 @@ export function getStyledProps(
         state.ruleEffectGetter,
         "onPressOut",
         inline?.onPressOut,
+      );
+    } else if (containerActiveFamily.has(state.ruleEffectGetter)) {
+      // Touch events bubble to every ancestor without a responder claim, so observing them leaves the subtree's gestures alone.
+      result ??= {};
+      result.onTouchStart = getInteractionHandler(
+        state.ruleEffectGetter,
+        "onTouchStart",
+        inline?.onTouchStart,
+      );
+      result.onTouchEnd = getInteractionHandler(
+        state.ruleEffectGetter,
+        "onTouchEnd",
+        inline?.onTouchEnd,
+      );
+      result.onTouchCancel = getInteractionHandler(
+        state.ruleEffectGetter,
+        "onTouchCancel",
+        inline?.onTouchCancel,
       );
     }
 
