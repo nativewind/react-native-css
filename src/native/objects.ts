@@ -133,11 +133,6 @@ export function withDeepPaths(
   source: Readonly<Record<string, unknown>>,
   writes: readonly (readonly [readonly string[], unknown])[],
 ): Readonly<Record<string, unknown>> {
-  const pathed = writes.filter(([path]) => path.length > 0);
-  if (pathed.length === 0) {
-    return source;
-  }
-
   const copies = new Set<unknown>();
   const isCopy = (value: unknown): value is Record<string, unknown> =>
     copies.has(value);
@@ -147,13 +142,14 @@ export function withDeepPaths(
     return copy;
   };
 
-  const result = copyOf(source);
-  for (const [path, value] of pathed) {
+  let result: Record<string, unknown> | undefined;
+  for (const [path, value] of writes) {
     const key = path[path.length - 1];
     if (key === undefined) {
       continue;
     }
 
+    result ??= copyOf(source);
     let target = result;
     for (const segment of path.slice(0, -1)) {
       const child = target[segment];
@@ -164,7 +160,7 @@ export function withDeepPaths(
     target[key] = value;
   }
 
-  return result;
+  return result ?? source;
 }
 
 export function withoutKeys(

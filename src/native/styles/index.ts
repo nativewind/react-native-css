@@ -314,7 +314,7 @@ export function getStyledProps(
       }
       target[path[path.length - 1]!] = value;
     }
-    const base = inline ? mergeDefinedProps(normal, inline) : { ...normal };
+    const base = mergeDefinedProps(normal, inline ?? {});
     const unset: string[] = [];
     for (const key of untargetedKeys(state.configs, normal, important)) {
       const value = layerImportant(base[key], important?.[key]);
