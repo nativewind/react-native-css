@@ -24,6 +24,15 @@ export interface InlineVariableOptions {
   exclude?: `--${string}`[];
 }
 
+// A channel is absent when the compile recorded nothing on it
+export interface CompilerWarnings {
+  properties?: string[];
+  values?: Record<string, string[]>;
+  functions?: string[];
+  // CSS lightningcss could not parse, which the author fixes in their stylesheet
+  syntax?: string[];
+}
+
 /**
  * A `react-native-css` StyleSheet
  */
