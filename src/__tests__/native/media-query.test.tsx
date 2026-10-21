@@ -3,9 +3,9 @@ import { PixelRatio } from "react-native";
 import { act, render, screen } from "@testing-library/react-native";
 import { View } from "react-native-css/components/View";
 import { registerCSS, testID } from "react-native-css/jest";
-import { colorScheme } from "react-native-css/runtime";
+import { colorScheme, reducedMotion } from "react-native-css/runtime";
 
-import { dimensions } from "../../native/reactivity";
+import { deviceReducedMotion, dimensions } from "../../native/reactivity";
 
 jest.mock("react-native", () => {
   const RN = jest.requireActual("react-native");
@@ -283,3 +283,193 @@ describe("max-resolution", () => {
     expect(component.props.style).toStrictEqual(undefined);
   });
 });
+
+describe("a reduced-motion preference AccessibilityInfo has not answered", () => {
+  let answered: ReturnType<typeof deviceReducedMotion.get>;
+
+  beforeEach(() => {
+    answered = deviceReducedMotion.get();
+    deviceReducedMotion.set(undefined);
+  });
+
+  afterEach(() => {
+    act(() => {
+      deviceReducedMotion.set(answered);
+    });
+  });
+
+  test("a mounted view takes the device's answer when it arrives", () => {
+    registerCSS(`
+  .my-class { color: #000000; }
+  @media (prefers-reduced-motion: reduce) { .my-class { color: #020202; } }`);
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+    expect(component.props.style).toStrictEqual({ color: "#000" });
+
+    act(() => {
+      deviceReducedMotion.set("reduce");
+    });
+    expect(component.props.style).toStrictEqual({ color: "#020202" });
+  });
+
+  test.each([
+    "(prefers-reduced-motion: reduce)",
+    "(prefers-reduced-motion: no-preference)",
+    "(prefers-reduced-motion)",
+  ])("leaves @media %s unmatched", (query) => {
+    registerCSS(
+      `.my-class { color: #000000; } @media ${query} { .my-class { color: #010101; } }`,
+    );
+
+    render(<View testID={testID} className="my-class" />);
+
+    expect(screen.getByTestId(testID).props.style).toStrictEqual({
+      color: "#000",
+    });
+  });
+
+  test("a mounted view follows the reduced-motion preference as it changes", () => {
+    registerCSS(`
+  .my-class { color: #000000; }
+  @media (prefers-reduced-motion: no-preference) { .my-class { color: #010101; } }
+  @media (prefers-reduced-motion: reduce) { .my-class { color: #020202; } }`);
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+    expect(component.props.style).toStrictEqual({ color: "#000" });
+
+    act(() => {
+      reducedMotion.set("no-preference");
+    });
+    expect(component.props.style).toStrictEqual({ color: "#010101" });
+
+    act(() => {
+      reducedMotion.set("reduce");
+    });
+    expect(component.props.style).toStrictEqual({ color: "#020202" });
+
+    act(() => {
+      reducedMotion.set("no-preference");
+    });
+    expect(component.props.style).toStrictEqual({ color: "#010101" });
+  });
+});
+
+test("reducedMotion.set holds through a change of the device's setting, and set(null) follows the device again", () => {
+  registerCSS(`
+.my-class { color: #000000; }
+@media (prefers-reduced-motion: reduce) { .my-class { color: #020202; } }`);
+  const answered = deviceReducedMotion.get();
+
+  render(<View testID={testID} className="my-class" />);
+  const component = screen.getByTestId(testID);
+
+  try {
+    act(() => {
+      reducedMotion.set("no-preference");
+      deviceReducedMotion.set("reduce");
+    });
+    expect(reducedMotion.get()).toBe("no-preference");
+    expect(component.props.style).toStrictEqual({ color: "#000" });
+
+    act(() => {
+      reducedMotion.set(null);
+    });
+    expect(reducedMotion.get()).toBe("reduce");
+    expect(component.props.style).toStrictEqual({ color: "#020202" });
+  } finally {
+    act(() => {
+      deviceReducedMotion.set(answered);
+    });
+  }
+});
+
+test("reducedMotion.set overrides the device's preference, and set(null) follows the device again at once", () => {
+  registerCSS(`
+.my-class { color: #000000; }
+@media (prefers-reduced-motion: reduce) { .my-class { color: #020202; } }`);
+
+  render(<View testID={testID} className="my-class" />);
+  const component = screen.getByTestId(testID);
+  expect(reducedMotion.get()).toBe("no-preference");
+  expect(component.props.style).toStrictEqual({ color: "#000" });
+
+  act(() => {
+    reducedMotion.set("reduce");
+  });
+  expect(reducedMotion.get()).toBe("reduce");
+  expect(component.props.style).toStrictEqual({ color: "#020202" });
+
+  act(() => {
+    reducedMotion.set(null);
+  });
+  expect(reducedMotion.get()).toBe("no-preference");
+  expect(component.props.style).toStrictEqual({ color: "#000" });
+});
+
+// Chromium 153, Firefox 155 and WebKit 26.6 agree on every row: [query, reduce/light, reduce/dark, no-preference/light, no-preference/dark]
+const BROWSER_MEDIA_ROWS = [
+  ["(prefers-reduced-motion: reduce)", true, true, false, false],
+  ["(prefers-reduced-motion: no-preference)", false, false, true, true],
+  ["(prefers-reduced-motion)", true, true, false, false],
+  ["not (prefers-reduced-motion)", false, false, true, true],
+  ["(prefers-reduced-motion: bogus)", false, false, false, false],
+  ["not all and (prefers-reduced-motion: reduce)", false, false, true, true],
+  [
+    "(prefers-reduced-motion: reduce) and (min-width: 1px)",
+    true,
+    true,
+    false,
+    false,
+  ],
+  [
+    "(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)",
+    false,
+    true,
+    false,
+    false,
+  ],
+  [
+    "(prefers-reduced-motion: reduce), (prefers-color-scheme: dark)",
+    true,
+    true,
+    false,
+    true,
+  ],
+  ["not (prefers-reduced-motion: reduce)", false, false, true, true],
+  ["(prefers-color-scheme: dark)", false, true, false, true],
+  ["(unknown-feature)", false, false, false, false],
+] as const;
+
+const MEDIA_STATES = [
+  ["reduce", "light"],
+  ["reduce", "dark"],
+  ["no-preference", "light"],
+  ["no-preference", "dark"],
+] as const;
+
+describe.each(BROWSER_MEDIA_ROWS)(
+  "@media %s matches as browsers match it",
+  (query, ...matches) => {
+    test.each(
+      MEDIA_STATES.map(
+        ([motion, scheme], index) => [motion, scheme, matches[index]] as const,
+      ),
+    )("under %s motion in the %s scheme: %s", (motion, scheme, expected) => {
+      act(() => {
+        reducedMotion.set(motion);
+        colorScheme.set(scheme);
+      });
+      registerCSS(
+        `.my-class { color: #000000; } @media ${query} { .my-class { color: #010101; } }`,
+      );
+
+      render(<View testID={testID} className="my-class" />);
+
+      expect(screen.getByTestId(testID).props.style).toStrictEqual({
+        color: expected ? "#010101" : "#000",
+      });
+    });
+  },
+);

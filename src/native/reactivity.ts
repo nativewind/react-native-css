@@ -1,6 +1,7 @@
 /* eslint-disable */
 import { createContext } from "react";
 import {
+  AccessibilityInfo,
   Appearance,
   Dimensions,
   type ColorSchemeName,
@@ -8,6 +9,8 @@ import {
 } from "react-native";
 
 import type { StyleDescriptor } from "react-native-css/compiler";
+
+import type { ReducedMotionPreference } from "../runtime.types";
 
 export type Effect = {
   observers: Set<Observable<any, any>>;
@@ -251,6 +254,66 @@ export const colorScheme = observable<ColorSchemeName | null | undefined>(
   Appearance.getColorScheme(),
 );
 Appearance.addChangeListener((event) => colorScheme.set(event.colorScheme));
+
+/** Device Preferences ********************************************************/
+
+// A user preference as the device reports it, unknown until it answers, and as the app overrides it until set(undefined), the shape MQ5 §13's requestOverride() and clearOverride() give the web
+export function devicePreference<Value>() {
+  const device = observable<Value | undefined>(undefined);
+  const preference = observable<Value | undefined, Value | undefined>(
+    (read, override) => override ?? read(device),
+  );
+  return { device, preference } as const;
+}
+
+/** Reduced Motion ************************************************************/
+
+// AccessibilityInfo answers asynchronously; until it does the device's preference is unknown, so a query on it does not match and a negated one does
+export const { device: deviceReducedMotion, preference: reducedMotion } =
+  devicePreference<ReducedMotionPreference>();
+
+function toReducedMotionPreference(
+  isReduceMotionEnabled: boolean,
+): ReducedMotionPreference {
+  return isReduceMotionEnabled ? "reduce" : "no-preference";
+}
+
+// The answer AccessibilityInfo's read gave, which the jest helper restores between tests; a change event after it is newer
+export const deviceReducedMotionAnswer = observable<
+  ReducedMotionPreference | undefined
+>(undefined);
+
+// A consumer's test double may leave out AccessibilityInfo or its change event, and the read below still answers
+function followReduceMotionChanges(
+  accessibilityInfo:
+    | Readonly<Partial<Pick<typeof AccessibilityInfo, "addEventListener">>>
+    | undefined,
+): void {
+  if (typeof accessibilityInfo?.addEventListener !== "function") {
+    return;
+  }
+
+  accessibilityInfo.addEventListener(
+    "reduceMotionChanged",
+    (isReduceMotionEnabled: boolean) => {
+      deviceReducedMotion.set(toReducedMotionPreference(isReduceMotionEnabled));
+    },
+  );
+}
+
+followReduceMotionChanges(AccessibilityInfo);
+
+// React Native rejects where the platform has no accessibility module, and a test double may leave out the call: either way the user has stated no preference to it
+void Promise.resolve()
+  .then(() => AccessibilityInfo.isReduceMotionEnabled())
+  .then(toReducedMotionPreference, () => "no-preference" as const)
+  .then((answer) => {
+    deviceReducedMotionAnswer.set(answer);
+    // A change event that arrived first is newer than the answer
+    if (deviceReducedMotion.get() === undefined) {
+      deviceReducedMotion.set(answer);
+    }
+  });
 
 /** Containers ****************************************************************/
 
