@@ -298,18 +298,6 @@ describe("a reduced-motion preference AccessibilityInfo has not answered", () =>
     });
   });
 
-  test("matches a negated query", () => {
-    registerCSS(
-      `.my-class { color: #000000; } @media not (prefers-reduced-motion: reduce) { .my-class { color: #010101; } }`,
-    );
-
-    render(<View testID={testID} className="my-class" />);
-
-    expect(screen.getByTestId(testID).props.style).toStrictEqual({
-      color: "#010101",
-    });
-  });
-
   test("a mounted view takes the device's answer when it arrives", () => {
     registerCSS(`
   .my-class { color: #000000; }

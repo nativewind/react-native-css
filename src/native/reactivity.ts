@@ -239,8 +239,8 @@ Appearance.addChangeListener((event) => colorScheme.set(event.colorScheme));
 /** Device Preferences ********************************************************/
 
 // A user preference as the device reports it, unknown until it answers, and as the app overrides it until set(undefined), the shape MQ5 §13's requestOverride() and clearOverride() give the web
-export function devicePreference<Value>(reported?: Value) {
-  const device = observable<Value | undefined>(reported);
+export function devicePreference<Value>() {
+  const device = observable<Value | undefined>(undefined);
   const preference = observable<Value | undefined, Value | undefined>(
     (read, override) => override ?? read(device),
   );
