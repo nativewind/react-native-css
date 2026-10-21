@@ -88,10 +88,17 @@ export const reducedMotion: ReducedMotion =
       return undefined;
     }
 
-    // Scripts read this, never a render, so each read asks matchMedia again, whose answer a test's double may change
-    return window.matchMedia("(prefers-reduced-motion: reduce)").matches
-      ? "reduce"
-      : "no-preference";
+    // Scripts read this, never a render, so each read asks matchMedia again, whose answer a test's double may change; a test's stub may return no list at all
+    const matchMedia: (
+      this: Window,
+      query: string,
+    ) => MediaQueryList | undefined = window.matchMedia;
+    const query = matchMedia.call(window, "(prefers-reduced-motion: reduce)");
+    if (query === undefined) {
+      return undefined;
+    }
+
+    return query.matches ? "reduce" : "no-preference";
   });
 
 /**

@@ -43,6 +43,7 @@ test("an override changes what scripts read until set(null) reads matchMedia aga
 test.each([
   ["no matchMedia", undefined],
   ["a matchMedia that is no function", {}],
+  ["a matchMedia stub that returns nothing", () => undefined],
 ])("reducedMotion has no preference to read with %s", (_, value) => {
   withMatchMedia(value, () => {
     expect(reducedMotion.get()).toBeUndefined();
