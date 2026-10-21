@@ -106,6 +106,8 @@ export function applyDeclarations(
   topLevelTarget = target,
 ) {
   const originalTarget = target;
+  // A list these declarations write replaces the one an earlier rule declared, so each starts a new list
+  const startedLists = new WeakSet<object>();
 
   for (const declaration of declarations) {
     target = originalTarget;
@@ -141,8 +143,9 @@ export function applyDeclarations(
             if (prop.startsWith("[") && prop.endsWith("]")) {
               prop = Number(prop.slice(1, -1));
 
-              if (!Array.isArray(previousTarget[previousProp])) {
+              if (!startedLists.has(previousTarget[previousProp])) {
                 previousTarget[previousProp] = [];
+                startedLists.add(previousTarget[previousProp]);
                 target = previousTarget[previousProp];
               }
             }
