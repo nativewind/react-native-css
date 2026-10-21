@@ -6,8 +6,8 @@ import type {
   TokenOrValue,
 } from "lightningcss";
 
+import { toRNProperty } from "../utilities";
 import type { StyleRuleMapping } from "./compiler.types";
-import { toRNProperty } from "./selectors";
 import { splitByDelimiter } from "./split-by-delimiter";
 import type { StylesheetBuilder } from "./stylesheet";
 
