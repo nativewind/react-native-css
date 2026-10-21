@@ -316,15 +316,15 @@ export function getStyledProps(
       }
       target[path[path.length - 1]!] = value;
     }
-    result = {
-      ...settleUnownedProps(
-        result,
-        writtenPropTreeFamily(state.configs),
-        normal,
-        inline ?? undefined,
-        important,
-      ),
-    };
+    // The props object is this render's own, so its keys settle in place, and a container below it, which the computed props may share, is copied
+    settleUnownedProps(
+      result,
+      writtenPropTreeFamily(state.configs),
+      normal,
+      inline ?? undefined,
+      important,
+      result,
+    );
     for (const source of consumedSources) {
       delete result[source];
     }
@@ -680,32 +680,70 @@ function settleUnownedProps(
   normal: Readonly<Record<string, unknown>> | undefined,
   inline: Readonly<Record<string, unknown>> | undefined,
   important: Readonly<Record<string, unknown>> | undefined,
+  writeInto?: Record<string, unknown>,
 ): Readonly<Record<string, unknown>> | undefined {
-  let settled: Record<string, unknown> | undefined;
-  for (const key of new Set([
-    ...Object.keys(normal ?? {}),
-    ...Object.keys(important ?? {}),
-  ])) {
-    const branch = tree.children.get(key);
-    if (branch?.owned) {
-      continue;
+  let settled = writeInto;
+  if (normal !== undefined) {
+    for (const key in normal) {
+      settled = withSettledKey(
+        settled,
+        key,
+        current,
+        tree,
+        normal,
+        inline,
+        important,
+      );
     }
-    const value =
-      branch === undefined || branch.children.size === 0
-        ? settledLeaf(normal?.[key], inline?.[key], important?.[key])
-        : settledContainer(
-            current?.[key],
-            branch,
-            normal?.[key],
-            inline?.[key],
-            important?.[key],
-          );
-    if (current === undefined || !(key in current) || current[key] !== value) {
-      settled ??= { ...current };
-      settled[key] = value;
+  }
+  if (important !== undefined) {
+    for (const key in important) {
+      if (normal === undefined || !(key in normal)) {
+        settled = withSettledKey(
+          settled,
+          key,
+          current,
+          tree,
+          normal,
+          inline,
+          important,
+        );
+      }
     }
   }
   return settled ?? current;
+}
+
+// A settled object is copied on its first change only, so a render that settles nothing new allocates nothing
+function withSettledKey(
+  settled: Record<string, unknown> | undefined,
+  key: string,
+  current: Readonly<Record<string, unknown>> | undefined,
+  tree: WrittenPropTree,
+  normal: Readonly<Record<string, unknown>> | undefined,
+  inline: Readonly<Record<string, unknown>> | undefined,
+  important: Readonly<Record<string, unknown>> | undefined,
+): Record<string, unknown> | undefined {
+  const branch = tree.children.get(key);
+  if (branch?.owned) {
+    return settled;
+  }
+  const value =
+    branch === undefined || branch.children.size === 0
+      ? settledLeaf(normal?.[key], inline?.[key], important?.[key])
+      : settledContainer(
+          current?.[key],
+          branch,
+          normal?.[key],
+          inline?.[key],
+          important?.[key],
+        );
+  if (current !== undefined && key in current && current[key] === value) {
+    return settled;
+  }
+  const target = settled ?? { ...current };
+  target[key] = value;
+  return target;
 }
 
 function settledLeaf(

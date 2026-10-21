@@ -819,6 +819,25 @@ test.each([
   },
 );
 
+test("settling a mapping beside a target writes nothing into the inline object it meets", () => {
+  registerCSS(`.tint { color: red !important; }`);
+  const options = Object.freeze({ title: "Home" });
+
+  expect(
+    receivedProps(
+      {
+        headerClassName: "options.headerStyle",
+        tintClassName: {
+          target: false,
+          nativeStyleMapping: { color: "options.headerTintColor" },
+        },
+      },
+      { headerClassName: "unmatched", tintClassName: "tint", options },
+    ).options,
+  ).toStrictEqual({ title: "Home", headerTintColor: "#f00" });
+  expect(options).toStrictEqual({ title: "Home" });
+});
+
 test.each([null, false] as const)(
   "an inline ripple of %p clears a class ripple, as it does without one",
   (inlineRipple) => {
