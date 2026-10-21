@@ -247,10 +247,22 @@ Dimensions.addEventListener("change", ({ window }) => {
 
 /** Color Scheme **************************************************************/
 
+const colorSchemeAtImport = Appearance.getColorScheme();
+
+// Appearance answers null at import only without its native module, which app code's later setColorScheme(null) cannot fake
+export const hasAppearanceModule = colorSchemeAtImport !== null;
+
 export const colorScheme = observable<ColorSchemeName | null | undefined>(
-  Appearance.getColorScheme(),
+  colorSchemeAtImport,
 );
 Appearance.addChangeListener((event) => colorScheme.set(event.colorScheme));
+
+// A value that names no scheme states no preference, which MQ5 §12.5 answers with light
+export function resolveColorScheme(
+  value: ColorSchemeName | null | undefined,
+): "light" | "dark" {
+  return value === "light" || value === "dark" ? value : "light";
+}
 
 /** Containers ****************************************************************/
 
