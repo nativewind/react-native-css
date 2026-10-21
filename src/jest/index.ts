@@ -4,7 +4,6 @@ import { inspect } from "node:util";
 
 import { compile, type CompilerOptions } from "react-native-css/compiler";
 import { StyleCollection } from "react-native-css/native";
-import { hoverCapableInput } from "react-native-css/native-internal";
 
 import { colorScheme, dimensions } from "../native/reactivity";
 
@@ -24,7 +23,6 @@ beforeEach(() => {
   dimensions.set(Dimensions.get("window"));
   Appearance.setColorScheme("unspecified");
   colorScheme.set(null);
-  hoverCapableInput.set(false);
 });
 
 const debugDefault = Boolean(

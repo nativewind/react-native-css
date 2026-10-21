@@ -208,6 +208,8 @@ describe.each([
       ["(hover: hover)", hover === "hover"],
       ["(hover: none)", hover === "none"],
       ["(hover)", hover === "hover"],
+      ["(any-hover: hover)", hover === "hover"],
+      ["(any-hover: none)", hover === "none"],
       ["(pointer: fine)", pointer === "fine"],
       ["(pointer: coarse)", pointer === "coarse"],
       ["not (pointer: fine)", pointer === "coarse"],
@@ -261,38 +263,39 @@ describe.each([
   },
 );
 
-// MQ5 §7.3: any-pointer matches the touchscreen's coarse pointer beside a fine one that hovers
-describe("on iOS, once a pointer hovers an element", () => {
+// React Native's hover flag sends a hover for a finger too, and a hover does not change the primary input
+describe("on iOS, a hover event", () => {
   test.each([
-    ["(hover: hover)", false, true],
-    ["(hover: none)", true, false],
-    ["(any-hover: hover)", false, true],
-    ["(any-hover: none)", true, false],
-    ["(pointer: fine)", false, true],
-    ["(pointer: coarse)", true, false],
-    ["(any-pointer: fine)", false, true],
-    ["(any-pointer: coarse)", true, true],
-  ])("%s matches: %s before and %s after", (condition, before, after) => {
-    registerCSS(`
+    ["(hover: hover)", false, false],
+    ["(hover: none)", true, true],
+    ["(any-hover: hover)", false, false],
+    ["(pointer: fine)", false, false],
+    ["(pointer: coarse)", true, true],
+    ["(any-pointer: fine)", false, false],
+  ])(
+    "leaves %s matching %s before and %s after",
+    (condition, before, after) => {
+      registerCSS(`
       .target:hover { opacity: 0.5; }
       .child { width: 10px; }
       @media ${condition} { .child { width: 37px; } }
     `);
-    render(
-      <>
-        <View testID="target" className="target" />
-        <View testID="child" className="child" />
-      </>,
-    );
-    const widthBefore = screen.getByTestId("child").props.style.width;
+      render(
+        <>
+          <View testID="target" className="target" />
+          <View testID="child" className="child" />
+        </>,
+      );
+      const widthBefore = screen.getByTestId("child").props.style.width;
 
-    fireEvent(screen.getByTestId("target"), "hoverIn");
+      fireEvent(screen.getByTestId("target"), "hoverIn");
 
-    expect({
-      before: widthBefore === 37,
-      after: screen.getByTestId("child").props.style.width === 37,
-    }).toStrictEqual({ before, after });
-  });
+      expect({
+        before: widthBefore === 37,
+        after: screen.getByTestId("child").props.style.width === 37,
+      }).toStrictEqual({ before, after });
+    },
+  );
 });
 
 describe("@media on a 400x600 screen", () => {

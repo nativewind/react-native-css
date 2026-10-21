@@ -2,13 +2,7 @@ import { I18nManager, PixelRatio, Platform } from "react-native";
 
 import type { MediaCondition } from "react-native-css/compiler";
 
-import {
-  colorScheme,
-  hoverCapableInput,
-  vh,
-  vw,
-  type Getter,
-} from "../reactivity";
+import { colorScheme, vh, vw, type Getter } from "../reactivity";
 import {
   compareMediaFeature,
   evaluateCondition,
@@ -16,7 +10,7 @@ import {
   type MediaComparison,
   type MediaFeatureName,
 } from "./compare";
-import { disjoin, matches, type Truth } from "./kleene";
+import { matches, type Truth } from "./kleene";
 
 // The color feature counts bits per color component
 const BITS_PER_COLOR_COMPONENT = 8;
@@ -25,7 +19,7 @@ export function testMediaQuery(mediaQueries: MediaCondition[], get: Getter) {
   return mediaQueries.every((query) => matches(test(query, get)));
 }
 
-function test(mediaQuery: MediaCondition, get: Getter): Truth {
+function test(mediaQuery: Readonly<MediaCondition>, get: Getter): Truth {
   return evaluateCondition(mediaQuery, {
     read: (name) => getMediaFeatureValue(name, get),
     compare: (comparison) => testComparison(comparison, get),
@@ -51,11 +45,6 @@ function testComparison(
       return (
         value === "native" || compareMediaFeature(operator, Platform.OS, value)
       );
-    // any-pointer matches when any pointer the device has matches, where pointer answers for the primary one (MQ5 §7.3)
-    case "any-pointer":
-      return disjoin(availablePointers(get), (pointer) =>
-        compareMediaFeature(operator, pointer, value),
-      );
     default:
       return compareMediaFeature(
         operator,
@@ -72,10 +61,10 @@ function getMediaFeatureValue(
   switch (name) {
     case "hover":
     case "any-hover":
-      return pointerAccuracy(get) === "fine" ? "hover" : "none";
+      return PRIMARY_INPUT_FEATURES[primaryInput()].hover;
     case "pointer":
     case "any-pointer":
-      return pointerAccuracy(get);
+      return PRIMARY_INPUT_FEATURES[primaryInput()].pointer;
     case "display-mode":
       return Platform.OS;
     case "prefers-color-scheme":
@@ -119,35 +108,11 @@ function primaryInput(): PrimaryInput {
   return Platform.OS === "android" ? "touchscreen" : "mouse";
 }
 
-// A touchscreen cannot hover and points coarsely until a pointer hovers an element with a :hover style, which React Native reports on iOS and Android only with its shouldPressibilityUseW3CPointerEventsForHover flag on (MQ5 §7.1, §7.2)
-function pointerAccuracy(get: Getter): "none" | "coarse" | "fine" {
-  const input = primaryInput();
-
-  switch (input) {
-    case "remote":
-      return "none";
-    case "mouse":
-      return "fine";
-    case "touchscreen":
-      return get(hoverCapableInput) ? "fine" : "coarse";
-    default:
-      input satisfies never;
-      return "none";
-  }
-}
-
-function availablePointers(get: Getter): readonly string[] {
-  const input = primaryInput();
-
-  switch (input) {
-    case "remote":
-      return ["none"];
-    case "mouse":
-      return ["fine"];
-    case "touchscreen":
-      return get(hoverCapableInput) ? ["coarse", "fine"] : ["coarse"];
-    default:
-      input satisfies never;
-      return ["none"];
-  }
-}
+// MQ5 §7 answers for the primary input, as Safari and Chrome do on a phone or tablet with or without a mouse attached; the inputs beside it are not visible to JavaScript, so any-pointer and any-hover answer for it too
+const PRIMARY_INPUT_FEATURES = {
+  touchscreen: { pointer: "coarse", hover: "none" },
+  mouse: { pointer: "fine", hover: "hover" },
+  remote: { pointer: "none", hover: "none" },
+} as const satisfies Readonly<
+  Record<PrimaryInput, { readonly pointer: string; readonly hover: string }>
+>;

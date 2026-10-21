@@ -1,3 +1,5 @@
+import { Platform } from "react-native";
+
 import { fireEvent, screen } from "@testing-library/react-native";
 import { Switch, TextInput, View } from "react-native-css/components";
 
@@ -5,17 +7,58 @@ import { render } from "./_tailwind";
 
 const testID = "component";
 
-test("hover", async () => {
+describe("on a primary input that hovers", () => {
+  beforeEach(() => {
+    if (Platform.OS !== "ios") {
+      throw new Error("the suite runs on the iOS preset");
+    }
+    jest.spyOn(Platform, "isMacCatalyst", "get").mockReturnValue(true);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  test("hover", async () => {
+    await render(<TextInput testID={testID} className="hover:text-white" />);
+
+    const component = screen.getByTestId(testID);
+
+    expect(component).toHaveStyle(undefined);
+
+    fireEvent(component, "hoverIn");
+    expect(component).toHaveStyle({ color: "#fff" });
+
+    fireEvent(component, "hoverOut");
+    expect(component).toHaveStyle(undefined);
+  });
+
+  test("mixed", async () => {
+    await render(
+      <TextInput testID={testID} className="active:hover:focus:text-white" />,
+    );
+
+    const component = screen.getByTestId(testID);
+    expect(component).toHaveStyle(undefined);
+
+    fireEvent(component, "pressIn");
+    expect(component).toHaveStyle(undefined);
+
+    fireEvent(component, "hoverIn");
+    expect(component).toHaveStyle(undefined);
+
+    fireEvent(component, "focus");
+    expect(component).toHaveStyle({ color: "#fff" });
+  });
+});
+
+// Tailwind's hover: holds only where the primary input can hover, which a touchscreen cannot
+test("hover does not apply on a touchscreen", async () => {
   await render(<TextInput testID={testID} className="hover:text-white" />);
 
   const component = screen.getByTestId(testID);
-
-  expect(component).toHaveStyle(undefined);
-
   fireEvent(component, "hoverIn");
-  expect(component).toHaveStyle({ color: "#fff" });
 
-  fireEvent(component, "hoverOut");
   expect(component).toHaveStyle(undefined);
 });
 
@@ -45,24 +88,6 @@ test("active", async () => {
 
   fireEvent(component, "pressOut");
   expect(component).toHaveStyle(undefined);
-});
-
-test("mixed", async () => {
-  await render(
-    <TextInput testID={testID} className="active:hover:focus:text-white" />,
-  );
-
-  const component = screen.getByTestId(testID);
-  expect(component).toHaveStyle(undefined);
-
-  fireEvent(component, "pressIn");
-  expect(component).toHaveStyle(undefined);
-
-  fireEvent(component, "hoverIn");
-  expect(component).toHaveStyle(undefined);
-
-  fireEvent(component, "focus");
-  expect(component).toHaveStyle({ color: "#fff" });
 });
 
 test("selection", async () => {
