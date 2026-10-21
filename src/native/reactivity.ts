@@ -236,43 +236,49 @@ export const colorScheme = observable<ColorSchemeName | null | undefined>(
 );
 Appearance.addChangeListener((event) => colorScheme.set(event.colorScheme));
 
+/** Device Preferences ********************************************************/
+
+// A user preference as the device reports it, unknown until it answers, and as the app overrides it until set(undefined), the shape MQ5 §13's requestOverride() and clearOverride() give the web
+export function devicePreference<Value>(reported?: Value) {
+  const device = observable<Value | undefined>(reported);
+  const preference = observable<Value | undefined, Value | undefined>(
+    (read, override) => override ?? read(device),
+  );
+  return { device, preference } as const;
+}
+
 /** Reduced Motion ************************************************************/
 
 // AccessibilityInfo answers asynchronously; until it does the device's preference is unknown, so a query on it does not match and a negated one does
-export const deviceReducedMotion = observable<
-  ReducedMotionPreference | undefined
->(undefined);
+export const { device: deviceReducedMotion, preference: reducedMotion } =
+  devicePreference<ReducedMotionPreference>();
 
-// A script's override stands over the device's preference until the device's setting changes, as colorScheme's does
-export const reducedMotion = observable<
-  ReducedMotionPreference | undefined,
-  ReducedMotionPreference | undefined
->((read, override) => override ?? read(deviceReducedMotion));
-
-function followDeviceReducedMotion(isReduceMotionEnabled: boolean) {
-  deviceReducedMotion.set(isReduceMotionEnabled ? "reduce" : "no-preference");
-  reducedMotion.set(undefined);
+function toReducedMotionPreference(
+  isReduceMotionEnabled: boolean,
+): ReducedMotionPreference {
+  return isReduceMotionEnabled ? "reduce" : "no-preference";
 }
 
-function seedDeviceReducedMotion(isReduceMotionEnabled: boolean) {
-  // A change event that arrived first is newer than what the getter read
-  if (deviceReducedMotion.get() === undefined) {
-    deviceReducedMotion.set(isReduceMotionEnabled ? "reduce" : "no-preference");
-  }
-}
-
-async function readDeviceReducedMotion(): Promise<boolean> {
+// A test double may leave out the change event, and the read below still answers
+if (typeof AccessibilityInfo.addEventListener === "function") {
   AccessibilityInfo.addEventListener(
     "reduceMotionChanged",
-    followDeviceReducedMotion,
+    (isReduceMotionEnabled: boolean) => {
+      deviceReducedMotion.set(toReducedMotionPreference(isReduceMotionEnabled));
+    },
   );
-  return await AccessibilityInfo.isReduceMotionEnabled();
 }
 
-// React Native rejects where the platform has no accessibility module, and a test double may lack either call: either way the user has stated no preference to it
-readDeviceReducedMotion().then(seedDeviceReducedMotion, () => {
-  seedDeviceReducedMotion(false);
-});
+// React Native rejects where the platform has no accessibility module, and a test double may leave out the call: either way the user has stated no preference to it
+void Promise.resolve()
+  .then(() => AccessibilityInfo.isReduceMotionEnabled())
+  .then(toReducedMotionPreference, () => "no-preference" as const)
+  .then((answer) => {
+    // A change event that arrived first is newer than the answer
+    if (deviceReducedMotion.get() === undefined) {
+      deviceReducedMotion.set(answer);
+    }
+  });
 
 /** Containers ****************************************************************/
 

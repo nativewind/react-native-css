@@ -108,30 +108,30 @@ describe("the reduced-motion preference", () => {
     expect(reducedMotion.get()).toBe("no-preference");
   });
 
-  test("is no-preference where AccessibilityInfo has no change event, without failing the import", async () => {
+  test("takes AccessibilityInfo's answer where it has no change event, without failing the import", async () => {
     const { reducedMotion } = importReactivityWith({
       isReduceMotionEnabled: () => Promise.resolve(true),
     });
     await settle();
 
-    expect(reducedMotion.get()).toBe("no-preference");
+    expect(reducedMotion.get()).toBe("reduce");
   });
 
-  test("an override stands over the device's answer until the device's setting changes", async () => {
+  test("an override holds through the device's changes until it is set to undefined", async () => {
     const { accessibilityInfo, answer, change } = controlledAccessibilityInfo();
     const { reducedMotion } = importReactivityWith(accessibilityInfo);
     answer(true);
     await settle();
 
     reducedMotion.set("no-preference");
+    change(false);
+    change(true);
     expect(reducedMotion.get()).toBe("no-preference");
 
     reducedMotion.set(undefined);
     expect(reducedMotion.get()).toBe("reduce");
 
-    reducedMotion.set("no-preference");
     change(false);
-    change(true);
-    expect(reducedMotion.get()).toBe("reduce");
+    expect(reducedMotion.get()).toBe("no-preference");
   });
 });

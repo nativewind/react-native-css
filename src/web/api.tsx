@@ -14,7 +14,11 @@ import type {
   StyledOptions,
 } from "react-native-css";
 
-import type { ReactComponent, Styled } from "../runtime.types";
+import type {
+  ReactComponent,
+  ReducedMotionPreference,
+  Styled,
+} from "../runtime.types";
 import { assignStyle } from "./assign-style";
 
 const defaultMapping: StyledConfiguration<ComponentType<{ style: unknown }>> = {
@@ -73,10 +77,19 @@ export const colorScheme: ColorScheme = {
   },
 };
 
+let reducedMotionOverride: ReducedMotionPreference | undefined;
+
 export const reducedMotion: ReducedMotion = {
   get() {
+    if (reducedMotionOverride !== undefined) {
+      return reducedMotionOverride;
+    }
+
     // Server rendering has no window, and React Native's jest environment a window without matchMedia
-    if (typeof window === "undefined" || !("matchMedia" in window)) {
+    if (
+      typeof window === "undefined" ||
+      typeof window.matchMedia !== "function"
+    ) {
       return undefined;
     }
 
@@ -84,8 +97,9 @@ export const reducedMotion: ReducedMotion = {
       ? "reduce"
       : "no-preference";
   },
-  set() {
-    // The browser evaluates prefers-reduced-motion in the stylesheet itself, so a script cannot override it
+  // The browser evaluates the stylesheet's @media rules itself, so an override reaches what scripts read and not the CSS, which MQ5 §13's requestOverride() will reach once a browser ships it
+  set(value) {
+    reducedMotionOverride = value ?? undefined;
   },
 };
 

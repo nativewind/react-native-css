@@ -293,7 +293,36 @@ describe("a reduced-motion preference AccessibilityInfo has not answered", () =>
   });
 
   afterEach(() => {
-    deviceReducedMotion.set(answered);
+    act(() => {
+      deviceReducedMotion.set(answered);
+    });
+  });
+
+  test("matches a negated query", () => {
+    registerCSS(
+      `.my-class { color: #000000; } @media not (prefers-reduced-motion: reduce) { .my-class { color: #010101; } }`,
+    );
+
+    render(<View testID={testID} className="my-class" />);
+
+    expect(screen.getByTestId(testID).props.style).toStrictEqual({
+      color: "#010101",
+    });
+  });
+
+  test("a mounted view takes the device's answer when it arrives", () => {
+    registerCSS(`
+  .my-class { color: #000000; }
+  @media (prefers-reduced-motion: reduce) { .my-class { color: #020202; } }`);
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+    expect(component.props.style).toStrictEqual({ color: "#000" });
+
+    act(() => {
+      deviceReducedMotion.set("reduce");
+    });
+    expect(component.props.style).toStrictEqual({ color: "#020202" });
   });
 
   test.each([
@@ -337,6 +366,35 @@ describe("a reduced-motion preference AccessibilityInfo has not answered", () =>
     });
     expect(component.props.style).toStrictEqual({ color: "#010101" });
   });
+});
+
+test("reducedMotion.set holds through a change of the device's setting, and set(null) follows the device again", () => {
+  registerCSS(`
+.my-class { color: #000000; }
+@media (prefers-reduced-motion: reduce) { .my-class { color: #020202; } }`);
+  const answered = deviceReducedMotion.get();
+
+  render(<View testID={testID} className="my-class" />);
+  const component = screen.getByTestId(testID);
+
+  try {
+    act(() => {
+      reducedMotion.set("no-preference");
+      deviceReducedMotion.set("reduce");
+    });
+    expect(reducedMotion.get()).toBe("no-preference");
+    expect(component.props.style).toStrictEqual({ color: "#000" });
+
+    act(() => {
+      reducedMotion.set(null);
+    });
+    expect(reducedMotion.get()).toBe("reduce");
+    expect(component.props.style).toStrictEqual({ color: "#020202" });
+  } finally {
+    act(() => {
+      deviceReducedMotion.set(answered);
+    });
+  }
 });
 
 test("reducedMotion.set overrides the device's preference, and set(null) follows the device again at once", () => {
