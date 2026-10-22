@@ -242,6 +242,60 @@ test("VariableContextProvider", () => {
   expect(component.props.style).toStrictEqual({ color: "red" });
 });
 
+test("VariableContextProvider later provides a :root variable", () => {
+  registerCSS(
+    `
+    :root { --my-var: red; }
+    .test { color: var(--my-var); }
+  `,
+    { inlineVariables: false },
+  );
+
+  const child = <View testID={testID} className="test" />;
+
+  const { rerender } = render(
+    <VariableContextProvider value={{}}>{child}</VariableContextProvider>,
+  );
+
+  expect(screen.getByTestId(testID).props.style).toStrictEqual({
+    color: "red",
+  });
+
+  rerender(
+    <VariableContextProvider value={{ "--my-var": "blue" }}>
+      {child}
+    </VariableContextProvider>,
+  );
+
+  expect(screen.getByTestId(testID).props.style).toStrictEqual({
+    color: "blue",
+  });
+});
+
+test("VariableContextProvider later provides a variable with a fallback", () => {
+  registerCSS(`.test { color: var(--my-var, red); }`);
+
+  const child = <View testID={testID} className="test" />;
+
+  const { rerender } = render(
+    <VariableContextProvider value={{}}>{child}</VariableContextProvider>,
+  );
+
+  expect(screen.getByTestId(testID).props.style).toStrictEqual({
+    color: "red",
+  });
+
+  rerender(
+    <VariableContextProvider value={{ "--my-var": "blue" }}>
+      {child}
+    </VariableContextProvider>,
+  );
+
+  expect(screen.getByTestId(testID).props.style).toStrictEqual({
+    color: "blue",
+  });
+});
+
 test("variable overriding with classes", () => {
   registerCSS(`
   :root {
