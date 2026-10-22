@@ -31,10 +31,11 @@ const debugDefault = Boolean(
     process.env.NODE_OPTIONS.includes("--inspect"),
 );
 
-export function registerCSS(
-  css: string,
-  options: CompilerOptions & { debug?: boolean } = {},
-) {
+type RegisterCSSOptions = Omit<CompilerOptions, "logger"> & {
+  debug?: boolean | "verbose" | undefined;
+};
+
+export function registerCSS(css: string, options: RegisterCSSOptions = {}) {
   const { debug = debugDefault } = options;
   const compiled = compileWithAutoDebug(css, options);
 
@@ -57,10 +58,7 @@ export function registerCSS(
 
 export function compileWithAutoDebug(
   css: string,
-  {
-    debug = debugDefault,
-    ...options
-  }: CompilerOptions & { debug?: boolean | "verbose" } = {},
+  { debug = debugDefault, ...options }: RegisterCSSOptions = {},
 ) {
   const logger = debug
     ? (text: string) => {

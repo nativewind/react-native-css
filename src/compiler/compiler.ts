@@ -146,7 +146,8 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
   }
 
   if (options.inlineVariables !== false) {
-    const exclusionList: string[] = options.inlineVariables?.exclude ?? [];
+    const exclusionList: readonly string[] =
+      options.inlineVariables?.exclude ?? [];
 
     firstPassVisitor.Declaration = (decl) => {
       if (

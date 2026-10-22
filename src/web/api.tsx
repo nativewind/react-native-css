@@ -1,9 +1,4 @@
-import {
-  createElement,
-  useMemo,
-  type ComponentType,
-  type PropsWithChildren,
-} from "react";
+import { createElement, useMemo, type PropsWithChildren } from "react";
 import { Appearance } from "react-native";
 
 import type {
@@ -13,12 +8,16 @@ import type {
   StyledOptions,
 } from "react-native-css";
 
-import type { ReactComponent, Styled } from "../runtime.types";
+import type {
+  DefaultStyledConfiguration,
+  ReactComponent,
+  Styled,
+} from "../runtime.types";
 import { assignStyle } from "./assign-style";
 
-const defaultMapping: StyledConfiguration<ComponentType<{ style: unknown }>> = {
+const defaultMapping = {
   className: "style",
-};
+} as const satisfies DefaultStyledConfiguration;
 
 export const styled: Styled = (
   baseComponent: ReactComponent,

@@ -16,41 +16,36 @@ import type {
   ViewStyle,
 } from "react-native";
 
-import type { DotNotation, ResolveDotPath } from "react-native-css/utilities";
+import type { DotNotation } from "react-native-css/utilities";
 
 /********************************     API      ********************************/
 
-export type StyledReactElement<
-  C extends ReactComponent,
-  M extends StyledConfiguration<C>,
-> = ReactElement<
-  ComponentProps<C> & {
-    [K in keyof M as K extends string
-      ? M[K] extends undefined | false
-        ? never
-        : M[K] extends true | string | object
-          ? K
-          : never
-      : never]?: string;
-  }
->;
-
-export type StyledProps<P, M extends StyledConfiguration<any>> = P & {
-  [K in keyof M as K extends string
+type StyledSourceProps<M> = {
+  -readonly [K in keyof M as K extends string
     ? M[K] extends undefined | false
       ? never
       : M[K] extends true | string | object
         ? K
         : never
-    : never]?: string;
+    : never]?: string | undefined;
 };
+
+export type StyledReactElement<
+  C extends ReactComponent,
+  M extends StyledConfiguration<C>,
+> = ReactElement<ComponentProps<C> & StyledSourceProps<M>>;
+
+export type StyledProps<P, M extends StyledConfiguration<ReactComponent>> = P &
+  StyledSourceProps<M>;
 
 export interface Styled {
   <const C extends ReactComponent>(
     component: C,
     mapping?: undefined,
     options?: StyledOptions,
-  ): ComponentType<ComponentPropsWithRef<C> & { className?: string }>;
+  ): ComponentType<
+    ComponentPropsWithRef<C> & StyledSourceProps<DefaultStyledConfiguration>
+  >;
   <const C extends ReactComponent, const M extends StyledConfiguration<C>>(
     component: C,
     mapping: M & StyledConfiguration<C>,
@@ -61,17 +56,11 @@ export interface Styled {
 type StyledComponent<
   C extends ReactComponent,
   M extends StyledConfiguration<C>,
-> = ComponentType<
-  ComponentPropsWithRef<C> & {
-    [K in keyof M as K extends string
-      ? M[K] extends undefined | false
-        ? never
-        : M[K] extends true | string | object
-          ? K
-          : never
-      : never]?: string;
-  }
->;
+> = ComponentType<ComponentPropsWithRef<C> & StyledSourceProps<M>>;
+
+export interface DefaultStyledConfiguration {
+  readonly className: "style";
+}
 
 export type StyledConfiguration<
   C extends ReactComponent,
@@ -88,27 +77,21 @@ interface StyledConfigurationObject<
   T extends ComponentPropsDotNotation<C> | false,
 > {
   target: T;
-  nativeStyleMapping?: T extends false
-    ? NativeStyleMapping<string, ComponentProps<C>>
-    : NativeStyleMapping<
-        ResolveDotPath<T, ComponentProps<C>>,
-        ComponentProps<C>
-      >;
+  nativeStyleMapping?: NativeStyleMapping<ComponentProps<C>> | undefined;
   /** @deprecated Please use nativeStyleMapping */
   nativeStyleToProp?: StyledConfigurationObject<C, T>["nativeStyleMapping"];
 }
 
-type NativeStyleMapping<T, S> = T extends object
-  ? {
-      [K in keyof T as K extends string ? K : never]: true | DotNotation<S>;
-    } & {
-      fill?: true | DotNotation<S>;
-      stroke?: true | DotNotation<S>;
-    }
-  : Record<string, true | DotNotation<S>>;
+// A -rn- declaration puts its camel-cased name in the style, so a key may be any string beside React Native's style keys
+type NativeStyleMapping<S> = Readonly<
+  Partial<Record<keyof RNStyle, NativeStyleMappingValue<S>>>
+> &
+  Readonly<Record<string, NativeStyleMappingValue<S>>>;
+
+type NativeStyleMappingValue<S> = true | DotNotation<S> | undefined;
 
 export interface StyledOptions {
-  passThrough?: boolean;
+  passThrough?: boolean | undefined;
 }
 
 /***************************     React Helpers      ***************************/

@@ -10,44 +10,44 @@ import type {
 declare module "@react-native/virtualized-lists" {
   export interface VirtualizedListWithoutRenderItemProps<ItemT>
     extends ScrollViewProps {
-    ListFooterComponentClassName?: string;
-    ListHeaderComponentClassName?: string;
+    ListFooterComponentClassName?: string | undefined;
+    ListHeaderComponentClassName?: string | undefined;
   }
 }
 
 declare module "react-native" {
   interface ButtonProps {
-    className?: string;
+    className?: string | undefined;
   }
   interface ScrollViewProps
     extends ViewProps,
       ScrollViewPropsIOS,
       ScrollViewPropsAndroid,
       Touchable {
-    contentContainerClassName?: string;
+    contentContainerClassName?: string | undefined;
   }
   interface FlatListProps<ItemT> extends VirtualizedListProps<ItemT> {
-    columnWrapperClassName?: string;
+    columnWrapperClassName?: string | undefined;
   }
   interface ImageBackgroundProps extends ImagePropsBase {
-    imageClassName?: string;
+    imageClassName?: string | undefined;
   }
   interface ImagePropsBase {
-    className?: string;
+    className?: string | undefined;
   }
   interface ViewProps {
-    className?: string;
+    className?: string | undefined;
   }
   interface TextProps {
-    className?: string;
+    className?: string | undefined;
   }
   interface SwitchProps {
-    className?: string;
+    className?: string | undefined;
   }
   interface TouchableWithoutFeedbackProps {
-    className?: string;
+    className?: string | undefined;
   }
   interface KeyboardAvoidingViewProps extends ViewProps {
-    contentContainerClassName?: string;
+    contentContainerClassName?: string | undefined;
   }
 }
