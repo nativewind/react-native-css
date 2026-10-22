@@ -49,6 +49,8 @@ export interface ReactNativeCssStyleSheet {
   vr?: RootVariables;
   /** Universal Variables */
   vu?: RootVariables;
+  /** Registered Properties */
+  vp?: PropertyRegistration[];
 }
 
 /********************************    Styles    ********************************/
@@ -162,6 +164,12 @@ export type VariableValue =
   | [StyleDescriptor, MediaCondition[]];
 
 export type RootVariables = [string, VariableValue[]][];
+
+export type PropertyRegistration = readonly [
+  string, // name
+  boolean, // inherits
+  StyleDescriptor?, // initial value
+];
 
 export type InlineVariable = {
   [VAR_SYMBOL]: "inline";
