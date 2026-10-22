@@ -1,6 +1,7 @@
 /* eslint-disable */
 import type { InlineVariable, StyleRule } from "react-native-css/compiler";
 import { StyleCollection } from "react-native-css/native-internal";
+import { specificityCompareFn } from "react-native-css/utilities";
 
 import { testRule } from "../conditions";
 import { DEFAULT_CONTAINER_NAME } from "../conditions/container-query";
@@ -15,9 +16,12 @@ import {
   VAR_SYMBOL,
   weakFamily,
   type ContainerContextValue,
+  type Getter,
   type VariableContextValue,
 } from "../reactivity";
 import { stylesFamily } from "../styles";
+import { emVariableName } from "../styles/constants";
+import { resolveValue } from "../styles/resolve";
 import type { ComponentState, Config } from "./useNativeCss";
 
 export const INLINE_RULE_SYMBOL = Symbol("react-native-css.inlineRule");
@@ -43,6 +47,7 @@ export function updateRules(
   let variables: VariableContextValue | undefined;
   let containers: ContainerContextValue | undefined;
   const inlineVariables = new Set<InlineVariable>();
+  const declaringRules: StyleRule[] = [];
 
   let animated = false;
   let pressable = false;
@@ -131,13 +136,7 @@ export function updateRules(
       }
 
       if (rule.v) {
-        if (variables === inheritedVariables) {
-          variables = { ...inheritedVariables };
-        }
-
-        for (const v of rule.v) {
-          variables![v[0]] = v[1];
-        }
+        declaringRules.push(rule);
       }
 
       if (rule.c) {
@@ -206,6 +205,19 @@ export function updateRules(
     }
   }
 
+  const declared: InlineVariable = { [VAR_SYMBOL]: "inline" };
+
+  if (declaringRules.length) {
+    // Published in cascade order, so descendants inherit the declaration that wins
+    for (const rule of declaringRules.sort(specificityCompareFn)) {
+      for (const [name, value] of rule.v ?? []) {
+        declared[name] = value;
+      }
+    }
+
+    variables = { ...inheritedVariables, ...declared, [VAR_SYMBOL]: true };
+  }
+
   pressable = activeFamily.has(state.ruleEffectGetter);
 
   if (!rules.size && !state.stylesObs && !inlineVariables.size) {
@@ -238,6 +250,16 @@ export function updateRules(
     }
   }
 
+  if (variables && variables !== inheritedVariables) {
+    publishComputedFontSize(
+      variables,
+      Object.assign(declared, ...inlineVariables),
+      inheritedVariables,
+      state.ruleEffectGetter,
+      guards,
+    );
+  }
+
   // Generate a StyleObservable for this unique set of rules / variables
   const stylesObs = stylesFamily(generateStateHash(state, rules), rules);
 
@@ -246,7 +268,11 @@ export function updateRules(
   guards.push(...stylesObs.get().guards);
 
   // If these are the same styles with no inline variables, we can skip the update
-  if (state.stylesObs === stylesObs && !inlineVariables.size) {
+  if (
+    state.stylesObs === stylesObs &&
+    !inlineVariables.size &&
+    state.variables?.[emVariableName] === variables?.[emVariableName]
+  ) {
     return state;
   }
 
@@ -263,6 +289,38 @@ export function updateRules(
     animated,
     pressable,
   };
+}
+
+/**
+ * Publish the font size the element computes, in place of the one it declares.
+ * A size relative to the parent, re-read in a descendant, would measure against
+ * the descendant's own em, so descendants inherit the number. A size that
+ * resolves to nothing leaves them the parent's.
+ */
+function publishComputedFontSize(
+  variables: VariableContextValue,
+  declared: InlineVariable,
+  inheritedVariables: VariableContextValue,
+  get: Getter,
+  guards: RenderGuard[],
+) {
+  if (!Object.hasOwn(declared, emVariableName)) {
+    return;
+  }
+
+  const fontSize: unknown = resolveValue([{}, "var", [emVariableName]], get, {
+    inlineVariables: declared,
+    inheritedVariables,
+    renderGuards: guards,
+  });
+
+  if (typeof fontSize === "number") {
+    variables[emVariableName] = fontSize;
+  } else if (Object.hasOwn(inheritedVariables, emVariableName)) {
+    variables[emVariableName] = inheritedVariables[emVariableName];
+  } else {
+    delete variables[emVariableName];
+  }
 }
 
 /**

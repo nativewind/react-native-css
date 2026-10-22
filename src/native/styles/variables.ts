@@ -6,6 +6,7 @@ import {
 import { isStyleDescriptorArray } from "react-native-css/utilities";
 
 import { VAR_SYMBOL, type Getter } from "../reactivity";
+import { emVariableName } from "./constants";
 import type { ResolveValueOptions, SimpleResolveValue } from "./resolve";
 
 export function varResolver(
@@ -95,4 +96,33 @@ export function varResolver(
   } finally {
     variableHistory.delete(name);
   }
+}
+
+/**
+ * The scope a font size is computed in. `em` and a percentage in `font-size`
+ * measure against the parent's font size (css-fonts-4 §2.5), so the element's
+ * own em is left out and the inherited one answers. A font size met inside the
+ * scope shares it, so a size relative to itself ends as a cycle.
+ */
+export function parentFontScopeOptions(
+  options: ResolveValueOptions,
+): ResolveValueOptions {
+  if (options.parentFontScope) {
+    return options.parentFontScope;
+  }
+
+  const { [emVariableName]: _ownEm, ...declared } = options.inlineVariables ?? {
+    [VAR_SYMBOL]: "inline",
+  };
+
+  const scope: ResolveValueOptions = {
+    ...options,
+    inlineVariables: { ...declared, [VAR_SYMBOL]: "inline" },
+    variableHistory: new Set(),
+    variableCycles: new Set(),
+  };
+
+  scope.parentFontScope = scope;
+
+  return scope;
 }
