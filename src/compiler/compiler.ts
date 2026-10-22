@@ -36,7 +36,7 @@ import {
 import { inlineVariables } from "./inline-variables";
 import { extractKeyFrames } from "./keyframes";
 import { lightningcssLoader } from "./lightningcss-loader";
-import { parseMediaQuery } from "./media-query";
+import { canMatch, parseMediaQuery } from "./media-query";
 import { StylesheetBuilder } from "./stylesheet";
 import { supportsConditionValid } from "./supports";
 
@@ -404,7 +404,7 @@ function extractContainer(
 
   // Iterate over all rules inside the containerRule and extract their styles using the updated CompilerCollection
   const condition = parseContainerCondition(containerRule.condition, builder);
-  if (!condition) {
+  if (!condition || !canMatch(condition)) {
     // An unsupported condition must not turn into an unconditional container.
     return;
   }
