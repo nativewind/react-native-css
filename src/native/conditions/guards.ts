@@ -9,7 +9,7 @@ export type RenderGuard =
   | ["a", string, any]
   | ["d", string, any]
   | ["v", string, any]
-  | ["c", string, WeakKey];
+  | ["c", string, ContainerContextValue[string] | undefined];
 
 export function testGuards(
   state: ComponentState,
