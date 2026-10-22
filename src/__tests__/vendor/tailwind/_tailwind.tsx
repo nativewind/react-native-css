@@ -1,12 +1,11 @@
 import type { PropsWithChildren, ReactElement } from "react";
 
-import tailwind from "@tailwindcss/postcss";
+import { compile as compileTailwindCss } from "@tailwindcss/node";
 import {
   screen,
   render as tlRender,
   type RenderOptions,
 } from "@testing-library/react-native";
-import postcss from "postcss";
 import type { compile } from "react-native-css/compiler";
 import { View } from "react-native-css/components";
 import { registerCSS } from "react-native-css/jest";
@@ -74,13 +73,7 @@ export async function render(
     console.log(`Input CSS:\n---\n${css}\n---\n`);
   }
 
-  // Process the TailwindCSS
-  const { css: output } = await postcss([
-    /* Tailwind seems to internally cache things, so we need a random value to cache bust */
-    tailwind({ base: Date.now().toString() }),
-  ]).process(css, {
-    from: __dirname,
-  });
+  const output = await compileTailwind(css);
 
   if (debug) {
     console.log(`Output CSS:\n---\n${output}\n---\n`);
@@ -95,6 +88,28 @@ export async function render(
     }),
     compiled,
   );
+}
+
+// @tailwindcss/postcss keeps one compiler per from and base and reuses it for other CSS until a file it read changes, and only logs a failed compile, so each render compiles with the compiler it wraps
+// https://github.com/tailwindlabs/tailwindcss/blob/v4.1.13/packages/@tailwindcss-postcss/src/index.ts#L32-L33
+// https://github.com/tailwindlabs/tailwindcss/blob/v4.1.13/packages/@tailwindcss-postcss/src/index.ts#L182-L196
+// https://github.com/tailwindlabs/tailwindcss/blob/v4.1.13/packages/@tailwindcss-postcss/src/index.ts#L334-L352
+async function compileTailwind(css: string): Promise<string> {
+  const compiler = await compileTailwindCss(css, {
+    base: __dirname,
+    onDependency: () => undefined,
+  });
+
+  if (
+    compiler.sources.some((source) => !source.negated) ||
+    (compiler.root !== null && compiler.root !== "none")
+  ) {
+    throw new Error(
+      `The harness builds only the classes of @source inline(), and this CSS names a file source: ${JSON.stringify({ sources: compiler.sources, root: compiler.root })}`,
+    );
+  }
+
+  return compiler.build([]);
 }
 
 render.debug = (
