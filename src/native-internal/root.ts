@@ -30,16 +30,43 @@ const rootVariableFamily = () => {
   });
 };
 
-export const rootVariables = rootVariableFamily();
-export const universalVariables = rootVariableFamily();
+interface RootVariableRegistries {
+  root: ReturnType<typeof rootVariableFamily>;
+  universal: ReturnType<typeof rootVariableFamily>;
+}
 
-rootVariables("__rn-css-rem").set([[DEFAULT_REM]]);
-// eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-rootVariables("__rn-css-color").set([
-  [
-    Platform.OS === "ios"
-      ? PlatformColor("label", "labelColor")
-      : PlatformColor("?attr/textColorPrimary", "SystemBaseHighColor"),
-  ],
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-] as any);
+declare global {
+  var __react_native_css_root_variable_registries:
+    | RootVariableRegistries
+    | undefined;
+}
+
+// Seeded with the registries, so a copy that loads after the stylesheet inject keeps the project's rem
+function createRootVariableRegistries(): RootVariableRegistries {
+  const registries: RootVariableRegistries = {
+    root: rootVariableFamily(),
+    universal: rootVariableFamily(),
+  };
+
+  registries.root("__rn-css-rem").set([[DEFAULT_REM]]);
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+  registries.root("__rn-css-color").set([
+    [
+      Platform.OS === "ios"
+        ? PlatformColor("label", "labelColor")
+        : PlatformColor("?attr/textColorPrimary", "SystemBaseHighColor"),
+    ],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ] as any);
+
+  return registries;
+}
+
+// The exports map gives import and require different builds, and Metro resolves each per requesting module
+globalThis.__react_native_css_root_variable_registries ??=
+  createRootVariableRegistries();
+
+export const rootVariables =
+  globalThis.__react_native_css_root_variable_registries.root;
+export const universalVariables =
+  globalThis.__react_native_css_root_variable_registries.universal;

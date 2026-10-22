@@ -4,6 +4,7 @@ import {
   Fragment,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ComponentType,
 } from "react";
@@ -16,6 +17,7 @@ import { testGuards, type RenderGuard } from "../conditions/guards";
 import {
   cleanupEffect,
   ContainerContext,
+  hasChangedDependencies,
   type ContainerContextValue,
   type Effect,
   type Getter,
@@ -113,12 +115,25 @@ export function useNativeCss(
     return initialState;
   });
 
+  // Distinguishes a fresh mount from an effect replay (Activity, StrictMode)
+  const hasCommittedRef = useRef(false);
+
   useEffect(() => {
     // Reconnect subscriptions after React replays an effect setup.
     if (state.ruleEffect.observers.size === 0) {
-      state.ruleEffect.run();
-      state.styleEffect.run();
+      if (hasCommittedRef.current || hasChangedDependencies(state.ruleEffect)) {
+        // Replay, or conditions changed since the initializer: recalculate.
+        state.ruleEffect.run();
+        state.styleEffect.run();
+      } else {
+        // Fresh mount: resubscribe to the initializer's dependencies.
+        // styleEffect resubscribes itself during render.
+        for (const observable of state.ruleEffect.dependencies ?? []) {
+          observable.get(state.ruleEffect);
+        }
+      }
     }
+    hasCommittedRef.current = true;
     return () => {
       cleanupEffect(state.ruleEffect);
       cleanupEffect(state.styleEffect);
