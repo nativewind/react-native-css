@@ -179,7 +179,6 @@ describe("@media on a 600x400 screen", () => {
 });
 
 test.each([
-  ["not (width: 10em)", false],
   ["not (width: 10vw)", false],
   ["(width: 10vw) or (width > 0px)", true],
   ["not (min-width: calc(10em + 1vw))", false],

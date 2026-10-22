@@ -8,7 +8,6 @@ import type {
   QueryFeatureFor_MediaFeatureId,
 } from "lightningcss";
 
-import { DEFAULT_REM } from "../utilities";
 import { asciiLowerCase } from "../utilities/ascii-case";
 import type {
   MediaCondition,
@@ -244,7 +243,7 @@ function isOutsideValueSyntax(
   }
 }
 
-// A media query has no element, so its em is the font size rem inlines, as its rem is (Media Queries 4 §1.3); a container query's em is the container's
+// A media query has no element, so its em and rem are the root font size the stylesheet configures, as a browser's are its initial font size (Media Queries 4 §1.3), whether or not rem is inlined; a container query's em is the container's
 function parseMediaFeatureOperand(
   name: string,
   value: CSSMediaFeatureValue,
@@ -256,8 +255,7 @@ function parseMediaFeatureOperand(
     return parseFeatureOperand(name, value, builder);
   }
 
-  const { inlineRem = DEFAULT_REM } = builder.getOptions();
-  return round(fontRelative * (inlineRem === false ? DEFAULT_REM : inlineRem));
+  return round(fontRelative * builder.rootFontSize);
 }
 
 function readFontRelativeLength(

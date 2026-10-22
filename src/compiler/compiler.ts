@@ -70,7 +70,8 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
     }
   }
 
-  const builder = new StylesheetBuilder(options);
+  const rootFontSize = readRootFontSize(code, options.inlineRem);
+  const builder = new StylesheetBuilder(options, rootFontSize);
 
   const { lightningcss, Features } = lightningcssLoader();
 
@@ -87,17 +88,6 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
    */
 
   const vars = new Map<string, UniqueVarInfo>();
-
-  // Determine the effective rem multiplier for compile-time inlining.
-  // If inlineRem is explicitly set, use that. Otherwise, scan for
-  // :root { font-size: Npx } in the CSS to allow CSS-based configuration.
-  let effectiveRem: number | false = options.inlineRem ?? undefined!;
-  if (effectiveRem === undefined) {
-    const css = typeof code === "string" ? code : code.toString();
-    const match = css.match(/:root\s*\{[^}]*font-size:\s*([\d.]+)px/);
-    effectiveRem = match?.[1] ? parseFloat(match[1]) : DEFAULT_REM;
-    options.inlineRem = effectiveRem;
-  }
 
   const firstPassVisitor: Visitor<CustomAtRules> = {
     Rule(rule) {
@@ -132,8 +122,7 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
     },
   };
 
-  if (effectiveRem !== false) {
-    const remMultiplier = effectiveRem;
+  if (options.inlineRem !== false) {
     firstPassVisitor.Length = (length) => {
       if (length.unit !== "rem") {
         return length;
@@ -141,7 +130,7 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
 
       return {
         unit: "px",
-        value: round(length.value * remMultiplier),
+        value: round(length.value * rootFontSize),
       };
     };
   }
@@ -236,6 +225,20 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
     stylesheet: () => builder.getNativeStyleSheet(),
     warnings: () => builder.getWarnings(),
   };
+}
+
+// inlineRem sets a stylesheet's root font size, or else a :root { font-size: Npx } in it does, or else React Native's default
+function readRootFontSize(
+  code: Buffer | string,
+  inlineRem: number | false | undefined,
+): number {
+  if (typeof inlineRem === "number") {
+    return inlineRem;
+  }
+
+  const css = typeof code === "string" ? code : code.toString();
+  const match = /:root\s*\{[^}]*font-size:\s*([\d.]+)px/.exec(css);
+  return match?.[1] ? parseFloat(match[1]) : DEFAULT_REM;
 }
 
 /**
