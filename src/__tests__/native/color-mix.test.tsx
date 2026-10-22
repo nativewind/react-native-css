@@ -46,6 +46,28 @@ test("color-mix() - oklch", () => {
   });
 });
 
+test("color-mix() - hsl", () => {
+  registerCSS(
+    `.test {
+      --bg: hsl(0 100% 50%);
+      @supports (color: color-mix(in lab, red, red)) {
+        background-color: color-mix(in oklab, var(--bg) 50%, transparent);
+      }
+    }
+  `,
+    {
+      inlineVariables: false,
+    },
+  );
+
+  render(<View testID={testID} className="test" />);
+  const component = screen.getByTestId(testID);
+
+  expect(component.props.style).toStrictEqual({
+    backgroundColor: "rgba(255, 0, 0, 0.5)",
+  });
+});
+
 test("color-mix() - black with transparent (NaN oklab channels)", () => {
   // lightningcss resolves this at compile time to oklab(0 NaN NaN / 0.5):
   // black is oklab [l=0, a=0, b=0] and transparent has no chromaticity, so the
