@@ -11,6 +11,7 @@ import type {
   CompilerOptions,
   ContainerQuery,
   MediaCondition,
+  PropertyRegistration,
   ReactNativeCssStyleSheet,
   StyleDeclaration,
   StyleDescriptor,
@@ -63,6 +64,7 @@ export class StylesheetBuilder {
       ruleSets: Record<string, StyleRuleSet>;
       rootVariables?: VariableRecord;
       universalVariables?: VariableRecord;
+      propertyRegistrations?: Record<string, PropertyRegistration>;
       animations?: AnimationRecord;
       rem: number;
       ruleOrder: number;
@@ -171,6 +173,10 @@ export class StylesheetBuilder {
         // Reverse these so the most specific variables are first
         ([key, value]) => [key, value.reverse()] as const,
       );
+    }
+
+    if (this.shared.propertyRegistrations) {
+      stylesheetOptions.vp = Object.values(this.shared.propertyRegistrations);
     }
 
     if (this.shared.animations) {
@@ -577,10 +583,16 @@ export class StylesheetBuilder {
     this.ruleTemplate.cq.push(query);
   }
 
-  addRootVariable(name: string, value: StyleDescriptor) {
-    this.shared.rootVariables ??= {};
-    this.shared.rootVariables[name] ??= [];
-    this.shared.rootVariables[name].push([value]);
+  registerProperty(
+    name: string,
+    inherits: boolean,
+    initialValue: StyleDescriptor,
+  ) {
+    this.shared.propertyRegistrations ??= {};
+    this.shared.propertyRegistrations[name] =
+      initialValue === undefined
+        ? [name, inherits]
+        : [name, inherits, initialValue];
   }
 
   newAnimationFrames(name: string) {
