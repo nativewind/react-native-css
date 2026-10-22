@@ -138,7 +138,7 @@ export function parseMediaQueryCondition(
   }
 }
 
-// The keywords Media Queries 4 and 5 give these discrete features, and any other keyword leaves the feature unknown (MQ5 §3.1); display-mode is left out, since the library answers it with platform names
+// The keywords Media Queries 4 and 5 give these discrete features; display-mode is left out, since the library answers it with platform names
 const FEATURE_KEYWORDS: ReadonlyMap<string, readonly string[]> = new Map([
   ["hover", ["none", "hover"]],
   ["any-hover", ["none", "hover"]],
@@ -151,19 +151,7 @@ const FEATURE_KEYWORDS: ReadonlyMap<string, readonly string[]> = new Map([
   ["update", ["none", "slow", "fast"]],
 ]);
 
-function isUnknownKeyword(
-  name: string,
-  operand: Readonly<MediaFeatureOperand>,
-) {
-  const keywords = FEATURE_KEYWORDS.get(name);
-  return (
-    keywords !== undefined &&
-    typeof operand === "string" &&
-    !keywords.includes(operand)
-  );
-}
-
-// A feature holding env() or a keyword it does not take compiles to undefined, which a media query reads as unknown and a container query as no query
+// A feature holding a value outside its syntax compiles to undefined, which a media query reads as unknown (MQ5 §3.2) and a container query as no query
 export function parseQueryFeature(
   feature:
     | QueryFeatureFor_MediaFeatureId
@@ -174,20 +162,18 @@ export function parseQueryFeature(
     case "boolean":
       return ["!!", feature.name];
     case "plain": {
-      const operand = parseFeatureOperand(feature.value, builder);
-      return operand === undefined || isUnknownKeyword(feature.name, operand)
-        ? undefined
-        : ["=", feature.name, operand];
+      const operand = parseFeatureOperand(feature.name, feature.value, builder);
+      return operand === undefined ? undefined : ["=", feature.name, operand];
     }
     case "range": {
-      const operand = parseFeatureOperand(feature.value, builder);
+      const operand = parseFeatureOperand(feature.name, feature.value, builder);
       return operand === undefined
         ? undefined
         : [parseMediaFeatureOperator(feature.operator), feature.name, operand];
     }
     case "interval": {
-      const start = parseFeatureOperand(feature.start, builder);
-      const end = parseFeatureOperand(feature.end, builder);
+      const start = parseFeatureOperand(feature.name, feature.start, builder);
+      const end = parseFeatureOperand(feature.name, feature.end, builder);
       return start === undefined || end === undefined
         ? undefined
         : [
@@ -205,14 +191,45 @@ export function parseQueryFeature(
   }
 }
 
-// No browser takes env() as a media feature's value, and Chromium and WebKit drop a container query holding one, so a feature holding it compiles to undefined; any other value the compiler cannot resolve compiles to null, which leaves its term unknown
+// A value inside the feature's syntax that the compiler cannot resolve compiles to null, which leaves its term unknown
 function parseFeatureOperand(
+  name: string,
   value: CSSMediaFeatureValue,
   builder: StylesheetBuilder,
 ): MediaFeatureOperand | undefined {
-  return value.type === "env"
+  return isOutsideValueSyntax(name, value)
     ? undefined
     : (parseMediaFeatureValue(value, builder) ?? null);
+}
+
+function isOutsideValueSyntax(
+  name: string,
+  value: Readonly<CSSMediaFeatureValue>,
+): boolean {
+  switch (value.type) {
+    // No browser takes env() as a media feature's value, and Chromium and WebKit drop a container query holding one
+    case "env":
+      return true;
+    // css-values-4 §7.4 excludes a negative resolution, as Chromium, Firefox and WebKit do in a media query
+    case "resolution":
+      return value.value.value < 0;
+    case "ident": {
+      const keywords = FEATURE_KEYWORDS.get(name);
+      return (
+        keywords !== undefined &&
+        !keywords.includes(asciiLowerCase(value.value))
+      );
+    }
+    case "boolean":
+    case "integer":
+    case "number":
+    case "length":
+    case "ratio":
+      return false;
+    default:
+      value satisfies never;
+      return false;
+  }
 }
 
 function parseMediaFeatureValue(

@@ -144,6 +144,23 @@ describe("@media on a 600x400 screen", () => {
     expect(mediaMatches(condition)).toBe(expected);
   });
 
+  // css-values-4 §7.4 excludes a negative resolution, which leaves its feature unknown (MQ5 §3.2), while -webkit-device-pixel-ratio takes any number
+  test.each([
+    ["(min-resolution: -1dpi)", false],
+    ["not (max-resolution: -1dpi)", false],
+    ["not (resolution: -1dppx)", false],
+    ["(resolution > -1dppx)", false],
+    ["not (-1dppx < resolution < 1dppx)", false],
+    ["(min-resolution: -1dppx) or (width > 400px)", true],
+    ["(min-resolution: 0dpi)", true],
+    ["(max-resolution: 0dpi)", false],
+    ["(min-resolution: -0dppx)", true],
+    ["(-webkit-min-device-pixel-ratio: -1)", true],
+    ["not (-webkit-max-device-pixel-ratio: -1)", true],
+  ])("at a pixel ratio of 2, %s matches: %s", (condition, expected) => {
+    expect(mediaMatches(condition)).toBe(expected);
+  });
+
   test.each([
     ["dark", "(prefers-color-scheme)", true],
     ["dark", "(prefers-color-scheme: dark)", true],
@@ -174,7 +191,7 @@ test.each([
   },
 );
 
-// No browser takes env() as a feature's value, so a range pair with an env() bound is unknown whatever its other bound answers (MQ5 §3.1)
+// No browser takes env() as a feature's value, so a range pair with an env() bound is unknown whatever its other bound answers (MQ5 §3.2)
 test.each([
   ["not (env(safe-area-inset-top) < width < 800px)", 900],
   ["not (400px < width < env(safe-area-inset-bottom))", 300],

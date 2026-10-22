@@ -41,6 +41,15 @@ test.each([
   "@media not (env(safe-area-inset-top) < width < 800px)",
   "@media not (400px < width < env(safe-area-inset-bottom))",
   "@media not ((env(safe-area-inset-top) < width < 800px) or (width < 0px))",
+  "@media (min-resolution: -1dpi)",
+  "@media (max-resolution: -1dpi)",
+  "@media not (max-resolution: -1dpi)",
+  "@media (resolution: -1dppx)",
+  "@media not (resolution: -1dppx)",
+  "@media (resolution > -1dppx)",
+  "@media not (resolution < -1x)",
+  "@media not (-1dppx < resolution < 1dppx)",
+  "@media (min-resolution: -1dpcm)",
 ])("%s, which no device can make true, emits no block", (prelude) => {
   expect(
     compileChildConditions(`${prelude} { .child { color: red } }`),
@@ -54,6 +63,10 @@ test.each<[string, Pick<StyleRule, "m" | "cq">]>([
   ],
   [
     "@media (width > env(safe-area-inset-top)) or (width > 400px)",
+    { m: [["|", [["?"], [">", "width", 400]]]], cq: undefined },
+  ],
+  [
+    "@media (min-resolution: -1dppx) or (width > 400px)",
     { m: [["|", [["?"], [">", "width", 400]]]], cq: undefined },
   ],
   [
