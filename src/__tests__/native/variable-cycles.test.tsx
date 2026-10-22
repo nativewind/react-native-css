@@ -31,6 +31,28 @@ test.each([
   });
 });
 
+test("a cycle through :root resolves to the reader's fallback, not an internal one", () => {
+  registerCSS(
+    `:root { --a: var(--b, 12px); --b: var(--a); } .sample { width: var(--a, 37px); }`,
+    { inlineVariables: false },
+  );
+  render(<View testID="sample" className="sample" />);
+  expect(screen.getByTestId("sample").props.style).toStrictEqual({ width: 37 });
+});
+
+test("a cycle through an ancestor's variables resolves to the reader's fallback, not an internal one", () => {
+  registerCSS(
+    `.parent { --a: var(--b, 3px); --b: var(--a); } .sample { width: var(--a, 5px); }`,
+    { inlineVariables: false },
+  );
+  render(
+    <View className="parent">
+      <View testID="sample" className="sample" />
+    </View>,
+  );
+  expect(screen.getByTestId("sample").props.style).toStrictEqual({ width: 5 });
+});
+
 test("a variable outside a cycle can use a fallback for the invalid variable", () => {
   registerCSS(
     `.sample { --a: var(--b); --b: var(--a); --c: var(--a, 42px); width: var(--c); }`,

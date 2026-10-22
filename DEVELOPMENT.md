@@ -47,7 +47,7 @@ This enables `className` prop support on all React Native components.
 - **Reactive style system** (`src/native/reactivity.ts`) — custom observables for media queries, container queries, color scheme changes
 - **StyleCollection singleton** (`src/native-internal/`) — isolated to prevent circular dependencies between native runtime and CSS file imports
 - **Platform-aware compilation** — different outputs for native (JSON) vs web (browser CSS)
-- **Inline variable optimization** — single-use CSS variables are inlined at compile time; multi-use preserved
+- **Inline variable optimization** — single-use CSS variables are inlined at compile time; multi-use, those an `@property` registers `inherits: false` (unless declared only on `*` outside `@media` and `@container`), and those whose value refers to one, preserved
 
 ## Package Entry Points
 

@@ -1,4 +1,7 @@
 /* eslint-disable */
+import type { StyleDescriptor } from "react-native-css/compiler";
+import { registeredInheritance } from "react-native-css/native-internal";
+
 import type { ComponentState } from "../react/useNativeCss";
 import type {
   ContainerContextValue,
@@ -8,7 +11,8 @@ import type {
 export type RenderGuard =
   | ["a", string, any]
   | ["d", string, any]
-  | ["v", string, any]
+  | ["v", string, StyleDescriptor]
+  | ["n", string, StyleDescriptor]
   | ["c", string, WeakKey];
 
 export function testGuards(
@@ -33,10 +37,18 @@ export function testGuards(
         // Variables
         result = inheritedVariables[guard[1]] !== guard[2];
         break;
+      case "n":
+        // A non-inheriting variable's value counts only once a later registration lets it inherit
+        result =
+          registeredInheritance(guard[1]).get() &&
+          inheritedVariables[guard[1]] !== guard[2];
+        break;
       case "c":
         // Containers
         result = inheritedContainers[guard[1]] !== guard[2];
         break;
+      default:
+        guard satisfies never;
     }
 
     return result;
