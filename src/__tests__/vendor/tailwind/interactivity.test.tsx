@@ -61,9 +61,8 @@ describe("Interactivity - Caret Color", () => {
   test("caret-current", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: {
-        cursorColor: {
-          semantic: ["label", "labelColor"],
-        },
+        // The root seed, concrete on every platform — light arm.
+        cursorColor: "#000000",
         style: {},
       },
     });

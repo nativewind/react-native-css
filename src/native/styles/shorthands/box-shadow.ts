@@ -4,7 +4,7 @@ import { isStyleDescriptorArray } from "react-native-css/utilities";
 import type { StyleFunctionResolver } from "../resolve";
 import { shorthandHandler } from "./_handler";
 
-// "color" type accepts both strings ("#fff") and objects (PlatformColor from currentcolor).
+// "color" type accepts both strings ("#fff") and objects (a platformColor() value).
 // Using "string" here would reject platform color objects and silently drop the shadow.
 const color = ["color", "color"] as const;
 const offsetX = ["offsetX", "number"] as const;
