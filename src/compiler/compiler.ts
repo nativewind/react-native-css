@@ -24,6 +24,7 @@ import type {
   StyleRuleMapping,
   UniqueVarInfo,
 } from "./compiler.types";
+import { isComputationallyIndependent } from "./computational-independence";
 import { parseContainerCondition } from "./container-query";
 import {
   parseAngle,
@@ -37,6 +38,7 @@ import { inlineVariables } from "./inline-variables";
 import { extractKeyFrames } from "./keyframes";
 import { lightningcssLoader } from "./lightningcss-loader";
 import { parseMediaQuery } from "./media-query";
+import { isUniversalSelector } from "./selector-builder";
 import { StylesheetBuilder } from "./stylesheet";
 import { supportsConditionValid } from "./supports";
 
@@ -98,8 +100,33 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
     options.inlineRem = effectiveRem;
   }
 
+  // Collected in the first pass, since the inliner runs before the builder records registrations
+  const nonInheritedVariables = new Set<string>();
+  const universallyDeclaredVariables = new Set<string>();
+
   const firstPassVisitor: Visitor<CustomAtRules> = {
     Rule(rule) {
+      if (
+        rule.type === "property" &&
+        !rule.value.inherits &&
+        isValidRegistration(rule.value)
+      ) {
+        nonInheritedVariables.add(rule.value.name);
+      }
+
+      if (
+        rule.type === "style" &&
+        rule.value.selectors.some(isUniversalSelector)
+      ) {
+        const { declarations = [], importantDeclarations = [] } =
+          rule.value.declarations ?? {};
+        for (const declaration of [...declarations, ...importantDeclarations]) {
+          if (declaration.property === "custom") {
+            universallyDeclaredVariables.add(declaration.value.name);
+          }
+        }
+      }
+
       if (
         rule.type === "unknown" &&
         ["cssInterop", "react-native"].includes(rule.value.name)
@@ -166,7 +193,14 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
       }
     };
     firstPassVisitor.StyleSheetExit = (sheet) => {
-      return inlineVariables(sheet, vars);
+      // A non-inheriting property reaches every element only from a universal rule, which each element declares for itself
+      const runtimeVariables = new Set(
+        [...nonInheritedVariables].filter(
+          (name) => !universallyDeclaredVariables.has(name),
+        ),
+      );
+
+      return inlineVariables(sheet, vars, runtimeVariables);
     };
   }
 
@@ -421,21 +455,34 @@ function extractContainer(
   }
 }
 
+function isValidRegistration({ initialValue }: PropertyRule): boolean {
+  return initialValue == null || isComputationallyIndependent(initialValue);
+}
+
 function extractPropertyRule(
   propertyRule: PropertyRule,
   builder: StylesheetBuilder,
 ) {
-  const { initialValue, name } = propertyRule;
+  if (!isValidRegistration(propertyRule)) {
+    return;
+  }
+
+  const { inherits, initialValue, name } = propertyRule;
+
+  const varName = name.startsWith("--") ? name.slice(2) : name;
+
+  // Recorded before the early return below, as inherits is independent of initial-value
+  if (!inherits) {
+    builder.addNonInheritedVariable(varName);
+  }
 
   if (initialValue == null) {
     return;
   }
-
-  const varName = name.startsWith("--") ? name.slice(2) : name;
   const value = parsePropertyInitialValue(initialValue, builder);
 
   if (value !== undefined) {
-    builder.addRootVariable(varName, value);
+    builder.addRegisteredInitialValue(varName, value);
   }
 }
 

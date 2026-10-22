@@ -10,9 +10,10 @@ import type { UniqueVarInfo } from "./compiler.types";
 export function inlineVariables(
   stylesheet: StyleSheet,
   vars: Map<string, UniqueVarInfo>,
+  runtimeVariables: ReadonlySet<string>,
 ) {
   for (const [name, info] of [...vars]) {
-    if (info.count !== 1) {
+    if (info.count !== 1 || runtimeVariables.has(name)) {
       vars.delete(name);
     } else {
       flattenVar(name, vars);
