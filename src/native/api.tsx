@@ -1,5 +1,5 @@
 /* eslint-disable  */
-import { useContext, useEffect, useState, type ComponentType } from "react";
+import { useContext, useEffect, useState } from "react";
 import { Appearance, type ViewStyle } from "react-native";
 
 import type { StyleDescriptor } from "react-native-css/compiler";
@@ -7,6 +7,7 @@ import { VariableContext } from "react-native-css/native-internal";
 
 import type {
   ColorScheme,
+  DefaultStyledConfiguration,
   Props,
   ReactComponent,
   Styled,
@@ -32,9 +33,9 @@ export {
 
 export { useNativeCss };
 
-const defaultMapping: StyledConfiguration<ComponentType<{ style: unknown }>> = {
+const defaultMapping = {
   className: "style",
-};
+} as const satisfies DefaultStyledConfiguration;
 
 /**
  * Generates a new Higher-Order component the wraps the base component and applies the styles.

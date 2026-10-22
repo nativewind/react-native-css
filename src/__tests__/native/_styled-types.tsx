@@ -1,7 +1,11 @@
+import type { ComponentProps } from "react";
 import {
+  ActivityIndicator,
+  Image,
   Modal,
   ScrollView,
   StatusBar,
+  Text,
   TextInput,
   View,
   type StyleProp,
@@ -59,6 +63,79 @@ export const rejected = [
 
 // @ts-expect-error An explicit mapping must name a real target property.
 rootStyled(Base, { customClassName: "missing" });
+
+// A mapping takes any style key, a -rn- declaration's among them, an entry left undefined, and a value naming a prop
+export const mappings = [
+  rootStyled(View, {
+    className: {
+      target: "style",
+      nativeStyleMapping: { color: "accessibilityLabel" },
+    },
+  }),
+  rootStyled(ActivityIndicator, {
+    className: { target: "style", nativeStyleMapping: { color: "color" } },
+  }),
+  rootStyled(TextInput, {
+    className: {
+      target: "style",
+      nativeStyleMapping: { selectionColor: true },
+    },
+  }),
+  rootStyled(Image, {
+    className: { target: "style", nativeStyleMapping: { tintColor: true } },
+  }),
+  rootStyled(View, {
+    className: {
+      target: "style",
+      nativeStyleMapping: { backgroundColor: undefined },
+    },
+  }),
+  rootStyled(View, {
+    labelClassName: {
+      target: false,
+      nativeStyleMapping: { color: "style.borderColor" },
+    },
+  }),
+  rootStyled(Text, {
+    className: {
+      target: "style",
+      nativeStyleToProp: { color: "accessibilityLabel" },
+    },
+  }),
+];
+
+export const rejectedMappings = [
+  // @ts-expect-error A mapping's value must name a prop.
+  rootStyled(View, {
+    className: {
+      target: "style",
+      nativeStyleMapping: { color: "accessibilityLabl" },
+    },
+  }),
+  // @ts-expect-error A target:false mapping's value must name a prop too.
+  rootStyled(View, {
+    labelClassName: {
+      target: false,
+      nativeStyleMapping: { color: "style.borderColour" },
+    },
+  }),
+  // @ts-expect-error A mapping's value is true or the path of a prop.
+  rootStyled(View, {
+    className: {
+      target: "style",
+      nativeStyleMapping: { color: false },
+    },
+  }),
+];
+
+// A styled component's class props are writable, as the component's own props are
+export function writeClassNames(
+  rootProps: ComponentProps<typeof Root>,
+  mappedProps: ComponentProps<typeof Mapped>,
+) {
+  rootProps.className = "p-4";
+  mappedProps.customClassName = "p-4";
+}
 
 export const components = [
   <CssView className="p-4" />,

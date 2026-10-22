@@ -30,7 +30,7 @@ import { updateRules } from "./rules";
 export type Config = {
   source: string;
   target: string[] | string | false;
-  nativeStyleMapping?: Record<string, string>;
+  nativeStyleMapping?: Record<string, string> | undefined;
 };
 
 export type ComponentState = {
@@ -209,7 +209,10 @@ export function useNativeCss(
  * Convert the styled() mapping to a config array
  */
 export function mappingToConfig(mapping: StyledConfiguration<any>) {
-  return Object.entries(mapping).flatMap(([key, value]): Config => {
+  // A JavaScript consumer can pass any value, so each one is checked here rather than read at render
+  const entries: readonly (readonly [string, unknown])[] =
+    Object.entries(mapping);
+  return entries.flatMap(([key, value]): Config => {
     if (value === true) {
       return {
         source: key,
@@ -219,17 +222,18 @@ export function mappingToConfig(mapping: StyledConfiguration<any>) {
       return { source: key, target: false };
     } else if (typeof value === "string") {
       return { source: key, target: value.split(".") };
-    } else if (typeof value === "object") {
+    } else if (typeof value === "object" && value !== null) {
       // Keep the declared deprecated alias working. The current spelling wins
       // when both are provided, including an intentionally empty mapping.
-      const mapping = value.nativeStyleMapping ?? value.nativeStyleToProp;
-      const nativeStyleMapping = mapping
-        ? Object.fromEntries(
-            Object.entries(mapping).map(([k, v]) => [k, v === true ? k : v]),
-          )
-        : undefined;
+      const nativeStyleMapping = nativeStyleMappingToConfig(
+        key,
+        ("nativeStyleMapping" in value
+          ? value.nativeStyleMapping
+          : undefined) ??
+          ("nativeStyleToProp" in value ? value.nativeStyleToProp : undefined),
+      );
 
-      if (Array.isArray(value)) {
+      if (isPath(value)) {
         return { source: key, target: value, nativeStyleMapping };
       }
 
@@ -244,14 +248,73 @@ export function mappingToConfig(mapping: StyledConfiguration<any>) {
           } else {
             return { source: key, target, nativeStyleMapping };
           }
-        } else if (Array.isArray(value.target)) {
+        } else if (isPath(value.target)) {
           return { source: key, target: value.target, nativeStyleMapping };
         }
       }
     }
 
-    throw new Error(`styled(): Invalid mapping for ${key}: ${value}`);
+    throw new Error(
+      `styled(): Invalid mapping for ${key}: ${describeMappingValue(value)}`,
+    );
   });
+}
+
+function isPath(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) && value.every((part) => typeof part === "string")
+  );
+}
+
+function nativeStyleMappingToConfig(
+  key: string,
+  mapping: unknown,
+): Record<string, string> | undefined {
+  if (!mapping) {
+    return undefined;
+  }
+  if (typeof mapping !== "object" || Array.isArray(mapping)) {
+    throw new Error(
+      `styled(): Invalid mapping for ${key}: nativeStyleMapping is ${describeMappingValue(mapping)}`,
+    );
+  }
+  return Object.fromEntries(
+    Object.entries(mapping).flatMap(([property, path]: [string, unknown]) => {
+      if (path === undefined) {
+        return [];
+      }
+      if (path === true) {
+        return [[property, property] as const];
+      }
+      if (typeof path === "string") {
+        return [[property, path] as const];
+      }
+      throw new Error(
+        `styled(): Invalid mapping for ${key}: ${property} maps to ${describeMappingValue(path)}`,
+      );
+    }),
+  );
+}
+
+function describeMappingValue(value: unknown): string {
+  switch (typeof value) {
+    case "string":
+      return JSON.stringify(value);
+    case "bigint":
+      return `${value}n`;
+    case "function":
+      return "a function";
+    case "object":
+      if (value === null) {
+        return "null";
+      }
+      return Array.isArray(value) ? "an array" : "an object";
+    case "number":
+    case "boolean":
+    case "symbol":
+    case "undefined":
+      return String(value);
+  }
 }
 
 // Apply native Image fitting before normal, inline, and important props merge.

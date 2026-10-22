@@ -9,13 +9,12 @@ import { nativeResolver, webResolver } from "./resolver";
 import { setupTypeScript } from "./typescript";
 
 export interface WithReactNativeCSSOptions extends CompilerOptions {
-  /* Specify the path to the TypeScript environment file. Defaults types-env.d.ts */
-  typescriptEnvPath?: string;
-  /* Disable generation of the types-env.d.ts file. Defaults false */
-  disableTypeScriptGeneration?: boolean;
+  /** Specify the path to the TypeScript environment file. Defaults react-native-css-env.d.ts */
+  typescriptEnvPath?: string | undefined;
+  /** Disable generation of the react-native-css-env.d.ts file. Defaults false */
+  disableTypeScriptGeneration?: boolean | undefined;
   /** Add className to all React Native primitives. Defaults false */
-  globalClassNamePolyfill?: boolean;
-  hexColors?: boolean;
+  globalClassNamePolyfill?: boolean | undefined;
 }
 
 const metroOverrideResolution = {

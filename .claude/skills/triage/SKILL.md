@@ -103,7 +103,7 @@ Create a minimal reproduction. The approach depends on the repo and what's being
 
 ### react-native-css issues
 
-Tests are organized by domain in `src/__tests__/` with three subdirectories: `native/`, `compiler/`, `babel/`. Before writing a test, read a few existing tests in the relevant subdirectory to match the conventions exactly.
+Tests are organized by domain in `src/__tests__/`: `babel/`, `compiler/`, `e2e/`, `native/`, `types/`, `vendor/` and `web/`, with the Node tooling tests in `node/__tests__/`, as the `add-test` skill describes. Before writing a test, read a few existing tests in the relevant subdirectory to match the conventions exactly.
 
 **For native styling issues** (most common, e.g., wrong style output, className not working):
 
