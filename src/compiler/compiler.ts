@@ -22,7 +22,6 @@ import type {
   ContainerQuery,
   StyleDescriptor,
   StyleRuleMapping,
-  UniqueVarInfo,
 } from "./compiler.types";
 import { parseContainerCondition } from "./container-query";
 import {
@@ -38,7 +37,7 @@ import { extractKeyFrames } from "./keyframes";
 import { lightningcssLoader } from "./lightningcss-loader";
 import { parseMediaQuery } from "./media-query";
 import { StylesheetBuilder } from "./stylesheet";
-import { supportsConditionValid } from "./supports";
+import { rulesTheCompilerKeeps } from "./supports";
 
 const defaultLogger = debug("react-native-css:compiler");
 
@@ -84,8 +83,6 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
    *
    * Due to the above issue, we run lightningcss twice
    */
-
-  const vars = new Map<string, UniqueVarInfo>();
 
   // Determine the effective rem multiplier for compile-time inlining.
   // If inlineRem is explicitly set, use that. Otherwise, scan for
@@ -148,25 +145,8 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
   if (options.inlineVariables !== false) {
     const exclusionList: string[] = options.inlineVariables?.exclude ?? [];
 
-    firstPassVisitor.Declaration = (decl) => {
-      if (
-        decl.property === "custom" &&
-        decl.value.name.startsWith("--") &&
-        !exclusionList.includes(decl.value.name)
-      ) {
-        const entry = vars.get(decl.value.name) ?? {
-          count: 0,
-          value: [
-            ...decl.value.value,
-            { type: "token", value: { type: "white-space", value: " " } },
-          ],
-        };
-        entry.count++;
-        vars.set(decl.value.name, entry);
-      }
-    };
     firstPassVisitor.StyleSheetExit = (sheet) => {
-      return inlineVariables(sheet, vars);
+      return inlineVariables(sheet, exclusionList);
     };
   }
 
@@ -331,10 +311,8 @@ function extractRule(
       }
       break;
     case "supports":
-      if (supportsConditionValid(rule.value.condition)) {
-        for (const layerRule of rule.value.rules) {
-          extractRule(layerRule, builder, mapping);
-        }
+      for (const supportedRule of rulesTheCompilerKeeps(rule.value)) {
+        extractRule(supportedRule, builder, mapping);
       }
       break;
     case "property":
