@@ -1,5 +1,8 @@
 import type { StyleDescriptor } from "react-native-css/compiler";
-import { isStyleDescriptorArray } from "react-native-css/utilities";
+import {
+  isStyleDescriptorArray,
+  isTransparentColor,
+} from "react-native-css/utilities";
 
 import type { StyleFunctionResolver } from "../resolve";
 import { shorthandHandler } from "./_handler";
@@ -83,7 +86,7 @@ function flattenShadowDescriptor(arg: StyleDescriptor): StyleDescriptor[] {
 
 function omitTransparentShadows(style: unknown) {
   if (typeof style === "object" && style && "color" in style) {
-    if (style.color === "#0000" || style.color === "transparent") {
+    if (isTransparentColor(style.color)) {
       return;
     }
   }

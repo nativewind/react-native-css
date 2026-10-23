@@ -160,7 +160,6 @@ export type InlineVariable = {
 };
 
 export type UniqueVarInfo = {
-  count: number;
   value: TokenOrValue[] | undefined;
   flat?: true;
 };
