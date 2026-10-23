@@ -1,5 +1,7 @@
 import type { StyleDescriptor, StyleFunction } from "react-native-css/compiler";
 import {
+  nonInheritedVariables,
+  registeredInitialValues,
   rootVariables,
   universalVariables,
 } from "react-native-css/native-internal";
@@ -83,7 +85,19 @@ export function varResolver(
       return variableCycles.has(name) ? resolve(fallback) : value;
     }
 
-    value = resolve(get(rootVariables(name)));
+    // :root reaches other elements only by inheritance, which a non-inheriting registration switches off
+    if (!nonInheritedVariables.has(name)) {
+      value = resolve(get(rootVariables(name)));
+      if (variableCycles.has(name)) return resolve(fallback);
+      if (value !== undefined) {
+        options.inlineVariables ??= { [VAR_SYMBOL]: "inline" };
+        options.inlineVariables[name] = value;
+        return value;
+      }
+    }
+
+    // A registered initial value applies only where no declaration reaches the element
+    value = resolve(get(registeredInitialValues(name)));
     if (variableCycles.has(name)) return resolve(fallback);
     if (value !== undefined) {
       options.inlineVariables ??= { [VAR_SYMBOL]: "inline" };

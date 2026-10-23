@@ -40,6 +40,10 @@ export interface ReactNativeCssStyleSheet {
   vr?: RootVariables;
   /** Universal Variables */
   vu?: RootVariables;
+  /** Non-Inheriting Variables */
+  vn?: string[];
+  /** Registered Initial Values */
+  vi?: RootVariables;
 }
 
 /********************************    Styles    ********************************/

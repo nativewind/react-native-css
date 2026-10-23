@@ -10,11 +10,11 @@ test("@property with length initial value", () => {
 `);
 
   const result = compiled.stylesheet();
-  expect(result.vr).toBeDefined();
+  expect(result.vi).toBeDefined();
 
-  const vrMap = new Map(result.vr);
-  expect(vrMap.has("tw-translate-x")).toBe(true);
-  expect(vrMap.get("tw-translate-x")).toStrictEqual([[0]]);
+  const viMap = new Map(result.vi);
+  expect(viMap.has("tw-translate-x")).toBe(true);
+  expect(viMap.get("tw-translate-x")).toStrictEqual([[0]]);
 });
 
 test("@property without initial value is skipped", () => {
@@ -26,6 +26,7 @@ test("@property without initial value is skipped", () => {
 `);
 
   const result = compiled.stylesheet();
+  expect(result.vi).toBeUndefined();
   expect(result.vr).toBeUndefined();
 });
 
@@ -39,10 +40,10 @@ test("@property with number initial value", () => {
 `);
 
   const result = compiled.stylesheet();
-  expect(result.vr).toBeDefined();
+  expect(result.vi).toBeDefined();
 
-  const vrMap = new Map(result.vr);
-  expect(vrMap.get("tw-backdrop-opacity")).toStrictEqual([[1]]);
+  const viMap = new Map(result.vi);
+  expect(viMap.get("tw-backdrop-opacity")).toStrictEqual([[1]]);
 });
 
 test("@property with color initial value", () => {
@@ -55,10 +56,10 @@ test("@property with color initial value", () => {
 `);
 
   const result = compiled.stylesheet();
-  expect(result.vr).toBeDefined();
+  expect(result.vi).toBeDefined();
 
-  const vrMap = new Map(result.vr);
-  expect(vrMap.get("tw-ring-offset-color")).toStrictEqual([["#fff"]]);
+  const viMap = new Map(result.vi);
+  expect(viMap.get("tw-ring-offset-color")).toStrictEqual([["#fff"]]);
 });
 
 test("@property with token-list initial value (shadow)", () => {
@@ -71,13 +72,13 @@ test("@property with token-list initial value (shadow)", () => {
 `);
 
   const result = compiled.stylesheet();
-  expect(result.vr).toBeDefined();
+  expect(result.vi).toBeDefined();
 
-  const vrMap = new Map(result.vr);
-  expect(vrMap.get("tw-shadow")).toStrictEqual([[[0, 0, "#0000"]]]);
+  const viMap = new Map(result.vi);
+  expect(viMap.get("tw-shadow")).toStrictEqual([[[0, 0, "#0000"]]]);
 });
 
-test("@property defaults are root variables, not universal", () => {
+test("@property defaults are neither root nor universal variables", () => {
   const compiled = compile(`
 @property --tw-shadow {
   syntax: "*";
@@ -87,8 +88,25 @@ test("@property defaults are root variables, not universal", () => {
 `);
 
   const result = compiled.stylesheet();
-  expect(result.vr).toBeDefined();
+  expect(result.vi).toBeDefined();
+  expect(result.vr).toBeUndefined();
   expect(result.vu).toBeUndefined();
+});
+
+test("a :root declaration and a registered default land in different slots", () => {
+  const compiled = compile(`
+@property --my-var {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+:root { --my-var: 50px; }
+:root { --my-var: 50px; }
+`);
+
+  const result = compiled.stylesheet();
+  expect(new Map(result.vr).get("my-var")).toStrictEqual([[50]]);
+  expect(new Map(result.vi).get("my-var")).toStrictEqual([[0]]);
 });
 
 test("@supports -moz-orient fallback no longer fires", () => {
@@ -139,7 +157,7 @@ test("@property + class override produces valid stylesheet", () => {
 `);
 
   const result = compiled.stylesheet();
-  expect(result.vr).toBeDefined();
+  expect(result.vi).toBeDefined();
   expect(result.s).toBeDefined();
 
   const shadowRule = result.s?.find(([name]) => name === "shadow-md");
@@ -156,10 +174,10 @@ test("@property with percentage initial value", () => {
 `);
 
   const result = compiled.stylesheet();
-  expect(result.vr).toBeDefined();
+  expect(result.vi).toBeDefined();
 
-  const vrMap = new Map(result.vr);
-  expect(vrMap.get("tw-shadow-alpha")).toStrictEqual([["100%"]]);
+  const viMap = new Map(result.vi);
+  expect(viMap.get("tw-shadow-alpha")).toStrictEqual([["100%"]]);
 });
 
 test("multiple @property declarations with verified values", () => {
@@ -182,12 +200,12 @@ test("multiple @property declarations with verified values", () => {
 `);
 
   const result = compiled.stylesheet();
-  expect(result.vr).toBeDefined();
+  expect(result.vi).toBeDefined();
 
-  const vrMap = new Map(result.vr);
-  expect(vrMap.get("tw-translate-x")).toStrictEqual([[0]]);
-  expect(vrMap.get("tw-translate-y")).toStrictEqual([[0]]);
-  expect(vrMap.get("tw-rotate")).toStrictEqual([["0deg"]]);
+  const viMap = new Map(result.vi);
+  expect(viMap.get("tw-translate-x")).toStrictEqual([[0]]);
+  expect(viMap.get("tw-translate-y")).toStrictEqual([[0]]);
+  expect(viMap.get("tw-rotate")).toStrictEqual([["0deg"]]);
 });
 
 test("@property with repeated single-child unwraps to scalar", () => {
@@ -200,12 +218,148 @@ test("@property with repeated single-child unwraps to scalar", () => {
 `);
 
   const result = compiled.stylesheet();
-  expect(result.vr).toBeDefined();
+  expect(result.vi).toBeDefined();
 
-  const vrMap = new Map(result.vr);
+  const viMap = new Map(result.vi);
   // Single-child repeated (<length>+ with one value) should unwrap
   // to the same shape as a direct <length-percentage> type
-  expect(vrMap.get("my-offset")).toStrictEqual([[10]]);
+  expect(viMap.get("my-offset")).toStrictEqual([[10]]);
+});
+
+test("@property inherits: false is recorded, initial value or not", () => {
+  const compiled = compile(`
+@property --tw-ring-shadow {
+  syntax: "*";
+  inherits: false;
+  initial-value: 0 0 #0000;
+}
+@property --tw-ring-color {
+  syntax: "*";
+  inherits: false;
+}
+`);
+
+  const result = compiled.stylesheet();
+  expect(result.vn).toStrictEqual(["tw-ring-shadow", "tw-ring-color"]);
+  expect(new Map(result.vi).has("tw-ring-color")).toBe(false);
+});
+
+test("vn carries exactly the properties declared inherits: false", () => {
+  const declarations: [name: string, inherits: boolean][] = [
+    ["--a-off", false],
+    ["--b-on", true],
+    ["--c-off", false],
+    ["--d-on", true],
+  ];
+
+  const compiled = compile(
+    declarations
+      .map(
+        ([name, inherits]) =>
+          `@property ${name} { syntax: "<length>"; inherits: ${inherits}; initial-value: 0px; }`,
+      )
+      .join("\n"),
+  );
+
+  expect([...(compiled.stylesheet().vn ?? [])].sort()).toStrictEqual(
+    declarations
+      .filter(([, inherits]) => !inherits)
+      .map(([name]) => name.slice(2))
+      .sort(),
+  );
+});
+
+test("a non-inheriting property is left to the runtime, however few rules declare it", () => {
+  const compiled = compile(`
+@property --pinned {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+.parent { --pinned: 10px; }
+.child { width: var(--pinned); }
+`);
+
+  const result = compiled.stylesheet();
+  const child = result.s?.find(([name]) => name === "child");
+
+  expect(result.s?.find(([name]) => name === "parent")).toBeDefined();
+  expect(JSON.stringify(child)).toContain('"var"');
+});
+
+test("an inheriting property with one declaration is still inlined", () => {
+  const compiled = compile(`
+@property --folded {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+.parent { --folded: 10px; }
+.child { width: var(--folded); }
+`);
+
+  const result = compiled.stylesheet();
+  const child = result.s?.find(([name]) => name === "child");
+
+  expect(JSON.stringify(child)).not.toContain('"var"');
+  expect(JSON.stringify(child)).toContain("10");
+});
+
+test("@property inherits: true is not recorded", () => {
+  const compiled = compile(`
+@property --my-brand {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: red;
+}
+`);
+
+  const result = compiled.stylesheet();
+  expect(result.vn).toBeUndefined();
+});
+
+test("an unregistered custom property is not recorded", () => {
+  // Declared twice, since a single declaration is inlined away and the sheet would be empty
+  const compiled = compile(`
+.my-class { --my-var: 10px; }
+.other { --my-var: 20px; }
+`);
+
+  const result = compiled.stylesheet();
+  expect(result.s).toBeDefined();
+  expect(result.vn).toBeUndefined();
+  expect(result.vi).toBeUndefined();
+});
+
+test("@property records a name once, however many rules declare it", () => {
+  // Different syntaxes, since lightningcss collapses identical @property rules
+  const compiled = compile(`
+@property --dup {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --dup {
+  syntax: "*";
+  inherits: false;
+}
+`);
+
+  expect(compiled.stylesheet().vn).toStrictEqual(["dup"]);
+});
+
+test("the last @property declaration of a name decides inherits", () => {
+  const inheritsLast = compile(`
+@property --flip { syntax: "*"; inherits: false; }
+@property --flip { syntax: "<length>"; inherits: true; initial-value: 0px; }
+`);
+  expect(inheritsLast.stylesheet().vn).toBeUndefined();
+
+  const nonInheritingLast = compile(`
+@property --flip { syntax: "<length>"; inherits: true; initial-value: 0px; }
+@property --flip { syntax: "*"; inherits: false; }
+`);
+  expect(nonInheritingLast.stylesheet().vn).toStrictEqual(["flip"]);
 });
 
 test("@property with repeated multi-child preserves array", () => {
@@ -218,9 +372,124 @@ test("@property with repeated multi-child preserves array", () => {
 `);
 
   const result = compiled.stylesheet();
-  expect(result.vr).toBeDefined();
+  expect(result.vi).toBeDefined();
 
-  const vrMap = new Map(result.vr);
+  const viMap = new Map(result.vi);
   // Multi-child repeated (<length>+ with two values) keeps the array form
-  expect(vrMap.get("my-offsets")).toStrictEqual([[[10, 20]]]);
+  expect(viMap.get("my-offsets")).toStrictEqual([[[10, 20]]]);
 });
+
+test.each([
+  "2em",
+  "1rem",
+  "1ch",
+  "2lh",
+  "1cqw",
+  "calc(1px + 1em)",
+  "min(1px, 1em)",
+  "calc(2 * min(1em, 1px))",
+  "round(1em, 1px)",
+  "round(1vw, 1em)",
+])(
+  "an initial value of %s depends on the element, so the registration is ignored",
+  (initialValue) => {
+    const result = compile(
+      `@property --x { syntax: "<length>"; inherits: false; initial-value: ${initialValue}; }`,
+    ).stylesheet();
+
+    expect(result.vn).toBeUndefined();
+    expect(result.vi).toBeUndefined();
+    expect(result.vr).toBeUndefined();
+  },
+);
+
+test.each([
+  ["<length>", "3px", 3],
+  ["<length>", "calc(1px + 2px)", 3],
+  ["<length-percentage>", "30%", "30%"],
+])("a %s initial value of %s registers", (syntax, initialValue, expected) => {
+  const result = compile(
+    `@property --x { syntax: "${syntax}"; inherits: false; initial-value: ${initialValue}; }`,
+  ).stylesheet();
+
+  expect(result.vn).toStrictEqual(["x"]);
+  expect(new Map(result.vi).get("x")).toStrictEqual([[expected]]);
+});
+
+test.each([
+  "1vw",
+  "2svh",
+  "max(1px, 2vw)",
+  "calc(2 * min(2px, 1vw))",
+  "round(1vw, 1px)",
+])("a viewport-relative initial value of %s registers", (initialValue) => {
+  const result = compile(
+    `@property --x { syntax: "<length>"; inherits: false; initial-value: ${initialValue}; }`,
+  ).stylesheet();
+
+  expect(result.vn).toStrictEqual(["x"]);
+});
+
+test.each([
+  ["<transform-function>", "translateX(1em)", undefined],
+  ["<transform-function>", "translateX(30%)", ["x"]],
+  ["<transform-function>", "translate(1em, 0)", undefined],
+  ["<transform-function>", "translate(3px, 0)", ["x"]],
+  ["<transform-function>", "translate3d(0, 0, 1em)", undefined],
+  ["<transform-function>", "translate3d(3px, 0, 0)", ["x"]],
+  ["<transform-function>", "scale(2)", ["x"]],
+  ["<transform-function>", "rotate(45deg)", ["x"]],
+  ["<transform-function>", "skew(10deg)", ["x"]],
+  ["<transform-function>", "matrix(1, 0, 0, 1, 3, 0)", ["x"]],
+  ["<transform-list>", "translateX(1em) rotate(45deg)", undefined],
+  ["<transform-list>", "translateX(3px) rotate(45deg)", ["x"]],
+])(
+  "a %s initial value of %s registers only when it is element-independent",
+  (syntax, initialValue, expected) => {
+    const result = compile(
+      `@property --x { syntax: "${syntax}"; inherits: false; initial-value: ${initialValue}; }`,
+    ).stylesheet();
+
+    expect(result.vn).toStrictEqual(expected);
+  },
+);
+
+test("an ignored registration leaves a single declaration to the inliner", () => {
+  const compiled = compile(`
+@property --ignored {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 2em;
+}
+.parent { --ignored: 10px; }
+.child { width: var(--ignored); }
+`);
+
+  const child = compiled.stylesheet().s?.find(([name]) => name === "child");
+
+  expect(JSON.stringify(child)).not.toContain('"var"');
+});
+
+test.each([
+  "--everywhere: dashed;",
+  "border-width: 1px; --everywhere: dashed;",
+  "--everywhere: dashed !important;",
+])(
+  "a non-inheriting property declared once on * is still inlined, from * { %s }",
+  (declarations) => {
+    const compiled = compile(`
+@property --everywhere {
+  syntax: "*";
+  inherits: false;
+  initial-value: solid;
+}
+* { ${declarations} }
+.child { border-style: var(--everywhere); }
+`);
+
+    const child = compiled.stylesheet().s?.find(([name]) => name === "child");
+
+    expect(JSON.stringify(child)).not.toContain('"var"');
+    expect(JSON.stringify(child)).toContain('"dashed"');
+  },
+);

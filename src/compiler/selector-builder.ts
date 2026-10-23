@@ -593,7 +593,7 @@ function isRootVariableSelector([first, ...rest]: Selector) {
   );
 }
 
-function isUniversalSelector([first, second]: Selector) {
+export function isUniversalSelector([first, second]: Selector) {
   return first && first.type === "universal" && !second;
 }
 
