@@ -51,6 +51,18 @@ describe.each([
       expect(screen.getByTestId(testID).props).toHaveProperty(prop, seed);
     },
   );
+
+  test(`currentcolor in a variable the compiler keeps paints ${seed}`, () => {
+    colorScheme.set(scheme);
+    registerCSS(`.c { --c: currentcolor; border-color: var(--c); }`, {
+      inlineVariables: false,
+    });
+    render(<View testID={testID} className="c" />);
+
+    expect(screen.getByTestId(testID).props.style).toStrictEqual({
+      borderColor: seed,
+    });
+  });
 });
 
 test("no scheme preference takes the light seed", () => {
