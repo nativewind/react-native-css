@@ -122,15 +122,15 @@ describe("filter: drop-shadow()", () => {
     render(<View testID={testID} className="test" />);
     const component = screen.getByTestId(testID);
 
-    // currentcolor resolves to a PlatformColor object — requires
-    // "color" type (not "string") in the shorthand handler pattern
+    // currentcolor resolves through the root seed, which is a concrete
+    // scheme-aware colour on every platform — the light arm here.
     expect(component.props.style.filter).toStrictEqual([
       {
         dropShadow: {
           offsetX: 0,
           offsetY: 4,
           standardDeviation: 6,
-          color: { semantic: ["label", "labelColor"] },
+          color: "#000000",
         },
       },
     ]);
