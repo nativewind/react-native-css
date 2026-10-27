@@ -252,6 +252,25 @@ export const colorScheme = observable<ColorSchemeName | null | undefined>(
 );
 Appearance.addChangeListener((event) => colorScheme.set(event.colorScheme));
 
+// What Appearance answers after this library's latest request, which stands for the scheme until the platform reports one
+export const requestedColorScheme = observable<
+  ColorSchemeName | null | undefined
+>(undefined);
+
+const namesColorScheme = (
+  value: ColorSchemeName | null | undefined,
+): value is "light" | "dark" => value === "light" || value === "dark";
+
+// A value that names no scheme states no preference, which MQ5 §12.5 answers with light
+export function resolveColorScheme(get: Getter): "light" | "dark" {
+  const reported = get(colorScheme);
+  if (namesColorScheme(reported)) {
+    return reported;
+  }
+  const requested = get(requestedColorScheme);
+  return namesColorScheme(requested) ? requested : "light";
+}
+
 /** Containers ****************************************************************/
 
 export type ContainerContextValue = Record<
