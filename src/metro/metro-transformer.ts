@@ -1,4 +1,9 @@
 import { unstable_transformerPath } from "@expo/metro-config";
+import { transformPostCssModule } from "@expo/metro-config/build/transform-worker/postcss";
+import {
+  compileSass,
+  matchSass,
+} from "@expo/metro-config/build/transform-worker/sass";
 import type {
   JsTransformerConfig,
   JsTransformOptions,
@@ -15,6 +20,25 @@ const worker =
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   require(unstable_transformerPath) as typeof import("metro-transform-worker");
 
+/** The stylesheet after the project's PostCSS and Sass, never Expo's web build of it, which lightningcss lowers for the project's browsers. */
+async function preprocessStylesheet(
+  projectRoot: string,
+  filePath: string,
+  source: string,
+): Promise<string> {
+  const { src } = await transformPostCssModule(projectRoot, {
+    src: source,
+    filename: filePath,
+  });
+
+  const syntax = matchSass(filePath);
+  if (!syntax) {
+    return src;
+  }
+
+  return compileSass(projectRoot, { filename: filePath, src }, { syntax }).src;
+}
+
 export async function transform(
   config: JsTransformerConfig & {
     reactNativeCSS?: CompilerOptions | undefined;
@@ -30,14 +54,11 @@ export async function transform(
     return worker.transform(config, projectRoot, filePath, data, options);
   }
 
-  const cssFile = (await worker.transform(config, projectRoot, filePath, data, {
-    ...options,
-    platform: "web",
-  })) as TransformResponse & {
-    output: [{ data: { css: { code: Buffer } } }];
-  };
-
-  const css = cssFile.output[0].data.css.code.toString();
+  const css = await preprocessStylesheet(
+    projectRoot,
+    filePath,
+    data.toString("utf8"),
+  );
 
   const productionJS = compile(css, {
     ...config.reactNativeCSS,
