@@ -9,6 +9,7 @@ import type {
   ColorScheme,
   Props,
   ReactComponent,
+  ReducedMotion,
   Styled,
   StyledConfiguration,
   StyledOptions,
@@ -18,6 +19,7 @@ import { usePassthrough } from "./react/usePassthrough";
 import {
   cleanupEffect,
   colorScheme as colorSchemeObs,
+  reducedMotion as reducedMotionObs,
   VAR_SYMBOL,
   type Effect,
   type Getter,
@@ -73,6 +75,15 @@ export const colorScheme: ColorScheme = {
   },
   set(value) {
     return colorSchemeObs.set(value === "unspecified" ? null : value);
+  },
+};
+
+export const reducedMotion: ReducedMotion = {
+  get() {
+    return reducedMotionObs.get();
+  },
+  set(value) {
+    reducedMotionObs.set(value ?? undefined);
   },
 };
 
