@@ -17,7 +17,8 @@ import { mappingToConfig, useNativeCss } from "./react/useNativeCss";
 import { usePassthrough } from "./react/usePassthrough";
 import {
   cleanupEffect,
-  colorScheme as colorSchemeObs,
+  requestedColorScheme,
+  resolveColorScheme,
   VAR_SYMBOL,
   type Effect,
   type Getter,
@@ -69,10 +70,12 @@ export const styled: Styled = (
 
 export const colorScheme: ColorScheme = {
   get() {
-    return colorSchemeObs.get() ?? Appearance.getColorScheme() ?? "light";
+    return resolveColorScheme((observable) => observable.get());
   },
   set(value) {
-    return colorSchemeObs.set(value === "unspecified" ? null : value);
+    Appearance.setColorScheme(value ?? "unspecified");
+    // Appearance answers null only without its native module, where nothing but this library holds the request
+    requestedColorScheme.set(Appearance.getColorScheme() ?? value);
   },
 };
 

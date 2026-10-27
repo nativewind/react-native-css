@@ -20,6 +20,37 @@ test.each(["android", "ios"])(
   },
 );
 
+test("@media (prefers-color-scheme) conditions a rule and a :root variable", () => {
+  const compiled = compile(`
+    .my-class { color: green; }
+    @media (prefers-color-scheme: light) {
+      .my-class { color: blue; }
+      :root { --scheme-color: #00f; }
+    }
+    @media (prefers-color-scheme: dark) {
+      .my-class { color: red; }
+      :root { --scheme-color: #f0f; }
+    }
+    .scheme-variable { color: var(--scheme-color); }
+  `);
+
+  const stylesheet = compiled.stylesheet();
+  expect(stylesheet.s?.[0]?.[1].map((rule) => [rule.d, rule.m])).toStrictEqual([
+    [[{ color: "#008000" }], undefined],
+    [[{ color: "#00f" }], [["=", "prefers-color-scheme", "light"]]],
+    [[{ color: "#f00" }], [["=", "prefers-color-scheme", "dark"]]],
+  ]);
+  expect(stylesheet.vr).toStrictEqual([
+    [
+      "scheme-color",
+      [
+        ["#f0f", [["=", "prefers-color-scheme", "dark"]]],
+        ["#00f", [["=", "prefers-color-scheme", "light"]]],
+      ],
+    ],
+  ]);
+});
+
 test("@media (hover: hover)", () => {
   const compiled = compile(`
     @media (hover: hover) {
