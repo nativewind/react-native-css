@@ -232,6 +232,103 @@ test("light-dark()", () => {
   });
 });
 
+const reduce = ["=", "prefers-reduced-motion", "reduce"];
+const noPreference = ["=", "prefers-reduced-motion", "no-preference"];
+const dark = ["=", "prefers-color-scheme", "dark"];
+
+test.each([
+  ["(prefers-reduced-motion: reduce)", reduce],
+  ["(prefers-reduced-motion: no-preference)", noPreference],
+  ["(prefers-reduced-motion)", ["!!", "prefers-reduced-motion"]],
+  ["not (prefers-reduced-motion)", ["!", ["!!", "prefers-reduced-motion"]]],
+  ["not (prefers-reduced-motion: reduce)", ["!", reduce]],
+  ["not (prefers-reduced-motion: no-preference)", ["!", noPreference]],
+  ["not all and (prefers-reduced-motion: reduce)", ["!", reduce]],
+  ["(PREFERS-REDUCED-MOTION: reduce)", reduce],
+  ["( prefers-reduced-motion : reduce )", reduce],
+  ["(prefers-reduced-motion:/* a comment */reduce)", reduce],
+  ["((prefers-reduced-motion: reduce))", reduce],
+  ["screen and (prefers-reduced-motion: reduce)", reduce],
+  ["only screen and (prefers-reduced-motion: reduce)", reduce],
+  ["all and (prefers-reduced-motion: reduce)", reduce],
+  ["not screen and (prefers-reduced-motion: reduce)", ["!", reduce]],
+  ["(prefers-reduced-motion: reduce), print", reduce],
+  [
+    "(prefers-reduced-motion: reduce) and (min-width: 1px)",
+    ["&", [reduce, [">=", "width", 1]]],
+  ],
+  [
+    "(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)",
+    ["&", [reduce, dark]],
+  ],
+  [
+    "(prefers-reduced-motion: reduce) or (prefers-color-scheme: dark)",
+    ["|", [reduce, dark]],
+  ],
+  [
+    "not ((prefers-reduced-motion: reduce) and (prefers-color-scheme: dark))",
+    ["!", ["&", [reduce, dark]]],
+  ],
+  [
+    "(prefers-reduced-motion: reduce) and (not (prefers-color-scheme: dark))",
+    ["&", [reduce, ["!", dark]]],
+  ],
+  [
+    "(prefers-reduced-motion: no-preference) and (prefers-reduced-motion: reduce)",
+    ["&", [noPreference, reduce]],
+  ],
+  [
+    "(prefers-reduced-motion: reduce) and (unknown-feature)",
+    ["&", [reduce, ["!!", "unknown-feature"]]],
+  ],
+  [
+    "(prefers-reduced-motion: reduce) or (unknown-feature)",
+    ["|", [reduce, ["!!", "unknown-feature"]]],
+  ],
+])("@media %s compiles to its condition", (query, condition) => {
+  expect(
+    compile(`@media ${query} { .my-class { opacity: 0 } }`).stylesheet(),
+  ).toStrictEqual({
+    s: [["my-class", [{ s: [2, 1], m: [condition], d: [{ opacity: 0 }] }]]],
+  });
+});
+
+test("@media (prefers-reduced-motion: reduce), (prefers-color-scheme: dark) compiles a rule for each query", () => {
+  expect(
+    compile(
+      `@media (prefers-reduced-motion: reduce), (prefers-color-scheme: dark) { .my-class { opacity: 0 } }`,
+    ).stylesheet(),
+  ).toStrictEqual({
+    s: [
+      [
+        "my-class",
+        [
+          { s: [2, 1], m: [reduce], d: [{ opacity: 0 }] },
+          { s: [4, 1], m: [dark], d: [{ opacity: 0 }] },
+        ],
+      ],
+    ],
+  });
+});
+
+test("@media print and (prefers-reduced-motion: reduce) compiles to no rule", () => {
+  expect(
+    compile(
+      `@media print and (prefers-reduced-motion: reduce) { .my-class { opacity: 0 } }`,
+    ).stylesheet(),
+  ).toStrictEqual({});
+});
+
+test("@media not print and (prefers-reduced-motion: reduce) compiles to a rule with no condition", () => {
+  expect(
+    compile(
+      `@media not print and (prefers-reduced-motion: reduce) { .my-class { opacity: 0 } }`,
+    ).stylesheet(),
+  ).toStrictEqual({
+    s: [["my-class", [{ s: [2, 1], d: [{ opacity: 0 }] }]]],
+  });
+});
+
 test("media query nested in rules", () => {
   const compiled = compile(`
 .my-class {
