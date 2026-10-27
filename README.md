@@ -245,6 +245,8 @@ react-native-css: src/global.css - 3 declarations dropped, no React Native equiv
   values: z-index: auto
 ```
 
+The block also counts the syntax warnings lightningcss gives for CSS it cannot parse, such as an unknown at-rule, and lists their messages under `syntax:`. Those are fixed in the stylesheet itself.
+
 A block is printed the first time a file is compiled, and after that only when the file's set of warnings changes — an incremental rebuild that changes nothing about them stays quiet. Warnings are advisory and never fail a build.
 
 Use the `warnings` option to change how much is printed:
