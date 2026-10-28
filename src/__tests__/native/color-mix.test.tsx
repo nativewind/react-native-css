@@ -131,7 +131,9 @@ test.each([
     ).stylesheet();
     // Metro's getNativeInjectionCode serializes the stylesheet as JSON. Omitted
     // percentage array slots become null, unlike registerCSS's direct injection.
-    StyleCollection.inject(JSON.parse(JSON.stringify(compiled)));
+    StyleCollection.inject(
+      JSON.parse(JSON.stringify(compiled)) as typeof compiled,
+    );
     render(<View testID={testID} className="test" />);
     expect(screen.getByTestId(testID).props.style?.color).toBe(expected);
   },
