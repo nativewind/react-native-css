@@ -3,7 +3,7 @@ import { StyleCollection } from "react-native-css/native-internal";
 
 import { applyShorthand } from "../../objects";
 import type { StyleFunctionResolver } from "../resolve";
-import { shorthandHandler } from "./_handler";
+import { clearedLonghands, shorthandHandler } from "./_handler";
 
 const name = ["animationName", "string", "none"] as const;
 const delay = ["animationDelay", "number", 0] as const;
@@ -33,6 +33,16 @@ const timingFunction = [
   ["linear", "ease", "ease-in", "ease-out", "ease-in-out", "object"],
   "ease",
 ] as const;
+const longhands = [
+  name,
+  delay,
+  direction,
+  duration,
+  fill,
+  iteration,
+  playState,
+  timingFunction,
+];
 
 export const animationShorthand = shorthandHandler(
   [
@@ -48,16 +58,7 @@ export const animationShorthand = shorthandHandler(
     [duration, delay, iteration, timingFunction, name],
     [name, duration, timingFunction, delay, iteration, fill],
   ],
-  [
-    name,
-    delay,
-    direction,
-    duration,
-    fill,
-    iteration,
-    playState,
-    timingFunction,
-  ],
+  longhands,
   "tuples",
 );
 
@@ -75,7 +76,10 @@ export const animation: StyleFunctionResolver = (
   );
 
   if (!Array.isArray(animationShortHandTuples)) {
-    return;
+    // css-cascade-5 §7.3.3: a shorthand reset to `unset` resets every longhand it sets
+    return resolveValue(value[2]) === null
+      ? clearedLonghands(longhands)
+      : undefined;
   }
 
   const nameTuple = animationShortHandTuples.find(

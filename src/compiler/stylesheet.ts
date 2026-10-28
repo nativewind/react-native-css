@@ -133,6 +133,10 @@ export class StylesheetBuilder {
       rule.d = partial.d;
     }
 
+    if (partial.v) {
+      rule.v = partial.v;
+    }
+
     return rule;
   }
 
