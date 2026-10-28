@@ -74,11 +74,15 @@ function assignEntries(
 export function assignPublishedColor(
   variables: Record<string, unknown>,
   color: StyleDescriptor | undefined,
-): void {
+): boolean {
   if (
-    color !== undefined &&
-    !(isStyleFunction(color) && isInheritedColorLookup(color))
+    color === undefined ||
+    (isStyleFunction(color) && isInheritedColorLookup(color))
   ) {
-    variables[INHERITED_COLOR_VARIABLE] = color;
+    return false;
   }
+
+  variables[INHERITED_COLOR_VARIABLE] = color;
+
+  return true;
 }

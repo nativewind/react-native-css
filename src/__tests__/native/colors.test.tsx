@@ -1,7 +1,11 @@
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import type { ReactElement } from "react";
+
+import { act, fireEvent, render, screen } from "@testing-library/react-native";
+import { VariableContextProvider } from "react-native-css";
 import { Text } from "react-native-css/components/Text";
 import { View } from "react-native-css/components/View";
 import { registerCSS, testID } from "react-native-css/jest";
+import { colorScheme } from "react-native-css/runtime";
 
 describe("hsl", () => {
   test("inline", () => {
@@ -719,6 +723,42 @@ describe("inherit", () => {
       color: "#f00",
     });
   });
+
+  test.each([
+    ["light-dark(red, blue)", undefined, "#00f"],
+    ["light-dark(var(--light), blue)", false, "blue"],
+  ] as const)(
+    "in dark mode a parent { color: %s } hands its child the dark colour",
+    (parentColor, inlineVariables, darkColor) => {
+      registerCSS(
+        `
+          .parent { --light: red; color: ${parentColor}; }
+          .child { color: inherit; }
+        `,
+        { inlineVariables },
+      );
+      act(() => {
+        colorScheme.set("dark");
+      });
+
+      render(
+        <View testID="parent" className="parent">
+          <View testID="child" className="child" />
+        </View>,
+      );
+
+      expect(screen.getByTestId("parent").props.style).toStrictEqual({
+        color: darkColor,
+      });
+      expect(screen.getByTestId("child").props.style).toStrictEqual({
+        color: darkColor,
+      });
+
+      act(() => {
+        colorScheme.set("light");
+      });
+    },
+  );
 });
 
 const colorsThatReadTheInheritedColor: [css: string, midColor: string][] = [
@@ -841,6 +881,36 @@ describe("currentcolor inside color reads the inherited colour, and nowhere else
       color: "rgba(127.5, 0, 127.5, 1)",
     });
   });
+
+  test("box-shadow reads the element's own colour where that colour mixes currentcolor, and follows the parent's", () => {
+    registerCSS(`
+      .red { color: #ff0000; }
+      .lime { color: #00ff00; }
+      .child { color: color-mix(in srgb, currentcolor, #0000ff); box-shadow: 0 0 1px currentcolor; }
+    `);
+
+    const tree = (className: string) => (
+      <View className={className}>
+        <View testID="child" className="child" />
+      </View>
+    );
+    const mixed = (color: string) => ({
+      color,
+      boxShadow: [
+        { offsetX: 0, offsetY: 0, blurRadius: 1, spreadDistance: 0, color },
+      ],
+    });
+
+    render(tree("red"));
+    expect(screen.getByTestId("child").props.style).toStrictEqual(
+      mixed("rgba(127.5, 0, 127.5, 1)"),
+    );
+
+    screen.rerender(tree("lime"));
+    expect(screen.getByTestId("child").props.style).toStrictEqual(
+      mixed("rgba(0, 127.5, 127.5, 1)"),
+    );
+  });
 });
 
 // css-color-4 §4.3: `currentcolor` as `color`'s value is the inherited colour, and css-cascade-5 §7.2 hands a child the parent's computed colour, so neither depends on where a variable carries the value
@@ -943,6 +1013,110 @@ describe("a color read through a kept variable", () => {
     screen.rerender(tree("blue"));
     expect(screen.getByTestId("child").props.style).toStrictEqual({
       color: "#00f",
+    });
+  });
+
+  test("a child of an element whose colour is invalid at computed-value time inherits what that element inherited", () => {
+    registerCSS(`
+      .parent { color: red; }
+      .mid { color: var(--missing); }
+      .child { color: inherit; }
+    `);
+
+    render(
+      <View className="parent">
+        <View className="mid">
+          <View testID="child" className="child" />
+        </View>
+      </View>,
+    );
+
+    expect(screen.getByTestId("child").props.style).toStrictEqual({
+      color: "#f00",
+    });
+  });
+});
+
+// css-cascade-5 §7.2: a child inherits its parent's computed colour, so mid's `currentcolor` is what mid inherited wherever the child sits
+describe("a child of mid { color: color-mix(in srgb, currentcolor, blue) }", () => {
+  test.each<[string, (child: ReactElement) => ReactElement]>([
+    [
+      "an element declaring another variable",
+      (child) => <View className="between">{child}</View>,
+    ],
+    [
+      "a variable provider",
+      (child) => (
+        <VariableContextProvider value={{ "--x": 1 }}>
+          {child}
+        </VariableContextProvider>
+      ),
+    ],
+  ])("below %s inherits mid's colour", (_between, handOn) => {
+    registerCSS(
+      `
+        .parent { color: red; }
+        .mid { color: color-mix(in srgb, currentcolor, blue); }
+        .between { --x: 1px; }
+        .child { color: inherit; }
+      `,
+      { inlineVariables: false },
+    );
+
+    render(
+      <View className="parent">
+        <View className="mid">
+          {handOn(<View testID="child" className="child" />)}
+        </View>
+      </View>,
+    );
+
+    expect(screen.getByTestId("child").props.style).toStrictEqual({
+      color: "rgba(127.5, 0, 127.5, 1)",
+    });
+  });
+
+  test("under a colour invalid at computed-value time mixes what that colour's element inherited", () => {
+    registerCSS(`
+      .grandparent { color: red; }
+      .parent { color: var(--missing); }
+      .mid { color: color-mix(in srgb, currentcolor, blue); }
+      .child { color: inherit; }
+    `);
+
+    render(
+      <View className="grandparent">
+        <View className="parent">
+          <View className="mid">
+            <View testID="child" className="child" />
+          </View>
+        </View>
+      </View>,
+    );
+
+    expect(screen.getByTestId("child").props.style).toStrictEqual({
+      color: "rgba(127.5, 0, 127.5, 1)",
+    });
+  });
+
+  test("with only :root's colour above mixes :root's", () => {
+    registerCSS(`
+      :root { color: red; }
+      .mid { color: color-mix(in srgb, currentcolor, blue); }
+      .child { color: inherit; }
+    `);
+
+    render(
+      <View testID="mid" className="mid">
+        <View testID="child" className="child" />
+      </View>,
+    );
+
+    expect(screen.getByTestId("mid").props.style).toStrictEqual({
+      color: "rgba(127.5, 0, 127.5, 1)",
+    });
+    expect(screen.getByTestId("child").props.style).toStrictEqual({
+      color: "rgba(127.5, 0, 127.5, 1)",
     });
   });
 });

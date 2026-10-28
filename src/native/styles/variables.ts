@@ -129,10 +129,19 @@ export function varResolver(
     // Guards retain the ancestor's raw descriptor, matching the context value
     if (handedDown !== undefined) {
       renderGuards?.push(["v", name, handedDown]);
-      const inherited =
-        name === INHERITED_COLOR_VARIABLE
-          ? readPublishedColor(handedDown, followPublisherLink())
-          : readDeclaration(handedDown);
+
+      if (name === INHERITED_COLOR_VARIABLE) {
+        // A parent that re-renders hands down a new link
+        renderGuards?.push([
+          "v",
+          PUBLISHER_INHERITED_VARIABLES,
+          variables[PUBLISHER_INHERITED_VARIABLES],
+        ]);
+
+        return readInheritedColorFrom(variables);
+      }
+
+      const inherited = readDeclaration(handedDown);
 
       if (inherited.kind === "value") {
         return inherited.value;
@@ -157,17 +166,6 @@ export function varResolver(
     return root.kind === "value" ? memoise(root.value) : substituteFallback();
   };
 
-  // What the parent inherited, which its published colour's `currentcolor` reads; a parent that re-renders hands down a new link
-  const followPublisherLink = (): VariableContextValue | undefined => {
-    const link = variables[PUBLISHER_INHERITED_VARIABLES];
-
-    if (link !== undefined) {
-      renderGuards?.push(["v", PUBLISHER_INHERITED_VARIABLES, link]);
-    }
-
-    return link;
-  };
-
   // A colour an element publishes resolves its own `currentcolor` against what that element inherited, the scope above
   const readPublishedColor = (
     descriptor: StyleDescriptor | undefined,
@@ -183,30 +181,19 @@ export function varResolver(
     }
   };
 
-  // css-color-4 §4.3: `currentcolor` inside a published colour is the colour its publisher inherited, not the published one again
-  const readInheritedColorFrom = (scope: VariableContextValue): unknown => {
-    const handedDown = readOwnEntry(scope, name);
+  // css-color-4 §4.3: a published colour's `currentcolor` is the colour its publisher inherited, which css-cascade-5 §7.3.3 also makes an invalid one
+  const readInheritedColorFrom = (
+    scope: VariableContextValue | undefined,
+  ): unknown => {
+    const published = readOwnEntry(scope, name);
 
-    if (handedDown !== undefined) {
-      // A guard compares the element's own inherited variables, which reach a scope further up only through the link guarded there
-      const inheritsHere = scope === variables;
+    if (scope !== undefined && published !== undefined) {
+      const publisherVariables = scope[PUBLISHER_INHERITED_VARIABLES];
+      const color = readPublishedColor(published, publisherVariables);
 
-      if (inheritsHere) {
-        renderGuards?.push(["v", name, handedDown]);
-      }
-
-      const inherited = readPublishedColor(
-        handedDown,
-        inheritsHere
-          ? followPublisherLink()
-          : scope[PUBLISHER_INHERITED_VARIABLES],
-      );
-
-      if (inherited.kind === "value") {
-        return inherited.value;
-      } else if (inherited.kind === "guaranteed-invalid") {
-        return substituteFallback();
-      }
+      return color.kind === "value"
+        ? color.value
+        : readInheritedColorFrom(publisherVariables);
     }
 
     const root = readPublishedColor(get(rootVariables(name)), undefined);

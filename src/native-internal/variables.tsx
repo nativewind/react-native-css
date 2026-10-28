@@ -7,7 +7,11 @@ import {
 
 import type { StyleDescriptor } from "react-native-css/compiler";
 
-import { VAR_SYMBOL, type VariableContextValue } from "../native/reactivity";
+import {
+  subtreeVariables,
+  VAR_SYMBOL,
+  type VariableContextValue,
+} from "../native/reactivity";
 
 globalThis.__react_native_css_variable_context ??=
   createContext<VariableContextValue>({
@@ -22,13 +26,16 @@ export function VariableContextProvider(
   const inheritedVariables = useContext(VariableContext);
 
   const value: VariableContextValue = useMemo(
-    () => ({
-      ...inheritedVariables,
-      ...Object.fromEntries(
-        Object.entries(props.value).map(([k, v]) => [k.replace(/^--/, ""), v]),
+    () =>
+      subtreeVariables(
+        inheritedVariables,
+        Object.fromEntries(
+          Object.entries(props.value).map(([k, v]) => [
+            k.replace(/^--/, ""),
+            v,
+          ]),
+        ),
       ),
-      [VAR_SYMBOL]: true,
-    }),
     [inheritedVariables, props.value],
   );
 
