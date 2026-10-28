@@ -20,6 +20,8 @@ import {
   containerLayoutFamily,
   focusFamily,
   hoverFamily,
+  PUBLISHER_INHERITED_VARIABLES,
+  subtreeVariables,
   VAR_SYMBOL,
   weakFamily,
   type ContainerContextValue,
@@ -141,7 +143,7 @@ export function updateRules(
 
       if (rule.v) {
         if (variables === undefined || variables === inheritedVariables) {
-          variables = { ...inheritedVariables };
+          variables = subtreeVariables(inheritedVariables, inheritedVariables);
         }
 
         publishedColor =
@@ -237,13 +239,18 @@ export function updateRules(
     rules.add(inheritedVariables);
 
     if (inlineVariables.size) {
-      variables = Object.assign(
+      const publisherLink = variables?.[PUBLISHER_INHERITED_VARIABLES];
+      const merged: VariableContextValue = Object.assign(
         {},
         inheritedVariables,
         variables,
         ...Array.from(inlineVariables),
         { [VAR_SYMBOL]: true },
       );
+      variables =
+        publisherLink === undefined
+          ? merged
+          : subtreeVariables(merged, publisherLink);
     }
 
     for (const variable of inlineVariables) {

@@ -2,13 +2,14 @@
 import type { ComponentState } from "../react/useNativeCss";
 import type {
   ContainerContextValue,
+  PUBLISHER_INHERITED_VARIABLES,
   VariableContextValue,
 } from "../reactivity";
 
 export type RenderGuard =
   | ["a", string, any]
   | ["d", string, any]
-  | ["v", string, any]
+  | ["v", string | typeof PUBLISHER_INHERITED_VARIABLES, any]
   | ["c", string, WeakKey];
 
 export function testGuards(

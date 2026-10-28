@@ -60,6 +60,8 @@ export type ResolveValueOptions = {
   variableCycles?: Set<string>;
   /** Resolving the element's own `color`, where css-color-3 §4.4 makes `currentcolor` the inherited colour */
   computingColor?: boolean;
+  /** Resolving a published colour, whose own `currentcolor` reads the colour its publisher inherited, from these variables */
+  inheritedColorScope?: VariableContextValue;
   /** Where a var() that substitutes nothing is recorded, since a list drops the entry it leaves */
   substitution?: Substitution;
   /** Pass down to perform recursive calculations and avoid circular dependencies */

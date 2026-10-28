@@ -43,7 +43,6 @@ import {
   INHERITED_COLOR_VARIABLE,
   inheritedColorLookup,
   inheritedValue,
-  isInheritedColorLookup,
   isStyleFunction,
   readAngle,
   readNonNegativeAmount,
@@ -1268,28 +1267,12 @@ function addCSSWideKeyword(
   return true;
 }
 
-// A descendant resolves a published colour lazily, so one that reads the inherited colour publishes the bare lookup, which the runtime answers with what the element inherited
+// The runtime resolves a published colour's own `currentcolor` against what the element inherited, so the colour goes down as written
 function publishInheritedColor(
   value: StyleDescriptor,
   builder: StylesheetBuilder,
 ) {
-  builder.addDescriptor(
-    `--${INHERITED_COLOR_VARIABLE}`,
-    readsInheritedColor(value) ? inheritedColorLookup() : value,
-  );
-}
-
-// A fallback, a function argument or a light-dark() arm can hold the read, so the whole tree is walked
-function readsInheritedColor(value: StyleDescriptor): boolean {
-  if (!Array.isArray(value)) {
-    return false;
-  }
-
-  if (isStyleFunction(value)) {
-    return isInheritedColorLookup(value) || readsInheritedColor(value[2]);
-  }
-
-  return value.some((entry) => readsInheritedColor(entry));
+  builder.addDescriptor(`--${INHERITED_COLOR_VARIABLE}`, value);
 }
 
 export function parseCustomDeclaration(
