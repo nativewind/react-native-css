@@ -37,6 +37,7 @@ import type {
 } from "lightningcss";
 
 import { isStyleFunction } from "../utilities";
+import type { DeepReadonly } from "../utilities/deep-readonly.types";
 import { isMappingProperty } from "./atRules";
 import type {
   StyleDescriptor,
@@ -1329,7 +1330,7 @@ export function parseUnparsed(
           } else if (value === "false") {
             return false;
           } else if (value === "infinity") {
-            return Number.MAX_SAFE_INTEGER;
+            return safeNumber(Number.POSITIVE_INFINITY);
           } else {
             return value;
           }
@@ -1415,46 +1416,35 @@ export function parseLengthDeclaration(
 }
 
 export function parseLength(
-  length:
+  length: DeepReadonly<
     | number
     | Length
     | DimensionPercentageFor_LengthValue
     | NumberOrPercentage
-    | LengthValue,
+    | LengthValue
+  >,
   builder: StylesheetBuilder,
 ): StyleDescriptor {
   const { inlineRem = 14 } = builder.getOptions();
 
   if (typeof length === "number") {
-    return round(length);
+    return round(safeNumber(length));
   }
 
   if ("unit" in length) {
     switch (length.unit) {
-      case "px": {
-        if (length.value === Infinity) {
-          return Number.MAX_SAFE_INTEGER;
-        } else if (length.value === -Infinity) {
-          return Number.MIN_SAFE_INTEGER;
-        } else {
-          // Normalize large values to safe integers, e.g. `calc(infinity * 1px)`
-          const value = Math.max(
-            Math.min(length.value, Number.MAX_SAFE_INTEGER),
-            Number.MIN_SAFE_INTEGER,
-          );
-          return round(value);
-        }
-      }
+      case "px":
+        return round(safeNumber(length.value));
       case "rem":
         if (typeof inlineRem === "number") {
-          return length.value * inlineRem;
+          return safeNumber(length.value * inlineRem);
         } else {
-          return [{}, "rem", round(length.value)];
+          return [{}, "rem", round(safeNumber(length.value))];
         }
       case "vw":
       case "vh":
       case "em":
-        return [{}, length.unit, round(length.value), 1];
+        return [{}, length.unit, round(safeNumber(length.value)), 1];
       case "in":
       case "cm":
       case "mm":
@@ -2653,6 +2643,16 @@ export function parseSVGPaint(
 
 export function round(number: number) {
   return Math.round((number + Number.EPSILON) * 10000) / 10000;
+}
+
+// JSON writes Infinity and NaN as null, so a number the compiler emits stays within the safe integers, and NaN, which a top-level calculation makes 0, is 0 (css-values-4 §10.9.1)
+export function safeNumber(value: number): number {
+  return Number.isNaN(value)
+    ? 0
+    : Math.min(
+        Math.max(value, Number.MIN_SAFE_INTEGER),
+        Number.MAX_SAFE_INTEGER,
+      );
 }
 
 export function parseDimensionPercentageFor_LengthValue(
