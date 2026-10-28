@@ -753,29 +753,28 @@ describe("a color that reads the inherited color", () => {
     },
   );
 
-  test.each(
-    colorsThatReadTheInheritedColor.filter(
-      ([, midColor]) => midColor === "#f00",
-    ),
-  )("a child of mid { color: %s } inherits the same color", (midColorValue) => {
-    registerCSS(`
-      .parent { color: red; }
-      .mid { color: ${midColorValue}; }
-      .child { color: inherit; }
-    `);
+  test.each(colorsThatReadTheInheritedColor)(
+    "a child of mid { color: %s } inherits mid's colour",
+    (midColorValue, expectedMidColor) => {
+      registerCSS(`
+        .parent { color: red; }
+        .mid { color: ${midColorValue}; }
+        .child { color: inherit; }
+      `);
 
-    render(
-      <View className="parent">
-        <View className="mid">
-          <View testID="child" className="child" />
-        </View>
-      </View>,
-    );
+      render(
+        <View className="parent">
+          <View className="mid">
+            <View testID="child" className="child" />
+          </View>
+        </View>,
+      );
 
-    expect(screen.getByTestId("child").props.style).toStrictEqual({
-      color: "#f00",
-    });
-  });
+      expect(screen.getByTestId("child").props.style).toStrictEqual({
+        color: expectedMidColor,
+      });
+    },
+  );
 });
 
 // Chromium 153, Firefox 155 and WebKit 26.6 agree on each case: currentcolor is the inherited colour only inside `color` itself
@@ -840,6 +839,110 @@ describe("currentcolor inside color reads the inherited colour, and nowhere else
 
     expect(screen.getByTestId("child").props.style).toStrictEqual({
       color: "rgba(127.5, 0, 127.5, 1)",
+    });
+  });
+});
+
+// css-color-4 §4.3: `currentcolor` as `color`'s value is the inherited colour, and css-cascade-5 §7.2 hands a child the parent's computed colour, so neither depends on where a variable carries the value
+describe("a color read through a kept variable", () => {
+  test.each([
+    ["currentcolor", "#f00"],
+    ["light-dark(currentcolor, blue)", "#f00"],
+  ])(
+    "mid { --c: %s; color: var(--c) } resolves against its parent",
+    (value, expected) => {
+      registerCSS(
+        `
+        .parent { color: red; }
+        .mid { --c: ${value}; color: var(--c); }
+      `,
+        { inlineVariables: false },
+      );
+
+      render(
+        <View className="parent">
+          <View testID="mid" className="mid" />
+        </View>,
+      );
+
+      expect(screen.getByTestId("mid").props.style).toStrictEqual({
+        color: expected,
+      });
+    },
+  );
+
+  test("a child inherits the colour currentcolor read through a variable gave its parent", () => {
+    registerCSS(
+      `
+        :root { --c: currentcolor; }
+        .parent { color: red; }
+        .mid { color: var(--c); }
+        .child { color: inherit; }
+      `,
+      { inlineVariables: false },
+    );
+
+    render(
+      <View className="parent">
+        <View className="mid">
+          <View testID="child" className="child" />
+        </View>
+      </View>,
+    );
+
+    expect(screen.getByTestId("child").props.style).toStrictEqual({
+      color: "#f00",
+    });
+  });
+
+  test("a child inherits its parent's computed colour, not the parent's variable read again in the child", () => {
+    registerCSS(
+      `
+        .mid { --x: #123456; color: var(--x); }
+        .child { --x: #654321; color: inherit; }
+      `,
+      { inlineVariables: false },
+    );
+
+    render(
+      <View className="mid">
+        <View testID="child" className="child" />
+      </View>,
+    );
+
+    expect(screen.getByTestId("child").props.style).toStrictEqual({
+      color: "#123456",
+    });
+  });
+
+  test("a child follows the colour its parent's currentcolor reads when the grandparent's changes", () => {
+    registerCSS(
+      `
+        :root { --c: currentcolor; }
+        .red { color: red; }
+        .blue { color: blue; }
+        .mid { color: var(--c); }
+        .child { color: inherit; }
+      `,
+      { inlineVariables: false },
+    );
+
+    const tree = (className: string) => (
+      <View className={className}>
+        <View className="mid">
+          <View testID="child" className="child" />
+        </View>
+      </View>
+    );
+
+    render(tree("red"));
+    expect(screen.getByTestId("child").props.style).toStrictEqual({
+      color: "#f00",
+    });
+
+    screen.rerender(tree("blue"));
+    expect(screen.getByTestId("child").props.style).toStrictEqual({
+      color: "#00f",
     });
   });
 });

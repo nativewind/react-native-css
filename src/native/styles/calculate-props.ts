@@ -17,6 +17,7 @@ import {
 import type { RenderGuard } from "../conditions/guards";
 import { applyValue, getDeepPath } from "../objects";
 import {
+  assignInheritedVariables,
   VAR_SYMBOL,
   type Getter,
   type VariableContextValue,
@@ -52,7 +53,7 @@ export function calculateProps(
       if (typeof rule[VAR_SYMBOL] === "string") {
         Object.assign(inlineVariables, rule);
       } else {
-        Object.assign(inheritedVariables, rule);
+        assignInheritedVariables(inheritedVariables, rule);
       }
       continue;
     }

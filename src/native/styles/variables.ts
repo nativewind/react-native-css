@@ -4,12 +4,18 @@ import {
   universalVariables,
 } from "react-native-css/native-internal";
 import {
+  INHERITED_COLOR_VARIABLE,
   isGuaranteedInvalidValue,
   isInheritedValue,
   isStyleDescriptorArray,
 } from "react-native-css/utilities";
 
-import { VAR_SYMBOL, type Getter } from "../reactivity";
+import {
+  PUBLISHER_INHERITED_VARIABLES,
+  VAR_SYMBOL,
+  type Getter,
+  type VariableContextValue,
+} from "../reactivity";
 import type {
   ResolveValueOptions,
   SimpleResolveValue,
@@ -80,21 +86,6 @@ export function varResolver(
     return resolve(fallback);
   };
 
-  if (variableCycles.has(name)) return substituteFallback();
-
-  // Share the active resolution path with recursive calls. Mark only the
-  // actual cycle, so a dependent variable can still use its own fallback.
-  if (variableHistory.has(name)) {
-    let inCycle = false;
-    for (const dependency of variableHistory) {
-      if (dependency === name) inCycle = true;
-      if (inCycle) variableCycles.add(dependency);
-    }
-    return;
-  }
-
-  variableHistory.add(name);
-
   const memoise = (value: unknown) => {
     if (value !== undefined) {
       options.inlineVariables ??= { [VAR_SYMBOL]: "inline" };
@@ -138,7 +129,10 @@ export function varResolver(
     // Guards retain the ancestor's raw descriptor, matching the context value
     if (handedDown !== undefined) {
       renderGuards?.push(["v", name, handedDown]);
-      const inherited = readDeclaration(handedDown);
+      const inherited =
+        name === INHERITED_COLOR_VARIABLE
+          ? readPublishedColor(handedDown, followPublisherLink())
+          : readDeclaration(handedDown);
 
       if (inherited.kind === "value") {
         return inherited.value;
@@ -163,8 +157,88 @@ export function varResolver(
     return root.kind === "value" ? memoise(root.value) : substituteFallback();
   };
 
+  // What the parent inherited, which its published colour's `currentcolor` reads; a parent that re-renders hands down a new link
+  const followPublisherLink = (): VariableContextValue | undefined => {
+    const link = variables[PUBLISHER_INHERITED_VARIABLES];
+
+    if (link !== undefined) {
+      renderGuards?.push(["v", PUBLISHER_INHERITED_VARIABLES, link]);
+    }
+
+    return link;
+  };
+
+  // A colour an element publishes resolves its own `currentcolor` against what that element inherited, the scope above
+  const readPublishedColor = (
+    descriptor: StyleDescriptor | undefined,
+    scopeAbove: VariableContextValue | undefined,
+  ): Declaration => {
+    const outer = options.inheritedColorScope;
+    options.inheritedColorScope = scopeAbove;
+
+    try {
+      return readDeclaration(descriptor);
+    } finally {
+      options.inheritedColorScope = outer;
+    }
+  };
+
+  // css-color-4 §4.3: `currentcolor` inside a published colour is the colour its publisher inherited, not the published one again
+  const readInheritedColorFrom = (scope: VariableContextValue): unknown => {
+    const handedDown = readOwnEntry(scope, name);
+
+    if (handedDown !== undefined) {
+      // A guard compares the element's own inherited variables, which reach a scope further up only through the link guarded there
+      const inheritsHere = scope === variables;
+
+      if (inheritsHere) {
+        renderGuards?.push(["v", name, handedDown]);
+      }
+
+      const inherited = readPublishedColor(
+        handedDown,
+        inheritsHere
+          ? followPublisherLink()
+          : scope[PUBLISHER_INHERITED_VARIABLES],
+      );
+
+      if (inherited.kind === "value") {
+        return inherited.value;
+      } else if (inherited.kind === "guaranteed-invalid") {
+        return substituteFallback();
+      }
+    }
+
+    const root = readPublishedColor(get(rootVariables(name)), undefined);
+
+    return root.kind === "value" ? root.value : substituteFallback();
+  };
+
+  const isInheritedColor = name === INHERITED_COLOR_VARIABLE;
+
+  if (isInheritedColor && options.inheritedColorScope !== undefined) {
+    return readInheritedColorFrom(options.inheritedColorScope);
+  }
+
+  if (variableCycles.has(name)) return substituteFallback();
+
+  // Share the active resolution path with recursive calls. Mark only the
+  // actual cycle, so a dependent variable can still use its own fallback.
+  if (variableHistory.has(name)) {
+    let inCycle = false;
+    for (const dependency of variableHistory) {
+      if (dependency === name) inCycle = true;
+      if (inCycle) variableCycles.add(dependency);
+    }
+    return;
+  }
+
+  variableHistory.add(name);
+
   try {
-    const own = readDeclaration(readOwnEntry(inlineVariables, name));
+    const own = isInheritedColor
+      ? readPublishedColor(readOwnEntry(inlineVariables, name), variables)
+      : readDeclaration(readOwnEntry(inlineVariables, name));
 
     switch (own.kind) {
       case "value":

@@ -939,8 +939,8 @@ function publishedInheritedColors(css: string): StyleDescriptor[] {
   return publishedVariable(css, "__rn-css-color");
 }
 
-describe("the inherited-color variable is never a lookup into itself", () => {
-  // Each reads the inherited colour somewhere in its descriptor, so it publishes the bare lookup, which the runtime answers with what the element inherited
+describe("a colour that reads the inherited colour goes down as declared", () => {
+  // The runtime resolves a published colour's own currentcolor against what its element inherited, so the compiler rewrites none of these
   const colorsThatReadTheInheritedColor = [
     "inherit",
     "unset",
@@ -954,13 +954,20 @@ describe("the inherited-color variable is never a lookup into itself", () => {
   ];
 
   test.each(colorsThatReadTheInheritedColor)(
-    "color: %s publishes the bare lookup",
+    "color: %s publishes the value it declares",
     (value) => {
-      const published = publishedInheritedColors(`.child { color: ${value}; }`);
-
-      expect(new Set(published.map((entry) => JSON.stringify(entry)))).toEqual(
-        new Set([JSON.stringify([{}, "var", "__rn-css-color"])]),
+      const css = `.child { color: ${value}; }`;
+      const declared = declarationsFor(css).flatMap((declaration) =>
+        Array.isArray(declaration) && declaration[1] === "color"
+          ? [declaration[0]]
+          : [],
       );
+
+      const asSet = (descriptors: StyleDescriptor[]) =>
+        new Set(descriptors.map((descriptor) => JSON.stringify(descriptor)));
+
+      expect(declared).not.toHaveLength(0);
+      expect(asSet(publishedInheritedColors(css))).toEqual(asSet(declared));
     },
   );
 
