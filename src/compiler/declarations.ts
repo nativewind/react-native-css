@@ -1271,8 +1271,24 @@ function addCSSWideKeyword(
 function publishInheritedColor(
   value: StyleDescriptor,
   builder: StylesheetBuilder,
+  rule?: StyleRule,
 ) {
-  builder.addDescriptor(`--${INHERITED_COLOR_VARIABLE}`, value);
+  builder.addDescriptor(`--${INHERITED_COLOR_VARIABLE}`, value, false, rule);
+}
+
+// light-dark()'s dark value applies in a rule of its own, which publishes it as the inherited colour where it is `color`'s
+function addDarkSchemeValue(
+  dark: StyleDescriptor,
+  extraRule: StyleRule,
+  builder: StylesheetBuilder,
+) {
+  builder.addUnnamedDescriptor(dark, false, extraRule);
+
+  if (builder.descriptorProperty === "color") {
+    publishInheritedColor(dark, builder, extraRule);
+  }
+
+  builder.addExtraRule(extraRule);
 }
 
 export function parseCustomDeclaration(
@@ -1940,12 +1956,11 @@ export function parseColor(cssColor: CssColor, builder: StylesheetBuilder) {
         m: [["=", "prefers-color-scheme", "dark"]],
       };
 
-      builder.addUnnamedDescriptor(
+      addDarkSchemeValue(
         parseColor(cssColor.dark, builder),
-        false,
         extraRule,
+        builder,
       );
-      builder.addExtraRule(extraRule);
       return parseColor(cssColor.light, builder);
     }
     case "rgb": {
@@ -3205,12 +3220,11 @@ export function parseUnresolvedColor(
       const extraRule = builder.extendRule({
         m: [["=", "prefers-color-scheme", "dark"]],
       });
-      builder.addUnnamedDescriptor(
+      addDarkSchemeValue(
         reduceParseUnparsed(color.dark, builder, property, allowAuto),
-        false,
         extraRule,
+        builder,
       );
-      builder.addExtraRule(extraRule);
       return reduceParseUnparsed(color.light, builder, property, allowAuto);
     }
     default:

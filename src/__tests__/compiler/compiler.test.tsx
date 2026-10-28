@@ -2,6 +2,7 @@ import {
   compile,
   type StyleDeclaration,
   type StyleDescriptor,
+  type StyleRule,
 } from "react-native-css/compiler";
 
 test("hello world", () => {
@@ -919,20 +920,40 @@ describe("CSS-wide keywords", () => {
   );
 });
 
+function rulesFor(css: string): StyleRule[] {
+  return (compile(css).stylesheet().s ?? []).flatMap(([, ruleSet]) => ruleSet);
+}
+
 function declarationsFor(css: string): StyleDeclaration[] {
-  return (compile(css).stylesheet().s ?? []).flatMap(([, ruleSet]) =>
-    ruleSet.flatMap((rule) => rule.d ?? []),
-  );
+  return rulesFor(css).flatMap((rule) => rule.d ?? []);
+}
+
+function variableIn(
+  rule: Readonly<StyleRule>,
+  name: string,
+): StyleDescriptor[] {
+  return (rule.v ?? [])
+    .filter(([varName]) => varName === name)
+    .map(([, value]) => value);
 }
 
 function publishedVariable(css: string, name: string): StyleDescriptor[] {
-  return (compile(css).stylesheet().s ?? []).flatMap(([, ruleSet]) =>
-    ruleSet.flatMap((rule) =>
-      (rule.v ?? [])
-        .filter(([varName]) => varName === name)
-        .map(([, value]) => value),
-    ),
-  );
+  return rulesFor(css).flatMap((rule) => variableIn(rule, name));
+}
+
+// What one rule declares for `color`, as a static style or as a descriptor the runtime resolves
+function declaredColor(rule: Readonly<StyleRule>): StyleDescriptor | undefined {
+  for (const declaration of rule.d ?? []) {
+    if (!Array.isArray(declaration)) {
+      if ("color" in declaration) {
+        return declaration.color;
+      }
+    } else if (declaration[1] === "color") {
+      return declaration[0];
+    }
+  }
+
+  return undefined;
 }
 
 function publishedInheritedColors(css: string): StyleDescriptor[] {
@@ -956,18 +977,23 @@ describe("a colour that reads the inherited colour goes down as declared", () =>
   test.each(colorsThatReadTheInheritedColor)(
     "color: %s publishes the value it declares",
     (value) => {
-      const css = `.child { color: ${value}; }`;
-      const declared = declarationsFor(css).flatMap((declaration) =>
-        Array.isArray(declaration) && declaration[1] === "color"
-          ? [declaration[0]]
-          : [],
+      const declaredAndPublished = rulesFor(
+        `.child { color: ${value}; }`,
+      ).flatMap((rule) => {
+        const declared = declaredColor(rule);
+
+        return declared === undefined
+          ? []
+          : [{ declared, published: variableIn(rule, "__rn-css-color") }];
+      });
+
+      expect(declaredAndPublished).not.toHaveLength(0);
+      expect(declaredAndPublished).toEqual(
+        declaredAndPublished.map(({ declared }) => ({
+          declared,
+          published: [declared],
+        })),
       );
-
-      const asSet = (descriptors: StyleDescriptor[]) =>
-        new Set(descriptors.map((descriptor) => JSON.stringify(descriptor)));
-
-      expect(declared).not.toHaveLength(0);
-      expect(asSet(publishedInheritedColors(css))).toEqual(asSet(declared));
     },
   );
 
@@ -1004,6 +1030,18 @@ describe("a colour that reads the inherited colour goes down as declared", () =>
       );
     },
   );
+
+  test("color: light-dark() publishes each scheme's colour in the rule that applies it", () => {
+    expect(
+      rulesFor(`.child { color: light-dark(red, blue); }`).map((rule) => [
+        rule.m,
+        variableIn(rule, "__rn-css-color"),
+      ]),
+    ).toStrictEqual([
+      [undefined, ["#f00"]],
+      [[["=", "prefers-color-scheme", "dark"]], ["#00f"]],
+    ]);
+  });
 
   test("color: light-dark() emits no rule twice", () => {
     // Parsing light-dark() adds its dark rule as a side effect, so the colour is parsed once for the declaration and its publish

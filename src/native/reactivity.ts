@@ -194,7 +194,7 @@ export function weakFamily<Key extends WeakKey, Args = undefined, Result = Key>(
 /********************************* Variables **********************************/
 
 export const VAR_SYMBOL = Symbol.for("react-native-css.var");
-/** The variables an element inherited, kept on those it hands its subtree, where its published colour's `currentcolor` reads */
+/** The variables the element that published a scope's colour inherited, where that colour's `currentcolor` reads */
 export const PUBLISHER_INHERITED_VARIABLES = Symbol.for(
   "react-native-css.publisher-inherited-variables",
 );
@@ -203,32 +203,37 @@ export type VariableContextValue = Record<string, StyleDescriptor> & {
   readonly [PUBLISHER_INHERITED_VARIABLES]?: VariableContextValue;
 };
 
-/** A copy of the variables an element hands its subtree, the variables it inherited kept where no spread or comparison reads them */
+/** A copy of variables with others assigned over them, keeping the publisher link of the colour they hold */
 export function subtreeVariables(
-  variables: VariableContextValue,
-  inheritedVariables: VariableContextValue,
+  variables: Readonly<VariableContextValue>,
+  ...assigned: readonly Readonly<Record<string, unknown>>[]
 ): VariableContextValue {
-  return Object.defineProperty(
-    { ...variables },
-    PUBLISHER_INHERITED_VARIABLES,
-    { value: inheritedVariables, configurable: true },
+  return linkPublisher(
+    Object.assign({}, variables, ...assigned, { [VAR_SYMBOL]: true }),
+    variables[PUBLISHER_INHERITED_VARIABLES],
   );
 }
 
-/** Assigns inherited variables onto another object with their publisher link, which `Object.assign` leaves behind */
+/** Assigns inherited variables onto another object with the publisher link of their colour */
 export function assignInheritedVariables(
   target: VariableContextValue,
-  source: VariableContextValue,
+  source: Readonly<VariableContextValue>,
 ): void {
-  Object.assign(target, source);
-  const link = source[PUBLISHER_INHERITED_VARIABLES];
+  linkPublisher(
+    Object.assign(target, source),
+    source[PUBLISHER_INHERITED_VARIABLES],
+  );
+}
 
-  if (link !== undefined) {
-    Object.defineProperty(target, PUBLISHER_INHERITED_VARIABLES, {
-      value: link,
-      configurable: true,
-    });
-  }
+/** Links variables to those the publisher of their colour inherited, where no spread or comparison reads the link */
+export function linkPublisher(
+  variables: VariableContextValue,
+  publisherVariables: VariableContextValue | undefined,
+): VariableContextValue {
+  return Object.defineProperty(variables, PUBLISHER_INHERITED_VARIABLES, {
+    value: publisherVariables,
+    configurable: true,
+  });
 }
 
 /** Pseudo Classes ************************************************************/
