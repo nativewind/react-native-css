@@ -1,3 +1,4 @@
+import { resetsToNone } from "../resets-to-none";
 import type { StyleFunctionResolver } from "../resolve";
 
 /**
@@ -11,9 +12,11 @@ export const transform: StyleFunctionResolver = (
   const transforms = resolveValue(transformDescriptor[2]);
 
   if (Array.isArray(transforms)) {
-    return transforms.filter(
-      (transform) => transform !== undefined && transform !== "initial",
-    ) as unknown;
+    // A var() holding several transforms substitutes each of them into the list
+    const entries: unknown[] = transforms.flat();
+
+    // A keyword among other transforms leaves the list invalid; one a var() substitutes makes it invalid at computed-value time, which resolves to `unset`
+    return entries.some(resetsToNone) ? undefined : entries;
   } else if (transforms) {
     // If it's a single transform, wrap it in an array
     return [transforms];

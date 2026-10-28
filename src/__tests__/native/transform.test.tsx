@@ -113,11 +113,12 @@ describe("transform", () => {
     });
   });
 
+  // Chromium 153, Firefox 155 and WebKit 26.6: Tailwind's empty fallbacks let an undefined variable substitute nothing
   test("rotate-x-45", () => {
     registerCSS(`
 .rotate-45 {
   --tw-rotate-x: rotateX(45deg);
-  transform: var(--tw-rotate-x) var(--tw-rotate-y) var(--tw-rotate-z) var(--tw-skew-x) var(--tw-skew-y);
+  transform: var(--tw-rotate-x,) var(--tw-rotate-y,) var(--tw-rotate-z,) var(--tw-skew-x,) var(--tw-skew-y,);
 }`);
 
     const component = render(
@@ -153,4 +154,113 @@ describe("transform", () => {
       transform: [{ translateX: "10%" }, { scaleX: 2 }],
     });
   });
+});
+
+describe("a transform's target survives a later nested declaration", () => {
+  test("translate before a box-shadow lands in transform", () => {
+    registerCSS(
+      `.my-class { translate: 10px 20px; box-shadow: 1px 1px blue; }`,
+    );
+
+    const component = render(
+      <View testID={testID} className="my-class" />,
+    ).getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({
+      transform: [{ translateX: 10 }, { translateY: 20 }],
+      boxShadow: [
+        {
+          offsetX: 1,
+          offsetY: 1,
+          blurRadius: 0,
+          spreadDistance: 0,
+          color: "#00f",
+        },
+      ],
+    });
+  });
+
+  test("declaration order does not matter", () => {
+    registerCSS(
+      `.my-class { box-shadow: 1px 1px blue; translate: 10px 20px; }`,
+    );
+
+    const component = render(
+      <View testID={testID} className="my-class" />,
+    ).getByTestId(testID);
+
+    expect(component.props.style).toStrictEqual({
+      transform: [{ translateX: 10 }, { translateY: 20 }],
+      boxShadow: [
+        {
+          offsetX: 1,
+          offsetY: 1,
+          blurRadius: 0,
+          spreadDistance: 0,
+          color: "#00f",
+        },
+      ],
+    });
+  });
+});
+
+// Chromium 153, Firefox 155 and WebKit 26.6 leave no transform for each
+test.each([
+  ["transform: var(--t)", "none"],
+  ["transform: translateX(10px) var(--t)", "none"],
+])("%s with --t: %s leaves no transform", (declaration, keyword) => {
+  registerCSS(
+    `.my-class { --t: rotate(1deg); ${declaration}; } .keyword { --t: ${keyword}; }`,
+  );
+
+  const component = render(
+    <View testID={testID} className="my-class keyword" />,
+  ).getByTestId(testID);
+
+  expect(component.props.style).toStrictEqual({ transform: undefined });
+});
+
+// Chromium 153, Firefox 155 and WebKit 26.6 ignore a written transform list with a keyword among its functions, so the earlier transform stands
+test("transform: none rotate(10deg) as written is ignored", () => {
+  registerCSS(
+    `.earlier { transform: translateX(10px); } .written { transform: none rotate(10deg); }`,
+  );
+
+  const component = render(
+    <View testID={testID} className="earlier written" />,
+  ).getByTestId(testID);
+
+  expect(component.props.style).toStrictEqual({
+    transform: [{ translateX: 10 }],
+  });
+});
+
+// Chromium 153, Firefox 155 and WebKit 26.6 substitute each transform a variable holds, in place
+test("a var() holding several transforms substitutes each of them", () => {
+  registerCSS(
+    `.my-class { --several: rotate(45deg) scale(2); transform: translateX(1px) var(--several); } .other { --several: none; }`,
+  );
+
+  const component = render(
+    <View testID={testID} className="my-class" />,
+  ).getByTestId(testID);
+
+  expect(component.props.style).toStrictEqual({
+    transform: [{ translateX: 1 }, { rotate: "45deg" }, { scale: 2 }],
+  });
+});
+
+// Chromium 153, Firefox 155 and WebKit 26.6 compute a gradian or a turn as the angle it is; React Native takes degrees or radians alone
+test.each([
+  ["transform: rotate(100grad)", { transform: [{ rotate: "90deg" }] }],
+  ["rotate: 0.25turn", { transform: [{ rotateZ: "90deg" }] }],
+  ["transform: skewX(50grad)", { transform: [{ skewX: "45deg" }] }],
+])("%s reaches React Native in degrees", (declaration, style) => {
+  registerCSS(`.my-class { ${declaration}; }`);
+
+  const component = render(
+    <View testID={testID} className="my-class" />,
+  ).getByTestId(testID);
+
+  expect(component.props.style).toStrictEqual(style);
 });

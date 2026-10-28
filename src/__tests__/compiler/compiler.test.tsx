@@ -1,4 +1,9 @@
-import { compile } from "react-native-css/compiler";
+import {
+  compile,
+  type StyleDeclaration,
+  type StyleDescriptor,
+  type StyleRule,
+} from "react-native-css/compiler";
 
 test("hello world", () => {
   const compiled = compile(`
@@ -355,4 +360,745 @@ test("simplifies rem", () => {
       ],
     ],
   });
+});
+
+// Chromium 153, Firefox 155 and WebKit 26.6 compute each keyword below as css-cascade-5 §7.3 defines it
+describe("CSS-wide keywords", () => {
+  const stylesheetFor = (value: string) =>
+    compile(`.child { color: ${value}; }`).stylesheet();
+
+  test("color: inherit compiles to the inherited-color lookup and publishes it", () => {
+    expect(stylesheetFor("inherit")).toStrictEqual({
+      s: [
+        [
+          "child",
+          [
+            {
+              s: [1, 1],
+              d: [[[{}, "var", "__rn-css-color"], "color", 1]],
+              dv: 1,
+              v: [["__rn-css-color", [{}, "var", "__rn-css-color"]]],
+            },
+          ],
+        ],
+      ],
+    });
+  });
+
+  test("color: inherit and color: currentcolor compile alike", () => {
+    // currentColor on `color` is `inherit` (css-color-3 §4.4)
+    expect(stylesheetFor("inherit")).toStrictEqual(
+      stylesheetFor("currentcolor"),
+    );
+  });
+
+  test("color: currentcolor compiles to the inherited-color lookup and publishes it", () => {
+    expect(stylesheetFor("currentcolor")).toStrictEqual({
+      s: [
+        [
+          "child",
+          [
+            {
+              s: [1, 1],
+              d: [[[{}, "var", "__rn-css-color"], "color", 1]],
+              dv: 1,
+              v: [["__rn-css-color", [{}, "var", "__rn-css-color"]]],
+            },
+          ],
+        ],
+      ],
+    });
+  });
+
+  test("a colour of its own publishes --__rn-css-color to descendants", () => {
+    expect(stylesheetFor("red")).toStrictEqual({
+      s: [
+        [
+          "child",
+          [
+            {
+              s: [1, 1],
+              d: [{ color: "#f00" }],
+              v: [["__rn-css-color", "#f00"]],
+            },
+          ],
+        ],
+      ],
+    });
+  });
+
+  test.each(["unset", "revert", "revert-layer"])(
+    "color: %s compiles like color: inherit",
+    (keyword) => {
+      // `unset` on an inherited property is `inherit` (css-cascade-5 §7.3.3), and with no user-agent or user origin `revert` is `unset` (§7.3.4)
+      expect(stylesheetFor(keyword)).toStrictEqual(stylesheetFor("inherit"));
+    },
+  );
+
+  test("color: initial compiles to the literal the runtime clears with", () => {
+    expect(stylesheetFor("initial")).toStrictEqual({
+      s: [
+        [
+          "child",
+          [
+            {
+              s: [1, 1],
+              d: [["unset", "color"]],
+              v: [["__rn-css-color", "unset"]],
+            },
+          ],
+        ],
+      ],
+    });
+  });
+
+  const otherProperties = [
+    ["background-color", "backgroundColor"],
+    ["border-color", "borderColor"],
+    ["font-size", "fontSize"],
+    ["opacity", "opacity"],
+  ] as const;
+
+  test.each(otherProperties)("%s: inherit is dropped", (property) => {
+    // Only `color` and custom properties carry a value to descendants here
+    expect(
+      compile(`.child { ${property}: inherit; }`).stylesheet(),
+    ).toStrictEqual({});
+  });
+
+  test.each(
+    otherProperties.flatMap(([property, nativeProperty]) =>
+      (["initial", "unset", "revert", "revert-layer"] as const).map(
+        (keyword) => [property, keyword, nativeProperty] as const,
+      ),
+    ),
+  )(
+    "%s: %s compiles to the literal the runtime clears with",
+    (property, keyword, nativeProperty) => {
+      expect(
+        declarationsFor(`.child { ${property}: ${keyword}; }`),
+      ).toStrictEqual([["unset", nativeProperty]]);
+    },
+  );
+
+  test.each([
+    ["box-shadow", "boxShadow"],
+    ["text-shadow", "textShadow"],
+  ] as const)(
+    "%s: initial hands the literal to the shorthand's runtime parser",
+    (property, nativeProperty) => {
+      expect(declarationsFor(`.child { ${property}: initial; }`)).toStrictEqual(
+        [[[{}, nativeProperty, "unset", 1], nativeProperty, 1]],
+      );
+    },
+  );
+
+  test("box-shadow: inherit is dropped rather than handed to the shorthand", () => {
+    expect(
+      compile(`.child { box-shadow: inherit; }`).stylesheet(),
+    ).toStrictEqual({});
+  });
+
+  test.each([
+    ["object-fit", "initial", ["contentFit"]],
+    ["object-position", "revert", ["contentPosition"]],
+    ["corner-shape", "unset", "borderCurve"],
+    ["font-variant", "revert-layer", "fontVariant"],
+    ["-webkit-line-clamp", "initial", ["numberOfLines"]],
+    ["outline-offset", "initial", "outlineOffset"],
+  ] as const)(
+    "%s: %s compiles to the literal the runtime clears with",
+    (property, keyword, nativeProperty) => {
+      expect(
+        declarationsFor(`.child { ${property}: ${keyword}; }`),
+      ).toStrictEqual([["unset", nativeProperty]]);
+    },
+  );
+
+  test.each(["object-fit", "corner-shape"])(
+    "%s: inherit is dropped with a warning naming it",
+    (property) => {
+      const compiled = compile(`.child { ${property}: inherit; }`);
+
+      expect(compiled.stylesheet()).toStrictEqual({});
+      expect(compiled.warnings()).toStrictEqual({
+        values: { [property]: ["inherit"] },
+      });
+    },
+  );
+
+  test.each(["INHERIT", "1px 1px INHERIT"])(
+    "box-shadow: %s is reported as written",
+    (value) => {
+      expect(
+        compile(`.child { box-shadow: ${value}; }`).warnings(),
+      ).toStrictEqual({ values: { "box-shadow": ["INHERIT"] } });
+    },
+  );
+
+  test.each([
+    ["color", "color-mix(in srgb, inherit, blue)"],
+    ["color", "light-dark(inherit, blue)"],
+    ["color", "light-dark(blue, inherit)"],
+    ["color", "rgb(0 0 0 / inherit)"],
+    ["filter", "blur(inherit)"],
+    ["transform", "translateX(inherit)"],
+    ["object-position", "left inherit"],
+    ["corner-shape", "round inherit"],
+    ["font-variant", "small-caps inherit"],
+    ["box-shadow", "1px 1px light-dark(blue, inherit)"],
+    ["box-shadow", "1px 1px INHERIT"],
+  ])(
+    "%s: %s is dropped, as a CSS-wide keyword is only ever a whole value",
+    (property, value) => {
+      const compiled = compile(`.child { ${property}: ${value}; }`);
+
+      expect(compiled.stylesheet()).toStrictEqual({});
+      expect(compiled.warnings()).toStrictEqual({
+        values: {
+          [property]: [value.includes("INHERIT") ? "INHERIT" : "inherit"],
+        },
+      });
+    },
+  );
+
+  test.each([
+    ["inherit", [{}, "var", "__rn-css-color"]],
+    ["INITIAL", "unset"],
+  ] as const)(
+    "color: var(--missing, %s) falls back to what the keyword resolves to",
+    (keyword, fallback) => {
+      // Substituted, a fallback is the declaration's whole value (css-variables-1 §3)
+      expect(
+        declarationsFor(`.child { color: var(--missing, ${keyword}); }`),
+      ).toStrictEqual([[[{}, "var", ["missing", fallback], 1], "color", 1]]);
+    },
+  );
+
+  test("a whole-value var() fallback that is a var() passes its keyword fallback through", () => {
+    expect(
+      declarationsFor(`.child { color: var(--a, var(--b, inherit)); }`),
+    ).toStrictEqual([
+      [
+        [
+          {},
+          "var",
+          ["a", [{}, "var", ["b", [{}, "var", "__rn-css-color"]], 1]],
+          1,
+        ],
+        "color",
+        1,
+      ],
+    ]);
+  });
+
+  test.each([
+    ["padding-top", "initial", "paddingTop", "unset"],
+    ["padding-top", "4px", "paddingTop", 4],
+    ["color", "inherit", "color", [{}, "var", "__rn-css-color"]],
+  ] as const)(
+    "%s: env(safe-area-inset-top, %s) falls back to what the value resolves to there",
+    (property, value, nativeProperty, fallback) => {
+      expect(
+        declarationsFor(
+          `.child { ${property}: env(safe-area-inset-top, ${value}); }`,
+        ),
+      ).toStrictEqual([
+        [
+          [{}, "var", ["react-native-css-safe-area-inset-top", fallback], 1],
+          nativeProperty,
+          1,
+        ],
+      ]);
+    },
+  );
+
+  test.each([
+    [
+      "width",
+      "calc(var(--missing, initial) + 1px)",
+      "calc(var(--missing) + 1px)",
+      "initial",
+    ],
+    [
+      "color",
+      "color-mix(in srgb, var(--missing, inherit), blue)",
+      "color-mix(in srgb, var(--missing), blue)",
+      "inherit",
+    ],
+    [
+      "transform",
+      "translateX(var(--missing, initial))",
+      "translateX(var(--missing))",
+      "initial",
+    ],
+    [
+      "box-shadow",
+      "1px 1px var(--missing, INHERIT)",
+      "1px 1px var(--missing)",
+      "INHERIT",
+    ],
+    ["width", "var(--missing, 10px inherit)", "var(--missing)", "inherit"],
+    [
+      "padding-top",
+      "calc(env(safe-area-inset-top, initial) + 1px)",
+      "calc(env(safe-area-inset-top) + 1px)",
+      "initial",
+    ],
+    [
+      "transform",
+      "translateY(env(safe-area-inset-top, initial))",
+      "translateY(env(safe-area-inset-top))",
+      "initial",
+    ],
+  ])(
+    "%s: %s drops the fallback, as a CSS-wide keyword leaves it invalid there",
+    (property, value, withoutFallback, keyword) => {
+      // Substituted inside a longer value, a CSS-wide keyword is invalid (css-values-4 §2.1)
+      const compiled = compile(`.child { ${property}: ${value}; }`);
+
+      expect(compiled.stylesheet()).toStrictEqual(
+        compile(`.child { ${property}: ${withoutFallback}; }`).stylesheet(),
+      );
+      expect(compiled.warnings()).toStrictEqual({
+        values: { [property]: [keyword] },
+      });
+    },
+  );
+
+  // A second declaration keeps `--brand` from being inlined, so the keyword reaches the compiler on the custom property
+  const uninlinedCustomProperty = (value: string) =>
+    `.child { --brand: ${value}; color: var(--brand); }
+     .other { --brand: ${value}; }`;
+
+  // css-variables-1 §2: the keyword is the custom property's own value, which a read then substitutes
+  test.each(["inherit", "unset", "revert", "revert-layer", "INHERIT"])(
+    "--brand: %s compiles to the parent's value",
+    (keyword) => {
+      const css = uninlinedCustomProperty(keyword);
+
+      expect(publishedVariable(css, "brand")).toEqual([
+        [{}, "inherit"],
+        [{}, "inherit"],
+      ]);
+      expect(compile(css).warnings()).toStrictEqual({});
+    },
+  );
+
+  test("whitespace around the keyword leaves it the whole value", () => {
+    expect(
+      publishedVariable(uninlinedCustomProperty("  inherit  "), "brand"),
+    ).toEqual([
+      [{}, "inherit"],
+      [{}, "inherit"],
+    ]);
+  });
+
+  test("--brand: initial compiles to the guaranteed-invalid value", () => {
+    const css = uninlinedCustomProperty("initial");
+
+    expect(publishedVariable(css, "brand")).toEqual([
+      [{}, "initial"],
+      [{}, "initial"],
+    ]);
+    expect(compile(css).warnings()).toStrictEqual({});
+  });
+
+  test("--brand: 1px INHERIT stays declared, and its keyword is dropped with a warning", () => {
+    const css = uninlinedCustomProperty("1px INHERIT");
+
+    expect(publishedVariable(css, "brand")).toEqual([1, 1]);
+    expect(compile(css).warnings()).toStrictEqual({
+      values: { "--brand": ["INHERIT", "INHERIT"] },
+    });
+  });
+
+  test("a comment beside a keyword leaves the keyword the whole value", () => {
+    expect(stylesheetFor("/* reset */ inherit")).toStrictEqual(
+      stylesheetFor("inherit"),
+    );
+    expect(
+      declarationsFor(
+        `.child { color: var(--missing, /* reset */ inherit /* here */); }`,
+      ),
+    ).toStrictEqual(
+      declarationsFor(`.child { color: var(--missing, inherit); }`),
+    );
+    expect(
+      publishedVariable(
+        uninlinedCustomProperty("/* reset */ inherit"),
+        "brand",
+      ),
+    ).toEqual([
+      [{}, "inherit"],
+      [{}, "inherit"],
+    ]);
+  });
+
+  test.each(["currentcolor", "currentColor"])(
+    "--brand: %s compiles to the inherited-color lookup",
+    (spelling) => {
+      // lightningcss hands a custom property's tokens through unfolded, so `currentColor` relies on the compiler's case fold
+      expect(
+        publishedVariable(uninlinedCustomProperty(spelling), "brand"),
+      ).toEqual([
+        [{}, "var", "__rn-css-color"],
+        [{}, "var", "__rn-css-color"],
+      ]);
+    },
+  );
+
+  test("a custom property set to inherit is never inlined, because its value is its parent's", () => {
+    expect(
+      publishedVariable(
+        `.child { --brand: inherit; color: var(--brand); }`,
+        "brand",
+      ),
+    ).toEqual([[{}, "inherit"]]);
+  });
+
+  test("a variable that leads into a cycle is inlined, and only the cycle's members are left to the runtime", () => {
+    const rule = compile(
+      `.child { --lead: var(--cycle-x); --cycle-x: var(--cycle-y); --cycle-y: var(--cycle-x); color: var(--lead); }`,
+    ).stylesheet().s?.[0]?.[1]?.[0];
+
+    expect((rule?.v ?? []).map(([name]) => name)).toEqual(
+      expect.arrayContaining(["cycle-x", "cycle-y"]),
+    );
+    expect(JSON.stringify(rule?.d)).toContain('"cycle-x"');
+    expect(JSON.stringify(rule?.d)).not.toContain('"lead"');
+  });
+
+  test("a variable two branches read is inlined into both, as no cycle", () => {
+    expect(
+      declarationsFor(
+        `.child { --diamond-reader: calc(var(--diamond-left) + var(--diamond-right)); --diamond-left: var(--diamond-base); --diamond-right: var(--diamond-base); --diamond-base: 3px; width: var(--diamond-reader, 1px); }`,
+      ),
+    ).toStrictEqual(declarationsFor(`.child { width: 6px; }`));
+  });
+
+  test("a custom property set to initial is inlined as the guaranteed-invalid value, so a read takes its fallback", () => {
+    expect(
+      declarationsFor(`.child { --brand: initial; color: var(--brand, red); }`),
+    ).toStrictEqual(declarationsFor(`.child { color: red; }`));
+  });
+
+  test("a read of an inlined initial with no fallback is invalid at computed-value time, so it compiles as unset", () => {
+    expect(
+      declarationsFor(`.child { --brand: initial; width: var(--brand); }`),
+    ).toStrictEqual(declarationsFor(`.child { width: unset; }`));
+    expect(
+      declarationsFor(`.child { --brand: initial; color: var(--brand); }`),
+    ).toStrictEqual(declarationsFor(`.child { color: unset; }`));
+  });
+
+  test.each(["INHERIT", "Inherit", "UNSET", "INITIAL"])(
+    "color: %s compiles like its lowercase spelling",
+    (spelling) => {
+      // Keywords are ASCII case-insensitive (css-values-4 §4.1), and lightningcss hands an unparsed one through unfolded
+      expect(stylesheetFor(spelling)).toStrictEqual(
+        stylesheetFor(spelling.toLowerCase()),
+      );
+    },
+  );
+
+  test("color: currentColor compiles to the inherited-color lookup", () => {
+    expect(stylesheetFor("currentColor")).toStrictEqual({
+      s: [
+        [
+          "child",
+          [
+            {
+              s: [1, 1],
+              d: [[[{}, "var", "__rn-css-color"], "color", 1]],
+              dv: 1,
+              v: [["__rn-css-color", [{}, "var", "__rn-css-color"]]],
+            },
+          ],
+        ],
+      ],
+    });
+  });
+
+  test("border-color: currentcolor compiles to the same lookup", () => {
+    expect(
+      compile(`.child { border-color: currentcolor; }`).stylesheet(),
+    ).toStrictEqual({
+      s: [
+        [
+          "child",
+          [
+            {
+              s: [1, 1],
+              d: [[[{}, "var", "__rn-css-color"], "borderColor", 1]],
+              dv: 1,
+            },
+          ],
+        ],
+      ],
+    });
+  });
+
+  test("color: inherit !important keeps the important specificity", () => {
+    expect(stylesheetFor("inherit !important")).toStrictEqual({
+      s: [
+        [
+          "child",
+          [
+            {
+              s: [1, 1, 1],
+              d: [[[{}, "var", "__rn-css-color"], "color", 1]],
+              dv: 1,
+              v: [["__rn-css-color", [{}, "var", "__rn-css-color"]]],
+            },
+          ],
+        ],
+      ],
+    });
+  });
+
+  test("color: inherit inside a media query keeps the condition", () => {
+    expect(
+      compile(
+        `@media (min-width: 100px) { .child { color: inherit; } }`,
+      ).stylesheet(),
+    ).toStrictEqual({
+      s: [
+        [
+          "child",
+          [
+            {
+              s: [2, 1],
+              m: [[">=", "width", 100]],
+              d: [[[{}, "var", "__rn-css-color"], "color", 1]],
+              dv: 1,
+              v: [["__rn-css-color", [{}, "var", "__rn-css-color"]]],
+            },
+          ],
+        ],
+      ],
+    });
+  });
+
+  test("color: inherit inside :hover keeps the pseudo-class condition", () => {
+    expect(
+      compile(`.child:hover { color: inherit; }`).stylesheet(),
+    ).toStrictEqual({
+      s: [
+        [
+          "child",
+          [
+            {
+              s: [1, 2],
+              d: [[[{}, "var", "__rn-css-color"], "color", 1]],
+              dv: 1,
+              v: [["__rn-css-color", [{}, "var", "__rn-css-color"]]],
+              p: { h: 1 },
+            },
+          ],
+        ],
+      ],
+    });
+  });
+
+  test("color: inherit on ::placeholder targets placeholderTextColor", () => {
+    expect(
+      declarationsFor(`.child::placeholder { color: inherit; }`),
+    ).toStrictEqual([
+      [[{}, "var", "__rn-css-color"], ["placeholderTextColor"], 1],
+    ]);
+  });
+
+  test.each(["placeholder", "selection"])(
+    "a ::%s rule publishes no colour, and keeps its other custom properties",
+    (pseudoElement) => {
+      const css = `.child::${pseudoElement} { --brand: red; color: var(--brand); } .other { --brand: blue; }`;
+
+      expect(publishedInheritedColors(css)).toEqual([]);
+      expect(publishedVariable(css, "brand")).toEqual(["red", "blue"]);
+    },
+  );
+});
+
+function rulesFor(css: string): StyleRule[] {
+  return (compile(css).stylesheet().s ?? []).flatMap(([, ruleSet]) => ruleSet);
+}
+
+function declarationsFor(css: string): StyleDeclaration[] {
+  return rulesFor(css).flatMap((rule) => rule.d ?? []);
+}
+
+function variableIn(
+  rule: Readonly<StyleRule>,
+  name: string,
+): StyleDescriptor[] {
+  return (rule.v ?? [])
+    .filter(([varName]) => varName === name)
+    .map(([, value]) => value);
+}
+
+function publishedVariable(css: string, name: string): StyleDescriptor[] {
+  return rulesFor(css).flatMap((rule) => variableIn(rule, name));
+}
+
+// What one rule declares for `color`, as a static style or as a descriptor the runtime resolves
+function declaredColor(rule: Readonly<StyleRule>): StyleDescriptor | undefined {
+  for (const declaration of rule.d ?? []) {
+    if (!Array.isArray(declaration)) {
+      if ("color" in declaration) {
+        return declaration.color;
+      }
+    } else if (declaration[1] === "color") {
+      return declaration[0];
+    }
+  }
+
+  return undefined;
+}
+
+function publishedInheritedColors(css: string): StyleDescriptor[] {
+  return publishedVariable(css, "__rn-css-color");
+}
+
+describe("a colour that reads the inherited colour goes down as declared", () => {
+  // The runtime resolves a published colour's own currentcolor against what its element inherited, so the compiler rewrites none of these
+  const colorsThatReadTheInheritedColor = [
+    "inherit",
+    "unset",
+    "currentcolor",
+    "var(--missing, inherit)",
+    "var(--missing, unset)",
+    "var(--missing, currentcolor)",
+    "color-mix(in srgb, currentcolor, blue)",
+    "rgb(from currentcolor r g b)",
+    "light-dark(currentcolor, blue)",
+  ];
+
+  test.each(colorsThatReadTheInheritedColor)(
+    "color: %s publishes the value it declares",
+    (value) => {
+      const declaredAndPublished = rulesFor(
+        `.child { color: ${value}; }`,
+      ).flatMap((rule) => {
+        const declared = declaredColor(rule);
+
+        return declared === undefined
+          ? []
+          : [{ declared, published: variableIn(rule, "__rn-css-color") }];
+      });
+
+      expect(declaredAndPublished).not.toHaveLength(0);
+      expect(declaredAndPublished).toEqual(
+        declaredAndPublished.map(({ declared }) => ({
+          declared,
+          published: [declared],
+        })),
+      );
+    },
+  );
+
+  test.each([
+    ["red", "#f00"],
+    ["#00f", "#00f"],
+    ["rgb(1 2 3)", "#010203"],
+    ["color-mix(in srgb, red, blue)", "#800080"],
+    ["oklch(0.7 0.1 200)", "#40b1b7"],
+  ])("color: %s still publishes its own resolved value", (value, expected) => {
+    expect(publishedInheritedColors(`.child { color: ${value}; }`)).toEqual([
+      expected,
+    ]);
+  });
+
+  test.each<[value: string, published: StyleDescriptor[]]>([
+    ["var(--brand)", [[{}, "var", "brand", 1]]],
+    ["var(--brand, red)", [[{}, "var", ["brand", "red"], 1]]],
+    [
+      "color-mix(in srgb, var(--brand), blue)",
+      [
+        [
+          {},
+          "colorMix",
+          ["srgb", [{}, "var", "brand", 1], undefined, "blue", undefined],
+        ],
+      ],
+    ],
+  ])(
+    "color: %s names a variable that is not the inherited one, so it publishes",
+    (value, published) => {
+      expect(publishedInheritedColors(`.child { color: ${value}; }`)).toEqual(
+        published,
+      );
+    },
+  );
+
+  test("color: light-dark() publishes each scheme's colour in the rule that applies it", () => {
+    expect(
+      rulesFor(`.child { color: light-dark(red, blue); }`).map((rule) => [
+        rule.m,
+        variableIn(rule, "__rn-css-color"),
+      ]),
+    ).toStrictEqual([
+      [undefined, ["#f00"]],
+      [[["=", "prefers-color-scheme", "dark"]], ["#00f"]],
+    ]);
+  });
+
+  test("color: light-dark() emits no rule twice", () => {
+    // Parsing light-dark() adds its dark rule as a side effect, so the colour is parsed once for the declaration and its publish
+    const rules = (
+      compile(`.child { color: light-dark(red, blue); }`).stylesheet().s ?? []
+    ).flatMap(([, ruleSet]) => ruleSet.map((rule) => JSON.stringify(rule)));
+
+    expect(new Set(rules).size).toBe(rules.length);
+  });
+});
+
+// Chromium 153, Firefox 155 and WebKit 26.6 ignore a written filter with an argument its function cannot take
+describe("a written filter the property cannot take", () => {
+  test.each(["brightness(-1)", "blur(-1px)", "blur(2px) brightness(-0.5)"])(
+    "filter: %s emits no declaration",
+    (value) => {
+      expect(
+        compile(`.child { filter: ${value}; }`).stylesheet(),
+      ).toStrictEqual({});
+    },
+  );
+
+  test("CONTROL: a url() entry is left out and the filters React Native can draw still apply", () => {
+    expect(
+      compile(`.child { filter: blur(2px) url(#shadow); }`).stylesheet()
+        .s?.[0]?.[1]?.[0]?.d,
+    ).toStrictEqual([{ filter: [{ blur: 2 }] }]);
+  });
+
+  test("CONTROL: a percentage and a non-negative number are kept as written", () => {
+    expect(
+      compile(`.child { filter: brightness(150%) contrast(0); }`).stylesheet()
+        .s?.[0]?.[1]?.[0]?.d,
+    ).toStrictEqual([{ filter: [{ brightness: "150%" }, { contrast: 0 }] }]);
+  });
+});
+
+// Chromium 153, Firefox 155 and WebKit 26.6 compute a gradian or a turn as the angle it is; React Native takes degrees or radians alone
+describe("an angle in gradians or turns", () => {
+  test.each([
+    ["hue-rotate(1turn)", "360deg"],
+    ["hue-rotate(100grad)", "90deg"],
+  ])("filter: %s compiles to %s", (filter, degrees) => {
+    const compiled = compile(`.child { filter: ${filter}; }`);
+
+    expect(compiled.warnings()).toStrictEqual({});
+    expect(compiled.stylesheet().s?.[0]?.[1]?.[0]?.d).toStrictEqual([
+      { filter: [{ hueRotate: degrees }] },
+    ]);
+  });
+
+  test.each(["transform: rotate(100grad)", "rotate: 0.25turn"])(
+    "%s compiles without a warning",
+    (declaration) => {
+      expect(compile(`.child { ${declaration}; }`).warnings()).toStrictEqual(
+        {},
+      );
+    },
+  );
 });

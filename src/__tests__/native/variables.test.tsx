@@ -271,3 +271,111 @@ test("variable overriding with classes", () => {
   const component = screen.getByTestId(testID);
   expect(component.props.style).toStrictEqual({ color: "#f00" });
 });
+
+// Chromium 153, Firefox 155 and WebKit 26.6 read a custom property's name as its own, never as a property every object inherits
+test.each(["constructor", "toString", "hasOwnProperty"])(
+  "var(--%s) with no declaration takes its fallback",
+  (name) => {
+    registerCSS(`
+      .parent { --unrelated: 1px; }
+      .other { --unrelated: 2px; }
+      .test { color: var(--${name}, green); }
+    `);
+
+    render(
+      <View className="parent">
+        <View testID={testID} className="test" />
+      </View>,
+    );
+
+    expect(screen.getByTestId(testID).props.style).toStrictEqual({
+      color: "green",
+    });
+  },
+);
+
+test("var(--constructor) reads the ancestor's declaration", () => {
+  registerCSS(`
+    .parent { --constructor: blue; }
+    .other { --constructor: red; }
+    .test { color: var(--constructor); }
+  `);
+
+  render(
+    <View className="parent">
+      <View testID={testID} className="test" />
+    </View>,
+  );
+
+  expect(screen.getByTestId(testID).props.style).toStrictEqual({
+    color: "blue",
+  });
+});
+
+// Chromium 153, Firefox 155 and WebKit 26.6 make each member of a cycle the guaranteed-invalid value (css-variables-1 §2.3), wherever it is declared
+test.each([
+  ["*", "universal-cycle"],
+  [":root", "root-cycle"],
+])("a cycle declared on %s leaves var() its fallback", (selector, name) => {
+  registerCSS(`
+    ${selector} { --${name}-a: var(--${name}-b); --${name}-b: var(--${name}-a); }
+    .other { --${name}-a: 1px; --${name}-b: 1px; }
+    .test { color: var(--${name}-a, green); }
+  `);
+
+  render(<View testID={testID} className="test" />);
+
+  expect(screen.getByTestId(testID).props.style).toStrictEqual({
+    color: "green",
+  });
+});
+
+// Chromium 153, Firefox 155 and WebKit 26.6 compute a variable read inside a function from the variable's own computed value, wherever either is declared
+test.each([
+  [
+    "after",
+    ".child { --order-source: 3px; --order-middle: var(--order-source); --order-reader: calc(var(--order-middle) * 2); width: var(--order-reader, 5px); }",
+  ],
+  [
+    "before",
+    ".child { --order-reader: calc(var(--order-middle) * 2); --order-middle: var(--order-source); --order-source: 3px; width: var(--order-reader, 5px); }",
+  ],
+  [
+    "inside an undeclared variable's fallback, before",
+    ".child { --order-reader: var(--order-absent, calc(var(--order-middle) * 2)); --order-middle: var(--order-source); --order-source: 3px; width: var(--order-reader); }",
+  ],
+])(
+  "a variable read inside a function declared %s the chain it reads resolves through it",
+  (_order, css) => {
+    registerCSS(css);
+
+    render(<View testID={testID} className="child" />);
+
+    expect(screen.getByTestId(testID).props.style).toStrictEqual({ width: 6 });
+  },
+);
+
+// Chromium 153, Firefox 155 and WebKit 26.6 give every member of a cycle the guaranteed-invalid value however few rules declare it, and resolve a variable two branches read in both
+test.each([
+  [
+    "a cycle declared once leaves var() its fallback",
+    ".child { --cycle-once-a: var(--cycle-once-b); --cycle-once-b: var(--cycle-once-a); color: var(--cycle-once-b, green); }",
+    { color: "green" },
+  ],
+  [
+    "a cycle read twice in one declaration takes each fallback",
+    ".child { --cycle-x: var(--cycle-y); --cycle-y: var(--cycle-x); width: calc(var(--cycle-x, 2px) + var(--cycle-x, 3px)); } .other { --cycle-x: 1px; --cycle-y: 1px; }",
+    { width: 5 },
+  ],
+  [
+    "a variable two branches read is no cycle",
+    ".child { --diamond-reader: calc(var(--diamond-left) + var(--diamond-right)); --diamond-left: var(--diamond-base); --diamond-right: var(--diamond-base); --diamond-base: 3px; width: var(--diamond-reader, 1px); }",
+    { width: 6 },
+  ],
+])("%s", (_name, css, style) => {
+  registerCSS(css);
+
+  render(<View testID={testID} className="child" />);
+
+  expect(screen.getByTestId(testID).props.style).toStrictEqual(style);
+});

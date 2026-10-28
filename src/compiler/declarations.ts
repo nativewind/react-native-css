@@ -11,6 +11,7 @@ import type {
   Declaration,
   DimensionPercentageFor_LengthValue,
   EnvironmentVariable,
+  Filter,
   FontSize,
   FontStyle,
   FontVariantCaps,
@@ -34,15 +35,30 @@ import type {
   TokenOrValue,
   Translate,
   UnresolvedColor,
+  Variable,
 } from "lightningcss";
 
-import { isStyleFunction } from "../utilities";
+import {
+  guaranteedInvalidValue,
+  INHERITED_COLOR_VARIABLE,
+  inheritedColorLookup,
+  inheritedValue,
+  isStyleFunction,
+  readAngle,
+  readNonNegativeAmount,
+  readNonNegativeLength,
+} from "../utilities";
 import { isMappingProperty } from "./atRules";
 import type {
   StyleDescriptor,
   StyleFunction,
   StyleRule,
 } from "./compiler.types";
+import {
+  isCSSWideKeyword,
+  soleCSSWideKeyword,
+  type SoleCSSWideKeyword,
+} from "./css-wide-keywords";
 import { parseEasingFunction, parseIterationCount } from "./keyframes";
 import { toRNProperty } from "./selectors";
 import type { StylesheetBuilder } from "./stylesheet";
@@ -983,17 +999,24 @@ export function parseUnparsedDeclaration(
    */
   builder.descriptorProperty = property;
 
-  if (unparsedRuntimeParsing.has(property)) {
-    const args = parseUnparsed(declaration.value.value, builder, property);
+  const value = parseDeclarationValue(
+    declaration.value.value,
+    builder,
+    property,
+  );
 
+  // A value the compiler cannot parse leaves the declaration invalid, so an earlier rule's value stands
+  if (value === undefined) {
+    return;
+  }
+
+  if (unparsedRuntimeParsing.has(property)) {
     if (property === "animation") {
-      builder.addDescriptor("animation", [{}, property, args]);
+      builder.addDescriptor("animation", [{}, property, value]);
     } else {
-      builder.addDescriptor(property, [{}, toRNProperty(property), args, 1]);
+      builder.addDescriptor(property, [{}, toRNProperty(property), value, 1]);
     }
   } else {
-    const value = parseUnparsed(declaration.value.value, builder, property);
-
     builder.addDescriptor(property, value);
 
     if (property === "font-size") {
@@ -1001,15 +1024,271 @@ export function parseUnparsedDeclaration(
     }
 
     if (property === "color") {
-      if (
-        !isStyleFunction(value) ||
-        value[1] !== "var" ||
-        value[2] !== "-css-color"
-      ) {
-        builder.addDescriptor("--__rn-css-color", value);
-      }
+      publishInheritedColor(value, builder);
     }
   }
+}
+
+function parseCSSWideKeyword(
+  { keyword, written }: SoleCSSWideKeyword,
+  builder: StylesheetBuilder,
+  property: string,
+): StyleDescriptor {
+  const isCustomProperty = property.startsWith("--");
+  // Only `color` and custom properties reach descendants here, so only they inherit where `unset` would (css-cascade-5 §7.3.3)
+  const inherits = isCustomProperty || property === "color";
+  // React Native has no user-agent or user origin, so `revert` and `revert-layer` roll back to `unset` (css-cascade-5 §7.3.4, §7.3.5)
+  const resolved =
+    keyword === "inherit" || keyword === "initial"
+      ? keyword
+      : inherits
+        ? "inherit"
+        : "initial";
+
+  if (isCustomProperty) {
+    return resolved === "inherit" ? inheritedValue() : guaranteedInvalidValue();
+  } else if (resolved === "inherit" && property === "color") {
+    return inheritedColorLookup();
+  } else if (resolved === "initial") {
+    // The literal the runtime clears with, which leaves React Native's default to stand in for the initial value
+    return "unset";
+  }
+
+  builder.addWarning("value", written);
+  return;
+}
+
+// The value a declaration's CSS-wide keyword gives it, or undefined when it holds none
+function parseCSSWideKeywordValue(
+  tokens: TokenOrValue[] | null | undefined,
+  builder: StylesheetBuilder,
+  property: string,
+): { readonly value: StyleDescriptor } | undefined {
+  const sole = soleCSSWideKeyword(tokens);
+
+  if (sole !== undefined) {
+    return { value: parseCSSWideKeyword(sole, builder, property) };
+  }
+
+  // A CSS-wide keyword inside a property's longer value makes the declaration invalid (css-values-4 §2.1); a custom property's value is any tokens
+  const nested = property.startsWith("--")
+    ? undefined
+    : nestedCSSWideKeyword(tokens ?? []);
+
+  if (nested !== undefined) {
+    builder.addWarning("value", nested);
+    return { value: undefined };
+  }
+
+  return;
+}
+
+function parseDeclarationValue(
+  tokens: TokenOrValue[] | null | undefined,
+  builder: StylesheetBuilder,
+  property: string,
+  allowAuto?: boolean,
+): StyleDescriptor {
+  const keywordValue = parseCSSWideKeywordValue(tokens, builder, property);
+
+  if (keywordValue !== undefined) {
+    return keywordValue.value;
+  }
+
+  const [token, ...rest] = tokens ?? [];
+
+  if (token === undefined || rest.length > 0) {
+    return parseUnparsed(tokens, builder, property, allowAuto);
+  }
+
+  switch (token.type) {
+    case "var":
+      return listSoleFunction(
+        parseVariable(token.value, builder, property, "whole-value", allowAuto),
+        property,
+      );
+    case "env":
+      return listSoleFunction(
+        parseEnv(token.value, builder, property, "whole-value"),
+        property,
+      );
+    default:
+      return parseUnparsed(tokens, builder, property, allowAuto);
+  }
+}
+
+// A filter or transform value is a list of functions, so one function alone is a list of one
+function listSoleFunction(
+  value: StyleDescriptor,
+  property: string,
+): StyleDescriptor {
+  return (property === "filter" || property === "transform") &&
+    isStyleFunction(value)
+    ? [value]
+    : value;
+}
+
+// Substituted, a fallback replaces its var() or env(), so it is the declaration's whole value only when the function is (css-variables-1 §3)
+type SubstitutionPosition = "whole-value" | "inside-value";
+
+function parseSubstitutionFallback(
+  tokens: TokenOrValue[] | null | undefined,
+  builder: StylesheetBuilder,
+  property: string,
+  position: SubstitutionPosition,
+  allowAuto?: boolean,
+): StyleDescriptor {
+  switch (position) {
+    case "whole-value":
+      return parseDeclarationValue(tokens, builder, property, allowAuto);
+    case "inside-value": {
+      // Inside a longer value a CSS-wide keyword is invalid (css-values-4 §2.1)
+      const keyword = nestedCSSWideKeyword(tokens ?? []);
+
+      if (keyword !== undefined) {
+        builder.addWarning("value", keyword);
+        return;
+      }
+
+      return parseUnparsed(tokens, builder, property, allowAuto);
+    }
+    default: {
+      position satisfies never;
+      return;
+    }
+  }
+}
+
+function parseVariable(
+  variable: Variable,
+  builder: StylesheetBuilder,
+  property: string,
+  position: SubstitutionPosition,
+  allowAuto?: boolean,
+): StyleFunction {
+  const name = variable.name.ident.slice(2);
+  // An empty fallback substitutes nothing, which a longer value can hold (css-variables-1 §3)
+  const fallback = isEmptyTokenList(variable.fallback)
+    ? []
+    : parseSubstitutionFallback(
+        variable.fallback,
+        builder,
+        property,
+        position,
+        allowAuto,
+      );
+
+  return [{}, "var", fallback === undefined ? name : [name, fallback], 1];
+}
+
+function isEmptyTokenList(tokens: TokenOrValue[] | null | undefined): boolean {
+  return (
+    Array.isArray(tokens) &&
+    tokens.every(
+      (token) => token.type === "token" && token.value.type === "white-space",
+    )
+  );
+}
+
+// A var() or env() defers its value to computed-value time, so a keyword behind one is not looked for
+function nestedCSSWideKeyword(
+  tokens: readonly TokenOrValue[],
+): string | undefined {
+  for (const tokenOrValue of tokens) {
+    const keyword = cssWideKeywordIn(tokenOrValue);
+
+    if (keyword !== undefined) {
+      return keyword;
+    }
+  }
+
+  return;
+}
+
+function cssWideKeywordIn(tokenOrValue: TokenOrValue): string | undefined {
+  switch (tokenOrValue.type) {
+    case "token":
+      return tokenOrValue.value.type === "ident" &&
+        isCSSWideKeyword(tokenOrValue.value.value.toLowerCase())
+        ? tokenOrValue.value.value
+        : undefined;
+    case "function":
+      return nestedCSSWideKeyword(tokenOrValue.value.arguments);
+    case "unresolved-color":
+      return cssWideKeywordInColor(tokenOrValue.value);
+    case "var":
+    case "env":
+    case "color":
+    case "url":
+    case "length":
+    case "angle":
+    case "time":
+    case "resolution":
+    case "dashed-ident":
+    case "animation-name":
+      return;
+    default: {
+      tokenOrValue satisfies never;
+      return;
+    }
+  }
+}
+
+function cssWideKeywordInColor(color: UnresolvedColor): string | undefined {
+  switch (color.type) {
+    case "rgb":
+    case "hsl":
+      return nestedCSSWideKeyword(color.alpha);
+    case "light-dark":
+      return (
+        nestedCSSWideKeyword(color.light) ?? nestedCSSWideKeyword(color.dark)
+      );
+    default: {
+      color satisfies never;
+      return;
+    }
+  }
+}
+
+function addCSSWideKeyword(
+  tokens: TokenOrValue[],
+  builder: StylesheetBuilder,
+  property: string,
+  nativeProperty = property,
+): boolean {
+  const keywordValue = parseCSSWideKeywordValue(tokens, builder, property);
+
+  if (keywordValue === undefined) {
+    return false;
+  }
+
+  builder.addDescriptor(nativeProperty, keywordValue.value);
+
+  return true;
+}
+
+// The runtime resolves a published colour's own `currentcolor` against what the element inherited, so the colour goes down as written
+function publishInheritedColor(
+  value: StyleDescriptor,
+  builder: StylesheetBuilder,
+  rule?: StyleRule,
+) {
+  builder.addDescriptor(`--${INHERITED_COLOR_VARIABLE}`, value, false, rule);
+}
+
+// light-dark()'s dark value applies in a rule of its own, which publishes it as the inherited colour where it is `color`'s
+function addDarkSchemeValue(
+  dark: StyleDescriptor,
+  extraRule: StyleRule,
+  builder: StylesheetBuilder,
+) {
+  builder.addUnnamedDescriptor(dark, false, extraRule);
+
+  if (builder.descriptorProperty === "color") {
+    publishInheritedColor(dark, builder, extraRule);
+  }
+
+  builder.addExtraRule(extraRule);
 }
 
 export function parseCustomDeclaration(
@@ -1018,13 +1297,15 @@ export function parseCustomDeclaration(
 ) {
   const property = declaration.value.name;
 
+  builder.setWarningProperty(property);
+
   if (isMappingProperty(property)) {
     // Consumed before declarations so property order cannot affect mapping.
     return;
   } else if (property === "-webkit-line-clamp") {
     builder.addDescriptor(
       property,
-      parseUnparsed(declaration.value.value, builder, property),
+      parseDeclarationValue(declaration.value.value, builder, property),
     );
   } else if (property === "-rn-ripple-style") {
     if (
@@ -1048,11 +1329,15 @@ export function parseCustomDeclaration(
     // https://github.com/parcel-bundler/lightningcss/issues/1048
     builder.addDescriptor(
       property,
-      parseUnparsed(declaration.value.value, builder, property),
+      parseDeclarationValue(declaration.value.value, builder, property),
     );
   } else if (property === "corner-shape") {
     parseCornerShape(declaration.value, builder);
   } else if (property === "font-variant") {
+    if (addCSSWideKeyword(declaration.value.value, builder, property)) {
+      return;
+    }
+
     const parsedFontVariant = parseFontVariantCaps(
       parseUnparsed(
         declaration.value.value,
@@ -1065,13 +1350,19 @@ export function parseCustomDeclaration(
       builder.addDescriptor(property, parsedFontVariant);
     }
   } else if (
+    property.startsWith("--") &&
+    isEmptyTokenList(declaration.value.value)
+  ) {
+    // css-variables-1 §2: a custom property's value may be empty, and substitutes nothing
+    builder.addDescriptor(property, []);
+  } else if (
     validProperties.has(property) ||
     property.startsWith("--") ||
     property.startsWith("-rn-")
   ) {
     builder.addDescriptor(
       property,
-      parseUnparsed(declaration.value.value, builder, property),
+      parseDeclarationValue(declaration.value.value, builder, property),
     );
   } else {
     builder.addWarning("property", declaration.value.name);
@@ -1160,35 +1451,13 @@ export function unparsedFunction(
  * This export function best efforts parsing it into a export function that we can evaluate at runtime
  */
 export function parseUnparsed(
-  tokenOrValue:
-    | TokenOrValue
-    | TokenOrValue[]
-    | string
-    | number
-    | undefined
-    | null,
+  tokenOrValue: TokenOrValue | TokenOrValue[] | undefined | null,
   builder: StylesheetBuilder,
   property: string,
   allowAuto = allowAutoProperties.has(property),
 ): StyleDescriptor {
   if (tokenOrValue === undefined || tokenOrValue === null) {
     return;
-  }
-
-  if (typeof tokenOrValue === "string") {
-    if (tokenOrValue === "true") {
-      return true;
-    } else if (tokenOrValue === "false") {
-      return false;
-    } else if (tokenOrValue === "currentcolor") {
-      return [{}, "var", "__rn-css-color"] as const;
-    } else {
-      return tokenOrValue;
-    }
-  }
-
-  if (typeof tokenOrValue === "number") {
-    return round(tokenOrValue);
   }
 
   if (Array.isArray(tokenOrValue)) {
@@ -1201,14 +1470,9 @@ export function parseUnparsed(
     if (!args) return;
     if (Array.isArray(args) && args.length === 1) {
       return args[0];
-    } else if (
-      (property === "filter" || property === "transform") &&
-      isStyleFunction(args)
-    ) {
-      return [args];
-    } else {
-      return args;
     }
+
+    return listSoleFunction(args, property);
   }
 
   switch (tokenOrValue.type) {
@@ -1220,20 +1484,14 @@ export function parseUnparsed(
         allowAuto,
       );
     }
-    case "var": {
-      let args: StyleDescriptor = tokenOrValue.value.name.ident.slice(2);
-      const fallback = parseUnparsed(
-        tokenOrValue.value.fallback,
+    case "var":
+      return parseVariable(
+        tokenOrValue.value,
         builder,
         property,
+        "inside-value",
         allowAuto,
       );
-      if (fallback !== undefined) {
-        args = [args, fallback];
-      }
-
-      return [{}, "var", args, 1];
-    }
     case "function": {
       switch (tokenOrValue.value.name) {
         case "blur":
@@ -1317,11 +1575,17 @@ export function parseUnparsed(
             return;
           }
 
-          if (value === "inherit" || value === "initial") {
+          // Keywords are ASCII case-insensitive (css-values-4 §4.1), and lightningcss hands an unparsed one through unfolded
+          const keyword = value.toLowerCase();
+
+          if (keyword === "currentcolor") {
+            return inheritedColorLookup();
+          }
+
+          // Inside a longer value a CSS-wide keyword is invalid (css-values-4 §2.1)
+          if (isCSSWideKeyword(keyword)) {
             builder.addWarning("value", value);
             return;
-          } else if (value === "currentcolor") {
-            return [{}, "var", "__rn-css-color"] as const;
           }
 
           if (value === "true") {
@@ -1384,7 +1648,7 @@ export function parseUnparsed(
     case "color":
       return parseColor(tokenOrValue.value, builder);
     case "env":
-      return parseEnv(tokenOrValue.value, builder);
+      return parseEnv(tokenOrValue.value, builder, property, "inside-value");
     case "time":
       return parseTime(tokenOrValue.value);
     case "url":
@@ -1532,14 +1796,13 @@ export function parseAngle(angle: Angle | number, builder: StylesheetBuilder) {
     return `${angle}deg`;
   }
 
-  switch (angle.type) {
-    case "deg":
-    case "rad":
-      return `${angle.value}${angle.type}`;
-    default:
-      builder.addWarning("value", `${angle.value} ${angle.type}`);
-      return undefined;
+  const reactNativeAngle = readAngle(`${angle.value}${angle.type}`);
+
+  if (reactNativeAngle === undefined) {
+    builder.addWarning("value", `${angle.value} ${angle.type}`);
   }
+
+  return reactNativeAngle;
 }
 
 export function parseSizeDeclaration(
@@ -1643,17 +1906,11 @@ export function parseFontColorDeclaration(
   declaration: Extract<Declaration, { value: CssColor }>,
   builder: StylesheetBuilder,
 ) {
-  parseColorDeclaration(declaration, builder);
+  // Parsed once: light-dark() adds its dark rule as a side effect, so a second parse adds it twice
+  const value = parseColor(declaration.value, builder);
 
-  if (
-    typeof declaration.value !== "object" ||
-    declaration.value.type !== "currentcolor"
-  ) {
-    builder.addDescriptor(
-      "--__rn-css-color",
-      parseColor(declaration.value, builder),
-    );
-  }
+  builder.addDescriptor(declaration.property, value);
+  publishInheritedColor(value, builder);
 }
 
 export function parseColorDeclaration(
@@ -1692,19 +1949,18 @@ export function parseColor(cssColor: CssColor, builder: StylesheetBuilder) {
 
   switch (cssColor.type) {
     case "currentcolor":
-      return [{}, "var", "__rn-css-color"] as const;
+      return inheritedColorLookup();
     case "light-dark": {
       const extraRule: StyleRule = {
         s: [],
         m: [["=", "prefers-color-scheme", "dark"]],
       };
 
-      builder.addUnnamedDescriptor(
+      addDarkSchemeValue(
         parseColor(cssColor.dark, builder),
-        false,
         extraRule,
+        builder,
       );
-      builder.addExtraRule(extraRule);
       return parseColor(cssColor.light, builder);
     }
     case "rgb": {
@@ -2673,6 +2929,8 @@ const allowAutoProperties = new Set(["pointer-events"]);
 export function parseEnv(
   value: EnvironmentVariable,
   builder: StylesheetBuilder,
+  property: string,
+  position: SubstitutionPosition,
 ): StyleFunction | undefined {
   switch (value.name.type) {
     case "ua":
@@ -2681,15 +2939,20 @@ export function parseEnv(
         case "safe-area-inset-right":
         case "safe-area-inset-bottom":
         case "safe-area-inset-left": {
-          const fallback = parseUnparsed(
+          const name = `react-native-css-${value.name.value}`;
+          const fallback = parseSubstitutionFallback(
             value.fallback,
             builder,
-            value.name.value,
+            property,
+            position,
           );
 
-          return fallback
-            ? [{}, "var", [`react-native-css-${value.name.value}`, fallback], 1]
-            : [{}, "var", [`react-native-css-${value.name.value}`], 1];
+          return [
+            {},
+            "var",
+            fallback === undefined ? [name] : [name, fallback],
+            1,
+          ];
         }
         case "viewport-segment-width":
         case "viewport-segment-height":
@@ -2824,7 +3087,7 @@ export function parseCalcArguments(
   for (const arg of args) {
     switch (arg.type) {
       case "env": {
-        parsed.push(parseEnv(arg.value, builder));
+        parsed.push(parseEnv(arg.value, builder, property, "inside-value"));
         break;
       }
       case "var":
@@ -2957,12 +3220,11 @@ export function parseUnresolvedColor(
       const extraRule = builder.extendRule({
         m: [["=", "prefers-color-scheme", "dark"]],
       });
-      builder.addUnnamedDescriptor(
+      addDarkSchemeValue(
         reduceParseUnparsed(color.dark, builder, property, allowAuto),
-        false,
         extraRule,
+        builder,
       );
-      builder.addExtraRule(extraRule);
       return reduceParseUnparsed(color.light, builder, property, allowAuto);
     }
     default:
@@ -3277,7 +3539,7 @@ function parseObjectFit(
   });
   builder.addDescriptor(
     "object-fit",
-    parseUnparsed(declaration.value, builder, "object-fit"),
+    parseDeclarationValue(declaration.value, builder, "object-fit"),
   );
 }
 
@@ -3288,6 +3550,11 @@ function parseObjectPosition(
   builder.addMapping({
     "object-position": ["contentPosition"],
   });
+
+  if (addCSSWideKeyword(declaration.value, builder, "object-position")) {
+    return;
+  }
+
   builder.addDescriptor("object-position", [
     {},
     "join",
@@ -3299,6 +3566,12 @@ function parseCornerShape(
   declaration: CustomProperty,
   builder: StylesheetBuilder,
 ) {
+  if (
+    addCSSWideKeyword(declaration.value, builder, "corner-shape", "borderCurve")
+  ) {
+    return;
+  }
+
   const shape = parseUnparsed(declaration.value, builder, "corner-shape");
 
   if (shape === "round") {
@@ -3348,40 +3621,80 @@ function parseFilter(
     return "unset";
   }
 
-  return declaration.value.value
-    .map((value) => {
-      switch (value.type) {
-        case "opacity":
-        case "blur":
-        case "brightness":
-        case "contrast":
-        case "grayscale":
-        case "invert":
-        case "saturate":
-        case "sepia":
-          return {
-            [value.type]: parseLength(value.value, builder),
-          } as unknown as StyleDescriptor;
-        case "hue-rotate":
-          return {
-            [toRNProperty(value.type)]: parseAngle(value.value, builder),
-          } as unknown as StyleDescriptor;
-        case "drop-shadow":
-          return [
-            {},
-            toRNProperty(value.type),
-            [
-              parseLength(value.value.xOffset, builder),
-              parseLength(value.value.yOffset, builder),
-              parseLength(value.value.blur, builder),
-              parseColor(value.value.color, builder),
-            ],
-          ] as unknown as StyleDescriptor;
-        case "url":
-          return;
-      }
-    })
-    .filter((value) => value !== undefined);
+  const filters: StyleDescriptor[] = [];
+
+  for (const value of declaration.value.value) {
+    // React Native has no SVG filter reference, so a url() entry is left out and the rest still apply
+    if (value.type === "url") {
+      continue;
+    }
+
+    const filter = parseFilterFunction(value, builder);
+
+    // A filter function the property cannot take leaves the declaration ignored, as the runtime does
+    if (filter === undefined) {
+      return;
+    }
+
+    filters.push(filter);
+  }
+
+  return filters;
+}
+
+function parseFilterFunction(
+  value: Exclude<Filter, { type: "url" }>,
+  builder: StylesheetBuilder,
+): StyleDescriptor | undefined {
+  switch (value.type) {
+    case "blur":
+      return parseFilterArgument(
+        value.type,
+        parseLength(value.value, builder),
+        readNonNegativeLength,
+      );
+    case "opacity":
+    case "brightness":
+    case "contrast":
+    case "grayscale":
+    case "invert":
+    case "saturate":
+    case "sepia":
+      return parseFilterArgument(
+        value.type,
+        parseLength(value.value, builder),
+        readNonNegativeAmount,
+      );
+    case "hue-rotate":
+      return parseFilterArgument(
+        toRNProperty(value.type),
+        parseAngle(value.value, builder),
+        readAngle,
+      );
+    case "drop-shadow":
+      return [
+        {},
+        toRNProperty(value.type),
+        [
+          parseLength(value.value.xOffset, builder),
+          parseLength(value.value.yOffset, builder),
+          parseLength(value.value.blur, builder),
+          parseColor(value.value.color, builder),
+        ],
+      ] as unknown as StyleDescriptor;
+  }
+}
+
+// A unit resolved at runtime is read there, by the same reader
+function parseFilterArgument(
+  name: string,
+  argument: StyleDescriptor | undefined,
+  read: (argument: unknown) => unknown,
+): StyleDescriptor | undefined {
+  const value = isStyleFunction(argument) ? argument : read(argument);
+  return value === undefined
+    ? undefined
+    : ({ [name]: value } as unknown as StyleDescriptor);
 }
 
 const namedColors = new Set([
