@@ -45,7 +45,7 @@ function compileChildConditions(
   );
 }
 
-// Each condition native/condition-semantics.test.tsx and container-rejection.test.tsx render, with what it compiles to
+// Each condition native/condition-semantics.test.tsx, container-rejection.test.tsx and aspect-ratio.test.tsx render, with what it compiles to
 test.each<readonly [string, CompiledConditions]>([
   // A range pair compiles to its bounds and operators in source order
   ["@media (400px < width < 800px)", [["[]", "width", 400, "<", 800, "<"]]],
@@ -78,32 +78,14 @@ test.each<readonly [string, CompiledConditions]>([
     "@media not all and (width > 10vw)",
     [["!", [">", "width", [{}, "vw", 10, 1]]]],
   ],
-  ["@media not (fictional-feature: 3)", [["!", ["=", "fictional-feature", 3]]]],
-  ["@media (constructor: x)", [["=", "constructor", "x"]]],
+  // A feature lightningcss does not know is unknown
+  ["@media not (fictional-feature: 3)", "no rule"],
+  ["@media (constructor: x)", "no rule"],
   [
     "@media (fictional-thing) or (width > 400px)",
-    [
-      [
-        "|",
-        [
-          ["!!", "fictional-thing"],
-          [">", "width", 400],
-        ],
-      ],
-    ],
+    [["|", [["?"], [">", "width", 400]]]],
   ],
-  [
-    "@media (width > 400px) and (fictional-thing)",
-    [
-      [
-        "&",
-        [
-          [">", "width", 400],
-          ["!!", "fictional-thing"],
-        ],
-      ],
-    ],
-  ],
+  ["@media (width > 400px) and (fictional-thing)", "no rule"],
   ["@media (orientation: bogus)", "no rule"],
   ["@media not (orientation: bogus)", "no rule"],
   ["@media not ((width > 100px) or (orientation: bogus))", "no rule"],
@@ -136,6 +118,10 @@ test.each<readonly [string, CompiledConditions]>([
   // MQ4 §3: a media type, folded to lowercase
   ["@media IOS", [["=", "platform", "ios"]]],
   ["@media not IOS", [["!", ["=", "platform", "ios"]]]],
+  // platform, like dir, is this library's own condition, which a stylesheet also writes as a feature
+  ["@media (platform: ios)", [["=", "platform", "ios"]]],
+  ["@media (platform: android)", [["=", "platform", "android"]]],
+  ["@media not (platform: android)", [["!", ["=", "platform", "android"]]]],
   // css-values-4 §4.1: a keyword, folded to lowercase
   ["@media (orientation: LANDSCAPE)", [["=", "orientation", "landscape"]]],
   [
@@ -264,7 +250,7 @@ test.each<readonly [string, CompiledConditions]>([
       [
         "|",
         [
-          [">=", "aspect-ratio", null],
+          [">=", "aspect-ratio", [0, 1]],
           [">=", "width", 1],
         ],
       ],
@@ -284,13 +270,121 @@ test.each<readonly [string, CompiledConditions]>([
       [
         "|",
         [
-          [">", "aspect-ratio", null],
+          [">", "aspect-ratio", [0, 1]],
           [">", "width", 0],
         ],
       ],
     ],
   ],
   ["@media not (aspect-ratio < -1)", "no rule"],
+  // A ratio compiles to its numerator and denominator, which Chromium and Firefox cross-multiply, and 0/0 to 1/0, as every engine compares it as infinite
+  ["@media (aspect-ratio: 2/1)", [["=", "aspect-ratio", [2, 1]]]],
+  ["@media (aspect-ratio: 3/1)", [["=", "aspect-ratio", [3, 1]]]],
+  ["@media (min-aspect-ratio: 2/1)", [[">=", "aspect-ratio", [2, 1]]]],
+  ["@media (min-aspect-ratio: 201/100)", [[">=", "aspect-ratio", [201, 100]]]],
+  ["@media (max-aspect-ratio: 2/1)", [["<=", "aspect-ratio", [2, 1]]]],
+  ["@media (max-aspect-ratio: 199/100)", [["<=", "aspect-ratio", [199, 100]]]],
+  ["@media (aspect-ratio > 1)", [[">", "aspect-ratio", [1, 1]]]],
+  ["@media (max-aspect-ratio: 1/0)", [["<=", "aspect-ratio", [1, 0]]]],
+  ["@media (min-aspect-ratio: 1/0)", [[">=", "aspect-ratio", [1, 0]]]],
+  ["@media (min-aspect-ratio: 0/0)", [[">=", "aspect-ratio", [1, 0]]]],
+  ["@media (min-aspect-ratio: -0/1)", [[">=", "aspect-ratio", [0, 1]]]],
+  ["@media (max-aspect-ratio: 1/-0)", [["<=", "aspect-ratio", [1, 0]]]],
+  ["@media (aspect-ratio)", [["!!", "aspect-ratio"]]],
+  [
+    "@media (1 < aspect-ratio < 3)",
+    [["[]", "aspect-ratio", [1, 1], "<", [3, 1], "<"]],
+  ],
+  [
+    "@media (2 < aspect-ratio < 3)",
+    [["[]", "aspect-ratio", [2, 1], "<", [3, 1], "<"]],
+  ],
+  [
+    "@media (2 <= aspect-ratio < 3)",
+    [["[]", "aspect-ratio", [2, 1], "<=", [3, 1], "<"]],
+  ],
+  [
+    "@media (3/2 < aspect-ratio <= 2/1)",
+    [["[]", "aspect-ratio", [3, 2], "<", [2, 1], "<="]],
+  ],
+  ["@media (min-aspect-ratio: 3/2)", [[">=", "aspect-ratio", [3, 2]]]],
+  ["@media (aspect-ratio > -0)", [[">", "aspect-ratio", [0, 1]]]],
+  ["@media not (aspect-ratio)", [["!", ["!!", "aspect-ratio"]]]],
+  ["@media not (aspect-ratio: 2/1)", [["!", ["=", "aspect-ratio", [2, 1]]]]],
+  ["@media (aspect-ratio: 1/0)", [["=", "aspect-ratio", [1, 0]]]],
+  ["@media (max-aspect-ratio: 0/0)", [["<=", "aspect-ratio", [1, 0]]]],
+  ["@media (aspect-ratio: 0/0)", [["=", "aspect-ratio", [1, 0]]]],
+  // lightningcss prints a media query's not (aspect-ratio > 1) as (aspect-ratio <= 1)
+  ["@media not (aspect-ratio > 1)", [["<=", "aspect-ratio", [1, 1]]]],
+  ["@media (aspect-ratio: 1/1)", [["=", "aspect-ratio", [1, 1]]]],
+  ["@media not (aspect-ratio: 1/1)", [["!", ["=", "aspect-ratio", [1, 1]]]]],
+  ["@media (min-aspect-ratio: 0/1)", [[">=", "aspect-ratio", [0, 1]]]],
+  ["@media (aspect-ratio: 0/1)", [["=", "aspect-ratio", [0, 1]]]],
+  ["@media (max-aspect-ratio: 1/2)", [["<=", "aspect-ratio", [1, 2]]]],
+  // lightningcss hands a ratio's numbers over as float32, which compile to the decimals the stylesheet wrote
+  ["@media (min-aspect-ratio: 1.6)", [[">=", "aspect-ratio", [1.6, 1]]]],
+  ["@media (aspect-ratio: 1.6)", [["=", "aspect-ratio", [1.6, 1]]]],
+  [
+    "@media (max-aspect-ratio: 1.77777)",
+    [["<=", "aspect-ratio", [1.77777, 1]]],
+  ],
+  [
+    "@media (min-aspect-ratio: 1.77777)",
+    [[">=", "aspect-ratio", [1.77777, 1]]],
+  ],
+  [
+    "@media (max-aspect-ratio: 0.00001/0.00002)",
+    [["<=", "aspect-ratio", [0.00001, 0.00002]]],
+  ],
+  [
+    "@media (aspect-ratio: 0.00004/0.00002)",
+    [["=", "aspect-ratio", [0.00004, 0.00002]]],
+  ],
+  [
+    "@media (max-aspect-ratio: 2e16/1e16)",
+    [["<=", "aspect-ratio", [2e16, 1e16]]],
+  ],
+  ["@media (aspect-ratio: 0.7)", [["=", "aspect-ratio", [0.7, 1]]]],
+  ["@media (min-aspect-ratio: 1.1)", [[">=", "aspect-ratio", [1.1, 1]]]],
+  // lightningcss prints a NaN calculation as 5.10424e38, past the largest float, so a ratio's NaN number arrives as infinity and makes the ratio its limit
+  [
+    "@media (max-aspect-ratio: calc(NaN) / 1)",
+    [["<=", "aspect-ratio", [1, 0]]],
+  ],
+  [
+    "@media (min-aspect-ratio: calc(NaN) / 1)",
+    [[">=", "aspect-ratio", [1, 0]]],
+  ],
+  [
+    "@media (max-aspect-ratio: 1 / calc(NaN))",
+    [["<=", "aspect-ratio", [0, 1]]],
+  ],
+  [
+    "@media (min-aspect-ratio: 1 / calc(NaN))",
+    [[">=", "aspect-ratio", [0, 1]]],
+  ],
+  // device-aspect-ratio compiles as aspect-ratio does, and no container query compiles it
+  ["@media (device-aspect-ratio: 2/1)", [["=", "device-aspect-ratio", [2, 1]]]],
+  [
+    "@media not (device-aspect-ratio: 2/1)",
+    [["!", ["=", "device-aspect-ratio", [2, 1]]]],
+  ],
+  [
+    "@media (min-device-aspect-ratio: 1/1)",
+    [[">=", "device-aspect-ratio", [1, 1]]],
+  ],
+  [
+    "@media (device-aspect-ratio > 0) or (width > 0px)",
+    [
+      [
+        "|",
+        [
+          [">", "device-aspect-ratio", [0, 1]],
+          [">", "width", 0],
+        ],
+      ],
+    ],
+  ],
   // A color scheme keyword, folded to lowercase
   ["@media (prefers-color-scheme)", [["!!", "prefers-color-scheme"]]],
   [
@@ -509,6 +603,10 @@ test.each<readonly [string, CompiledConditions]>([
   ["@container not (aspect-ratio < -1)", "no rule"],
   ["@container (aspect-ratio > -1) or (width > 0px)", "no rule"],
   ["@container (width > 0px) or (aspect-ratio < 2/-1)", "no rule"],
+  ["@container (device-aspect-ratio: 2/1)", "no rule"],
+  ["@container not (device-aspect-ratio: 2/1)", "no rule"],
+  ["@container (min-device-aspect-ratio: 1/1)", "no rule"],
+  ["@container (device-aspect-ratio > 0) or (width > 0px)", "no rule"],
   [
     "@container (aspect-ratio > -0) or (width > 0px)",
     [
@@ -516,7 +614,7 @@ test.each<readonly [string, CompiledConditions]>([
         m: [
           "|",
           [
-            [">", "aspect-ratio", null],
+            [">", "aspect-ratio", [0, 1]],
             [">", "width", 0],
           ],
         ],
@@ -536,12 +634,148 @@ test.each<readonly [string, CompiledConditions]>([
         m: [
           "|",
           [
-            [">=", "aspect-ratio", null],
+            [">=", "aspect-ratio", [0, 1]],
             [">=", "width", 1],
           ],
         ],
       },
     ],
+  ],
+  // A container's ratio compiles as a media query's
+  ["@container (aspect-ratio: 2/1)", [{ m: ["=", "aspect-ratio", [2, 1]] }]],
+  ["@container (aspect-ratio: 3/1)", [{ m: ["=", "aspect-ratio", [3, 1]] }]],
+  [
+    "@container (min-aspect-ratio: 2/1)",
+    [{ m: [">=", "aspect-ratio", [2, 1]] }],
+  ],
+  [
+    "@container (min-aspect-ratio: 201/100)",
+    [{ m: [">=", "aspect-ratio", [201, 100]] }],
+  ],
+  [
+    "@container (max-aspect-ratio: 2/1)",
+    [{ m: ["<=", "aspect-ratio", [2, 1]] }],
+  ],
+  [
+    "@container (max-aspect-ratio: 199/100)",
+    [{ m: ["<=", "aspect-ratio", [199, 100]] }],
+  ],
+  ["@container (aspect-ratio > 1)", [{ m: [">", "aspect-ratio", [1, 1]] }]],
+  [
+    "@container (max-aspect-ratio: 1/0)",
+    [{ m: ["<=", "aspect-ratio", [1, 0]] }],
+  ],
+  [
+    "@container (min-aspect-ratio: 1/0)",
+    [{ m: [">=", "aspect-ratio", [1, 0]] }],
+  ],
+  [
+    "@container (min-aspect-ratio: 0/0)",
+    [{ m: [">=", "aspect-ratio", [1, 0]] }],
+  ],
+  ["@container (aspect-ratio > -0)", [{ m: [">", "aspect-ratio", [0, 1]] }]],
+  [
+    "@container (1 < aspect-ratio < 3)",
+    [{ m: ["[]", "aspect-ratio", [1, 1], "<", [3, 1], "<"] }],
+  ],
+  [
+    "@container (2 < aspect-ratio < 3)",
+    [{ m: ["[]", "aspect-ratio", [2, 1], "<", [3, 1], "<"] }],
+  ],
+  [
+    "@container (2 <= aspect-ratio < 3)",
+    [{ m: ["[]", "aspect-ratio", [2, 1], "<=", [3, 1], "<"] }],
+  ],
+  [
+    "@container (3/2 < aspect-ratio <= 2/1)",
+    [{ m: ["[]", "aspect-ratio", [3, 2], "<", [2, 1], "<="] }],
+  ],
+  [
+    "@container (min-aspect-ratio: 1.6)",
+    [{ m: [">=", "aspect-ratio", [1.6, 1]] }],
+  ],
+  ["@container (aspect-ratio: 1.6)", [{ m: ["=", "aspect-ratio", [1.6, 1]] }]],
+  [
+    "@container (max-aspect-ratio: 1.77777)",
+    [{ m: ["<=", "aspect-ratio", [1.77777, 1]] }],
+  ],
+  [
+    "@container (min-aspect-ratio: 1.77777)",
+    [{ m: [">=", "aspect-ratio", [1.77777, 1]] }],
+  ],
+  [
+    "@container (max-aspect-ratio: 0.00001/0.00002)",
+    [{ m: ["<=", "aspect-ratio", [0.00001, 0.00002]] }],
+  ],
+  [
+    "@container (aspect-ratio: 0.00004/0.00002)",
+    [{ m: ["=", "aspect-ratio", [0.00004, 0.00002]] }],
+  ],
+  [
+    "@container (max-aspect-ratio: 2e16/1e16)",
+    [{ m: ["<=", "aspect-ratio", [2e16, 1e16]] }],
+  ],
+  [
+    "@container not (aspect-ratio: 2/1)",
+    [{ m: ["!", ["=", "aspect-ratio", [2, 1]]] }],
+  ],
+  ["@container not (aspect-ratio)", [{ m: ["!", ["!!", "aspect-ratio"]] }]],
+  ["@container (aspect-ratio: 1/0)", [{ m: ["=", "aspect-ratio", [1, 0]] }]],
+  [
+    "@container (max-aspect-ratio: 0/0)",
+    [{ m: ["<=", "aspect-ratio", [1, 0]] }],
+  ],
+  ["@container (aspect-ratio: 0/0)", [{ m: ["=", "aspect-ratio", [1, 0]] }]],
+  [
+    "@container not (aspect-ratio > 1)",
+    [{ m: ["!", [">", "aspect-ratio", [1, 1]]] }],
+  ],
+  ["@container (aspect-ratio: 1/1)", [{ m: ["=", "aspect-ratio", [1, 1]] }]],
+  [
+    "@container not (aspect-ratio: 1/1)",
+    [{ m: ["!", ["=", "aspect-ratio", [1, 1]]] }],
+  ],
+  [
+    "@container (min-aspect-ratio: 0/1)",
+    [{ m: [">=", "aspect-ratio", [0, 1]] }],
+  ],
+  ["@container (aspect-ratio: 0/1)", [{ m: ["=", "aspect-ratio", [0, 1]] }]],
+  [
+    "@container (min-aspect-ratio: -0/1)",
+    [{ m: [">=", "aspect-ratio", [0, 1]] }],
+  ],
+  [
+    "@container (max-aspect-ratio: 1/-0)",
+    [{ m: ["<=", "aspect-ratio", [1, 0]] }],
+  ],
+  [
+    "@container (max-aspect-ratio: 1/2)",
+    [{ m: ["<=", "aspect-ratio", [1, 2]] }],
+  ],
+  [
+    "@container (min-aspect-ratio: 3/2)",
+    [{ m: [">=", "aspect-ratio", [3, 2]] }],
+  ],
+  ["@container (aspect-ratio: 0.7)", [{ m: ["=", "aspect-ratio", [0.7, 1]] }]],
+  [
+    "@container (min-aspect-ratio: 1.1)",
+    [{ m: [">=", "aspect-ratio", [1.1, 1]] }],
+  ],
+  [
+    "@container (max-aspect-ratio: calc(NaN) / 1)",
+    [{ m: ["<=", "aspect-ratio", [1, 0]] }],
+  ],
+  [
+    "@container (min-aspect-ratio: calc(NaN) / 1)",
+    [{ m: [">=", "aspect-ratio", [1, 0]] }],
+  ],
+  [
+    "@container (max-aspect-ratio: 1 / calc(NaN))",
+    [{ m: ["<=", "aspect-ratio", [0, 1]] }],
+  ],
+  [
+    "@container (min-aspect-ratio: 1 / calc(NaN))",
+    [{ m: [">=", "aspect-ratio", [0, 1]] }],
   ],
   // An em compiles to a descriptor the runtime does not resolve
   ["@container (width > 10em)", [{ m: [">", "width", [{}, "em", 10, 1]] }]],
@@ -685,6 +919,15 @@ function joinedBothWays(
   ];
 }
 
+// The ratio terms the compiler emits, each alone and beside an unknown term; device-aspect-ratio stays out, since the runtime measures no screen that could make it true
+const RATIO_TERMS: readonly MediaCondition[] = [
+  [">", "aspect-ratio", [1, 1]],
+  ["=", "aspect-ratio", [1, 0]],
+  ["<=", "aspect-ratio", [0, 1]],
+  ["!!", "aspect-ratio"],
+  ["[]", "aspect-ratio", [1, 1], "<", [3, 1], "<"],
+];
+
 const CONDITIONS: readonly MediaCondition[] = [
   ...termsOn("width").flatMap(withNegation),
   ...termsOn("width").flatMap((first) =>
@@ -696,6 +939,12 @@ const CONDITIONS: readonly MediaCondition[] = [
       ),
     ),
   ),
+  ...RATIO_TERMS.flatMap((term) =>
+    withNegation(term).flatMap((ratio) =>
+      joinedBothWays(ratio, ["?"]).flatMap(withNegation),
+    ),
+  ),
+  ...RATIO_TERMS.flatMap(withNegation),
 ];
 
 // The compiler drops a rule only where the runtime's three-valued evaluation (MQ5 §3.1) answers true at no size; no two terms read the same feature, so the sizes give every combination of the terms' answers
@@ -816,6 +1065,21 @@ test("a viewport length past the largest number compiles to an operand JSON carr
     [{}, "vw", 9007199254740990, 1],
   ]);
   expect(JSON.parse(JSON.stringify(compiled))).toStrictEqual(compiled);
+});
+
+// JSON writes Infinity as null, so an infinite number makes a ratio its limit
+test("a ratio holding an infinite number compiles to its limit", () => {
+  expect(
+    parseQueryFeature(
+      {
+        type: "range",
+        name: "aspect-ratio",
+        operator: "less-than-equal",
+        value: { type: "ratio", value: [Infinity, 1] },
+      },
+      new StylesheetBuilder({}),
+    ),
+  ).toStrictEqual(["<=", "aspect-ratio", [1, 0]]);
 });
 
 test("a resolution operand past the largest number compiles to the largest safe integer", () => {

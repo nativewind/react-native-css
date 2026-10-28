@@ -7,6 +7,7 @@ import type {
 import {
   activeFamily,
   containerHeightFamily,
+  containerLayoutFamily,
   containerWidthFamily,
   focusFamily,
   hoverFamily,
@@ -17,13 +18,16 @@ import { testAttributes } from "./attributes";
 import {
   compareMediaFeature,
   evaluateCondition,
+  testAspectRatio,
   testMediaFeatureInterval,
   type FeatureReader,
   type MeasuredFeatureValue,
+  type MediaComparison,
   type MediaFeatureName,
+  type MediaInterval,
 } from "./compare";
 import type { RenderGuard } from "./guards";
-import { matches, type Truth } from "./kleene";
+import { matches, UNKNOWN, type Truth } from "./kleene";
 
 export const DEFAULT_CONTAINER_NAME = "c:___default___";
 
@@ -109,20 +113,39 @@ interface ContainerFeatureContext {
 const CONTAINER_FEATURES: FeatureReader<ContainerFeatureContext> = {
   read: (name, { containerKey, get }) =>
     getContainerFeatureValue(name, containerKey, get),
-  compare: (condition, { containerKey, get }) =>
-    condition[0] === "[]"
-      ? testMediaFeatureInterval(
-          condition,
-          getContainerFeatureValue(condition[1], containerKey, get),
-          get,
-        )
-      : compareMediaFeature(
-          condition[0],
-          getContainerFeatureValue(condition[1], containerKey, get),
-          condition[2],
-          get,
-        ),
+  compare: compareContainerFeature,
 };
+
+function compareContainerFeature(
+  condition: MediaComparison | MediaInterval,
+  { containerKey, get }: ContainerFeatureContext,
+): Truth {
+  if (condition[1] === "aspect-ratio") {
+    const layout = get(containerLayoutFamily(containerKey));
+
+    return layout === undefined
+      ? UNKNOWN
+      : testAspectRatio(condition, layout.width, layout.height, get);
+  }
+
+  // device-aspect-ratio is a feature of the screen, which no container query compiles to
+  if (condition[1] === "device-aspect-ratio") {
+    return UNKNOWN;
+  }
+
+  return condition[0] === "[]"
+    ? testMediaFeatureInterval(
+        condition,
+        getContainerFeatureValue(condition[1], containerKey, get),
+        get,
+      )
+    : compareMediaFeature(
+        condition[0],
+        getContainerFeatureValue(condition[1], containerKey, get),
+        condition[2],
+        get,
+      );
+}
 
 function getContainerFeatureValue(
   name: MediaFeatureName,
@@ -135,9 +158,8 @@ function getContainerFeatureValue(
     case "height":
       return get(containerHeightFamily(containerKey));
     case "aspect-ratio": {
-      const width = get(containerWidthFamily(containerKey));
-      const height = get(containerHeightFamily(containerKey));
-      return width / height;
+      const layout = get(containerLayoutFamily(containerKey));
+      return layout === undefined ? undefined : layout.width / layout.height;
     }
     case "orientation": {
       const width = get(containerWidthFamily(containerKey));

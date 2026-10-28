@@ -8,6 +8,7 @@ import type {
   MediaFeatureId,
   QueryFeatureFor_ContainerSizeFeatureId,
   QueryFeatureFor_MediaFeatureId,
+  Ratio,
 } from "lightningcss";
 
 import { isStyleFunction } from "../utilities";
@@ -16,7 +17,10 @@ import type { DeepReadonly } from "../utilities/deep-readonly.types";
 import type {
   MediaCondition,
   MediaFeatureComparison,
+  MediaFeatureName,
   MediaFeatureOperand,
+  MediaFeatureRatio,
+  MediaRatioFeatureName,
   StyleDescriptor,
 } from "./compiler.types";
 import { parseLength, safeNumber } from "./declarations";
@@ -207,44 +211,101 @@ const FEATURE_VALUES: ReadonlyMap<string, FeatureValueSyntax> = new Map<
   ["-moz-device-pixel-ratio", values("number", "integer")],
 ]);
 
-// A feature holding a value outside its syntax compiles to undefined, which a media query reads as unknown (MQ5 §3.2) and a container query as no query
+function isMediaFeatureName(name: string): name is MediaFeatureName {
+  return name === "dir" || name === "platform" || FEATURE_VALUES.has(name);
+}
+
+function isRatioFeatureName(
+  name: MediaFeatureName,
+): name is MediaRatioFeatureName {
+  return name === "aspect-ratio" || name === "device-aspect-ratio";
+}
+
+// A feature neither lightningcss nor this library knows, or one holding a value outside its syntax, compiles to undefined, which a media query reads as unknown (MQ5 §3.2) and a container query as no query
 export function parseQueryFeature(
   feature: DeepReadonly<
     QueryFeatureFor_MediaFeatureId | QueryFeatureFor_ContainerSizeFeatureId
   >,
   builder: StylesheetBuilder,
 ): MediaCondition | undefined {
+  const name = feature.name;
+
+  if (!isMediaFeatureName(name)) {
+    return undefined;
+  }
+
   switch (feature.type) {
     case "boolean":
-      return ["!!", feature.name];
-    case "plain": {
-      const operand = parseFeatureOperand(feature.name, feature.value, builder);
-      return operand === undefined ? undefined : ["=", feature.name, operand];
-    }
-    case "range": {
-      const operand = parseFeatureOperand(feature.name, feature.value, builder);
-      return operand === undefined
-        ? undefined
-        : [parseMediaFeatureOperator(feature.operator), feature.name, operand];
-    }
-    case "interval": {
-      const start = parseFeatureOperand(feature.name, feature.start, builder);
-      const end = parseFeatureOperand(feature.name, feature.end, builder);
-      return start === undefined || end === undefined
-        ? undefined
-        : [
-            "[]",
-            feature.name,
-            start,
-            parseMediaFeatureOperator(feature.startOperator),
-            end,
-            parseMediaFeatureOperator(feature.endOperator),
-          ];
-    }
+      return ["!!", name];
+    case "plain":
+      return parseComparison("=", name, feature.value, builder);
+    case "range":
+      return parseComparison(
+        parseMediaFeatureOperator(feature.operator),
+        name,
+        feature.value,
+        builder,
+      );
+    case "interval":
+      return parseInterval(
+        name,
+        feature.start,
+        parseMediaFeatureOperator(feature.startOperator),
+        feature.end,
+        parseMediaFeatureOperator(feature.endOperator),
+        builder,
+      );
     default:
       feature satisfies never;
       return undefined;
   }
+}
+
+function parseComparison(
+  operator: MediaFeatureComparison,
+  name: MediaFeatureName,
+  value: DeepReadonly<CSSMediaFeatureValue>,
+  builder: StylesheetBuilder,
+): MediaCondition | undefined {
+  if (isRatioFeatureName(name)) {
+    const ratio = parseRatioOperand(name, value);
+    return ratio === undefined ? undefined : [operator, name, ratio];
+  }
+
+  const operand = parseFeatureOperand(name, value, builder);
+  return operand === undefined ? undefined : [operator, name, operand];
+}
+
+function parseInterval(
+  name: MediaFeatureName,
+  start: DeepReadonly<CSSMediaFeatureValue>,
+  startOperator: MediaFeatureComparison,
+  end: DeepReadonly<CSSMediaFeatureValue>,
+  endOperator: MediaFeatureComparison,
+  builder: StylesheetBuilder,
+): MediaCondition | undefined {
+  if (isRatioFeatureName(name)) {
+    const startRatio = parseRatioOperand(name, start);
+    const endRatio = parseRatioOperand(name, end);
+    return startRatio === undefined || endRatio === undefined
+      ? undefined
+      : ["[]", name, startRatio, startOperator, endRatio, endOperator];
+  }
+
+  const startOperand = parseFeatureOperand(name, start, builder);
+  const endOperand = parseFeatureOperand(name, end, builder);
+  return startOperand === undefined || endOperand === undefined
+    ? undefined
+    : ["[]", name, startOperand, startOperator, endOperand, endOperator];
+}
+
+function parseRatioOperand(
+  name: MediaRatioFeatureName,
+  value: DeepReadonly<CSSMediaFeatureValue>,
+): MediaFeatureRatio | undefined {
+  return value.type === "ratio" && !isOutsideValueSyntax(name, value)
+    ? parseRatio(value.value)
+    : undefined;
 }
 
 // A value inside the feature's syntax that the compiler cannot resolve compiles to null, which leaves its term unknown; a condition compares only a number, a keyword or a function the runtime resolves
@@ -307,6 +368,40 @@ function isOutsideValueSyntax(
       syntax satisfies never;
       return false;
   }
+}
+
+// JSON writes Infinity as null, so an infinite number makes a ratio its limit, and every engine compares 0/0 as 1/0
+function parseRatio([
+  numerator,
+  denominator,
+]: DeepReadonly<Ratio>): MediaFeatureRatio {
+  if (numerator === Infinity || denominator === Infinity) {
+    return [numerator === Infinity ? 1 : 0, denominator === Infinity ? 1 : 0];
+  }
+
+  const ratio: MediaFeatureRatio = [
+    writtenNumber(numerator),
+    writtenNumber(denominator),
+  ];
+
+  return ratio[0] === 0 && ratio[1] === 0 ? [1, 0] : ratio;
+}
+
+// lightningcss hands a number over as a float32, and the shortest decimal that is the same float32 is the number the stylesheet wrote; NaN is 0 (css-values-4 §10.9.1)
+function writtenNumber(value: number): number {
+  if (Number.isNaN(value)) {
+    return 0;
+  }
+
+  for (let digits = 1; digits < 9; digits++) {
+    const decimal = Number(value.toPrecision(digits));
+
+    if (Math.fround(decimal) === value) {
+      return decimal;
+    }
+  }
+
+  return value;
 }
 
 function parseMediaFeatureValue(

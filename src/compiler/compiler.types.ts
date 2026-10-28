@@ -1,7 +1,8 @@
 /* eslint-disable */
 import type { Debugger } from "debug";
 import type {
-  MediaFeatureNameFor_MediaFeatureId,
+  ContainerSizeFeatureId,
+  MediaFeatureId,
   TokenOrValue,
 } from "lightningcss";
 
@@ -191,7 +192,7 @@ export type MediaCondition =
   // Unknown (MQ5 §3.1): a term the compiler cannot decide, such as a value outside its feature's syntax or a container style() query
   | readonly ["?"]
   // Boolean
-  | readonly ["!!", MediaFeatureNameFor_MediaFeatureId]
+  | readonly ["!!", MediaFeatureName]
   // Not
   | readonly ["!", MediaCondition]
   // And
@@ -201,18 +202,55 @@ export type MediaCondition =
   // Comparison
   | readonly [
       MediaFeatureComparison,
-      MediaFeatureNameFor_MediaFeatureId | "dir",
+      MediaValueFeatureName,
       MediaFeatureOperand,
     ]
+  | MediaRatioComparison
   // [Start, End]
   | readonly [
       "[]",
-      MediaFeatureNameFor_MediaFeatureId,
+      MediaValueFeatureName,
       MediaFeatureOperand, // Start
       MediaFeatureComparison, // Start comparison
       MediaFeatureOperand, // End
       MediaFeatureComparison, // End comparison
-    ];
+    ]
+  | MediaRatioInterval;
+
+// The features lightningcss parses in a media or container query, and this library's dir and platform; the compiler leaves any other name an unknown term
+export type MediaFeatureName =
+  | MediaFeatureId
+  | ContainerSizeFeatureId
+  | "dir"
+  | "platform";
+
+// The features whose value is a <ratio>
+export type MediaRatioFeatureName = "aspect-ratio" | "device-aspect-ratio";
+
+export type MediaValueFeatureName = Exclude<
+  MediaFeatureName,
+  MediaRatioFeatureName
+>;
+
+// A variant for each ratio feature, so a reader that answers one ratio feature must answer the other
+export type MediaRatioComparison<
+  Name extends MediaRatioFeatureName = MediaRatioFeatureName,
+> = Name extends MediaRatioFeatureName
+  ? readonly [MediaFeatureComparison, Name, MediaFeatureRatio]
+  : never;
+
+export type MediaRatioInterval<
+  Name extends MediaRatioFeatureName = MediaRatioFeatureName,
+> = Name extends MediaRatioFeatureName
+  ? readonly [
+      "[]",
+      Name,
+      MediaFeatureRatio, // Start
+      MediaFeatureComparison, // Start comparison
+      MediaFeatureRatio, // End
+      MediaFeatureComparison, // End comparison
+    ]
+  : never;
 
 // JSON writes undefined in an array as null, so null is what a device reads for a value the compiler could not resolve
 export type MediaFeatureOperand =
@@ -220,6 +258,12 @@ export type MediaFeatureOperand =
   | string
   | ReadonlyStyleFunction
   | null;
+
+// A <ratio>'s two numbers, which Chromium and Firefox compare by cross-multiplying
+export type MediaFeatureRatio = readonly [
+  numerator: number,
+  denominator: number,
+];
 
 export type MediaFeatureComparison = "=" | ">" | ">=" | "<" | "<=";
 

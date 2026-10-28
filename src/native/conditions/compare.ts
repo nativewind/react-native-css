@@ -2,6 +2,8 @@ import type {
   MediaCondition,
   MediaFeatureComparison,
   MediaFeatureOperand,
+  MediaRatioComparison,
+  MediaRatioInterval,
 } from "react-native-css/compiler";
 
 import type { Getter } from "../reactivity";
@@ -12,6 +14,8 @@ export type MediaInterval = Extract<
   MediaCondition,
   readonly ["[]", ...unknown[]]
 >;
+
+export type MediaValueInterval = Exclude<MediaInterval, MediaRatioInterval>;
 
 export type MediaComparison = Extract<
   MediaCondition,
@@ -130,6 +134,46 @@ export function compareMediaFeature(
   }
 }
 
+// Chromium and Firefox compare an aspect ratio with a ratio by cross-multiplying, so a box of no height equals 1/0 and a box of no size equals every ratio
+export function testAspectRatio(
+  condition:
+    | MediaRatioComparison<"aspect-ratio">
+    | MediaRatioInterval<"aspect-ratio">,
+  width: number,
+  height: number,
+  get: Getter,
+): Truth {
+  if (condition[0] === "[]") {
+    const start = condition[2];
+    const end = condition[4];
+
+    return and(
+      compareRatios(condition[3], start[0], start[1], width, height, get),
+      compareRatios(condition[5], width, height, end[0], end[1], get),
+    );
+  }
+
+  const ratio = condition[2];
+
+  return compareRatios(condition[0], width, height, ratio[0], ratio[1], get);
+}
+
+function compareRatios(
+  operator: MediaFeatureComparison,
+  leftNumerator: number,
+  leftDenominator: number,
+  rightNumerator: number,
+  rightDenominator: number,
+  get: Getter,
+): Truth {
+  return compareMediaFeature(
+    operator,
+    leftNumerator * rightDenominator,
+    rightNumerator * leftDenominator,
+    get,
+  );
+}
+
 // A viewport length is relative to the window in a media query and a container query alike (css-values-4 §6.1.2); any other descriptor, such as an em or a calc(), has no value the runtime compares
 function resolveViewportLength(
   descriptor: Extract<MediaFeatureOperand, object>,
@@ -145,7 +189,7 @@ function resolveViewportLength(
 
 // The compiler emits a range pair in source order: start, operator, value, operator, end; it is read by index, since Babel compiles a destructured tuple to a helper call that costs more than the comparisons
 export function testMediaFeatureInterval(
-  condition: MediaInterval,
+  condition: MediaValueInterval,
   value: MeasuredFeatureValue,
   get: Getter,
 ): Truth {

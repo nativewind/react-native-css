@@ -2,6 +2,12 @@ import type { CalcFor_Length, MediaFeatureValue } from "lightningcss";
 import type {
   MediaCondition,
   MediaFeatureComparison,
+  MediaFeatureName,
+  MediaFeatureOperand,
+  MediaFeatureRatio,
+  MediaRatioComparison,
+  MediaRatioFeatureName,
+  MediaRatioInterval,
   ReadonlyStyleFunction,
   StyleFunction,
 } from "react-native-css/compiler";
@@ -93,4 +99,46 @@ test("a render guard is a readonly tuple", () => {
   const guardWritable: HoldsWritable<RenderGuard> = false;
 
   expect(guardWritable).toBe(false);
+});
+
+test("a condition's feature names are closed, and each ratio feature compares a ratio in a variant of its own", () => {
+  const unknownName: IsAssignable<"fictional-feature", MediaFeatureName> =
+    false;
+  const libraryNames: IsAssignable<"dir" | "platform", MediaFeatureName> = true;
+  const ratioAsValueOperand: IsAssignable<
+    MediaFeatureRatio,
+    MediaFeatureOperand
+  > = false;
+  const valueAsRatioOperand: IsAssignable<
+    MediaFeatureOperand,
+    (MediaRatioComparison | MediaRatioInterval)[2]
+  > = false;
+  const ratioFeatureComparedAsValue: IsNever<
+    Extract<
+      MediaCondition,
+      readonly [
+        MediaFeatureComparison,
+        MediaRatioFeatureName,
+        MediaFeatureOperand,
+      ]
+    >
+  > = true;
+  const deviceAspectRatioLeft: IsAssignable<
+    Exclude<
+      MediaRatioComparison | MediaRatioInterval,
+      { readonly 1: "aspect-ratio" }
+    >[1],
+    "device-aspect-ratio"
+  > = true;
+  const ratioWritable: IsWritable<MediaFeatureRatio> = false;
+
+  expect([
+    unknownName,
+    libraryNames,
+    ratioAsValueOperand,
+    valueAsRatioOperand,
+    ratioFeatureComparedAsValue,
+    deviceAspectRatioLeft,
+    ratioWritable,
+  ]).toStrictEqual([false, true, false, false, true, true, false]);
 });

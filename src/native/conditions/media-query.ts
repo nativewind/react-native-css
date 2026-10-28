@@ -10,6 +10,7 @@ import { colorScheme, vh, vw, type Getter } from "../reactivity";
 import {
   compareMediaFeature,
   evaluateCondition,
+  testAspectRatio,
   testMediaFeatureInterval,
   type FeatureReader,
   type MeasuredFeatureValue,
@@ -38,6 +39,15 @@ function testComparison(
   mediaQuery: MediaComparison | MediaInterval,
   get: Getter,
 ): Truth {
+  if (mediaQuery[1] === "aspect-ratio") {
+    return testAspectRatio(mediaQuery, get(vw), get(vh), get);
+  }
+
+  // The runtime measures the window and not the screen
+  if (mediaQuery[1] === "device-aspect-ratio") {
+    return UNKNOWN;
+  }
+
   if (mediaQuery[0] === "[]") {
     return testMediaFeatureInterval(
       mediaQuery,
@@ -137,6 +147,8 @@ function getMediaFeatureValue(
       return get(vw);
     case "height":
       return get(vh);
+    case "aspect-ratio":
+      return get(vw) / get(vh);
     // -webkit-device-pixel-ratio is resolution in dppx (https://compat.spec.whatwg.org/#css-media-queries-webkit-device-pixel-ratio)
     case "resolution":
     case "-webkit-device-pixel-ratio":

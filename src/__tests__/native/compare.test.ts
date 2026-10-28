@@ -12,7 +12,7 @@ import {
   type FeatureReader,
   type MeasuredFeatureValue,
   type MediaFeatureName,
-  type MediaInterval,
+  type MediaValueInterval,
 } from "../../native/conditions/compare";
 import { UNKNOWN, type Truth } from "../../native/conditions/kleene";
 import { dimensions, type Getter } from "../../native/reactivity";
@@ -61,7 +61,7 @@ test.each(operands)("%s", (_label, operator, left, right, truth) => {
 
 const intervals: readonly (readonly [
   label: string,
-  condition: MediaInterval,
+  condition: MediaValueInterval,
   value: MeasuredFeatureValue,
   truth: Truth,
 ])[] = [
@@ -113,6 +113,14 @@ const recordingReader = (
   },
   compare: (condition) => {
     read.push(condition[1]);
+
+    if (
+      condition[1] === "aspect-ratio" ||
+      condition[1] === "device-aspect-ratio"
+    ) {
+      return UNKNOWN;
+    }
+
     return condition[0] === "[]"
       ? testMediaFeatureInterval(condition, values[condition[1]], get)
       : compareMediaFeature(

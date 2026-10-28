@@ -244,23 +244,19 @@ export type ContainerContextValue = Record<
 >;
 export const ContainerContext = createContext<ContainerContextValue>({});
 
+// A container has no layout until React Native first lays it out
 export const containerLayoutFamily = weakFamily(() => {
-  return observable<LayoutRectangle>({
-    x: 0,
-    y: 0,
-    width: 0,
-    height: 0,
-  });
+  return observable<LayoutRectangle | undefined>(undefined);
 });
 
 export const containerWidthFamily = weakFamily((key) => {
   return observable((read) => {
-    return read(containerLayoutFamily(key))?.width || 0;
+    return read(containerLayoutFamily(key))?.width ?? 0;
   });
 });
 
 export const containerHeightFamily = weakFamily((key) => {
   return observable((read) => {
-    return read(containerLayoutFamily(key))?.height || 0;
+    return read(containerLayoutFamily(key))?.height ?? 0;
   });
 });
