@@ -334,39 +334,33 @@ export class StylesheetBuilder {
     } else if (property.startsWith("--")) {
       rule.v ??= [];
       rule.v.push([property.slice(2), value]);
-    } else if (isStyleFunction(value)) {
-      const [delayed, usesVariables] = postProcessStyleFunction(value);
-
-      rule.d ??= [];
-      if (
-        value[1].startsWith("animation") ||
-        value[1].startsWith("transition")
-      ) {
-        rule.a ??= true;
-      }
-
-      if (usesVariables) {
-        rule.dv = 1;
-      }
-
-      this.pushDescriptor(
-        property,
-        value,
-        rule.d,
-        forceTuple,
-        delayed || usesVariables,
-      );
     } else {
+      rule.d ??= [];
+
       if (
-        property.startsWith("animation-") ||
-        property.startsWith("transition-") ||
-        property === "transition"
+        property.startsWith("animation") ||
+        property.startsWith("transition")
       ) {
         rule.a ??= true;
       }
 
-      rule.d ??= [];
-      this.pushDescriptor(property, value, rule.d);
+      if (isStyleFunction(value)) {
+        const [delayed, usesVariables] = postProcessStyleFunction(value);
+
+        if (usesVariables) {
+          rule.dv = 1;
+        }
+
+        this.pushDescriptor(
+          property,
+          value,
+          rule.d,
+          forceTuple,
+          delayed || usesVariables,
+        );
+      } else {
+        this.pushDescriptor(property, value, rule.d);
+      }
     }
   }
 

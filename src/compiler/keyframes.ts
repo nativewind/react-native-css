@@ -4,6 +4,7 @@ import type {
   KeyframesRule,
 } from "lightningcss";
 
+import { timingFunctionValue } from "../utilities";
 import type { StyleDescriptor } from "./compiler.types";
 import { parseDeclaration } from "./declarations";
 import type { StylesheetBuilder } from "./stylesheet";
@@ -38,10 +39,7 @@ export function parseEasingFunction(
     }
   }) as StyleDescriptor[];
 
-  if (easingFn.length === 1) {
-    return easingFn[0];
-  }
-  return easingFn;
+  return timingFunctionValue(easingFn);
 }
 
 export function extractKeyFrames(

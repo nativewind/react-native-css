@@ -181,6 +181,38 @@ test("animations preserve named keyframes and their timing contract", () => {
   ]);
 });
 
+test.each([
+  "animation: var(--v)",
+  "animation-delay: var(--v)",
+  "animation-direction: var(--v)",
+  "animation-duration: var(--v)",
+  "animation-fill-mode: var(--v)",
+  "animation-iteration-count: var(--v)",
+  "animation-name: var(--v)",
+  "animation-play-state: var(--v)",
+  "animation-timing-function: var(--v)",
+  "animation-timing-function: cubic-bezier(0.25, 0.5, 0.75, 1)",
+  "animation-timing-function: steps(4)",
+  "transition: var(--v)",
+  "transition-delay: var(--v)",
+  "transition-duration: var(--v)",
+  "transition-duration: var(--v) !important",
+  "transition-property: var(--v)",
+  "transition-timing-function: var(--v)",
+  "transition-timing-function: cubic-bezier(0.25, 0.5, 0.75, 1)",
+  "transition-timing-function: steps(4)",
+  "transition-behavior: allow-discrete",
+  "transition-behavior: var(--v)",
+])("a rule writing %s carries the animated rule marker", (declaration) => {
+  const rule = compile(`.test { ${declaration}; }`).stylesheet().s?.[0]?.[1][0];
+  expect(rule?.a).toBe(true);
+});
+
+test("a rule writing no animation or transition carries no animated rule marker", () => {
+  const { s } = compile(`.test { width: var(--v); }`).stylesheet();
+  expect(s?.[0]?.[1][0]?.a).toBeUndefined();
+});
+
 test("breaks apart comma separated variables", () => {
   const compiled = compile(
     `

@@ -36,7 +36,13 @@ import type {
   UnresolvedColor,
 } from "lightningcss";
 
-import { isStyleFunction, toRNProperty } from "../utilities";
+import {
+  isStyleFunction,
+  propertyRename,
+  round,
+  toRNProperty,
+  transitionStyleKey,
+} from "../utilities";
 import { isMappingProperty } from "./atRules";
 import type {
   StyleDescriptor,
@@ -60,19 +66,6 @@ type Parser<T extends Declaration["property"] = Declaration["property"]> = (
   // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
 ) => StyleDescriptor | void;
 
-const propertyRename: Record<string, string> = {
-  "background-image": "experimental_backgroundImage",
-  // React Native has no border-inline-* props, but ships the equivalent
-  // RTL-aware border-start-* / border-end-* props
-  "border-inline-end-color": "border-end-color",
-  "border-inline-end-width": "border-end-width",
-  "border-inline-start-color": "border-start-color",
-  "border-inline-start-width": "border-start-width",
-  "border-block-start-width": "border-top-width",
-  "border-block-end-width": "border-bottom-width",
-  "font-variant-caps": "font-variant",
-};
-
 // React Native only supports a uniform borderStyle, so per-side border
 // styles have no native equivalent and are dropped. "solid" is dropped
 // silently as it matches React Native's default rendering.
@@ -85,20 +78,35 @@ const unsupportedLogicalStyles = new Set([
   "border-block-end-style",
 ]);
 
-const unparsedRuntimeParsing = new Set([
-  "animation",
-  "animation-name",
-  "border",
-  "border-block-width",
-  "border-inline-width",
-  "box-shadow",
-  "filter",
-  "line-height",
-  "rotate",
-  "scale",
-  "text-shadow",
-  "transform",
-  "translate",
+/** Where the runtime reads a value the compiler leaves unparsed: where the cascade puts it, or once every rule has applied. */
+type RuntimeReading = "in place" | "after every rule";
+
+const unparsedRuntimeParsing = new Map<string, RuntimeReading>([
+  ["animation", "in place"],
+  ["animation-delay", "in place"],
+  ["animation-direction", "in place"],
+  ["animation-duration", "in place"],
+  ["animation-fill-mode", "in place"],
+  ["animation-iteration-count", "in place"],
+  ["animation-name", "after every rule"],
+  ["animation-play-state", "in place"],
+  ["animation-timing-function", "in place"],
+  ["border", "after every rule"],
+  ["border-block-width", "after every rule"],
+  ["border-inline-width", "after every rule"],
+  ["box-shadow", "after every rule"],
+  ["filter", "after every rule"],
+  ["line-height", "after every rule"],
+  ["rotate", "after every rule"],
+  ["scale", "after every rule"],
+  ["text-shadow", "after every rule"],
+  ["transform", "after every rule"],
+  ["transition", "in place"],
+  ["transition-delay", "in place"],
+  ["transition-duration", "in place"],
+  ["transition-property", "in place"],
+  ["transition-timing-function", "in place"],
+  ["translate", "after every rule"],
 ]);
 
 const parsers: {
@@ -951,6 +959,34 @@ function parseContainer(
   return;
 }
 
+/** A value the runtime reads, as the style function its resolver takes; one the compiler cannot read adds nothing. */
+function addRuntimeReading(
+  builder: StylesheetBuilder,
+  property: string,
+  value: StyleDescriptor,
+  reading: RuntimeReading,
+) {
+  if (value !== undefined) {
+    builder.addDescriptor(
+      property,
+      runtimeStyleFunction(toRNProperty(property), value, reading),
+    );
+  }
+}
+
+function runtimeStyleFunction(
+  name: string,
+  value: StyleDescriptor,
+  reading: RuntimeReading,
+): StyleFunction {
+  switch (reading) {
+    case "in place":
+      return [{}, name, value];
+    case "after every rule":
+      return [{}, name, value, 1];
+  }
+}
+
 export function parseUnparsedDeclaration(
   declaration: Extract<Declaration, { property: "unparsed" }>,
   builder: StylesheetBuilder,
@@ -982,14 +1018,15 @@ export function parseUnparsedDeclaration(
    */
   builder.descriptorProperty = property;
 
-  if (unparsedRuntimeParsing.has(property)) {
-    const args = parseUnparsed(declaration.value.value, builder, property);
+  const reading = unparsedRuntimeParsing.get(property);
 
-    if (property === "animation") {
-      builder.addDescriptor("animation", [{}, property, args]);
-    } else {
-      builder.addDescriptor(property, [{}, toRNProperty(property), args, 1]);
-    }
+  if (reading !== undefined) {
+    addRuntimeReading(
+      builder,
+      property,
+      parseUnparsed(declaration.value.value, builder, property),
+      reading,
+    );
   } else {
     const value = parseUnparsed(declaration.value.value, builder, property);
 
@@ -1048,6 +1085,14 @@ export function parseCustomDeclaration(
     builder.addDescriptor(
       property,
       parseUnparsed(declaration.value.value, builder, property),
+    );
+  } else if (property === "transition-behavior") {
+    // lightningcss parses no transition-behavior (CSS Transitions 2 §2.5), so the runtime reads it
+    addRuntimeReading(
+      builder,
+      property,
+      parseUnparsed(declaration.value.value, builder, property),
+      "in place",
     );
   } else if (property === "corner-shape") {
     parseCornerShape(declaration.value, builder);
@@ -2650,10 +2695,6 @@ export function parseSVGPaint(
   builder.addDescriptor(property, parsedValue);
 }
 
-export function round(number: number) {
-  return Math.round((number + Number.EPSILON) * 10000) / 10000;
-}
-
 export function parseDimensionPercentageFor_LengthValue(
   value: DimensionPercentageFor_LengthValue,
   builder: StylesheetBuilder,
@@ -3057,15 +3098,9 @@ export function addTransitionValue(
     case "transition-property": {
       builder.addDescriptor(
         declaration.property,
-        declaration.value
-          .map((v) => v.property)
-          .filter(
-            (v) =>
-              (v in parsers && !["visibility"].includes(v)) ||
-              v === "all" ||
-              v === "none",
-          )
-          .map((v) => toRNProperty(v)),
+        declaration.value.map((propertyId) =>
+          transitionStyleKey(propertyId.property),
+        ),
       );
       return;
     }
