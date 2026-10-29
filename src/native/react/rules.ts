@@ -18,6 +18,7 @@ import {
   type VariableContextValue,
 } from "../reactivity";
 import { stylesFamily } from "../styles";
+import { substituteOwnReferences } from "../styles/variables";
 import type { ComponentState, Config } from "./useNativeCss";
 
 export const INLINE_RULE_SYMBOL = Symbol("react-native-css.inlineRule");
@@ -41,6 +42,8 @@ export function updateRules(
   let usesVariables = false;
 
   let variables: VariableContextValue | undefined;
+  let ruleVariableNames: Set<string> | undefined;
+  let publishedChanged = false;
   let containers: ContainerContextValue | undefined;
   const inlineVariables = new Set<InlineVariable>();
 
@@ -135,8 +138,10 @@ export function updateRules(
           variables = { ...inheritedVariables };
         }
 
+        ruleVariableNames ??= new Set();
         for (const v of rule.v) {
           variables![v[0]] = v[1];
+          ruleVariableNames.add(v[0]);
         }
       }
 
@@ -233,6 +238,16 @@ export function updateRules(
       );
     }
 
+    if (variables && ruleVariableNames) {
+      publishedChanged = substituteOwnReferences(
+        variables,
+        ruleVariableNames,
+        inlineVariables,
+        state.variables,
+        state.ruleEffectGetter,
+      );
+    }
+
     for (const variable of inlineVariables) {
       rules.add(variable);
     }
@@ -246,12 +261,18 @@ export function updateRules(
   guards.push(...stylesObs.get().guards);
 
   // If these are the same styles with no inline variables, we can skip the update
-  if (state.stylesObs === stylesObs && !inlineVariables.size) {
+  if (
+    state.stylesObs === stylesObs &&
+    !inlineVariables.size &&
+    !publishedChanged
+  ) {
     return state;
   }
 
   // Remove this component from the old observer
-  state.stylesObs?.unsubscribe(state.styleEffect);
+  if (state.stylesObs !== stylesObs) {
+    state.stylesObs?.unsubscribe(state.styleEffect);
+  }
 
   return {
     ...state,

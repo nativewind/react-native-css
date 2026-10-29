@@ -24,6 +24,7 @@ import type {
   StyleRuleMapping,
   UniqueVarInfo,
 } from "./compiler.types";
+import { isComputationallyIndependent } from "./computational-independence";
 import { parseContainerCondition } from "./container-query";
 import {
   parseAngle,
@@ -37,6 +38,7 @@ import { inlineVariables } from "./inline-variables";
 import { extractKeyFrames } from "./keyframes";
 import { lightningcssLoader } from "./lightningcss-loader";
 import { parseMediaQuery } from "./media-query";
+import { isUniversalSelector } from "./selector-builder";
 import { StylesheetBuilder } from "./stylesheet";
 import { supportsConditionValid } from "./supports";
 
@@ -98,8 +100,32 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
     options.inlineRem = effectiveRem;
   }
 
+  // Decided in the first pass, since lightningcss prints only the last @property of a name, valid or not
+  const registrations = new Map<string, PropertyRule>();
+  // Browsers register an @property in a layer, in @container and under an @supports that holds, and one in @media only while it matches
+  const conditionalRegistrations = new Set<string>();
+
   const firstPassVisitor: Visitor<CustomAtRules> = {
     Rule(rule) {
+      switch (rule.type) {
+        case "property":
+          if (
+            !conditionalRegistrations.has(locationKey(rule.value.loc)) &&
+            isValidRegistration(rule.value)
+          ) {
+            registrations.set(rule.value.name, rule.value);
+          }
+          break;
+        case "media":
+          markRegistrations(rule.value.rules, conditionalRegistrations);
+          break;
+        case "supports":
+          if (!supportsConditionValid(rule.value.condition)) {
+            markRegistrations(rule.value.rules, conditionalRegistrations);
+          }
+          break;
+      }
+
       if (
         rule.type === "unknown" &&
         ["cssInterop", "react-native"].includes(rule.value.name)
@@ -148,6 +174,25 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
   if (options.inlineVariables !== false) {
     const exclusionList: string[] = options.inlineVariables?.exclude ?? [];
 
+    firstPassVisitor.StyleSheetExit = (sheet) => {
+      const universalDeclarations = countUniversalDeclarations(sheet.rules);
+
+      // A non-inheriting property has one value on every element only when universal rules are all that declare it
+      const runtimeVariables = new Set(
+        Array.from(registerProperties(registrations, builder)).filter(
+          (name) => {
+            const declarations = vars.get(name)?.count;
+            return (
+              declarations === undefined ||
+              universalDeclarations.get(name) !== declarations
+            );
+          },
+        ),
+      );
+
+      return inlineVariables(sheet, vars, runtimeVariables);
+    };
+
     firstPassVisitor.Declaration = (decl) => {
       if (
         decl.property === "custom" &&
@@ -165,9 +210,6 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
         vars.set(decl.value.name, entry);
       }
     };
-    firstPassVisitor.StyleSheetExit = (sheet) => {
-      return inlineVariables(sheet, vars);
-    };
   }
 
   const { code: firstPass } = lightningcss({
@@ -178,6 +220,10 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
     filename: options.filename ?? "style.css",
     projectRoot: options.projectRoot ?? process.cwd(),
   });
+
+  if (options.inlineVariables === false) {
+    registerProperties(registrations, builder);
+  }
 
   if (isLoggerEnabled) {
     const MAX_LOG_SIZE = 100 * 1024; // 100KB
@@ -338,8 +384,6 @@ function extractRule(
       }
       break;
     case "property":
-      extractPropertyRule(rule.value, builder);
-      break;
     case "custom":
     case "font-face":
     case "font-palette-values":
@@ -421,22 +465,90 @@ function extractContainer(
   }
 }
 
-function extractPropertyRule(
-  propertyRule: PropertyRule,
+function isValidRegistration({ initialValue }: PropertyRule): boolean {
+  return initialValue == null || isComputationallyIndependent(initialValue);
+}
+
+// Known by location, since lightningcss calls no typed RuleExit visitor (parcel-bundler/lightningcss#480) and an untyped one serializes every rule again
+function markRegistrations(rules: readonly Rule[], marked: Set<string>) {
+  for (const rule of rules) {
+    switch (rule.type) {
+      case "property":
+        marked.add(locationKey(rule.value.loc));
+        break;
+      case "media":
+      case "supports":
+      case "container":
+      case "layer-block":
+        markRegistrations(rule.value.rules, marked);
+        break;
+    }
+  }
+}
+
+function locationKey({ source_index, line, column }: PropertyRule["loc"]) {
+  return `${source_index}:${line}:${column}`;
+}
+
+// Registers the properties whose initial value has a descriptor, and returns the names that do not inherit
+function registerProperties(
+  registrations: ReadonlyMap<string, PropertyRule>,
   builder: StylesheetBuilder,
+): ReadonlySet<string> {
+  const nonInheriting = new Set<string>();
+
+  for (const [name, { inherits, initialValue }] of registrations) {
+    const value =
+      initialValue == null
+        ? undefined
+        : parsePropertyInitialValue(initialValue, builder);
+
+    // Left unregistered, since without its initial value the property would fall back where CSS gives that value
+    if (initialValue != null && value === undefined) {
+      continue;
+    }
+
+    builder.registerProperty(name.slice(2), inherits, value);
+    if (!inherits) {
+      nonInheriting.add(name);
+    }
+  }
+
+  return nonInheriting;
+}
+
+// Counts each custom property's declarations in universal rules every element shares: at the top level, in a layer or under an @supports, whose declarations the inliner reads too, and not under @media or @container
+function countUniversalDeclarations(
+  rules: readonly Rule[],
+  counts = new Map<string, number>(),
 ) {
-  const { initialValue, name } = propertyRule;
-
-  if (initialValue == null) {
-    return;
+  for (const rule of rules) {
+    switch (rule.type) {
+      case "style":
+        if (rule.value.selectors.some(isUniversalSelector)) {
+          const { declarations = [], importantDeclarations = [] } =
+            rule.value.declarations ?? {};
+          for (const declaration of [
+            ...declarations,
+            ...importantDeclarations,
+          ]) {
+            if (declaration.property === "custom") {
+              const { name } = declaration.value;
+              counts.set(name, (counts.get(name) ?? 0) + 1);
+            }
+          }
+        }
+        break;
+      case "layer-block":
+        countUniversalDeclarations(rule.value.rules, counts);
+        break;
+      case "supports":
+        countUniversalDeclarations(rule.value.rules, counts);
+        break;
+    }
   }
 
-  const varName = name.startsWith("--") ? name.slice(2) : name;
-  const value = parsePropertyInitialValue(initialValue, builder);
-
-  if (value !== undefined) {
-    builder.addRootVariable(varName, value);
-  }
+  return counts;
 }
 
 function parsePropertyInitialValue(
@@ -463,9 +575,12 @@ function parsePropertyInitialValue(
     case "literal":
       return component.value;
     case "repeated": {
-      const results = component.value.components
-        .map((c) => parsePropertyInitialValue(c, builder))
-        .filter((v): v is NonNullable<StyleDescriptor> => v !== undefined);
+      const results = component.value.components.map((item) =>
+        parsePropertyInitialValue(item, builder),
+      );
+      if (results.includes(undefined)) {
+        return undefined;
+      }
       // Unwrap single-child repeated values so downstream consumers get a
       // scalar instead of a 1-element array. For example, `<length>+` with
       // initial-value `10px` should produce the same shape as `<length>`.

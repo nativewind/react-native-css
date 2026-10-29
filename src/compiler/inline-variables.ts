@@ -3,6 +3,7 @@ import type {
   DeclarationBlock,
   StyleSheet,
   TokenOrValue,
+  UnresolvedColor,
 } from "lightningcss";
 
 import type { UniqueVarInfo } from "./compiler.types";
@@ -10,7 +11,18 @@ import type { UniqueVarInfo } from "./compiler.types";
 export function inlineVariables(
   stylesheet: StyleSheet,
   vars: Map<string, UniqueVarInfo>,
+  runtimeVariables: ReadonlySet<string>,
 ) {
+  // Removed before any value flattens, since a value that refers to one is computed where it is declared
+  for (const [name, info] of [...vars]) {
+    if (
+      runtimeVariables.has(name) ||
+      refersToAny(info.value, runtimeVariables)
+    ) {
+      vars.delete(name);
+    }
+  }
+
   for (const [name, info] of [...vars]) {
     if (info.count !== 1) {
       vars.delete(name);
@@ -206,4 +218,59 @@ function flattenVar(
   };
 
   vars.set(name, varInfo);
+}
+
+function refersToAny(
+  value: readonly TokenOrValue[] | null | undefined,
+  names: ReadonlySet<string>,
+): boolean {
+  return value?.some((part) => partRefersToAny(part, names)) ?? false;
+}
+
+function partRefersToAny(
+  part: TokenOrValue,
+  names: ReadonlySet<string>,
+): boolean {
+  switch (part.type) {
+    case "var":
+      return (
+        names.has(part.value.name.ident) ||
+        refersToAny(part.value.fallback, names)
+      );
+    case "env":
+      return refersToAny(part.value.fallback, names);
+    case "function":
+      return refersToAny(part.value.arguments, names);
+    case "unresolved-color":
+      return unresolvedColorRefersToAny(part.value, names);
+    case "token":
+    case "color":
+    case "url":
+    case "length":
+    case "angle":
+    case "time":
+    case "resolution":
+    case "dashed-ident":
+    case "animation-name":
+      return false;
+    default:
+      part satisfies never;
+      return false;
+  }
+}
+
+function unresolvedColorRefersToAny(
+  color: UnresolvedColor,
+  names: ReadonlySet<string>,
+): boolean {
+  switch (color.type) {
+    case "rgb":
+    case "hsl":
+      return refersToAny(color.alpha, names);
+    case "light-dark":
+      return refersToAny(color.light, names) || refersToAny(color.dark, names);
+    default:
+      color satisfies never;
+      return false;
+  }
 }
