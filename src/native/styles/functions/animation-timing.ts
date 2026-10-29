@@ -1,3 +1,5 @@
+import { commaListItems } from "react-native-css/utilities";
+
 import type { StyleFunctionResolver } from "../resolve";
 
 /* eslint-disable @typescript-eslint/no-require-imports */
@@ -26,7 +28,7 @@ const timingFunctionResolver: StyleFunctionResolver = (resolveValue, value) => {
     return;
   }
 
-  const args = resolveValue(value[2]);
+  const args = commaListItems(resolveValue(value[2]));
 
   if (!Array.isArray(args)) {
     return;

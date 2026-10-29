@@ -591,3 +591,16 @@ test("an @property under an @supports that fails is not registered", () => {
 
   expect(result.vp).toBeUndefined();
 });
+
+test("@property with a comma-separated repeated value keeps each item apart", () => {
+  const compiled = compile(`
+@property --my-offsets {
+  syntax: "<length>#";
+  inherits: false;
+  initial-value: 10px, 20px;
+}
+`);
+
+  const vrMap = new Map(compiled.stylesheet().vr);
+  expect(vrMap.get("my-offsets")).toStrictEqual([[[[10], [20]]]]);
+});
