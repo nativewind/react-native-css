@@ -417,7 +417,7 @@ export class StylesheetBuilder {
       } else {
         declarations.push([value, propPath]);
       }
-    } else if (Array.isArray(value) && value.some(isStyleFunction)) {
+    } else if (Array.isArray(value) && value.some(holdsStyleFunction)) {
       declarations.push([value, propPath]);
     } else if (typeof value === "string" && keywords.has(value)) {
       declarations.push([value, propPath]);
@@ -614,6 +614,14 @@ function isStyleFunction(
       value[0] &&
       typeof value[0] === "object" &&
       Object.keys(value[0]).length === 0,
+  );
+}
+
+/** A comma-separated list holds each item as the array of its tokens, so a function may be one of an item's tokens. */
+function holdsStyleFunction(entry: StyleDescriptor): boolean {
+  return (
+    isStyleFunction(entry) ||
+    (Array.isArray(entry) && entry.some(isStyleFunction))
   );
 }
 

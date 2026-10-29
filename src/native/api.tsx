@@ -4,6 +4,7 @@ import { Appearance, type ViewStyle } from "react-native";
 
 import type { StyleDescriptor } from "react-native-css/compiler";
 import { VariableContext } from "react-native-css/native-internal";
+import { commaListItems } from "react-native-css/utilities";
 
 import type {
   ColorScheme,
@@ -114,7 +115,9 @@ export function useNativeVariable(name: string) {
     return () => cleanupEffect(effect);
   }, [effect]);
   cleanupEffect(effect);
-  return resolveValue([{}, "var", [name]], effect.get, { inheritedVariables });
+  return commaListItems(
+    resolveValue([{}, "var", [name]], effect.get, { inheritedVariables }),
+  );
 }
 
 /**

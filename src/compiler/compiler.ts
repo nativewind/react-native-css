@@ -469,7 +469,13 @@ function parsePropertyInitialValue(
       // Unwrap single-child repeated values so downstream consumers get a
       // scalar instead of a 1-element array. For example, `<length>+` with
       // initial-value `10px` should produce the same shape as `<length>`.
-      return results.length === 1 ? results[0] : results;
+      if (results.length === 1) {
+        return results[0];
+      }
+
+      return component.value.multiplier.type === "comma"
+        ? results.map((result) => [result])
+        : results;
     }
     default:
       return undefined;

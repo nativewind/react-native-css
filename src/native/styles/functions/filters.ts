@@ -1,4 +1,7 @@
-import { isStyleDescriptorArray } from "react-native-css/utilities";
+import {
+  isCommaList,
+  isStyleDescriptorArray,
+} from "react-native-css/utilities";
 
 import type { StyleFunctionResolver } from "../resolve";
 import { shorthandHandler } from "../shorthands/_handler";
@@ -98,11 +101,12 @@ export const dropShadow: StyleFunctionResolver = (
     : undefined;
 };
 
-/** CSS variables may expand to multiple filters; native filter arrays must be flat. */
 export const filter: StyleFunctionResolver = (resolveValue, descriptor) => {
   const value: unknown = resolveValue(descriptor[2]);
+  // filter-effects-1 §5: a filter list is space-separated, so a comma makes the declaration invalid at computed-value time
+  if (isCommaList(value)) return null;
   if (Array.isArray(value)) {
-    const filters: unknown[] = value.flat(Infinity);
+    const filters: readonly unknown[] = value;
     return filters.filter(
       (entry) => entry !== undefined && entry !== "initial",
     );
