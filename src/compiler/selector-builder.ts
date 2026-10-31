@@ -1,6 +1,7 @@
 import type { AttrOperation, Selector, SelectorList } from "lightningcss";
 
 import { Specificity } from "../utilities";
+import { asciiLowerCase } from "../utilities/ascii-case";
 import type {
   AttributeQuery,
   AttrSelectorOperator,
@@ -250,61 +251,19 @@ function parseComponents(
           return [];
         }
 
-        getMediaQuery(ref).push([operator, "dir", component.operation.value]);
+        // HTML compares a dir value ASCII case-insensitively unless the selector carries s
+        const direction =
+          component.operation.caseSensitivity === "explicit-case-sensitive"
+            ? component.operation.value
+            : asciiLowerCase(component.operation.value);
+        getMediaQuery(ref).push([operator, "dir", direction]);
         return parseComponents(rest, options, root, ref, specificity);
       } else {
         // specificity[Specificity.ClassName] =
         //   (specificity[Specificity.ClassName] ?? 0) + 1;
-        const attributeQuery: AttributeQuery = component.name.startsWith(
-          "data-",
-        )
-          ? // [data-*] are turned into `dataSet` queries
-            ["d", toRNProperty(component.name.replace("data-", ""))]
-          : // Everything else is turned into `attribute` queries
-            [
-              "a",
-              component.name.startsWith("aria-")
-                ? component.name
-                : toRNProperty(component.name),
-            ];
-        if (component.operation) {
-          let operator: AttrSelectorOperator | undefined;
-          switch (component.operation.operator) {
-            case "equal":
-              operator = "=";
-              break;
-            case "includes":
-              operator = "~=";
-              break;
-            case "dash-match":
-              operator = "|=";
-              break;
-            case "prefix":
-              operator = "^=";
-              break;
-            case "substring":
-              operator = "*=";
-              break;
-            case "suffix":
-              operator = "$=";
-              break;
-            default:
-              component.operation.operator satisfies never;
-              break;
-          }
-          if (operator) {
-            // Append the operator onto the attribute query
-            attributeQuery.push(operator, component.operation.value);
-            if (
-              component.operation.caseSensitivity === "ascii-case-insensitive"
-            ) {
-              attributeQuery.push("i");
-            } else if (
-              component.operation.caseSensitivity === "explicit-case-sensitive"
-            ) {
-              attributeQuery.push("s");
-            }
-          }
+        const attributeQuery = attributeQueryFor(component);
+        if (!attributeQuery) {
+          return [];
         }
         getAttributeQuery(ref).push(attributeQuery);
         specificity[Specificity.ClassName] =
@@ -475,27 +434,9 @@ function parseIsWhereComponents(
         // specificity[Specificity.ClassName] =
         //   (specificity[Specificity.ClassName] ?? 0) + 1;
       }
-      const attributeQuery: AttributeQuery = component.name.startsWith("data-")
-        ? // [data-*] are turned into `dataSet` queries
-          ["d", toRNProperty(component.name.replace("data-", ""))]
-        : // Everything else is turned into `attribute` queries
-          [
-            "a",
-            component.name.startsWith("aria-")
-              ? component.name
-              : toRNProperty(component.name),
-          ];
-      if (component.operation) {
-        const operator = operatorMap[component.operation.operator];
-        // Append the operator onto the attribute query
-        attributeQuery.push(operator, component.operation.value);
-        if (component.operation.caseSensitivity === "ascii-case-insensitive") {
-          attributeQuery.push("i");
-        } else if (
-          component.operation.caseSensitivity === "explicit-case-sensitive"
-        ) {
-          attributeQuery.push("s");
-        }
+      const attributeQuery = attributeQueryFor(component);
+      if (!attributeQuery) {
+        return null;
       }
       queries ??= [{ specificity: [] }];
       for (const query of queries) {
@@ -608,6 +549,41 @@ type CamelCase<S extends string> =
   S extends `${infer P1}-${infer P2}${infer P3}`
     ? `${Lowercase<P1>}${Uppercase<P2>}${CamelCase<P3>}`
     : Lowercase<S>;
+
+// React Native names the class list className, and keeps an aria-* prop as written
+function attributePropName(name: string): string {
+  if (name === "class") {
+    return "className";
+  }
+
+  return name.startsWith("aria-") ? name : toRNProperty(name);
+}
+
+// A React Native prop is in no namespace, so [ns|att] represents nothing (Selectors 4 §6.4)
+function attributeQueryFor(
+  component: Extract<Selector[number], { type: "attribute" }>,
+): AttributeQuery | undefined {
+  if (component.namespace?.type === "specific") {
+    return undefined;
+  }
+
+  const query: AttributeQuery = component.name.startsWith("data-")
+    ? ["d", toRNProperty(component.name.replace("data-", ""))]
+    : ["a", attributePropName(component.name)];
+
+  const operation = component.operation;
+  if (!operation) {
+    return query;
+  }
+
+  query.push(operatorMap[operation.operator], operation.value);
+  if (operation.caseSensitivity === "ascii-case-insensitive") {
+    query.push("i");
+  } else if (operation.caseSensitivity === "explicit-case-sensitive") {
+    query.push("s");
+  }
+  return query;
+}
 
 const operatorMap: Record<AttrOperation["operator"], AttrSelectorOperator> = {
   "equal": "=",
