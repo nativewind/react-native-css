@@ -4,6 +4,7 @@ import {
   isStyleDescriptorArray,
   Specificity,
   specificityCompareFn,
+  toRNProperty,
 } from "../utilities";
 import type {
   AnimationKeyframes,
@@ -26,7 +27,7 @@ import {
   modifyRuleForPlaceholder,
   modifyRuleForSelection,
 } from "./pseudo-elements";
-import { getClassNameSelectors, toRNProperty } from "./selector-builder";
+import { getClassNameSelectors } from "./selector-builder";
 
 type BuilderMode = "style" | "media" | "container" | "keyframes";
 
