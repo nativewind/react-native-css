@@ -63,9 +63,10 @@ export function getClassNameSelectors(
       } else if (isUniversalSelector(selector)) {
         return [{ type: "universalVariables" }];
       } else {
+        // A nested rule reads its parent's selector list again, so the list is never reversed in place
         return (
           parseComponents(
-            selector.reverse(),
+            selector.toReversed(),
             options,
             root,
             root,
