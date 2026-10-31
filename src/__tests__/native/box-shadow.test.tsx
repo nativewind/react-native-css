@@ -498,6 +498,7 @@ describe("shadow values from runtime variables", () => {
         offsetX: 0,
         offsetY: 4,
         blurRadius: 6,
+        spreadDistance: 0,
         color: "#000",
       },
     ]);
@@ -515,13 +516,13 @@ describe("shadow values from runtime variables", () => {
     render(<View testID={testID} className="test" />);
     const component = screen.getByTestId(testID);
 
-    // Runtime path has no default color injection (compile-time adds currentcolor)
     expect(component.props.style.boxShadow).toStrictEqual([
       {
         offsetX: 0,
         offsetY: 4,
         blurRadius: 6,
         spreadDistance: -1,
+        color: { semantic: ["label", "labelColor"] },
       },
     ]);
   });
@@ -595,7 +596,7 @@ describe("shadow values from runtime variables", () => {
     ]);
   });
 
-  test("inset shadow - without color has broken color parsing (known limitation)", () => {
+  test("inset shadow - without color", () => {
     registerCSS(
       `.test {
         --my-shadow: inset 0 0 10px 5px;
@@ -607,18 +608,14 @@ describe("shadow values from runtime variables", () => {
     render(<View testID={testID} className="test" />);
     const component = screen.getByTestId(testID);
 
-    // TODO: Known bug — runtime shorthand handler pattern-matches the flat
-    // array and places "inset" string in the color slot. The compile-time
-    // path (via lightningcss CSS parser) correctly identifies the inset
-    // keyword and inherits platform default color. This only affects inset
-    // shadows without an explicit color, which is uncommon in practice.
     expect(component.props.style.boxShadow).toStrictEqual([
       {
-        color: "inset",
+        inset: true,
         offsetX: 0,
         offsetY: 0,
         blurRadius: 10,
         spreadDistance: 5,
+        color: { semantic: ["label", "labelColor"] },
       },
     ]);
   });
@@ -641,6 +638,7 @@ describe("shadow values from runtime variables", () => {
         offsetX: 0,
         offsetY: 2,
         blurRadius: 4,
+        spreadDistance: 0,
         color: "#000",
       },
     ]);
