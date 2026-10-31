@@ -28,6 +28,11 @@ export const colorMix: StyleFunctionResolver = (resolveValue, value) => {
     const left = parse(leftValue);
     const percentage = () => {
       const next = args[0];
+      // Metro serializes omitted percentage slots in arrays as null.
+      if (next === null) {
+        args.shift();
+        return undefined;
+      }
       if (typeof next !== "string" || !next.endsWith("%")) return undefined;
       args.shift();
       return Number(next.slice(0, -1)) / 100;

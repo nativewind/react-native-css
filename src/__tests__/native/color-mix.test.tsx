@@ -1,6 +1,8 @@
 import { render, screen } from "@testing-library/react-native";
+import { compile } from "react-native-css/compiler";
 import { View } from "react-native-css/components/View";
 import { registerCSS, testID } from "react-native-css/jest";
+import { StyleCollection } from "react-native-css/native";
 
 test("color-mix() - keyword", () => {
   registerCSS(
@@ -115,3 +117,24 @@ test("mixing an already translucent color preserves its alpha and restores chang
     expect(Number(color.slice(5, -1).split(",")[3])).toBeCloseTo(expected, 6);
   }
 });
+
+test.each([
+  ["50%, transparent", "rgba(255, 255, 255, 0.5)"],
+  [", transparent 75%", "rgba(255, 255, 255, 0.25)"],
+  [", transparent", "rgba(255, 255, 255, 0.5)"],
+])(
+  "serialized native injection preserves omitted color weights: %s",
+  (tail, expected) => {
+    const compiled = compile(
+      `:root { --white: #fff; } .test { color: color-mix(in oklab, var(--white) ${tail}); }`,
+      { inlineVariables: false },
+    ).stylesheet();
+    // Metro's getNativeInjectionCode serializes the stylesheet as JSON. Omitted
+    // percentage array slots become null, unlike registerCSS's direct injection.
+    StyleCollection.inject(
+      JSON.parse(JSON.stringify(compiled)) as typeof compiled,
+    );
+    render(<View testID={testID} className="test" />);
+    expect(screen.getByTestId(testID).props.style?.color).toBe(expected);
+  },
+);
