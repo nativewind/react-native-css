@@ -1,6 +1,11 @@
-import type { SupportsCondition } from "lightningcss";
+import type { Rule, SupportsCondition, SupportsRule } from "lightningcss";
 
-export function supportsConditionValid(condition: SupportsCondition): boolean {
+// The compiler keeps or drops an @supports block at build time, so its rules apply unconditionally or not at all
+export function rulesTheCompilerKeeps(rule: SupportsRule): Rule[] {
+  return supportsConditionValid(rule.condition) ? rule.rules : [];
+}
+
+function supportsConditionValid(condition: SupportsCondition): boolean {
   if (condition.type === "and") {
     return condition.value.every((condition) => {
       return supportsConditionValid(condition);
