@@ -77,6 +77,29 @@ test(":root CSS variables with media queries", () => {
   });
 });
 
+test("every read of a stylesheet lists each variable's most specific value first", () => {
+  const compiled = compile(
+    `:root { --tone: red; }
+    @media (prefers-color-scheme: dark) { :root { --tone: blue; } }
+    * { --gap: 1px; }
+    @media (min-width: 100px) { * { --gap: 2px; } }`,
+    { inlineVariables: false },
+  );
+  const expected = {
+    vr: [
+      ["tone", [["blue", [["=", "prefers-color-scheme", "dark"]]], ["red"]]],
+    ],
+    vu: [["gap", [[2, [[">=", "width", 100]]], [1]]]],
+  };
+
+  const first = compiled.stylesheet();
+  expect({ vr: first.vr, vu: first.vu }).toStrictEqual(expected);
+
+  const second = compiled.stylesheet();
+  expect({ vr: second.vr, vu: second.vu }).toStrictEqual(expected);
+  expect({ vr: first.vr, vu: first.vu }).toStrictEqual(expected);
+});
+
 test("removes unused CSS variables while preserving the resolved value", () => {
   const result = compile(
     `.test { --blue: blue; --green: green; --red: red; color: var(--red, var(--blue)); }`,
