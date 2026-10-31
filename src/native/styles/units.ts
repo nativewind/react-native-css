@@ -1,4 +1,4 @@
-import { vh as vhObs, vw as vwObs } from "../reactivity";
+import { vh as vhObs, vw as vwObs, type Getter } from "../reactivity";
 import type { StyleFunctionResolver } from "./resolve";
 
 export const em: StyleFunctionResolver = (resolve, func) => {
@@ -21,6 +21,15 @@ export const em: StyleFunctionResolver = (resolve, func) => {
   return round(value * emValue);
 };
 
+// A viewport length is a percentage of the window's width or height (css-values-4 §6.1.2)
+export function viewportLength(
+  unit: "vw" | "vh",
+  percentage: number,
+  get: Getter,
+): number {
+  return (percentage / 100) * get(unit === "vw" ? vwObs : vhObs);
+}
+
 export const vw: StyleFunctionResolver = (_, func, get) => {
   const value = func[2];
 
@@ -28,7 +37,7 @@ export const vw: StyleFunctionResolver = (_, func, get) => {
     return;
   }
 
-  return round(get(vwObs) * (value / 100));
+  return round(viewportLength("vw", value, get));
 };
 
 export const vh: StyleFunctionResolver = (_, func, get) => {
@@ -38,7 +47,7 @@ export const vh: StyleFunctionResolver = (_, func, get) => {
     return;
   }
 
-  return round((value / 100) * get(vhObs));
+  return round(viewportLength("vh", value, get));
 };
 
 export const rem: StyleFunctionResolver = (resolve, func) => {
