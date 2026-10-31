@@ -4,11 +4,12 @@ import {
   Fragment,
   useContext,
   useEffect,
+  useInsertionEffect,
   useRef,
   useState,
   type ComponentType,
 } from "react";
-import { Image, Pressable, StyleSheet, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { VariableContext } from "react-native-css/native-internal";
 
@@ -26,6 +27,12 @@ import {
 import { animatedComponentFamily } from "../reanimated";
 import { getStyledProps, stylesFamily } from "../styles";
 import { updateRules } from "./rules";
+import {
+  createPressHost,
+  publishContainerHost,
+  resolvePressRegistration,
+  type PressHost,
+} from "./ui-thread-pseudo";
 
 export type Config = {
   source: string;
@@ -57,6 +64,20 @@ export type ComponentState = {
 
   animated?: boolean;
   pressable?: undefined | boolean;
+
+  /** The styles of the element's own `:active`, painted on the UI thread */
+  pressStylesObs?: ReturnType<typeof stylesFamily>;
+  /** The styles of each ancestor group's `:active`, painted on the UI thread */
+  groupPressStylesObs?: readonly GroupPressStyles[];
+  /** Registers those styles on the element's host view */
+  pressHost: PressHost;
+  /** Whether the element is React Native's Text, whose nested runs inherit its style natively */
+  rendersText?: boolean;
+};
+
+export type GroupPressStyles = {
+  container: WeakKey;
+  stylesObs: ReturnType<typeof stylesFamily>;
 };
 
 /**
@@ -102,6 +123,8 @@ export function useNativeCss(
         inheritedContainers,
         inheritedVariables,
         pressable: type === View ? false : undefined,
+        pressHost: createPressHost(),
+        rendersText: type === Text,
       },
       originalProps,
       inheritedVariables,
@@ -140,6 +163,11 @@ export function useNativeCss(
     };
   }, [state.ruleEffect, state.styleEffect]);
 
+  // Before the commit reaches the host view, so a resting style a render changes never meets a stale pressed one
+  useInsertionEffect(() => {
+    state.pressHost.flush();
+  });
+
   // Check if our derived state has changed (e.g the className prop)
   if (
     testGuards(state, originalProps, inheritedVariables, inheritedContainers)
@@ -167,6 +195,20 @@ export function useNativeCss(
     originalProps,
     type === Image ? adaptImageProps : undefined,
   );
+
+  if (state.pressStylesObs || state.groupPressStylesObs || state.containers) {
+    state.pressHost.registration = resolvePressRegistration(
+      state,
+      originalProps,
+      props,
+    );
+    if (state.containers) {
+      publishContainerHost(state.ruleEffectGetter, state.pressHost);
+    }
+    props = { ...props, ref: state.pressHost.refFor(originalProps?.ref) };
+  } else {
+    state.pressHost.registration = undefined;
+  }
 
   if (type === View && props?.onPress) {
     type = Pressable;
