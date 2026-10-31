@@ -8,7 +8,7 @@ import type {
 } from "react-native-css/compiler";
 
 import {
-  activeFamily,
+  containerActiveFamily,
   containerHeightFamily,
   containerWidthFamily,
   focusFamily,
@@ -72,7 +72,7 @@ function testContainerPseudoCondition(
   if (query.h && !get(hoverFamily(containerKey))) {
     return false;
   }
-  if (query.a && !get(activeFamily(containerKey))) {
+  if (query.a && !get(containerActiveFamily(containerKey))) {
     return false;
   }
   if (query.f && !get(focusFamily(containerKey))) {
