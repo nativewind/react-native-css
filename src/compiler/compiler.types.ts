@@ -153,6 +153,20 @@ export type StyleFunction =
       1, // Should process after styles have been calculated
     ];
 
+// DeepReadonly<StyleDescriptor> exceeds TypeScript's instantiation depth, since it recurses through a tuple's elements
+export type ReadonlyStyleDescriptor =
+  | string
+  | number
+  | boolean
+  | undefined
+  | ReadonlyStyleFunction
+  | readonly ReadonlyStyleDescriptor[];
+
+export type ReadonlyStyleFunction =
+  | readonly [Record<never, never>, string]
+  | readonly [Record<never, never>, string, ReadonlyStyleDescriptor]
+  | readonly [Record<never, never>, string, ReadonlyStyleDescriptor, 1];
+
 /******************************    Variables    *******************************/
 
 export type VariableDescriptor = [string, StyleDescriptor];
@@ -183,29 +197,38 @@ export type AnimationKeyframes = [string | number, StyleDeclaration[]];
 /******************************    Conditions    ******************************/
 
 export type MediaCondition =
+  // Unknown (MQ5 §3.1): a term the compiler cannot decide, such as a value outside its feature's syntax or a container style() query
+  | readonly ["?"]
   // Boolean
-  | ["!!", MediaFeatureNameFor_MediaFeatureId]
+  | readonly ["!!", MediaFeatureNameFor_MediaFeatureId]
   // Not
-  | ["!", MediaCondition]
+  | readonly ["!", MediaCondition]
   // And
-  | ["&", MediaCondition[]]
+  | readonly ["&", readonly MediaCondition[]]
   // Or
-  | ["|", MediaCondition[]]
+  | readonly ["|", readonly MediaCondition[]]
   // Comparison
-  | [
+  | readonly [
       MediaFeatureComparison,
       MediaFeatureNameFor_MediaFeatureId | "dir",
-      StyleDescriptor,
+      MediaFeatureOperand,
     ]
   // [Start, End]
-  | [
+  | readonly [
       "[]",
       MediaFeatureNameFor_MediaFeatureId,
-      StyleDescriptor, // Start
+      MediaFeatureOperand, // Start
       MediaFeatureComparison, // Start comparison
-      StyleDescriptor, // End
+      MediaFeatureOperand, // End
       MediaFeatureComparison, // End comparison
     ];
+
+// JSON writes undefined in an array as null, so null is what a device reads for a value the compiler could not resolve
+export type MediaFeatureOperand =
+  | number
+  | string
+  | ReadonlyStyleFunction
+  | null;
 
 export type MediaFeatureComparison = "=" | ">" | ">=" | "<" | "<=";
 
