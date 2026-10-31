@@ -1,8 +1,5 @@
 /* eslint-disable */
-import {
-  isStyleDescriptorArray,
-  isStyleFunction,
-} from "react-native-css/utilities";
+import { isStyleDescriptorArray } from "react-native-css/utilities";
 
 import { setDeepPath } from "../../objects";
 import { ShortHandSymbol } from "../constants";
@@ -29,7 +26,7 @@ type ShorthandDefaultValue = readonly [
 export function shorthandHandler(
   mappings: ShorthandRequiredValue[][],
   defaults: ShorthandDefaultValue[],
-  returnType: "shorthandObject" | "tuples" | "object" = "shorthandObject",
+  returnType: "shorthandObject" | "tuples" = "shorthandObject",
 ): StyleResolver {
   return (resolve, value, __, { castToArray }) => {
     let args = isStyleDescriptorArray(value)
@@ -57,16 +54,6 @@ export function shorthandHandler(
 
           if (Array.isArray(type)) {
             return type.includes(value) || type.includes(typeof value);
-          }
-
-          // Style functions (var, calc, env, etc.) are unresolved at pattern-match
-          // time — their actual values won't be known until runtime variable
-          // resolution. Accepting them in any type slot makes pattern matching
-          // less strict when variables are involved, but rejecting them would
-          // break variable-based shadows entirely (e.g. box-shadow: var(--shadow)
-          // where --shadow resolves to "0 4px 6px -1px #000").
-          if (isStyleFunction(value)) {
-            return true;
           }
 
           switch (type) {
@@ -115,9 +102,8 @@ export function shorthandHandler(
       ),
     ];
 
-    if (returnType === "shorthandObject" || returnType === "object") {
-      const target: Record<string, unknown> =
-        returnType === "shorthandObject" ? { [ShortHandSymbol]: true } : {};
+    if (returnType === "shorthandObject") {
+      const target: Record<string, unknown> = { [ShortHandSymbol]: true };
 
       for (const [value, prop] of tuples) {
         if (typeof prop === "string") {

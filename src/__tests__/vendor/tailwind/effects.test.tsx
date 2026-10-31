@@ -4,66 +4,130 @@ import { renderCurrentTest } from "./_tailwind";
  * TODO: Add tests for full coverage of https://tailwindcss.com/docs/box-shadow
  */
 
-describe("Effects - Box Shadow", () => {
-  test("shadow-sm", async () => {
-    expect(await renderCurrentTest()).toStrictEqual({
-      props: {
-        style: {
-          boxShadow: [
-            {
-              blurRadius: 3,
-              color: "#0000001a",
-              offsetX: 0,
-              offsetY: 1,
-              spreadDistance: 0,
-            },
-            {
-              blurRadius: 2,
-              color: "#0000001a",
-              offsetX: 0,
-              offsetY: 1,
-              spreadDistance: -1,
-            },
-          ],
-        },
-      },
-    });
-  });
+// The runtime's color-mix() writes rgba() where the compiler writes hex
+const routes = [
+  { variables: "inlined", options: {}, red500: "#fb2c36" },
+  {
+    variables: "resolved at runtime",
+    options: { inlineVariables: false },
+    red500: "rgba(251, 44, 54, 1)",
+  },
+] as const;
 
-  test("shadow", async () => {
-    expect(await renderCurrentTest()).toStrictEqual({
-      props: {
-        style: {
-          boxShadow: [
-            {
-              blurRadius: 3,
-              color: "#0000001a",
-              offsetX: 0,
-              offsetY: 1,
-              spreadDistance: 0,
-            },
-            {
-              blurRadius: 2,
-              color: "#0000001a",
-              offsetX: 0,
-              offsetY: 1,
-              spreadDistance: -1,
-            },
-          ],
+describe.each(routes)(
+  "Effects - Box Shadow, variables $variables",
+  ({ options }) => {
+    test("shadow-sm", async () => {
+      expect(await renderCurrentTest(options)).toStrictEqual({
+        props: {
+          style: {
+            boxShadow: [
+              {
+                blurRadius: 3,
+                color: "#0000001a",
+                offsetX: 0,
+                offsetY: 1,
+                spreadDistance: 0,
+              },
+              {
+                blurRadius: 2,
+                color: "#0000001a",
+                offsetX: 0,
+                offsetY: 1,
+                spreadDistance: -1,
+              },
+            ],
+          },
         },
-      },
+      });
     });
-  });
-  test("shadow-none", async () => {
-    expect(await renderCurrentTest()).toStrictEqual({
-      props: {
-        style: {
-          boxShadow: [],
+
+    test("shadow", async () => {
+      expect(await renderCurrentTest(options)).toStrictEqual({
+        props: {
+          style: {
+            boxShadow: [
+              {
+                blurRadius: 3,
+                color: "#0000001a",
+                offsetX: 0,
+                offsetY: 1,
+                spreadDistance: 0,
+              },
+              {
+                blurRadius: 2,
+                color: "#0000001a",
+                offsetX: 0,
+                offsetY: 1,
+                spreadDistance: -1,
+              },
+            ],
+          },
         },
-      },
+      });
     });
-  });
-});
+    test("shadow-none", async () => {
+      expect(await renderCurrentTest(options)).toStrictEqual({
+        props: {
+          style: {
+            boxShadow: [],
+          },
+        },
+      });
+    });
+    test("inset-shadow-sm", async () => {
+      expect(await renderCurrentTest(options)).toStrictEqual({
+        props: {
+          style: {
+            boxShadow: [
+              {
+                blurRadius: 4,
+                color: "#0000000d",
+                inset: true,
+                offsetX: 0,
+                offsetY: 2,
+                spreadDistance: 0,
+              },
+            ],
+          },
+        },
+      });
+    });
+  },
+);
+
+describe.each(routes)(
+  "Effects - Text Shadow, variables $variables",
+  ({ options, red500 }) => {
+    test("text-shadow-md", async () => {
+      expect(await renderCurrentTest(options)).toStrictEqual({
+        props: {
+          style: {
+            textShadowColor: "#0000001a",
+            textShadowOffset: { height: 1, width: 0 },
+            textShadowRadius: 1,
+          },
+        },
+      });
+    });
+    test("text-shadow-md with a text-shadow color", async () => {
+      expect(
+        await renderCurrentTest({
+          ...options,
+          sourceInline: ["text-shadow-md", "text-shadow-red-500"],
+        }),
+      ).toStrictEqual({
+        props: {
+          style: {
+            textShadowColor: red500,
+            textShadowOffset: { height: 1, width: 0 },
+            textShadowRadius: 1,
+          },
+        },
+      });
+    });
+  },
+);
 
 describe.skip("Effects - Box Shadow Color", () => {
   // TODO
