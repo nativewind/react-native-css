@@ -20,6 +20,7 @@ import type {
   GradientItemFor_DimensionPercentageFor_LengthValue,
   Length,
   LengthPercentageOrAuto,
+  LengthUnit,
   LengthValue,
   LineDirection,
   LineHeight,
@@ -1414,6 +1415,16 @@ export function parseLengthDeclaration(
   return parseLength(declaration.value, builder);
 }
 
+/** Pixels in each absolute unit: https://www.w3.org/TR/css-values-4/#absolute-lengths */
+const absoluteUnitPixels = {
+  cm: 96 / 2.54,
+  in: 96,
+  mm: 96 / 25.4,
+  pc: 16,
+  pt: 96 / 72,
+  q: 96 / 101.6,
+} as const satisfies Partial<Record<LengthUnit, number>>;
+
 export function parseLength(
   length:
     | number
@@ -1461,6 +1472,10 @@ export function parseLength(
       case "q":
       case "pt":
       case "pc":
+        return parseLength(
+          { unit: "px", value: length.value * absoluteUnitPixels[length.unit] },
+          builder,
+        );
       case "ex":
       case "rex":
       case "ch":
