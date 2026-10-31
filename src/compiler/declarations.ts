@@ -1423,8 +1423,6 @@ export function parseLength(
     | LengthValue,
   builder: StylesheetBuilder,
 ): StyleDescriptor {
-  const { inlineRem = 14 } = builder.getOptions();
-
   if (typeof length === "number") {
     return round(length);
   }
@@ -1446,11 +1444,9 @@ export function parseLength(
         }
       }
       case "rem":
-        if (typeof inlineRem === "number") {
-          return length.value * inlineRem;
-        } else {
-          return [{}, "rem", round(length.value)];
-        }
+        return builder.getOptions().inlineRem === false
+          ? [{}, "rem", round(length.value)]
+          : length.value * builder.rootFontSize;
       case "vw":
       case "vh":
       case "em":
