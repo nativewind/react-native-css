@@ -1,3 +1,4 @@
+import { Profiler } from "react";
 import { PixelRatio } from "react-native";
 
 import { act, render, screen } from "@testing-library/react-native";
@@ -282,4 +283,57 @@ describe("max-resolution", () => {
 
     expect(component.props.style).toStrictEqual(undefined);
   });
+});
+
+test("a resize re-renders a media query's element only when the query's answer changes", () => {
+  registerCSS(`
+.my-class { color: blue; }
+
+@media (min-width: 500px) {
+  .my-class { color: red; }
+}
+
+@media (min-width: 900px) {
+  .wide { color: green; }
+}`);
+
+  act(() => {
+    dimensions.set({ ...dimensions.get(), width: 800 });
+  });
+
+  let commits = 0;
+  render(
+    <Profiler id="media" onRender={() => (commits += 1)}>
+      <View testID={testID} className="my-class" />
+      <View className="wide" />
+    </Profiler>,
+  );
+  const component = screen.getByTestId(testID);
+  expect(component.props.style).toStrictEqual({ color: "#f00" });
+  commits = 0;
+
+  // A window resized live: every frame a new width, neither query's answer
+  // changing. Nothing renders.
+  for (const width of [780, 760, 700, 640, 600, 560, 520]) {
+    act(() => {
+      dimensions.set({ ...dimensions.get(), width });
+    });
+  }
+  expect(commits).toBe(0);
+  expect(component.props.style).toStrictEqual({ color: "#f00" });
+
+  // Crossing 500 changes the first query's answer: it renders once.
+  act(() => {
+    dimensions.set({ ...dimensions.get(), width: 480 });
+  });
+  expect(component.props.style).toStrictEqual({ color: "#00f" });
+  const crossed = commits;
+  expect(crossed).toBeGreaterThan(0);
+
+  for (const width of [460, 420, 380]) {
+    act(() => {
+      dimensions.set({ ...dimensions.get(), width });
+    });
+  }
+  expect(commits).toBe(crossed);
 });
