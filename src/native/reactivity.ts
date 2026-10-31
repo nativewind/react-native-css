@@ -20,6 +20,8 @@ export type Effect = {
 
 export type Observable<Value, Arg = Value> = {
   observers: Set<Effect>;
+  /** Advances each time the value changes, so a read can be checked later without subscribing */
+  readonly version: number;
   get: (effect?: Effect) => Value;
   set: (arg: Arg) => void;
   run: () => void;
@@ -36,46 +38,87 @@ export function observable<Value, Arg = Value>(
   init: Value | Read<Value, Arg>,
   equality: (value1: Value, value2: Value) => boolean = Object.is,
 ) {
-  let value: Value;
-  let isStatic = typeof init !== "function";
-  let didInit: boolean | undefined;
+  const isStatic = typeof init !== "function";
+  let value = (isStatic ? init : undefined) as Value;
+  let version = 0;
   let lastArg: Arg | undefined;
-
-  if (typeof init !== "function") {
-    value = init;
-    didInit = true;
-  }
+  /** What a computed value was last computed from, each source beside its version then */
+  let sources: Map<Observable<any, any>, number> | undefined;
 
   const observers = new Set<Effect>();
   const effect: Effect = {
     observers: new Set(),
     run: () => {
-      if (!isStatic) {
-        cleanupEffect(effect);
-        const nextValue = (init as Read<Value, Arg>)(getter, lastArg);
-        if (equality(value, nextValue)) {
-          return;
-        }
-        value = nextValue;
+      if (isStatic || compute(lastArg)) {
+        notify();
       }
-
-      notify();
     },
   };
 
-  const getter: Getter = (observable) =>
-    observable.get(observers.size > 0 ? effect : undefined);
+  const getter: Getter = (source) => {
+    const sourceValue = source.get(observers.size > 0 ? effect : undefined);
+    sources?.set(source, source.version);
+    return sourceValue;
+  };
+
+  /** Computes the value, answering whether it changed. Subscribes to the sources only while observed. */
+  function compute(arg: Arg | undefined) {
+    cleanupEffect(effect);
+    const isFirstComputation = sources === undefined;
+    sources = new Map();
+    let nextValue: Value;
+    try {
+      nextValue = (init as Read<Value, Arg>)(getter, arg);
+    } catch (error) {
+      // A computation that threw produced no value, so the next read computes again rather than trusting a partial read
+      sources = undefined;
+      throw error;
+    }
+    if (!isFirstComputation && equality(value, nextValue)) {
+      return false;
+    }
+    value = nextValue;
+    version++;
+    return true;
+  }
+
+  /** The sources of a value that is still current, bringing each computed source up to date first */
+  function currentSources() {
+    if (sources === undefined) {
+      return undefined;
+    }
+    for (const [source, seenVersion] of sources) {
+      source.get();
+      if (source.version !== seenVersion) {
+        return undefined;
+      }
+    }
+    return sources;
+  }
+
+  function subscribe(subscriber: Effect) {
+    observers.add(subscriber);
+    subscriber.observers.add(obs);
+  }
 
   function get(subscriber?: Effect) {
-    if (subscriber) {
-      if (observers.size === 0 && !isStatic) didInit = false;
-      observers.add(subscriber);
-      subscriber.observers.add(obs);
+    if (isStatic) {
+      if (subscriber) subscribe(subscriber);
+      return value;
     }
-    if (!didInit) {
-      cleanupEffect(effect);
-      value = (init as Read<Value, Arg>)(getter, lastArg);
-      didInit = observers.size > 0;
+
+    // While observed, a computed value is kept current by its sources
+    const isObserved = observers.size > 0;
+    if (subscriber) subscribe(subscriber);
+    if (!isObserved) {
+      const current = currentSources();
+      if (current === undefined) {
+        compute(lastArg);
+      } else if (observers.size > 0) {
+        for (const source of current.keys()) {
+          source.get(effect);
+        }
+      }
     }
 
     return value;
@@ -87,17 +130,12 @@ export function observable<Value, Arg = Value>(
         return;
       }
       value = arg as unknown as Value;
+      version++;
     } else {
-      cleanupEffect(effect);
-      const nextValue = (init as Read<Value, Arg>)(getter, arg);
-
-      didInit = observers.size > 0;
       lastArg = arg;
-
-      if (equality(value, nextValue)) {
+      if (!compute(arg)) {
         return;
       }
-      value = nextValue;
     }
 
     notify();
@@ -117,13 +155,15 @@ export function observable<Value, Arg = Value>(
 
   const obs: Observable<Value, Arg> = {
     observers,
+    get version() {
+      return version;
+    },
     get,
     set,
     run: effect.run,
     unsubscribe(subscriber) {
       if (observers.delete(subscriber) && observers.size === 0 && !isStatic) {
         cleanupEffect(effect);
-        didInit = false;
       }
       subscriber.observers.delete(obs);
     },
@@ -156,6 +196,47 @@ export function hasChangedDependencies(effect: Effect): boolean {
   return false;
 }
 
+/** What a render read, each observable beside its version when read */
+export type RenderReads = readonly (readonly [
+  observable: Observable<any, any>,
+  version: number,
+])[];
+
+/** A getter that subscribes nothing and records each read, for a render React may still discard */
+export function recordReads(): { read: Getter; reads: RenderReads } {
+  const reads: (readonly [Observable<any, any>, number])[] = [];
+  return {
+    read: (observable) => {
+      const value = observable.get();
+      reads.push([observable, observable.version]);
+      return value;
+    },
+    reads,
+  };
+}
+
+/** Make `effect` observe exactly what a committed render read, answering whether any of it moved since */
+export function observeReads(
+  effect: Effect,
+  reads: RenderReads,
+): "moved" | "unmoved" {
+  const read = new Set<Observable<any, any>>();
+  let moved = false;
+  for (const [observable, version] of reads) {
+    read.add(observable);
+    observable.get(effect);
+    if (observable.version !== version) {
+      moved = true;
+    }
+  }
+  for (const observable of Array.from(effect.observers)) {
+    if (!read.has(observable)) {
+      observable.unsubscribe(effect);
+    }
+  }
+  return moved ? "moved" : "unmoved";
+}
+
 /** Family Helpers ************************************************************/
 
 export function family<Key, Result = Key, Args extends any = void>(
@@ -172,6 +253,12 @@ export function family<Key, Result = Key, Args extends any = void>(
     {
       delete(key: Key) {
         return map.delete(key);
+      },
+      getOrInsert(key: Key, value: Result) {
+        if (!map.has(key)) {
+          map.set(key, value);
+        }
+        return map.get(key) as Result;
       },
       clear() {
         return map.clear();
