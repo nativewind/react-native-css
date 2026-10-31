@@ -1,5 +1,6 @@
 import { isStyleDescriptorArray } from "react-native-css/utilities";
 
+import { resetsToNone } from "../resets-to-none";
 import type { StyleFunctionResolver } from "../resolve";
 import { shorthandHandler } from "../shorthands/_handler";
 
@@ -103,11 +104,10 @@ export const filter: StyleFunctionResolver = (resolveValue, descriptor) => {
   const value: unknown = resolveValue(descriptor[2]);
   if (Array.isArray(value)) {
     const filters: unknown[] = value.flat(Infinity);
-    return filters.filter(
-      (entry) => entry !== undefined && entry !== "initial",
-    );
+    if (filters.some(resetsToNone)) return null;
+    return filters.filter((entry) => entry !== undefined);
   }
-  if (value === undefined || value === "initial") return;
-  if (value === "none") return null;
+  if (value === undefined) return;
+  if (resetsToNone(value)) return null;
   return typeof value === "string" ? value : [value];
 };

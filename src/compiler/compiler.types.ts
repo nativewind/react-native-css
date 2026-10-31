@@ -168,11 +168,14 @@ export type InlineVariable = {
   [key: string]: unknown | undefined;
 };
 
-export type UniqueVarInfo = {
-  count: number;
-  value: TokenOrValue[] | undefined;
-  flat?: true;
-};
+/** A custom property's value as declared, until flattening settles what it substitutes: tokens, or undefined for the guaranteed-invalid value */
+export type UniqueVarInfo =
+  | { readonly flat?: undefined; count: number; value: TokenOrValue[] }
+  | {
+      readonly flat: true;
+      count: number;
+      value: TokenOrValue[] | undefined;
+    };
 
 /******************************   Animations  ******************************/
 

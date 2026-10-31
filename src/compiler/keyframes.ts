@@ -6,6 +6,7 @@ import type {
 
 import type { StyleDescriptor } from "./compiler.types";
 import { parseDeclaration } from "./declarations";
+import { restoreSubstitutionStatus } from "./inline-variables";
 import type { StylesheetBuilder } from "./stylesheet";
 
 export function parseIterationCount(
@@ -79,7 +80,9 @@ export function extractKeyFrames(
 
     builder.newAnimationFrame(progress);
 
-    for (const declaration of frame.declarations.declarations) {
+    for (const declaration of restoreSubstitutionStatus(
+      frame.declarations.declarations,
+    )) {
       parseDeclaration(declaration, builder);
     }
   }
