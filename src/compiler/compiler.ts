@@ -32,8 +32,8 @@ import {
   parseDeclaration,
   parseLength,
   reduceParseUnparsed,
-  round,
 } from "./declarations";
+import { round } from "../utilities";
 import { inlineVariables } from "./inline-variables";
 import { extractKeyFrames } from "./keyframes";
 import { lightningcssLoader } from "./lightningcss-loader";

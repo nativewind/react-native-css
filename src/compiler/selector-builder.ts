@@ -1,6 +1,6 @@
 import type { AttrOperation, Selector, SelectorList } from "lightningcss";
 
-import { Specificity } from "../utilities";
+import { Specificity, toRNProperty } from "../utilities";
 import type {
   AttributeQuery,
   AttrSelectorOperator,
@@ -597,17 +597,6 @@ function isRootVariableSelector([first, ...rest]: Selector) {
 function isUniversalSelector([first, second]: Selector) {
   return first && first.type === "universal" && !second;
 }
-
-export function toRNProperty<T extends string>(str: T) {
-  return str
-    .replace(/^-rn-/, "")
-    .replace(/-./g, (x) => x[1]?.toUpperCase() ?? "") as CamelCase<T>;
-}
-
-type CamelCase<S extends string> =
-  S extends `${infer P1}-${infer P2}${infer P3}`
-    ? `${Lowercase<P1>}${Uppercase<P2>}${CamelCase<P3>}`
-    : Lowercase<S>;
 
 const operatorMap: Record<AttrOperation["operator"], AttrSelectorOperator> = {
   "equal": "=",
