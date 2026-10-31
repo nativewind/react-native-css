@@ -89,7 +89,7 @@ function parseComponents(
     // Merge the specificity with the root specificity
     for (let i = 0; i < specificity.length; i++) {
       const value = specificity[i];
-      if (value !== undefined) {
+      if (typeof value === "number") {
         root.specificity[i] = (root.specificity[i] ?? 0) + value;
       }
     }
@@ -216,7 +216,7 @@ function parseComponents(
               if (component.kind === "is") {
                 for (let i = 0; i < specificity.length; i++) {
                   const value = specificity[i];
-                  if (value !== undefined) {
+                  if (typeof value === "number") {
                     parent.specificity[i] =
                       (parent.specificity[i] ?? 0) + value;
                   }
