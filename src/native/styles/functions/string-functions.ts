@@ -1,3 +1,5 @@
+import { isStyleDescriptorArray } from "react-native-css/utilities";
+
 import type { StyleFunctionResolver } from "../resolve";
 
 export const gradientPosition: StyleFunctionResolver = (
@@ -19,14 +21,14 @@ export const colorStop: StyleFunctionResolver = (resolveValue, value) => {
 };
 
 export const join: StyleFunctionResolver = (resolveValue, value) => {
-  const args = resolveValue(value[2]);
+  const args = value[2];
 
-  if (!Array.isArray(args)) {
-    return args;
+  if (!isStyleDescriptorArray(args)) {
+    return resolveValue(args);
   }
 
-  const array: unknown = args[0];
-  const separator: unknown = args[1] ?? ",";
+  const array: unknown = resolveValue(args[0]);
+  const separator: unknown = resolveValue(args[1]) ?? ",";
 
   if (!Array.isArray(array)) {
     return array;

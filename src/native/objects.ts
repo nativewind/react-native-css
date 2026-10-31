@@ -1,4 +1,6 @@
 /* eslint-disable */
+import { commaListItems } from "react-native-css/utilities";
+
 import { ShortHandSymbol } from "../native/styles/constants";
 import { transformKeys } from "../native/styles/defaults";
 
@@ -84,7 +86,11 @@ export function applyValue(
     return;
   }
 
-  target[prop] = value;
+  // commaListItems changes only a list of lists, and Hermes pays for a call on every declaration
+  target[prop] =
+    Array.isArray(value) && Array.isArray(value[0])
+      ? commaListItems(value)
+      : value;
 }
 
 export function setDeepPath(

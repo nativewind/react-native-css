@@ -755,11 +755,9 @@ function parseTransform(
               parseLengthOrCoercePercentageToRuntime(t.value[0], builder),
             ],
             [
-              [
-                {},
-                "translateY",
-                parseLengthOrCoercePercentageToRuntime(t.value[1], builder),
-              ],
+              {},
+              "translateY",
+              parseLengthOrCoercePercentageToRuntime(t.value[1], builder),
             ],
           ];
         case "translateX":
@@ -811,7 +809,7 @@ function parseTransform(
         case "rotate3d":
         case "matrix":
         case "matrix3d":
-          return [[]];
+          return [];
       }
     }),
   ]);
@@ -1094,8 +1092,8 @@ export function reduceParseUnparsed(
     return undefined;
   }
 
-  let currentGroup: StyleDescriptor = [];
-  let groups: StyleDescriptor[] = [currentGroup];
+  let currentGroup: StyleDescriptor[] = [];
+  const groups: StyleDescriptor[][] = [currentGroup];
 
   for (const value of result) {
     if ((value as unknown) === CommaSeparator) {
@@ -1106,40 +1104,24 @@ export function reduceParseUnparsed(
     }
   }
 
-  // Groups are the tokens grouped together by comma location
-  // If a group only has 1 item, it shouldn't be an array
-  groups = groups.flatMap((group): StyleDescriptor[] => {
-    if (!Array.isArray(group)) {
-      return [];
-    }
+  const items = groups.filter((group) => group.length > 0).map(reduceRatio);
 
-    if (group.length === 0) {
-      return [];
-    } else if (group.length === 1) {
-      const first = group[0];
+  if (items.length > 1) {
+    return items;
+  }
 
-      if (first === undefined) {
-        return [];
-      } else {
-        return [first];
-      }
-    } else if (
-      // This is a special case for <ratio> values
-      group.includes("/") &&
-      group.every((item) =>
-        typeof item === "string" && item === "/"
-          ? item
-          : typeof item === "number",
-      )
-    ) {
-      // eslint-disable-next-line @typescript-eslint/no-base-to-string
-      return [group.join(" ")];
-    } else {
-      return [group];
-    }
-  });
+  const item = items[0] ?? [];
+  return item.length === 1 ? item[0] : item;
+}
 
-  return groups.length === 1 ? groups[0] : groups;
+// React Native takes a <ratio> such as `16 / 9` as one string
+function reduceRatio(group: StyleDescriptor[]): StyleDescriptor[] {
+  return group.includes("/") &&
+    group.every((item): item is number | "/" => {
+      return item === "/" || typeof item === "number";
+    })
+    ? [group.join(" ")]
+    : group;
 }
 
 export function unparsedFunction(
@@ -2936,10 +2918,10 @@ export function parseUnresolvedColor(
         {},
         "rgba",
         [
-          round(color.r * 255),
-          round(color.g * 255),
-          round(color.b * 255),
-          parseUnparsed(color.alpha, builder, property),
+          [round(color.r * 255)],
+          [round(color.g * 255)],
+          [round(color.b * 255)],
+          [parseUnparsed(color.alpha, builder, property)],
         ],
       ];
     case "hsl":
@@ -2947,10 +2929,10 @@ export function parseUnresolvedColor(
         {},
         color.type,
         [
-          color.h,
-          color.s,
-          color.l,
-          parseUnparsed(color.alpha, builder, property),
+          [color.h],
+          [color.s],
+          [color.l],
+          [parseUnparsed(color.alpha, builder, property)],
         ],
       ];
     case "light-dark": {
@@ -3220,8 +3202,8 @@ function parseGradient(
         {},
         "linear-gradient",
         [
-          parseLineDirection(gradient.direction, builder),
-          ...gradient.items.map((item) => parseGradientItem(item, builder)),
+          [parseLineDirection(gradient.direction, builder)],
+          ...gradient.items.map((item) => [parseGradientItem(item, builder)]),
         ],
       ];
     }
