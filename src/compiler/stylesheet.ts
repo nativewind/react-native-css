@@ -648,7 +648,8 @@ function postProcessStyleFunction(value: StyleDescriptor): [
 
   let [shouldDelay, usesVariables] = postProcessStyleFunction(value[2]);
 
-  usesVariables ||= value[1] === "var";
+  // `em` reads the em channel an ancestor publishes, like a `var()`
+  usesVariables ||= value[1] === "var" || value[1] === "em";
   shouldDelay ||= value[3] === 1 || usesVariables;
 
   if (shouldDelay) {
