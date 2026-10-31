@@ -151,6 +151,21 @@ function flattenPart(
     part.value.arguments = part.value.arguments.flatMap((arg) => {
       return flattenPart(arg, vars);
     });
+  } else if (part.type === "unresolved-color") {
+    const color = part.value;
+
+    switch (color.type) {
+      case "rgb":
+      case "hsl":
+        color.alpha = color.alpha.flatMap((arg) => flattenPart(arg, vars));
+        break;
+      case "light-dark":
+        color.light = color.light.flatMap((arg) => flattenPart(arg, vars));
+        color.dark = color.dark.flatMap((arg) => flattenPart(arg, vars));
+        break;
+      default:
+        color satisfies never;
+    }
   }
 
   return part;
