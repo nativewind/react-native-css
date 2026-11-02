@@ -1,6 +1,6 @@
 /* eslint-disable */
 import { existsSync, readFileSync, writeFileSync } from "fs";
-import { dirname, relative, resolve } from "node:path";
+import { dirname, relative, resolve, sep } from "node:path";
 
 import { CommentArray, parse, stringify } from "comment-json";
 
@@ -24,9 +24,13 @@ export function setupTypeScript(
 
     if (!configFileName) return;
 
-    const configDirectory = dirname(resolve(configFileName));
+    const configPath = resolve(configFileName);
+    const configDirectory = dirname(configPath);
     const environmentFile = resolve(envPath);
-    const relativeEnvironmentFile = relative(configDirectory, environmentFile);
+    // A tsconfig is shared across platforms, so the entry it gains is written with `/`.
+    const relativeEnvironmentFile = relative(configDirectory, environmentFile)
+      .split(sep)
+      .join("/");
 
     const userConfig = parse(
       readFileSync(configFileName, {
@@ -56,14 +60,21 @@ export function setupTypeScript(
       output.push(`Created ${cyan(envPath)}`);
     }
 
-    if (
-      Array.isArray(userConfig.include) &&
-      !(
-        Array.isArray(userConfig.files) &&
-        userConfig.files.includes(relativeEnvironmentFile)
-      ) &&
-      !userConfig.include.includes(relativeEnvironmentFile)
-    ) {
+    // Resolve inheritance on a copy so comments and the user's own settings survive.
+    const resolveConfig = () =>
+      ts.parseJsonConfigFileContent(
+        JSON.parse(JSON.stringify(userConfig)),
+        ts.sys,
+        configDirectory,
+        {},
+        configPath,
+      );
+    const includesEnvironment = () =>
+      resolveConfig().fileNames.some(
+        (file: string) => resolve(file) === environmentFile,
+      );
+
+    if (!includesEnvironment() && Array.isArray(userConfig.include)) {
       userConfig.include.push(relativeEnvironmentFile);
       updatedConfig = true;
       output.push(
@@ -71,19 +82,8 @@ export function setupTypeScript(
       );
     }
 
-    // Resolve inheritance on a copy so comments and the user's own settings survive.
-    const effectiveConfig = ts.parseJsonConfigFileContent(
-      JSON.parse(JSON.stringify(userConfig)),
-      ts.sys,
-      configDirectory,
-      {},
-      resolve(configFileName),
-    );
-    if (
-      !effectiveConfig.fileNames.some(
-        (file: string) => resolve(file) === environmentFile,
-      )
-    ) {
+    if (!includesEnvironment()) {
+      const effectiveConfig = resolveConfig();
       // A files entry can include the declaration even when inherited include or
       // exclude settings omit it. Preserve the original implicit include as well.
       if (
