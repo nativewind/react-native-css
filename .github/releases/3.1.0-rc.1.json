@@ -1,0 +1,19 @@
+{
+  "name": "react-native-css",
+  "version": "3.1.0-rc.1",
+  "sourceCommit": "a37903f594905813517a17aac85adeadfe678762",
+  "archive": "react-native-css-3.1.0-rc.1.tgz",
+  "sha256": "f2d37969b9309c537ba810492ca9e3f1b56edd5afe00143324773f90badfc749",
+  "integrity": "sha512-TT5NnkSK1TRlzbZWeJCyjYwEj7IWOZkGR+e42+PU5X6TQM/wW3CPplI44EbWyNz8QN0WeFzrkQTh3EvhO4cEWA==",
+  "consumerDependencies": {
+    "@babel/core": "7.29.7",
+    "@expo/metro-config": "57.0.12",
+    "expo": "57.0.22",
+    "lightningcss": "1.30.1",
+    "react": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-reanimated": "4.5.1",
+    "react-native-worklets": "0.10.1",
+    "typescript": "6.0.3"
+  }
+}
