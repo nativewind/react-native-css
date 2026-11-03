@@ -248,6 +248,19 @@ export const vh = observable<number>(
   (read, value) => value ?? read(dimensions)?.height,
 );
 
+/**
+ * A media feature compared with the window's size, as an observable of its
+ * answer: it notifies only when the answer flips, not on every change of the
+ * size it reads. A window resized live changes `vw` on every frame; a rule
+ * that only asks whether it is at least 640 wide re-evaluates once, when it
+ * crosses 640, instead of every component with a media query re-running its
+ * rules on every frame.
+ */
+export const windowQueryFamily = family(
+  (_key: string, args: { read: (get: Getter) => boolean }) =>
+    observable<boolean>((get) => args.read(get)),
+);
+
 Dimensions.addEventListener("change", ({ window }) => {
   observableBatch.current = new Set();
   vw.set(window.width);
