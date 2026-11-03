@@ -290,31 +290,57 @@ function pushInlineRule(
 }
 
 /**
- * Get a unique number for a weak key.
+ * Get a unique number for a weak key. Numbering starts at 1 because `mix32(0)` is 0, so an id of 0
+ * would add nothing to one half of `generateHash`.
  */
-let hashKeyCount = 0;
+let hashKeyCount = 1;
 const hashKeyFamily = weakFamily(() => hashKeyCount++);
 
 export function generateStateHash(
   state: ComponentState,
   iterableKeys: Iterable<WeakKey>,
-): string {
+): number {
   return generateHash([state.configs, ...iterableKeys]);
 }
 
-// An exact encoding rather than a digest, since a collision would hand one element another element's styles
-export function generateHash(keys: WeakKey[]): string {
-  // A typed array sorts numerically without a comparator, and Float64 holds the unbounded key counter where Int32 wraps
-  const numbers = new Float64Array(keys.length);
-  let index = 0;
+/**
+ * Murmur3's 32-bit finalizer: a fast, invertible mix that spreads every bit of `x` across the
+ * result, so neighbouring ids give unrelated values.
+ */
+function mix32(x: number) {
+  x ^= x >>> 16;
+  x = Math.imul(x, 0x85ebca6b);
+  x ^= x >>> 13;
+  x = Math.imul(x, 0xc2b2ae35);
+  x ^= x >>> 16;
+  return x;
+}
 
+/**
+ * Hash a set of weak keys into a 53-bit integer that keys the resolved-style cache.
+ *
+ * Each key's id is mixed into two independent 32-bit values, and each is summed across the set.
+ * Addition doesn't care about order, so a set hashes the same however it was iterated (the rule
+ * set is a Set built in render order) with no sort, and the key is one number whatever the set's
+ * size.
+ *
+ * This is a hash, so two different sets CAN share a value, and a collision there would render one
+ * element with another element's styles. With 53 well-mixed bits that is negligible: about
+ * n² / 2^54 for n live cache entries (≈ 6e-11 at 1,000). The previous hash was weak because it
+ * combined raw ids with XOR and a product, so small ids collided structurally (about 1 in 3 for
+ * a config plus one rule). Ids above 2^32 would alias, which would take 4 billion keyed objects.
+ *
+ * Every member is hashed. A key skipped here would be erased from the value, so a value outside
+ * `WeakKey` fails at the `WeakMap` rather than passing through.
+ */
+export function generateHash(keys: Iterable<WeakKey>): number {
+  let a = 0;
+  let b = 0;
   for (const key of keys) {
-    numbers[index] = hashKeyFamily(key);
-    index += 1;
+    const h = mix32(hashKeyFamily(key));
+    a = (a + h) | 0;
+    b = (b + mix32(h ^ 0x9e3779b9)) | 0;
   }
-
-  // Sorted, so a key set encodes the same in any order
-  numbers.sort();
-
-  return numbers.join(",");
+  // 32 bits of `a` and the top 21 of `b`: 53 bits, exactly representable as a number.
+  return (a >>> 0) * 0x200000 + (b >>> 11);
 }

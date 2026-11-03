@@ -162,7 +162,7 @@ function filterCssVariables(value: any, depth = 0): any | undefined {
 
 export const stylesFamily = family(
   (
-    hash: string,
+    hash: number,
     rules: Set<StyleRule | InlineVariable | VariableContextValue>,
   ) => {
     const sortedRules = Array.from(rules).sort(specificityCompareFn);
