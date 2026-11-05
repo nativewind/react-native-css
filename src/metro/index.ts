@@ -11,14 +11,14 @@ import type { WarningLevel } from "./warnings";
 
 export interface WithReactNativeCSSOptions extends CompilerOptions {
   /* Specify the path to the TypeScript environment file. Defaults types-env.d.ts */
-  typescriptEnvPath?: string;
+  typescriptEnvPath?: string | undefined;
   /* Disable generation of the types-env.d.ts file. Defaults false */
-  disableTypeScriptGeneration?: boolean;
+  disableTypeScriptGeneration?: boolean | undefined;
   /** Add className to all React Native primitives. Defaults false */
-  globalClassNamePolyfill?: boolean;
-  hexColors?: boolean;
+  globalClassNamePolyfill?: boolean | undefined;
+  hexColors?: boolean | undefined;
   /** How native builds print the compiler's warnings. Defaults "summary" */
-  warnings?: WarningLevel;
+  warnings?: WarningLevel | undefined;
 }
 
 export type { WarningLevel } from "./warnings";
