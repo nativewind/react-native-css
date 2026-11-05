@@ -2446,6 +2446,16 @@ export function parseTextAlign(
   { value }: DeclarationType<"text-align">,
   builder: StylesheetBuilder,
 ) {
+  // React Native has no logical `start`/`end` for textAlign. On <Text> it
+  // resolves `left`/`right` against the writing direction, so they already
+  // behave as the logical values and the mapping can happen at compile time.
+  // <TextInput> treats them as physical: facebook/react-native#45255
+  if (value === "start") {
+    return "left";
+  } else if (value === "end") {
+    return "right";
+  }
+
   const allowed = new Set(["auto", "left", "right", "center", "justify"]);
   if (allowed.has(value)) {
     return value;

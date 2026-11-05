@@ -282,6 +282,16 @@ describe("Typography - Text Align", () => {
       props: { style: { textAlign: "justify" } },
     });
   });
+  test("text-start", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: { style: { textAlign: "left" } },
+    });
+  });
+  test("text-end", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: { style: { textAlign: "right" } },
+    });
+  });
 });
 
 describe("Typography - Text Color", () => {
