@@ -1,8 +1,12 @@
 import {
   ColorSpace,
   to as convert,
+  HSL,
+  Lab,
+  LCH,
   mix,
   OKLab,
+  OKLCH,
   P3,
   parse,
   sRGB,
@@ -13,6 +17,10 @@ import type { StyleFunctionResolver } from "../resolve";
 ColorSpace.register(sRGB);
 ColorSpace.register(P3);
 ColorSpace.register(OKLab);
+ColorSpace.register(OKLCH);
+ColorSpace.register(HSL);
+ColorSpace.register(Lab);
+ColorSpace.register(LCH);
 
 export const colorMix: StyleFunctionResolver = (resolveValue, value) => {
   const resolved = resolveValue(value[2]);
@@ -21,23 +29,24 @@ export const colorMix: StyleFunctionResolver = (resolveValue, value) => {
   // Resolved descriptors may be cached and shared by another styled component.
   const args: unknown[] = [...(resolved as unknown[])];
   try {
-    const space = args.shift();
-    const leftValue = args.shift();
-    if (typeof space !== "string" || typeof leftValue !== "string") return;
+    if (args.length > 5) return;
+    const [space, leftValue, leftPct, rightValue, rightPct] = args;
+    if (
+      typeof space !== "string" ||
+      typeof leftValue !== "string" ||
+      typeof rightValue !== "string"
+    ) {
+      return;
+    }
     ColorSpace.get(space);
     const left = parse(leftValue);
-    const percentage = () => {
-      const next = args[0];
-      if (typeof next !== "string" || !next.endsWith("%")) return undefined;
-      args.shift();
-      return Number(next.slice(0, -1)) / 100;
+    const parseWeight = (val: unknown) => {
+      if (typeof val !== "string" || !val.endsWith("%")) return undefined;
+      return Number(val.slice(0, -1)) / 100;
     };
-    let leftWeight = percentage();
-    const rightValue = args.shift();
-    if (typeof rightValue !== "string") return;
+    let leftWeight = parseWeight(leftPct);
     const right = parse(rightValue);
-    let rightWeight = percentage();
-    if (args.length) return;
+    let rightWeight = parseWeight(rightPct);
 
     // CSS Color 5: omitted weights are complementary, then both are normalized.
     leftWeight ??= rightWeight === undefined ? 0.5 : 1 - rightWeight;
