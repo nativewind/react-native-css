@@ -13,9 +13,9 @@ export type Effect = {
   observers: Set<Observable<any, any>>;
   run(): void;
   /** Dependencies recorded by the last cleanupEffect() */
-  dependencies?: Observable<any, any>[];
+  dependencies?: Observable<any, any>[] | undefined;
   /** Dependency values recorded by the last cleanupEffect() */
-  snapshots?: [Observable<any, any>, unknown][];
+  snapshots?: [Observable<any, any>, unknown][] | undefined;
 };
 
 export type Observable<Value, Arg = Value> = {
