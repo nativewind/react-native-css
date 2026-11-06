@@ -224,3 +224,16 @@ test("@property with repeated multi-child preserves array", () => {
   // Multi-child repeated (<length>+ with two values) keeps the array form
   expect(vrMap.get("my-offsets")).toStrictEqual([[[10, 20]]]);
 });
+
+test("@property with a comma-separated repeated value keeps each item apart", () => {
+  const compiled = compile(`
+@property --my-offsets {
+  syntax: "<length>#";
+  inherits: false;
+  initial-value: 10px, 20px;
+}
+`);
+
+  const vrMap = new Map(compiled.stylesheet().vr);
+  expect(vrMap.get("my-offsets")).toStrictEqual([[[[10], [20]]]]);
+});

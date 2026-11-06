@@ -1,17 +1,22 @@
-import { isStyleDescriptorArray } from "react-native-css/utilities";
+import type { StyleDescriptor } from "react-native-css/compiler";
+import {
+  commaListItems,
+  isCommaList,
+  isStyleDescriptorArray,
+} from "react-native-css/utilities";
 
-import type { StyleFunctionResolver } from "../resolve";
+import type { SimpleResolveValue, StyleFunctionResolver } from "../resolve";
 import { scaleFactor } from "../scale-factor";
 
 export const scale: StyleFunctionResolver = (resolveValue, descriptor) => {
-  const args = descriptor[2];
+  const values = transformArguments(resolveValue, descriptor[2]);
 
-  if (!isStyleDescriptorArray(args)) {
-    return { scale: scaleFactor(resolveValue(args)) };
+  if (values.length === 1) {
+    return { scale: scaleFactor(values[0]) };
   }
 
-  const x = scaleFactor(resolveValue(args[0]));
-  const y = scaleFactor(resolveValue(args[1]));
+  const x = scaleFactor(values[0]);
+  const y = scaleFactor(values[1]);
 
   const isXValid = typeof x === "string" || typeof x === "number";
   const isYValid = typeof y === "string" || typeof y === "number";
@@ -28,15 +33,13 @@ export const scale: StyleFunctionResolver = (resolveValue, descriptor) => {
 };
 
 export const rotate: StyleFunctionResolver = (resolveValue, descriptor) => {
-  const args = descriptor[2];
+  const values = transformArguments(resolveValue, descriptor[2]);
 
-  if (!isStyleDescriptorArray(args)) {
-    return { rotate: resolveValue(args) };
+  if (values.length === 1) {
+    return { rotate: values[0] };
   }
 
-  const x = resolveValue(args[0]);
-  const y = resolveValue(args[1]);
-  const z = resolveValue(args[2]);
+  const [x, y, z] = values;
 
   const isXValid = typeof x === "string" || typeof x === "number";
   const isYValid = typeof y === "string" || typeof y === "number";
@@ -62,14 +65,7 @@ export const rotate: StyleFunctionResolver = (resolveValue, descriptor) => {
 };
 
 export const translate: StyleFunctionResolver = (resolveValue, descriptor) => {
-  const args = descriptor[2];
-
-  if (!isStyleDescriptorArray(args)) {
-    return;
-  }
-
-  const x = resolveValue(args[0]);
-  const y = resolveValue(args[1]);
+  const [x, y] = transformArguments(resolveValue, descriptor[2]);
 
   const isXValid = typeof x === "string" || typeof x === "number";
   const isYValid = typeof y === "string" || typeof y === "number";
@@ -84,3 +80,16 @@ export const translate: StyleFunctionResolver = (resolveValue, descriptor) => {
 
   return;
 };
+
+/** The values in their written places, so one that resolves to nothing moves no other, or the items of a comma-separated list a lone value resolves to. */
+function transformArguments(
+  resolveValue: SimpleResolveValue,
+  args: StyleDescriptor,
+): unknown[] {
+  if (isStyleDescriptorArray(args)) {
+    return commaListItems(args).map((value) => resolveValue(value));
+  }
+
+  const resolved: unknown = resolveValue(args);
+  return isCommaList(resolved) ? commaListItems(resolved) : [resolved];
+}

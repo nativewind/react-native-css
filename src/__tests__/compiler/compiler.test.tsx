@@ -181,21 +181,63 @@ test("animations preserve named keyframes and their timing contract", () => {
   ]);
 });
 
-test("breaks apart comma separated variables", () => {
-  const compiled = compile(
-    `
-    :root { 
-      --test: blue, green;
-    }
-  `,
-    {
-      inlineVariables: false,
-    },
-  );
+// css-variables-1 §2.1: a custom property's value is its tokens, its commas among them
+test.each([
+  ["blue, green", [["blue"], ["green"]]],
+  ["blue ,green", [["blue"], ["green"]]],
+  ["blue/**/, green", [["blue"], ["green"]]],
+  ["blue green", ["blue", "green"]],
+  [
+    "1px 2px #000, 3px 4px #fff",
+    [
+      [1, 2, "#000"],
+      [3, 4, "#fff"],
+    ],
+  ],
+  ["1px 2px #000 3px 4px #fff", [1, 2, "#000", 3, 4, "#fff"]],
+])("--test: %s keeps its separator", (value, expected) => {
+  const compiled = compile(`:root { --test: ${value}; }`, {
+    inlineVariables: false,
+  });
 
   expect(compiled.stylesheet()).toStrictEqual({
-    vr: [["test", [[["blue", "green"]]]]],
+    vr: [["test", [[expected]]]],
   });
+});
+
+test.each([
+  ["var(--a), var(--b)", [[[{}, "var", "a", 1]], [[{}, "var", "b", 1]]]],
+  [
+    "var(--a) var(--b)",
+    [
+      [{}, "var", "a", 1],
+      [{}, "var", "b", 1],
+    ],
+  ],
+])("box-shadow: %s keeps its separator", (value, expected) => {
+  const compiled = compile(`.my-class { box-shadow: ${value}; }`);
+
+  expect(compiled.stylesheet().s?.[0]?.[1][0]?.d).toStrictEqual([
+    [[{}, "boxShadow", expected, 1], "boxShadow", 1],
+  ]);
+});
+
+// A transform is a space-separated list, so it holds each function as a token of its own
+test.each([
+  [
+    "translate(10px, 20px)",
+    [
+      [{}, "translateX", 10],
+      [{}, "translateY", 20],
+    ],
+  ],
+  ["translateZ(10px) rotate(45deg)", [[{}, "rotate", "45deg"]]],
+])("transform: %s compiles to a flat list of functions", (value, expected) => {
+  const compiled = compile(`.my-class { transform: ${value}; }`);
+
+  expect(compiled.stylesheet().s?.[0]?.[1][0]?.d).toStrictEqual([
+    [[{}, "transform", expected], "transform"],
+  ]);
 });
 
 test("light-dark()", () => {
