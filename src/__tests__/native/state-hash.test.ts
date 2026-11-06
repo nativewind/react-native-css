@@ -10,7 +10,6 @@ import type { ComponentState } from "../../native/react/useNativeCss";
  * `object-fit: contain` because both rule sets hashed to `18h`.
  */
 
-/** Distinct weak keys. Any object is a valid one. */
 const keysOf = (count: number): WeakKey[] =>
   Array.from({ length: count }, () => ({}));
 
@@ -29,13 +28,10 @@ test("distinct key sets never share a hash", () => {
     }
   }
 
-  // Vacuity guard: the loop above must actually have hashed every pair.
   expect(owner.size).toBe((keys.length * (keys.length - 1)) / 2);
 });
 
 test("a key set hashes the same however it is ordered", () => {
-  // The rule set reaching `generateStateHash` is a Set built in render order, so order-independence
-  // is what lets two elements with the same rules share one entry at all.
   const first: WeakKey = {};
   const second: WeakKey = {};
   const third: WeakKey = {};
@@ -46,18 +42,12 @@ test("a key set hashes the same however it is ordered", () => {
 });
 
 test("a key outside WeakKey is refused rather than erased", () => {
-  // The encoding is exact only if it encodes every member. Skipping one — which the inherited
-  // `if (!key) continue` did — makes `[a, b]` and `[a, falsy, b]` the same string, and a cache
-  // key collision hands the second caller the first caller's styles. Unreachable from typed code,
-  // so this pins the contract rather than a bug: out of domain fails, it does not vanish.
   const key: WeakKey = {};
 
   expect(() => generateHash([key, undefined as unknown as WeakKey])).toThrow();
 });
 
 test("hashing the same key twice answers the same value", () => {
-  // `hashKeyFamily` assigns each key a number once. A key whose number is not retained hashes
-  // differently on its second lookup, which splits its cache entry.
   const only: WeakKey = {};
 
   expect(generateHash([only])).toBe(generateHash([only]));
