@@ -279,7 +279,7 @@ export default withReactNativeCSS(defaultConfig, {
 
 Custom properties (sometimes referred to as CSS variables or cascading variables) are a way to store values that can be reused throughout a CSS document. They are defined using a property name that starts with `--`, and their values can be accessed using the `var()` function.
 
-To improve performance, Custom properties that are only set **once** in the CSS file are inlined at build time. A property an `@property` rule registers with `inherits: false` is inlined only when that one declaration is on a universal selector outside a media or container query, and a property whose value refers to such a property is not inlined. An `@property` rule inside `@media`, or under an `@supports` that doesn't hold, is ignored on native.
+To improve performance, Custom properties that are only set **once** in the CSS file are inlined at build time.
 
 For example
 
@@ -319,6 +319,12 @@ export default withReactNativeCSS(defaultConfig, {
   inlineVariables: false,
 });
 ```
+
+### Registered Custom Properties (`@property`)
+
+A custom property registered with `inherits: false` is inlined only when its single declaration is on a universal selector (`*`) outside a media or container query. A custom property whose value refers to one registered with `inherits: false` is never inlined.
+
+An `@property` rule inside `@media` is ignored on native, even when the media query matches.
 
 ## Contributing
 
