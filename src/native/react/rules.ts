@@ -290,8 +290,7 @@ function pushInlineRule(
 }
 
 /**
- * Get a unique number for a weak key. Numbering starts at 1 because `mix32(0)` is 0, so an id of 0
- * would add nothing to one half of `generateHash`.
+ * Get a unique number for a weak key. Starts at 1, since `mix32(0)` is 0.
  */
 let hashKeyCount = 1;
 const hashKeyFamily = weakFamily(() => hashKeyCount++);
@@ -303,10 +302,7 @@ export function generateStateHash(
   return generateHash([state.configs, ...iterableKeys]);
 }
 
-/**
- * Murmur3's 32-bit finalizer: a fast, invertible mix that spreads every bit of `x` across the
- * result, so neighbouring ids give unrelated values.
- */
+// Murmur3's 32-bit finalizer, so neighbouring ids give unrelated values
 function mix32(x: number) {
   x ^= x >>> 16;
   x = Math.imul(x, 0x85ebca6b);
@@ -317,23 +313,11 @@ function mix32(x: number) {
 }
 
 /**
- * Hash a set of weak keys into a 53-bit integer that keys the resolved-style cache.
- *
- * Each key's id is mixed into two independent 32-bit values, and each is summed across the set.
- * Addition doesn't care about order, so a set hashes the same however it was iterated (the rule
- * set is a Set built in render order) with no sort, and the key is one number whatever the set's
- * size.
- *
- * This is a hash, so two different sets CAN share a value, and a collision there would render one
- * element with another element's styles. With 53 well-mixed bits that is negligible: about
- * n² / 2^54 for n live cache entries (≈ 6e-11 at 1,000). The previous hash was weak because it
- * combined raw ids with XOR and a product, so small ids collided structurally (about 1 in 3 for
- * a config plus one rule). Ids above 2^32 would alias, which would take 4 billion keyed objects.
- *
- * Every member is hashed. A key skipped here would be erased from the value, so a value outside
- * `WeakKey` fails at the `WeakMap` rather than passing through.
+ * Hash a set of weak keys into a 53-bit integer. Each id is mixed into two 32-bit values summed
+ * across the set, so the hash is order-independent without a sort. A collision would hand one
+ * element another's styles, but at 53 bits the odds are about n² / 2^54 for n live entries.
  */
-export function generateHash(keys: Iterable<WeakKey>): number {
+export function generateHash(keys: WeakKey[]): number {
   let a = 0;
   let b = 0;
   for (const key of keys) {
