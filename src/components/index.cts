@@ -305,4 +305,7 @@ module.exports = {
   get usePressability() {
     return require("react-native").usePressability;
   },
+  get AssetRegistry() {
+    return require("react-native").AssetRegistry;
+  },
 };
