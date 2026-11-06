@@ -270,9 +270,7 @@ export function updateRules(
   }
 
   // Remove this component from the old observer
-  if (state.stylesObs !== stylesObs) {
-    state.stylesObs?.unsubscribe(state.styleEffect);
-  }
+  state.stylesObs?.unsubscribe(state.styleEffect);
 
   return {
     ...state,

@@ -30,8 +30,6 @@ const rootVariableFamily = () => {
   });
 };
 
-type RootVariableRegistry = ReturnType<typeof rootVariableFamily>;
-
 // Static, since the compiler records only the @property rules no condition wraps
 const registeredInitialValueFamily = () => {
   return family<string, Observable<StyleDescriptor>>(() =>
@@ -44,8 +42,8 @@ const registeredInheritanceFamily = () => {
 };
 
 interface RootVariableRegistries {
-  root: RootVariableRegistry;
-  universal: RootVariableRegistry;
+  root: ReturnType<typeof rootVariableFamily>;
+  universal: ReturnType<typeof rootVariableFamily>;
 }
 
 declare global {
@@ -60,7 +58,7 @@ declare global {
     | undefined;
 }
 
-function seedRootRegistry(root: RootVariableRegistry) {
+function seedRootRegistry(root: ReturnType<typeof rootVariableFamily>) {
   root("__rn-css-rem").set([[14]]);
   // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
   root("__rn-css-color").set([
@@ -94,7 +92,6 @@ export const rootVariables =
 export const universalVariables =
   globalThis.__react_native_css_root_variable_registries.universal;
 
-// Pinned to globalThis, since Metro can load two copies of this module and StyleCollection injects through one
 globalThis.__react_native_css_registered_initial_values ??=
   registeredInitialValueFamily();
 globalThis.__react_native_css_registered_inheritance ??=

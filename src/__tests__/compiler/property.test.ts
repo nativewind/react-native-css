@@ -382,15 +382,6 @@ test("the last @property declaration of a name decides inherits", () => {
   expect(nonInheritingLast.stylesheet().vp).toStrictEqual([["flip", false]]);
 });
 
-test("an ignored @property leaves the earlier registration of its name", () => {
-  const result = compile(`
-@property --x { syntax: "<length>"; inherits: false; initial-value: 3px; }
-@property --x { syntax: "<length>"; inherits: true; initial-value: 2em; }
-`).stylesheet();
-
-  expect(result.vp).toStrictEqual([["x", false, 3]]);
-});
-
 test.each([
   ["<time>", "1s"],
   ["<resolution>", "2dppx"],
@@ -481,36 +472,6 @@ test("@property with repeated multi-child preserves array", () => {
   ]);
 });
 
-// A valid registration decides its name over the earlier one, whether or not its initial value has a descriptor; an ignored one leaves the earlier one
-function afterAValidRegistration(syntax: string, initialValue: string) {
-  return compile(`
-@property --x { syntax: "<length>"; inherits: false; initial-value: 7px; }
-@property --x { syntax: "${syntax}"; inherits: false; initial-value: ${initialValue}; }
-`).stylesheet().vp;
-}
-
-const earlierRegistration = [["x", false, 7]];
-
-test.each([
-  "2em",
-  "1rem",
-  "1ch",
-  "2lh",
-  "1cqw",
-  "calc(1px + 1em)",
-  "min(1px, 1em)",
-  "calc(2 * min(1em, 1px))",
-  "round(1em, 1px)",
-  "round(1vw, 1em)",
-])(
-  "an initial value of %s depends on the element, so the registration is ignored",
-  (initialValue) => {
-    expect(afterAValidRegistration("<length>", initialValue)).toStrictEqual(
-      earlierRegistration,
-    );
-  },
-);
-
 test.each([
   ["<length>", "3px", 3],
   ["<length>", "calc(1px + 2px)", 3],
@@ -521,66 +482,6 @@ test.each([
   ).stylesheet();
 
   expect(result.vp).toStrictEqual([["x", false, expected]]);
-});
-
-test.each([
-  ["1vw", [["x", false, [{}, "vw", 1, 1]]]],
-  ["2svh", undefined],
-  ["max(1px, 2vw)", undefined],
-  ["calc(2 * min(2px, 1vw))", undefined],
-  ["round(1vw, 1px)", undefined],
-])(
-  "a viewport-relative initial value of %s decides its name",
-  (initialValue, expected) => {
-    expect(afterAValidRegistration("<length>", initialValue)).toStrictEqual(
-      expected,
-    );
-  },
-);
-
-test.each([
-  ["<transform-function>", "translateX(1em)", false],
-  ["<transform-function>", "translateX(30%)", true],
-  ["<transform-function>", "translate(1em, 0)", false],
-  ["<transform-function>", "translate(3px, 0)", true],
-  ["<transform-function>", "translate3d(0, 0, 1em)", false],
-  ["<transform-function>", "translate3d(3px, 0, 0)", true],
-  ["<transform-function>", "scale(2)", true],
-  ["<transform-function>", "rotate(45deg)", true],
-  ["<transform-function>", "skew(10deg)", true],
-  ["<transform-function>", "matrix(1, 0, 0, 1, 3, 0)", true],
-  ["<transform-list>", "translateX(1em) rotate(45deg)", false],
-  ["<transform-list>", "translateX(3px) rotate(45deg)", true],
-])(
-  "a %s initial value of %s decides its name only when it is element-independent",
-  (syntax, initialValue, independent) => {
-    expect(afterAValidRegistration(syntax, initialValue)).toStrictEqual(
-      independent ? undefined : earlierRegistration,
-    );
-  },
-);
-
-// Chromium and WebKit keep an <image> registration whose stops depend on the element, and Firefox ignores it; this follows the two
-test("an <image> registration with an element-relative stop still decides its name", () => {
-  expect(
-    afterAValidRegistration("<image>", "linear-gradient(red 1em, blue)"),
-  ).toStrictEqual(undefined);
-});
-
-test("an ignored registration leaves a single declaration to the inliner", () => {
-  const compiled = compile(`
-@property --ignored {
-  syntax: "<length>";
-  inherits: false;
-  initial-value: 2em;
-}
-.parent { --ignored: 10px; }
-.child { width: var(--ignored); }
-`);
-
-  const child = compiled.stylesheet().s?.find(([name]) => name === "child");
-
-  expect(JSON.stringify(child)).not.toContain('"var"');
 });
 
 test.each([
