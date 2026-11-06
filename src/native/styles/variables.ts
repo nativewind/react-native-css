@@ -212,7 +212,8 @@ export function substituteOwnReferences(
 
   // An inline vars() value is a value, never a reference, so only the rules' variables need rewriting
   for (const name of ruleVariableNames) {
-    // Read without subscribing, so a later flip of the element's own name reaches this publication when the element next updates
+    // Read without subscribing: if a later stylesheet flips `inherits` on a name this element publishes, the change is
+    // picked up only when the element next updates for another reason. In practice that matters only during Fast Refresh.
     if (registeredInheritance(name).get()) {
       const declared = variables[name];
       const value = substituteOwnValues(declared, ownValue, get);

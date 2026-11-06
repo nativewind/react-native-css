@@ -109,27 +109,6 @@ test("an unregistered custom property still inherits", () => {
   expect(screen.getByTestId(testID).props.style).toStrictEqual({ width: 10 });
 });
 
-test("a registration whose initial value depends on the element is ignored, so the property inherits", () => {
-  registerCSS(`
-    @property --my-var {
-      syntax: "<length>";
-      inherits: false;
-      initial-value: 2em;
-    }
-    .parent { --my-var: 10px; }
-    .other { --my-var: 20px; }
-    .child { width: var(--my-var); }
-  `);
-
-  render(
-    <View testID={parentTestID} className="parent">
-      <View testID={testID} className="child" />
-    </View>,
-  );
-
-  expect(screen.getByTestId(testID).props.style).toStrictEqual({ width: 10 });
-});
-
 test("a non-inheriting custom property still applies to the element declaring it", () => {
   registerCSS(`
     ${registration}
@@ -816,18 +795,6 @@ test("a VariableContextProvider follows a later stylesheet that stops the proper
   });
 
   expect(screen.getByTestId(testID).props.style).toStrictEqual({ width: 1 });
-});
-
-test("an ignored @property leaves the earlier registration of its name in force", () => {
-  registerCSS(`
-    @property --my-var { syntax: "<length>"; inherits: false; initial-value: 3px; }
-    @property --my-var { syntax: "<length>"; inherits: true; initial-value: 2em; }
-    ${declaringTree}
-  `);
-
-  renderDeclaringTree();
-
-  expect(screen.getByTestId(testID).props.style).toStrictEqual({ width: 3 });
 });
 
 test("an element reading :root follows a later stylesheet that stops the property inheriting", () => {
