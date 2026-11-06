@@ -174,8 +174,9 @@ test("can apply and set new variables", () => {
   expect(screen.getByTestId(testIDs.two).props.style).toStrictEqual({
     color: "#f00",
   });
+  // `.another-class` inherits `--another-var` from `.my-class` at runtime, which carries the name as written
   expect(screen.getByTestId(testIDs.three).props.style).toStrictEqual({
-    color: "#008000",
+    color: "green",
   });
 });
 
@@ -201,8 +202,9 @@ test("variables will be inherited", () => {
     </View>,
   );
 
+  // Inherited from `.green` at runtime, which carries the name as written
   expect(screen.getByTestId(testIDs.three).props.style).toStrictEqual({
-    color: "#008000",
+    color: "green",
   });
 });
 
@@ -349,5 +351,6 @@ test("variable overriding with classes", () => {
   );
 
   const component = screen.getByTestId(testID);
-  expect(component.props.style).toStrictEqual({ color: "#f00" });
+  // `.test` inherits `--tier-500` from `.tier-red`, whose value the `:root` tier folded into
+  expect(component.props.style).toStrictEqual({ color: "red" });
 });
