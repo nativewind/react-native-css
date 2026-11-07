@@ -29,7 +29,7 @@ type ShorthandDefaultValue = readonly [
 export function shorthandHandler(
   mappings: ShorthandRequiredValue[][],
   defaults: ShorthandDefaultValue[],
-  returnType: "shorthandObject" | "tuples" | "object" = "shorthandObject",
+  returnType: "shorthandObject" | "tuples" = "shorthandObject",
 ): StyleResolver {
   return (resolve, value, __, { castToArray }) => {
     let args = isStyleDescriptorArray(value)
@@ -115,9 +115,8 @@ export function shorthandHandler(
       ),
     ];
 
-    if (returnType === "shorthandObject" || returnType === "object") {
-      const target: Record<string, unknown> =
-        returnType === "shorthandObject" ? { [ShortHandSymbol]: true } : {};
+    if (returnType === "shorthandObject") {
+      const target: Record<string, unknown> = { [ShortHandSymbol]: true };
 
       for (const [value, prop] of tuples) {
         if (typeof prop === "string") {

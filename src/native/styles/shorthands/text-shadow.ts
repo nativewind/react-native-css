@@ -1,17 +1,28 @@
-import { shorthandHandler } from "./_handler";
+import { NO_TEXT_SHADOW } from "react-native-css/utilities";
 
-const width = [["textShadowOffset", "width"], "number"] as const;
-const height = [["textShadowOffset", "height"], "number"] as const;
-const blur = ["textShadowRadius", "number", "textShadowRadius"] as const;
-const color = ["textShadowColor", "color", "color"] as const;
+import { ShortHandSymbol } from "../constants";
+import type { StyleFunctionResolver } from "../resolve";
+import { readShadows, type ShadowGrammar } from "./_shadow";
 
-export const textShadow = shorthandHandler(
-  [
-    [width, height, blur, color],
-    [color, width, height, blur],
-    [width, height, color],
-    [color, width, height],
-    [width, height],
-  ],
-  [blur, color],
-);
+const textShadowGrammar: ShadowGrammar = { maxLengths: 4, acceptsInset: false };
+
+export const textShadow: StyleFunctionResolver = (resolveValue, func) => {
+  const value = resolveValue(func[2]);
+
+  // React Native draws one text shadow, so the first is the one the compiler keeps.
+  const shadow =
+    value === "none"
+      ? NO_TEXT_SHADOW
+      : readShadows(value, textShadowGrammar, resolveValue)?.[0];
+
+  if (shadow === undefined) {
+    return;
+  }
+
+  return {
+    [ShortHandSymbol]: true,
+    textShadowOffset: { width: shadow.offsetX, height: shadow.offsetY },
+    textShadowRadius: shadow.blurRadius,
+    textShadowColor: shadow.color,
+  };
+};

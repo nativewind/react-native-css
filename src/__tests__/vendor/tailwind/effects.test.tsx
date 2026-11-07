@@ -63,6 +63,53 @@ describe("Effects - Box Shadow", () => {
       },
     });
   });
+  test("inset-shadow-sm", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: {
+        style: {
+          boxShadow: [
+            {
+              blurRadius: 4,
+              color: "#0000000d",
+              inset: true,
+              offsetX: 0,
+              offsetY: 2,
+              spreadDistance: 0,
+            },
+          ],
+        },
+      },
+    });
+  });
+});
+
+describe("Effects - Text Shadow", () => {
+  test("text-shadow-md", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: {
+        style: {
+          textShadowColor: "#0000001a",
+          textShadowOffset: { height: 1, width: 0 },
+          textShadowRadius: 1,
+        },
+      },
+    });
+  });
+  test("text-shadow-md with a text-shadow color", async () => {
+    expect(
+      await renderCurrentTest({
+        sourceInline: ["text-shadow-md", "text-shadow-red-500"],
+      }),
+    ).toStrictEqual({
+      props: {
+        style: {
+          textShadowColor: "#fb2c36",
+          textShadowOffset: { height: 1, width: 0 },
+          textShadowRadius: 1,
+        },
+      },
+    });
+  });
 });
 
 describe.skip("Effects - Box Shadow Color", () => {
