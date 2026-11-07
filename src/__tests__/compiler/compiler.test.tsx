@@ -99,6 +99,26 @@ test("preserves excluded CSS variables using the public compiler option", () => 
   expect(rule?.v?.some(([name]) => name === "red")).toBe(false);
 });
 
+test.each([
+  [
+    "an hsl() alpha",
+    `:root { --alpha: 0.5; } .test { color: hsl(0 100% 50% / var(--alpha)); }`,
+    `.test { color: hsl(0 100% 50% / 0.5); }`,
+  ],
+  [
+    "an rgb() alpha",
+    `:root { --alpha: 0.5; } .test { color: rgb(255 0 0 / var(--alpha)); }`,
+    `.test { color: rgb(255 0 0 / 0.5); }`,
+  ],
+  [
+    "a light-dark() arm",
+    `:root { --dark: #654321; } .test { color: light-dark(#123456, var(--dark)); }`,
+    `.test { color: light-dark(#123456, #654321); }`,
+  ],
+])("folds a variable read inside %s", (_name, css, folded) => {
+  expect(compile(css).stylesheet()).toStrictEqual(compile(folded).stylesheet());
+});
+
 test("multiple rules with same selector", () => {
   const compiled = compile(`
 .redOrGreen:hover { 

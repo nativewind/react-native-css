@@ -2924,6 +2924,19 @@ export function parseTranslateProp(
   return parseLength(value[prop], builder);
 }
 
+// colorjs.io holds sRGB in 0-1 and rgba() takes 0-255; CSS Color 4 renders a missing component as 0
+function toRgbChannel(coordinate: number | null): number {
+  return Math.round((coordinate ?? 0) * 255);
+}
+
+// The second lightningcss pass reparses a hue as a float32, whose step from 2 ** 32 spans more than a turn
+const FLOAT32_HUE_LIMIT = 2 ** 32;
+
+// Browsers render an infinite or NaN hue as 0, and past the float32 limit a hue names no angle either
+function toHueDegrees(hue: number): number {
+  return Math.abs(hue) < FLOAT32_HUE_LIMIT ? hue : 0;
+}
+
 export function parseUnresolvedColor(
   color: UnresolvedColor,
   builder: StylesheetBuilder,
@@ -2932,27 +2945,35 @@ export function parseUnresolvedColor(
 ): StyleDescriptor {
   switch (color.type) {
     case "rgb":
+      // lightningcss hands over rgb channels as 0-255 integers, the scale rgba() takes
       return [
         {},
         "rgba",
         [
-          round(color.r * 255),
-          round(color.g * 255),
-          round(color.b * 255),
+          color.r,
+          color.g,
+          color.b,
           parseUnparsed(color.alpha, builder, property),
         ],
       ];
-    case "hsl":
+    case "hsl": {
+      // The channels are resolved here, so they convert to the sRGB parseColor writes for the same colour
+      const { coords } = new Color({
+        space: "hsl",
+        coords: [toHueDegrees(color.h), color.s, color.l],
+      }).to("srgb");
+
       return [
         {},
-        color.type,
+        "rgba",
         [
-          color.h,
-          color.s,
-          color.l,
+          toRgbChannel(coords[0]),
+          toRgbChannel(coords[1]),
+          toRgbChannel(coords[2]),
           parseUnparsed(color.alpha, builder, property),
         ],
       ];
+    }
     case "light-dark": {
       const extraRule = builder.extendRule({
         m: [["=", "prefers-color-scheme", "dark"]],
