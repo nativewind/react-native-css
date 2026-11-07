@@ -28,6 +28,8 @@ export type NativewindRenderOptions = RenderOptions & {
   preflight?: boolean;
   /** Whether to include the plugin in the generated CSS. @default true */
   plugin?: boolean;
+  /** `false` compiles with every variable resolved at runtime @default variables declared once are inlined */
+  inlineVariables?: false;
   /** Enable debug logging. @default false - Set process.env.NATIVEWIND_TEST_AUTO_DEBUG and run tests with the node inspector   */
   debug?: boolean | "verbose";
 };
@@ -45,6 +47,7 @@ export async function render(
     theme = true,
     preflight = false,
     extraCss,
+    inlineVariables,
     ...options
   }: NativewindRenderOptions = {},
 ): Promise<ReturnType<typeof tlRender> & ReturnType<typeof compile>> {
@@ -86,7 +89,10 @@ export async function render(
     console.log(`Output CSS:\n---\n${output}\n---\n`);
   }
 
-  const compiled = registerCSS(output, { debug: Boolean(debug) });
+  const compiled = registerCSS(output, {
+    debug: Boolean(debug),
+    inlineVariables,
+  });
 
   return Object.assign(
     {},
