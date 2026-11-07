@@ -85,3 +85,55 @@ test("important image fitting overrides inline style and preserves its siblings"
   );
   expect(style()).toMatchObject({ objectFit: "cover", opacity: 0.5 });
 });
+
+describe("a mapping on an image with object-fit", () => {
+  const TintedImage = styled(RNImage, {
+    tintClassName: {
+      target: "style",
+      nativeStyleMapping: { color: "tintColor" },
+    },
+    className: "style",
+  });
+
+  test.each([
+    ["a normal", `.tint { color: red; }`],
+    ["an important", `.tint { color: red !important; }`],
+  ])(
+    "keeps %s mapped value when another config follows it, on every render",
+    (_, tintCss) => {
+      registerCSS(`.contain { object-fit: contain; } ${tintCss}`);
+      const element = () => (
+        <TintedImage
+          source={{ uri: "test-image" }}
+          className="contain"
+          tintClassName="tint"
+        />
+      );
+
+      render(element());
+      expect(props().tintColor).toBe("#f00");
+      expect(style()?.objectFit).toBe("contain");
+
+      screen.rerender(element());
+      expect(props().tintColor).toBe("#f00");
+      expect(style()?.objectFit).toBe("contain");
+    },
+  );
+
+  test("keeps the same style object while its classes stay the same", () => {
+    registerCSS(`.contain { object-fit: contain; } .tint { color: red; }`);
+    const element = () => (
+      <TintedImage
+        source={{ uri: "test-image" }}
+        className="contain"
+        tintClassName="tint"
+      />
+    );
+
+    render(element());
+    const firstStyle = props().style;
+    screen.rerender(element());
+
+    expect(props().style).toBe(firstStyle);
+  });
+});

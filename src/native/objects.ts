@@ -2,7 +2,10 @@
 import { ShortHandSymbol } from "../native/styles/constants";
 import { transformKeys } from "../native/styles/defaults";
 
-export function getDeepPath(source: any, paths: string | string[] | false) {
+export function getDeepPath(
+  source: any,
+  paths: string | readonly string[] | false,
+) {
   if (!source) {
     return;
   }
@@ -11,18 +14,8 @@ export function getDeepPath(source: any, paths: string | string[] | false) {
     return undefined;
   }
 
-  if (Array.isArray(paths)) {
-    let target = source;
-
-    for (const path of paths) {
-      if (typeof target !== "object" || !target || !(path in target)) {
-        return undefined;
-      }
-
-      target = target[path];
-    }
-
-    return target;
+  if (typeof paths !== "string") {
+    return valueAtPath(source, paths);
   } else if (transformKeys.has(paths)) {
     return Array.isArray(source?.transform)
       ? source.transform.find((t: any) => t[paths] !== undefined)
@@ -30,6 +23,20 @@ export function getDeepPath(source: any, paths: string | string[] | false) {
   } else {
     return source?.[paths];
   }
+}
+
+export function valueAtPath(source: unknown, path: readonly string[]): unknown {
+  let value = source;
+
+  for (const key of path) {
+    if (typeof value !== "object" || value === null || !(key in value)) {
+      return undefined;
+    }
+
+    value = Reflect.get(value, key);
+  }
+
+  return value;
 }
 
 export function applyShorthand(value: any) {
@@ -106,4 +113,91 @@ export function setDeepPath(
   target[paths[paths.length - 1]!] = value;
 
   return target;
+}
+
+export function isNonArrayObject(
+  value: unknown,
+): value is Readonly<Record<string, unknown>> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export function isPlainObject(
+  value: unknown,
+): value is Readonly<Record<string, unknown>> {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const prototype: unknown = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+// Writes each value at its path in order, copying each object or array on the way once however many writes reach it
+export function withDeepPaths(
+  source: Readonly<Record<string, unknown>>,
+  writes: readonly (readonly [readonly string[], unknown])[],
+): Readonly<Record<string, unknown>> {
+  const copies = new Set<unknown>();
+  const copyOf = (value: unknown): object => {
+    const copy: object = Array.isArray(value)
+      ? [...(value as readonly unknown[])]
+      : { ...(isNonArrayObject(value) ? value : {}) };
+    copies.add(copy);
+    return copy;
+  };
+
+  let result: Record<string, unknown> | undefined;
+  for (const [path, value] of writes) {
+    const key = path[path.length - 1];
+    if (key === undefined) {
+      continue;
+    }
+
+    if (result === undefined) {
+      result = { ...source };
+      copies.add(result);
+    }
+    let target: object = result;
+    for (const segment of path.slice(0, -1)) {
+      const child: unknown = Reflect.get(target, segment);
+      const next =
+        typeof child === "object" && child !== null && copies.has(child)
+          ? child
+          : copyOf(child);
+      Reflect.set(target, segment, next);
+      target = next;
+    }
+    Reflect.set(target, key, value);
+  }
+
+  return result ?? source;
+}
+
+export function withoutKeys(
+  source: Readonly<Record<string, unknown>>,
+  keys: readonly string[],
+): Readonly<Record<string, unknown>> {
+  return keys.reduce((result, key) => {
+    if (!(key in result)) return result;
+    const { [key]: removed, ...rest } = result;
+    return rest;
+  }, source);
+}
+
+export function withoutKeysAt(
+  source: Readonly<Record<string, unknown>>,
+  paths: readonly string[],
+  keys: readonly string[],
+): Readonly<Record<string, unknown>> {
+  const [path, ...rest] = paths;
+  if (path === undefined) {
+    return withoutKeys(source, keys);
+  }
+
+  const child = source[path];
+  if (!isNonArrayObject(child)) {
+    return source;
+  }
+
+  const updated = withoutKeysAt(child, rest, keys);
+  return updated === child ? source : { ...source, [path]: updated };
 }

@@ -29,7 +29,7 @@ export function usePassthrough(
 
     let targetProps = props;
 
-    if (Array.isArray(target)) {
+    if (typeof target !== "string") {
       for (let i = 0; i < target.length - 1; i++) {
         const prop = target[i]!;
         const value = targetProps[prop];

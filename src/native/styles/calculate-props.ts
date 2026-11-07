@@ -8,6 +8,7 @@ import { Specificity as S } from "react-native-css/utilities";
 
 import type { RenderGuard } from "../conditions/guards";
 import { applyValue, getDeepPath } from "../objects";
+import { collectsProps, targetPath } from "../react/collection-target";
 import {
   VAR_SYMBOL,
   type Getter,
@@ -59,8 +60,8 @@ export function calculateProps(
 
       if (typeof ruleTarget === "string") {
         target = target[ruleTarget] ??= {};
-      } else if (ruleTarget) {
-        for (const path of ruleTarget) {
+      } else {
+        for (const path of targetPath(ruleTarget)) {
           target = target[path] ??= {};
         }
       }
@@ -74,7 +75,7 @@ export function calculateProps(
         transformStyles,
         guards,
         target,
-        topLevelTarget,
+        collectsProps(ruleTarget) ? target : topLevelTarget,
       );
     }
   }
