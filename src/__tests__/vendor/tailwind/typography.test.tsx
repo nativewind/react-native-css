@@ -322,9 +322,15 @@ describe("Typography - Text Color", () => {
     });
   });
   test("text-inherit", async () => {
+    // currentColor on `color` is `inherit` (css-color-3 §4.4), so text-inherit renders as text-current does
     expect(await renderCurrentTest()).toStrictEqual({
-      props: {},
-      warnings: { values: { color: "inherit" } },
+      props: {
+        style: {
+          color: {
+            semantic: ["label", "labelColor"],
+          },
+        },
+      },
     });
   });
 });

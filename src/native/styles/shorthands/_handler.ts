@@ -38,6 +38,10 @@ export function shorthandHandler(
         ? resolve(value[2])
         : value;
 
+    if (args === null && returnType === "shorthandObject") {
+      return clearedLonghands([...mappings.flat(), ...defaults]);
+    }
+
     if (!Array.isArray(args)) {
       return;
     }
@@ -132,4 +136,20 @@ export function shorthandHandler(
       return tuples;
     }
   };
+}
+
+// The runtime resolves `unset` to null, and a shorthand reset that way resets every longhand it sets (css-cascade-5 §7.3.3)
+export function clearedLonghands(
+  longhandEntries: readonly ShorthandRequiredValue[],
+) {
+  const target: Record<string, unknown> = { [ShortHandSymbol]: true };
+  const longhands = longhandEntries.flatMap(([prop]) =>
+    typeof prop === "string" ? [prop] : prop.slice(0, 1),
+  );
+
+  for (const longhand of longhands) {
+    target[longhand] = undefined;
+  }
+
+  return target;
 }
