@@ -5,10 +5,16 @@ import { render, screen } from "@testing-library/react-native";
 import { View } from "react-native-css/components/View";
 import { registerCSS, testID } from "react-native-css/jest";
 
+import { renderOnRoute, routes, runtimeRoutes } from "./_reanimated-routes";
+
+const reanimated = jest.requireActual<typeof import("react-native-reanimated")>(
+  "react-native-reanimated",
+);
+
 // Check the engine output at the Reanimated boundary. Native interpolation is
 // covered by the Release renderer suite, not by a fake getAnimatedStyle helper.
 jest.mock("../../native/reanimated", () => ({
-  animatedComponentFamily: (component: unknown) => component,
+  animatedComponentFamily: jest.fn((component: unknown) => component),
 }));
 const style = () =>
   StyleSheet.flatten(screen.getByTestId(testID).props.style) as
@@ -95,6 +101,73 @@ test.each([
     });
   },
 );
+
+describe.each([
+  ["animation-delay", "200ms", { animationDelay: [200] }],
+  ["animation-delay", "-1s", { animationDelay: [-1000] }],
+  ["animation-direction", "alternate", { animationDirection: ["alternate"] }],
+  ["animation-direction", "ALTERNATE", { animationDirection: ["alternate"] }],
+  ["animation-duration", "3s", { animationDuration: [3000] }],
+  ["animation-duration", "1s, 2s", { animationDuration: [1000, 2000] }],
+  ["animation-fill-mode", "both", { animationFillMode: ["both"] }],
+  ["animation-iteration-count", "2", { animationIterationCount: [2] }],
+  [
+    "animation-iteration-count",
+    "infinite",
+    { animationIterationCount: ["infinite"] },
+  ],
+  [
+    "animation-iteration-count",
+    "INFINITE",
+    { animationIterationCount: ["infinite"] },
+  ],
+  ["animation-play-state", "paused", { animationPlayState: ["paused"] }],
+  [
+    "animation-timing-function",
+    "ease-in",
+    { animationTimingFunction: "ease-in" },
+  ],
+  [
+    "animation-timing-function",
+    "EASE-IN",
+    { animationTimingFunction: "ease-in" },
+  ],
+  [
+    "animation-timing-function",
+    "cubic-bezier(0.25, 0.5, 0.75, 1)",
+    { animationTimingFunction: reanimated.cubicBezier(0.25, 0.5, 0.75, 1) },
+  ],
+  [
+    "animation-timing-function",
+    "steps(4, end)",
+    { animationTimingFunction: reanimated.steps(4, "end") },
+  ],
+])("%s: %s", (property, value, style) => {
+  test.each(routes)(
+    "%s reaches Reanimated with the written animation",
+    (route) => {
+      expect(renderOnRoute(route, property, value)).toStrictEqual({
+        animated: true,
+        style,
+      });
+    },
+  );
+});
+
+describe.each([
+  ["animation-duration", "-1s"],
+  ["animation-delay", "paused"],
+  ["animation-direction", "sideways"],
+  ["animation-fill-mode", "2"],
+  ["animation-iteration-count", "-1"],
+  ["animation-play-state", "running, stopped"],
+  ["animation-timing-function", "ease-in, sideways"],
+  ["animation-timing-function", "scale(2)"],
+])("%s held in a variable over %s is invalid", (property, value) => {
+  test.each(runtimeRoutes)("and writes no animation %s", (route) => {
+    expect(renderOnRoute(route, property, value).style).toStrictEqual({});
+  });
+});
 
 test("an unresolved animation name is omitted and a later variable restores it", () => {
   registerCSS(
