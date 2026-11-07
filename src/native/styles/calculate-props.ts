@@ -2,6 +2,7 @@
 import type {
   InlineVariable,
   StyleDeclaration,
+  StyleDescriptor,
   StyleRule,
 } from "react-native-css/compiler";
 import { Specificity as S } from "react-native-css/utilities";
@@ -13,7 +14,6 @@ import {
   type Getter,
   type VariableContextValue,
 } from "../reactivity";
-import { transformKeys } from "./defaults";
 import { resolveValue } from "./resolve";
 
 export function calculateProps(
@@ -31,7 +31,7 @@ export function calculateProps(
   let important: Record<string, any> | undefined;
 
   const delayedStyles: (() => void)[] = [];
-  const transformStyles: (() => void)[] = [];
+  const transforms = createTransformComposition();
 
   for (const rule of rules) {
     if (VAR_SYMBOL in rule) {
@@ -50,9 +50,8 @@ export function calculateProps(
     }
 
     if (rule.d) {
-      let topLevelTarget = rule.s?.[S.Important]
-        ? (important ??= {})
-        : (normal ??= {});
+      const isImportant = Boolean(rule.s?.[S.Important]);
+      let topLevelTarget = isImportant ? (important ??= {}) : (normal ??= {});
       let target = topLevelTarget;
 
       const ruleTarget = rule.target || "style";
@@ -71,7 +70,7 @@ export function calculateProps(
         inlineVariables,
         inheritedVariables,
         delayedStyles,
-        transformStyles,
+        transforms.recorderFor(target, ruleTarget, isImportant),
         guards,
         target,
         topLevelTarget,
@@ -83,9 +82,14 @@ export function calculateProps(
     delayedStyle();
   }
 
-  for (const transformStyle of transformStyles) {
-    transformStyle();
-  }
+  transforms.compose((value) =>
+    resolveValue(value, get, {
+      inlineVariables,
+      inheritedVariables,
+      renderGuards: guards,
+      calculateProps,
+    }),
+  );
 
   return {
     normal,
@@ -94,13 +98,108 @@ export function calculateProps(
   };
 }
 
+// css-transforms-2 §6: an element's transform is its `translate`, then its `rotate`, then its `scale`, then its `transform` list
+const TRANSFORM_PROPERTIES = [
+  "translate",
+  "rotate",
+  "scale",
+  "transform",
+] as const;
+
+type TransformProperty = (typeof TRANSFORM_PROPERTIES)[number];
+
+function isTransformProperty(prop: string | number): prop is TransformProperty {
+  return (TRANSFORM_PROPERTIES as readonly (string | number)[]).includes(prop);
+}
+
+type TransformSlots = Partial<Record<TransformProperty, StyleDescriptor>>;
+
+interface TransformTarget {
+  readonly target: Record<string, any>;
+  readonly slots: TransformSlots;
+}
+
+type RecordTransform = (
+  property: TransformProperty,
+  value: StyleDescriptor,
+) => void;
+
+/** Each transform property of each style target is a cascade slot of its own, and the slots compose into one `transform` once every declaration has been walked. */
+function createTransformComposition() {
+  const byPath = new Map<
+    string,
+    { normal?: TransformTarget; important?: TransformTarget }
+  >();
+
+  return {
+    recorderFor(
+      target: Record<string, any>,
+      path: string | readonly string[],
+      important: boolean,
+    ): RecordTransform {
+      return (property, value) => {
+        const pathKey = typeof path === "string" ? path : path.join("\0");
+        const pair = byPath.get(pathKey) ?? {};
+        const side = important ? "important" : "normal";
+        const recorded = pair[side] ?? { target, slots: {} };
+
+        recorded.slots[property] = value;
+        pair[side] = recorded;
+        byPath.set(pathKey, pair);
+      };
+    },
+
+    compose(resolve: (value: StyleDescriptor) => unknown) {
+      for (const { normal, important } of byPath.values()) {
+        const destination = important ?? normal;
+        const entries = composeTransform(
+          { ...normal?.slots, ...important?.slots },
+          resolve,
+        );
+
+        if (destination !== undefined && entries !== undefined) {
+          destination.target.transform = entries;
+        }
+      }
+    },
+  };
+}
+
+function composeTransform(
+  slots: TransformSlots,
+  resolve: (value: StyleDescriptor) => unknown,
+): unknown[] | undefined {
+  let composed: unknown[] | undefined;
+
+  for (const property of TRANSFORM_PROPERTIES) {
+    if (!Object.hasOwn(slots, property)) {
+      continue;
+    }
+
+    const entries = transformEntries(resolve(slots[property]));
+
+    if (entries !== undefined) {
+      composed = [...(composed ?? []), ...entries];
+    }
+  }
+
+  return composed;
+}
+
+// A property that resolves to no value is `none` (css-variables-1 §3.1)
+function transformEntries(value: unknown): unknown[] | undefined {
+  return value === undefined || value === null
+    ? undefined
+    : [value].flat(Number.POSITIVE_INFINITY);
+}
+
 export function applyDeclarations(
   get: Getter,
   declarations: StyleDeclaration[],
   inlineVariables: InlineVariable,
   inheritedVariables: VariableContextValue,
   delayedStyles: (() => void)[] = [],
-  transformStyles: (() => void)[] = [],
+  recordTransform: RecordTransform = () => undefined,
   guards: RenderGuard[] = [],
   target: Record<string, any> = {},
   topLevelTarget = target,
@@ -162,9 +261,14 @@ export function applyDeclarations(
         prop = propPath;
       }
 
+      if (target === originalTarget && isTransformProperty(prop)) {
+        recordTransform(prop, value);
+        continue;
+      }
+
       const shouldDelay = declaration[2];
 
-      if (shouldDelay || transformKeys.has(prop)) {
+      if (shouldDelay) {
         /**
          * We need to delay the resolution of this value until after all
          * styles have been calculated. But another style might override
@@ -175,11 +279,11 @@ export function applyDeclarations(
          * mutate the props object and not create a new one
          */
         const originalValue = value;
-        // This needs to be a object with the [prop] so we can discover in transform arrays
         value = { [prop]: true };
 
-        if (transformKeys.has(prop)) {
-          transformStyles.push(() => {
+        delayedStyles.push(() => {
+          if (getDeepPath(target, prop) === value) {
+            delete target[prop];
             value = resolveValue(originalValue, get, {
               inlineVariables,
               inheritedVariables,
@@ -187,21 +291,8 @@ export function applyDeclarations(
               calculateProps,
             });
             applyValue(target, prop, value);
-          });
-        } else {
-          delayedStyles.push(() => {
-            if (getDeepPath(target, prop) === value) {
-              delete target[prop];
-              value = resolveValue(originalValue, get, {
-                inlineVariables,
-                inheritedVariables,
-                renderGuards: guards,
-                calculateProps,
-              });
-              applyValue(target, prop, value);
-            }
-          });
-        }
+          }
+        });
       } else {
         value = resolveValue(value, get, {
           inlineVariables,

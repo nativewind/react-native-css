@@ -125,16 +125,16 @@ export function resolveValue(
         ) as StyleDescriptor;
       } else if (transformKeys.has(name)) {
         // translate, rotate, scale, etc.
-        let resolved = simpleResolve(value[2], castToArray);
+        const resolved = simpleResolve(value[2], castToArray);
         // CSS scale percentages describe a factor, unlike translation percentages.
-        if (
-          (name === "scaleX" || name === "scaleY" || name === "scale") &&
-          typeof resolved === "string" &&
-          resolved.endsWith("%")
-        ) {
-          resolved = scaleFactor(resolved);
-        }
-        return { [name]: resolved };
+        const component =
+          name === "scaleX" || name === "scaleY" || name === "scale"
+            ? scaleFactor(resolved)
+            : resolved;
+
+        return component === undefined || component === null
+          ? null
+          : { [name]: component };
       } else {
         let args = simpleResolve(value[2], castToArray);
 
