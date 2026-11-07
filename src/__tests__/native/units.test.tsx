@@ -86,6 +86,22 @@ test("vh", () => {
   });
 });
 
+test("a viewport length in a style rounds to a hundredth", () => {
+  registerCSS(`.my-class { width: 10vw; height: 7vh; }`);
+
+  act(() => {
+    dimensions.set({ ...dimensions.get(), width: 1001, height: 1003 });
+  });
+
+  const { result } = renderHook(() => {
+    return useNativeCss(View, { className: "my-class" });
+  });
+
+  expect(result.current.props).toStrictEqual({
+    style: { width: 100.1, height: 70.21 },
+  });
+});
+
 test("rem - default", () => {
   registerCSS(`.my-class { font-size: 10rem; }`);
 

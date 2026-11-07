@@ -6,10 +6,10 @@ import type {
 } from "../reactivity";
 
 export type RenderGuard =
-  | ["a", string, any]
-  | ["d", string, any]
-  | ["v", string, any]
-  | ["c", string, WeakKey];
+  | readonly ["a", string, any]
+  | readonly ["d", string, any]
+  | readonly ["v", string, any]
+  | readonly ["c", string, ContainerContextValue[string] | undefined];
 
 export function testGuards(
   state: ComponentState,
