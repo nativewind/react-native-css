@@ -1,19 +1,21 @@
-/* eslint-disable */
 import type {
   CalcFor_Length,
   MediaCondition as CSSMediaCondition,
   MediaFeatureComparison as CSSMediaFeatureComparison,
   MediaFeatureValue as CSSMediaFeatureValue,
   MediaQuery as CSSMediaQuery,
+  QueryFeatureFor_ContainerSizeFeatureId,
   QueryFeatureFor_MediaFeatureId,
 } from "lightningcss";
 
+import { asciiLowerCase } from "../utilities/ascii-case";
 import type {
   MediaCondition,
   MediaFeatureComparison,
+  MediaFeatureOperand,
   StyleDescriptor,
 } from "./compiler.types";
-import { parseLength } from "./declarations";
+import { parseLength, round } from "./declarations";
 import type { StylesheetBuilder } from "./stylesheet";
 
 export function parseMediaQuery(
@@ -32,23 +34,19 @@ export function parseMediaQuery(
 
     // These all/screen are not conditions, they always apply
     if (query.mediaType !== "all" && query.mediaType !== "screen") {
-      platformCondition = ["=", "platform", query.mediaType];
+      // Media types are ASCII case-insensitive (MQ4 §3), and lightningcss lowercases only all, print and screen
+      platformCondition = ["=", "platform", asciiLowerCase(query.mediaType)];
     }
   }
 
   if (query.condition) {
     condition = parseMediaQueryCondition(query.condition, builder);
-
-    // If any of these are undefined, the media query is invalid
-    if (!condition || condition.some((v) => v === undefined)) {
-      return false;
-    }
   }
 
   let mediaQuery: MediaCondition | undefined =
     platformCondition && condition
       ? ["&", [platformCondition, condition]]
-      : platformCondition || condition;
+      : (platformCondition ?? condition);
 
   if (!mediaQuery) {
     // Unqualified all/screen apply; not all and not screen do not.
@@ -59,36 +57,73 @@ export function parseMediaQuery(
     mediaQuery = ["!", mediaQuery];
   }
 
+  if (!canMatch(mediaQuery)) {
+    return false;
+  }
+
   builder.addMediaQuery(mediaQuery);
   return true;
 }
 
-function parseMediaQueryCondition(
+// A condition its unknown terms and unresolved operands leave no way to be true compiles to no rule, as an unknown keeps an `and` or a `not` unknown (MQ5 §3.1)
+export function canMatch(condition: Readonly<MediaCondition>): boolean {
+  return canEvaluateTo(condition, true);
+}
+
+function canEvaluateTo(
+  condition: Readonly<MediaCondition>,
+  truth: boolean,
+): boolean {
+  switch (condition[0]) {
+    case "?":
+      return false;
+    case "!":
+      return canEvaluateTo(condition[1], !truth);
+    case "&":
+      return truth
+        ? condition[1].every((child) => canEvaluateTo(child, true))
+        : condition[1].some((child) => canEvaluateTo(child, false));
+    case "|":
+      return truth
+        ? condition[1].some((child) => canEvaluateTo(child, true))
+        : condition[1].every((child) => canEvaluateTo(child, false));
+    case "!!":
+      return true;
+    case "[]": {
+      const [, , start, , end] = condition;
+      return truth
+        ? start !== null && end !== null
+        : start !== null || end !== null;
+    }
+    case "=":
+    case ">":
+    case ">=":
+    case "<":
+    case "<=":
+      return condition[2] !== null;
+    default:
+      condition satisfies never;
+      return true;
+  }
+}
+
+export function parseMediaQueryCondition(
   query: CSSMediaCondition,
   builder: StylesheetBuilder,
-): MediaCondition | undefined {
+): MediaCondition {
   switch (query.type) {
-    case "feature": {
-      const feature = parseFeature(query.value, builder);
-      return feature?.some((value) => value === undefined)
-        ? undefined
-        : feature;
-    }
-    case "not":
-      const mediaQuery = parseMediaQueryCondition(query.value, builder);
-      return mediaQuery ? ["!", mediaQuery] : undefined;
-    case "operation":
-      const parsed = query.conditions.map((c) =>
-        parseMediaQueryCondition(c, builder),
+    case "feature":
+      return (
+        parseQueryFeature(query.value, builder, parseMediaFeatureOperand) ?? [
+          "?",
+        ]
       );
-      if (query.operator === "and" && parsed.some((c) => !c)) {
-        return;
-      }
-      const mediaQueries = parsed.filter((v): v is MediaCondition => !!v);
-
-      if (mediaQueries.length === 0) {
-        return;
-      }
+    case "not":
+      return ["!", parseMediaQueryCondition(query.value, builder)];
+    case "operation": {
+      const mediaQueries = query.conditions.map((condition) =>
+        parseMediaQueryCondition(condition, builder),
+      );
 
       switch (query.operator) {
         case "and":
@@ -97,56 +132,154 @@ function parseMediaQueryCondition(
           return ["|", mediaQueries];
         default:
           query.operator satisfies never;
-          return;
+          return ["?"];
       }
+    }
     default:
       query satisfies never;
+      // A lightningcss newer than its types emits conditions they do not list, such as error recovery's <general-enclosed>, which MQ5 §3.1 leaves unknown
+      return ["?"];
   }
-
-  return;
 }
 
-function parseFeature(
-  feature: QueryFeatureFor_MediaFeatureId,
+// The keywords Media Queries 4 and 5 give these discrete features; display-mode is left out, since the library answers it with platform names
+const FEATURE_KEYWORDS: ReadonlyMap<string, readonly string[]> = new Map([
+  ["hover", ["none", "hover"]],
+  ["any-hover", ["none", "hover"]],
+  ["pointer", ["none", "coarse", "fine"]],
+  ["any-pointer", ["none", "coarse", "fine"]],
+  ["orientation", ["portrait", "landscape"]],
+  ["prefers-color-scheme", ["light", "dark"]],
+  ["prefers-reduced-motion", ["no-preference", "reduce"]],
+  ["scripting", ["none", "initial-only", "enabled"]],
+  ["update", ["none", "slow", "fast"]],
+]);
+
+type OperandReader = (
+  name: string,
+  value: CSSMediaFeatureValue,
   builder: StylesheetBuilder,
+) => MediaFeatureOperand | undefined;
+
+// A feature holding a value outside its syntax compiles to undefined, which a media query reads as unknown (MQ5 §3.2) and a container query as no query
+export function parseQueryFeature(
+  feature:
+    | QueryFeatureFor_MediaFeatureId
+    | QueryFeatureFor_ContainerSizeFeatureId,
+  builder: StylesheetBuilder,
+  readOperand: OperandReader = parseFeatureOperand,
 ): MediaCondition | undefined {
   switch (feature.type) {
     case "boolean":
       return ["!!", feature.name];
-    case "plain":
-      return [
-        "=",
-        feature.name,
-        parseMediaFeatureValue(feature.value, builder),
-      ];
-    case "range":
-      return [
-        parseMediaFeatureOperator(feature.operator),
-        feature.name,
-        parseMediaFeatureValue(feature.value, builder),
-      ];
-    case "interval":
-      return [
-        "[]",
-        feature.name,
-        parseMediaFeatureValue(feature.start, builder),
-        parseMediaFeatureOperator(feature.startOperator),
-        parseMediaFeatureValue(feature.end, builder),
-        parseMediaFeatureOperator(feature.endOperator),
-      ];
+    case "plain": {
+      const operand = readOperand(feature.name, feature.value, builder);
+      return operand === undefined ? undefined : ["=", feature.name, operand];
+    }
+    case "range": {
+      const operand = readOperand(feature.name, feature.value, builder);
+      return operand === undefined
+        ? undefined
+        : [parseMediaFeatureOperator(feature.operator), feature.name, operand];
+    }
+    case "interval": {
+      const start = readOperand(feature.name, feature.start, builder);
+      const end = readOperand(feature.name, feature.end, builder);
+      return start === undefined || end === undefined
+        ? undefined
+        : [
+            "[]",
+            feature.name,
+            start,
+            parseMediaFeatureOperator(feature.startOperator),
+            end,
+            parseMediaFeatureOperator(feature.endOperator),
+          ];
+    }
     default:
       feature satisfies never;
+      return undefined;
   }
-  return;
 }
 
-export function parseMediaFeatureValue(
+// A value inside the feature's syntax that the compiler cannot resolve compiles to null, which leaves its term unknown
+function parseFeatureOperand(
+  name: string,
+  value: CSSMediaFeatureValue,
+  builder: StylesheetBuilder,
+): MediaFeatureOperand | undefined {
+  return isOutsideValueSyntax(name, value)
+    ? undefined
+    : (parseMediaFeatureValue(value, builder) ?? null);
+}
+
+function isOutsideValueSyntax(
+  name: string,
+  value: Readonly<CSSMediaFeatureValue>,
+): boolean {
+  switch (value.type) {
+    // No browser takes env() as a media feature's value, and Chromium and WebKit drop a container query holding one
+    case "env":
+      return true;
+    // css-values-4 §7.4 excludes a negative resolution, as Chromium, Firefox and WebKit do in a media query
+    case "resolution":
+      return value.value.value < 0;
+    case "ident": {
+      const keywords = FEATURE_KEYWORDS.get(name);
+      return (
+        keywords !== undefined &&
+        !keywords.includes(asciiLowerCase(value.value))
+      );
+    }
+    case "boolean":
+    case "integer":
+    case "number":
+    case "length":
+    case "ratio":
+      return false;
+    default:
+      value satisfies never;
+      return false;
+  }
+}
+
+// A media query has no element, so its em and rem are the root font size the stylesheet configures, as a browser's are its initial font size (Media Queries 4 §1.3), whether or not rem is inlined; a container query's em is the container's
+function parseMediaFeatureOperand(
+  name: string,
+  value: CSSMediaFeatureValue,
+  builder: StylesheetBuilder,
+): MediaFeatureOperand | undefined {
+  const fontRelative = readFontRelativeLength(value);
+
+  if (fontRelative === undefined) {
+    return parseFeatureOperand(name, value, builder);
+  }
+
+  return round(fontRelative * builder.rootFontSize);
+}
+
+function readFontRelativeLength(
+  value: CSSMediaFeatureValue,
+): number | undefined {
+  if (value.type !== "length" || value.value.type !== "value") {
+    return undefined;
+  }
+
+  const { unit, value: amount } = value.value.value;
+  return unit === "em" || unit === "rem" ? amount : undefined;
+}
+
+function parseMediaFeatureValue(
   value: CSSMediaFeatureValue,
   builder: StylesheetBuilder,
 ): StyleDescriptor {
   switch (value.type) {
+    // <mq-boolean> is the integer 0 or 1 (MQ4 §5.3)
     case "boolean":
+      return value.value ? 1 : 0;
     case "ident":
+      // Keywords are ASCII case-insensitive (css-values-4 §4.1)
+      return asciiLowerCase(value.value);
     case "integer":
     case "number":
       return value.value;
@@ -176,12 +309,14 @@ export function parseMediaFeatureValue(
       }
     case "ratio":
     case "env":
+      return undefined;
+    default:
+      value satisfies never;
+      return undefined;
   }
-
-  return;
 }
 
-export function parseMediaFeatureOperator(
+function parseMediaFeatureOperator(
   operator: CSSMediaFeatureComparison,
 ): MediaFeatureComparison {
   switch (operator) {
@@ -197,7 +332,9 @@ export function parseMediaFeatureOperator(
       return "<=";
     default:
       operator satisfies never;
-      throw new Error(`Unknown MediaFeatureComparison operator ${operator}`);
+      throw new Error(
+        `Unknown MediaFeatureComparison operator ${JSON.stringify(operator)}`,
+      );
   }
 }
 

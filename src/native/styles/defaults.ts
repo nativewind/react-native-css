@@ -1,4 +1,6 @@
 /* eslint-disable */
+import { DEFAULT_REM } from "react-native-css/utilities";
+
 export const transformKeys = new Set([
   "translate",
   "translateX",
@@ -38,7 +40,7 @@ export const defaultValues: Record<string, any> = {
   flexBasis: 1,
   flexGrow: 1,
   flexShrink: 0,
-  fontSize: 14,
+  fontSize: DEFAULT_REM,
   fontWeight: "400",
   gap: 0,
   left: 0,

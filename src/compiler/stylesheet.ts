@@ -1,6 +1,7 @@
 import type { SelectorList } from "lightningcss";
 
 import {
+  DEFAULT_REM,
   isStyleDescriptorArray,
   Specificity,
   specificityCompareFn,
@@ -53,6 +54,7 @@ export class StylesheetBuilder {
 
   constructor(
     private options: CompilerOptions,
+    readonly rootFontSize: number = DEFAULT_REM,
     public mode: BuilderMode = "style",
     private ruleTemplate: StyleRule = {
       s: [],
@@ -65,7 +67,6 @@ export class StylesheetBuilder {
       rootVariables?: VariableRecord;
       universalVariables?: VariableRecord;
       animations?: AnimationRecord;
-      rem: number;
       ruleOrder: number;
       warningProperty?: string;
       warningProperties: string[];
@@ -74,7 +75,6 @@ export class StylesheetBuilder {
       syntaxWarnings: Set<string>;
     } = {
       ruleSets: {},
-      rem: 14,
       ruleOrder: 0,
       warningProperties: [],
       warningValues: {},
@@ -102,6 +102,7 @@ export class StylesheetBuilder {
 
     return new StylesheetBuilder(
       this.options,
+      this.rootFontSize,
       mode,
       this.cloneRule(),
       { ...this.mapping },

@@ -29,7 +29,7 @@ test("Unnamed containers", () => {
   const parent = screen.getByTestId(parentID);
   const child = screen.getByTestId(childID);
 
-  expect(child).toHaveStyle(undefined);
+  expect(child).not.toHaveStyle({ color: "#fff" });
 
   // Jest does not fire layout events, so we need to manually
   fireEvent(parent, "layout", {
