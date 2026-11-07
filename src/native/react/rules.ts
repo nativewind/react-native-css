@@ -15,6 +15,7 @@ import {
   VAR_SYMBOL,
   weakFamily,
   type ContainerContextValue,
+  type ContainerRegistration,
   type VariableContextValue,
 } from "../reactivity";
 import { stylesFamily } from "../styles";
@@ -141,24 +142,24 @@ export function updateRules(
       }
 
       if (rule.c) {
+        const registration: ContainerRegistration = {
+          key: state.ruleEffectGetter,
+          props: currentProps,
+          scope: inheritedContainers,
+        };
+
         // We're going to set a value, so we need to create a new object
         if (containers === inheritedContainers) {
           containers = {
             ...inheritedContainers,
             // This container becomes the default container
-            [DEFAULT_CONTAINER_NAME]: {
-              key: state.ruleEffectGetter,
-              props: currentProps,
-            },
+            [DEFAULT_CONTAINER_NAME]: registration,
           };
         }
 
         // This this component as the named container
         for (const name of rule.c) {
-          containers![name] = {
-            key: state.ruleEffectGetter,
-            props: currentProps,
-          };
+          containers![name] = registration;
         }
 
         // Enable hover/active/focus/layout handlers
