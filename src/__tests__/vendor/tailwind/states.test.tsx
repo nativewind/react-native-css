@@ -1,5 +1,10 @@
 import { fireEvent, screen } from "@testing-library/react-native";
+import type { StyleRule } from "react-native-css/compiler";
 import { Switch, TextInput, View } from "react-native-css/components";
+import {
+  Specificity,
+  specificityCompareFn,
+} from "react-native-css/utilities/specificity";
 
 import { render } from "./_tailwind";
 
@@ -99,6 +104,35 @@ test("placeholder", async () => {
     style: {},
   });
 });
+
+test.each(["placeholder", "selection"])(
+  "a %s: utility still sorts after its element utility once the sheet is serialised",
+  async (variant) => {
+    const { stylesheet } = await render(
+      <TextInput
+        testID={testID}
+        className={`text-red-500 ${variant}:text-blue-500`}
+      />,
+    );
+
+    const rules = (stylesheet().s ?? []).flatMap(([, ruleSet]) => ruleSet);
+    const pseudoElementCounts = (sorted: StyleRule[]) =>
+      sorted.map((rule) => rule.s[Specificity.PseudoElements] ?? 0);
+
+    expect(pseudoElementCounts([...rules].sort(specificityCompareFn))).toEqual([
+      0, 1,
+    ]);
+
+    // Metro injects the sheet as JSON, which writes each specificity hole as `null`.
+    const transported = JSON.parse(JSON.stringify(rules)) as StyleRule[];
+
+    for (const order of [transported, [...transported].reverse()]) {
+      expect(
+        pseudoElementCounts([...order].sort(specificityCompareFn)),
+      ).toEqual([0, 1]);
+    }
+  },
+);
 
 test("disabled", async () => {
   const { rerender } = await render(
