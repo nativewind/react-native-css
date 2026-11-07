@@ -3,7 +3,7 @@ import type { ViewProps } from "react-native";
 import { SafeAreaProvider } from "react-native-css/components/react-native-safe-area-context";
 import { type Metrics } from "react-native-safe-area-context";
 
-import { renderCurrentTest } from "./_tailwind";
+import { renderCurrentTest, renderSimple } from "./_tailwind";
 
 const initialMetrics: Metrics = {
   insets: {
@@ -354,4 +354,14 @@ test("pb-safe-or-20", async () => {
       },
     },
   });
+});
+
+test("pt-safe without the plugin", async () => {
+  expect(
+    await renderSimple({
+      className: "pt-safe",
+      plugin: false,
+      wrapper: Wrapper,
+    }),
+  ).toStrictEqual({ props: {} });
 });

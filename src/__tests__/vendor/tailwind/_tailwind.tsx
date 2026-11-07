@@ -26,7 +26,7 @@ export type NativewindRenderOptions = RenderOptions & {
   theme?: boolean;
   /** Whether to include the preflight in the generated CSS @default false */
   preflight?: boolean;
-  /** Whether to include the plugin in the generated CSS. @default true */
+  /** Whether to include the tailwindcss-safe-area plugin in the generated CSS. @default true */
   plugin?: boolean;
   /** Enable debug logging. @default false - Set process.env.NATIVEWIND_TEST_AUTO_DEBUG and run tests with the node inspector   */
   debug?: boolean | "verbose";
@@ -44,6 +44,7 @@ export async function render(
     debug = debugDefault,
     theme = true,
     preflight = false,
+    plugin = true,
     extraCss,
     ...options
   }: NativewindRenderOptions = {},
@@ -59,7 +60,11 @@ export async function render(
       css += `@import "tailwindcss/preflight.css" layer(base);\n`;
     }
 
-    css += `@import "tailwindcss/utilities.css" layer(utilities) source(none);\n@import "tailwindcss-safe-area";`;
+    css += `@import "tailwindcss/utilities.css" layer(utilities) source(none);`;
+
+    if (plugin) {
+      css += `\n@import "tailwindcss-safe-area";`;
+    }
   }
 
   css += sourceInline
