@@ -8,9 +8,9 @@ import type {
 
 import { DEFAULT_CONTAINER_NAME } from "../native/conditions/container-query";
 import {
+  batch,
   family,
   observable,
-  observableBatch,
   type Observable,
   type VariableContextValue,
 } from "../native/reactivity";
@@ -39,67 +39,61 @@ globalThis.__react_native_css_style_collection ??= {
     return observable([], isDeepEqual);
   }),
   inject: function (options: ReactNativeCssStyleSheet) {
-    observableBatch.current = new Set();
-
-    StyleCollection.styles("will-change-variable").set([
-      {
-        s: [0],
-        v: [],
-      },
-    ]);
-
-    StyleCollection.styles("will-change-container").set([
-      {
-        s: [0],
-        c: [DEFAULT_CONTAINER_NAME],
-      },
-    ]);
-
-    StyleCollection.styles("will-change-animation").set([
-      {
-        s: [0],
-        a: true,
-      },
-    ]);
-
-    StyleCollection.styles("will-change-pressable").set([
-      {
-        s: [0],
-        p: {
-          h: 1,
+    batch(() => {
+      StyleCollection.styles("will-change-variable").set([
+        {
+          s: [0],
+          v: [],
         },
-      },
-    ]);
+      ]);
 
-    if (options.s) {
-      for (const style of options.s) {
-        StyleCollection.styles(style[0]).set(style[1]);
+      StyleCollection.styles("will-change-container").set([
+        {
+          s: [0],
+          c: [DEFAULT_CONTAINER_NAME],
+        },
+      ]);
+
+      StyleCollection.styles("will-change-animation").set([
+        {
+          s: [0],
+          a: true,
+        },
+      ]);
+
+      StyleCollection.styles("will-change-pressable").set([
+        {
+          s: [0],
+          p: {
+            h: 1,
+          },
+        },
+      ]);
+
+      if (options.s) {
+        for (const style of options.s) {
+          StyleCollection.styles(style[0]).set(style[1]);
+        }
       }
-    }
 
-    if (options.k) {
-      for (const keyframes of options.k) {
-        StyleCollection.keyframes(keyframes[0]).set(keyframes[1]);
+      if (options.k) {
+        for (const keyframes of options.k) {
+          StyleCollection.keyframes(keyframes[0]).set(keyframes[1]);
+        }
       }
-    }
 
-    if (options.vr) {
-      for (const entry of options.vr) {
-        rootVariables(entry[0]).set(entry[1]);
+      if (options.vr) {
+        for (const entry of options.vr) {
+          rootVariables(entry[0]).set(entry[1]);
+        }
       }
-    }
 
-    if (options.vu) {
-      for (const entry of options.vu) {
-        universalVariables(entry[0]).set(entry[1]);
+      if (options.vu) {
+        for (const entry of options.vu) {
+          universalVariables(entry[0]).set(entry[1]);
+        }
       }
-    }
-
-    for (const effect of observableBatch.current) {
-      effect.run();
-    }
-
-    observableBatch.current = undefined;
+    });
   },
 };
 

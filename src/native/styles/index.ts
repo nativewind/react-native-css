@@ -169,15 +169,13 @@ export const stylesFamily = family(
 
     const obs = observable((read) => calculateProps(read, sortedRules));
 
-    /**
-     * A family is a map, so we need to cleanup the observers when the the hash is no longer used
-     */
     const unsubscribe = obs.unsubscribe;
     return Object.assign(obs, {
       unsubscribe: (effect: Effect) => {
         unsubscribe(effect);
         if (obs.observers.size === 0) {
-          stylesFamily.delete(hash);
+          // By identity, since a released entry's hash may already map to the entry that replaced it
+          stylesFamily.deleteIf(hash, obs);
         }
       },
     });
