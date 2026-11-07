@@ -183,7 +183,7 @@ test("rem - css override", () => {
   expect(result.current.type).toBe(VariableContext.Provider);
   expect(result.current.props.value).toStrictEqual({
     [VAR_SYMBOL]: true,
-    [emVariableName]: [{}, "rem", 10],
+    [emVariableName]: 100,
   });
 
   expect(result.current.props.children.type).toBe(View);
