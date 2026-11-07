@@ -7,7 +7,7 @@ import type {
 import { Specificity as S } from "react-native-css/utilities";
 
 import type { RenderGuard } from "../conditions/guards";
-import { applyValue, getDeepPath } from "../objects";
+import { applyValue } from "../objects";
 import {
   VAR_SYMBOL,
   type Getter,
@@ -30,9 +30,9 @@ export function calculateProps(
   let normal: Record<string, any> | undefined;
   let important: Record<string, any> | undefined;
 
-  const delayedStyles: (() => void)[] = [];
   const transformStyles: (() => void)[] = [];
 
+  // css-variables-1 §3: a var() substitutes the element's computed custom property, so every rule's variables are assigned before any declaration resolves
   for (const rule of rules) {
     if (VAR_SYMBOL in rule) {
       if (typeof rule[VAR_SYMBOL] === "string") {
@@ -40,47 +40,43 @@ export function calculateProps(
       } else {
         Object.assign(inheritedVariables, rule);
       }
-      continue;
-    }
-
-    if (rule.v) {
+    } else if (rule.v) {
       for (const variable of rule.v) {
         inlineVariables[variable[0]] = variable[1];
       }
     }
-
-    if (rule.d) {
-      let topLevelTarget = rule.s?.[S.Important]
-        ? (important ??= {})
-        : (normal ??= {});
-      let target = topLevelTarget;
-
-      const ruleTarget = rule.target || "style";
-
-      if (typeof ruleTarget === "string") {
-        target = target[ruleTarget] ??= {};
-      } else if (ruleTarget) {
-        for (const path of ruleTarget) {
-          target = target[path] ??= {};
-        }
-      }
-
-      applyDeclarations(
-        get,
-        rule.d,
-        inlineVariables,
-        inheritedVariables,
-        delayedStyles,
-        transformStyles,
-        guards,
-        target,
-        topLevelTarget,
-      );
-    }
   }
 
-  for (const delayedStyle of delayedStyles) {
-    delayedStyle();
+  for (const rule of rules) {
+    if (VAR_SYMBOL in rule || !rule.d) {
+      continue;
+    }
+
+    let topLevelTarget = rule.s?.[S.Important]
+      ? (important ??= {})
+      : (normal ??= {});
+    let target = topLevelTarget;
+
+    const ruleTarget = rule.target || "style";
+
+    if (typeof ruleTarget === "string") {
+      target = target[ruleTarget] ??= {};
+    } else if (ruleTarget) {
+      for (const path of ruleTarget) {
+        target = target[path] ??= {};
+      }
+    }
+
+    applyDeclarations(
+      get,
+      rule.d,
+      inlineVariables,
+      inheritedVariables,
+      transformStyles,
+      guards,
+      target,
+      topLevelTarget,
+    );
   }
 
   for (const transformStyle of transformStyles) {
@@ -99,20 +95,18 @@ export function applyDeclarations(
   declarations: StyleDeclaration[],
   inlineVariables: InlineVariable,
   inheritedVariables: VariableContextValue,
-  delayedStyles: (() => void)[] = [],
   transformStyles: (() => void)[] = [],
   guards: RenderGuard[] = [],
   target: Record<string, any> = {},
   topLevelTarget = target,
 ) {
-  const originalTarget = target;
-
   for (const declaration of declarations) {
-    target = originalTarget;
+    // Each declaration's own binding, since its transform closure runs after the walk has moved on
+    let declarationTarget = target;
 
     if (!Array.isArray(declaration)) {
       // Static styles
-      Object.assign(target, declaration);
+      Object.assign(declarationTarget, declaration);
     } else {
       // Dynamic styles
       let value: any = declaration[0];
@@ -131,7 +125,7 @@ export function applyDeclarations(
         if (final) {
           if (first !== "&") {
             topLevelTarget[first] ??= {};
-            target = topLevelTarget[first];
+            declarationTarget = topLevelTarget[first];
           }
 
           let previousProp: string | number = first;
@@ -143,65 +137,42 @@ export function applyDeclarations(
 
               if (!Array.isArray(previousTarget[previousProp])) {
                 previousTarget[previousProp] = [];
-                target = previousTarget[previousProp];
+                declarationTarget = previousTarget[previousProp];
               }
             }
-            previousTarget = target;
+            previousTarget = declarationTarget;
             previousProp = prop;
 
-            target[prop] ??= {};
-            target = target[prop];
+            declarationTarget[prop] ??= {};
+            declarationTarget = declarationTarget[prop];
           }
 
           prop = final;
         } else {
-          target = topLevelTarget;
+          declarationTarget = topLevelTarget;
           prop = first;
         }
       } else {
         prop = propPath;
       }
 
-      const shouldDelay = declaration[2];
-
-      if (shouldDelay || transformKeys.has(prop)) {
-        /**
-         * We need to delay the resolution of this value until after all
-         * styles have been calculated. But another style might override
-         * this value. So we set a placeholder value and only override
-         * if the placeholder is preserved
-         *
-         * This also ensures the props exist, so setValue will properly
-         * mutate the props object and not create a new one
-         */
+      // An individual transform property composes into the `transform` list once every rule is walked, so it holds its place until then
+      if (transformKeys.has(prop)) {
         const originalValue = value;
-        // This needs to be a object with the [prop] so we can discover in transform arrays
+        // An object keyed by the prop lets the transform array find this entry
         value = { [prop]: true };
 
-        if (transformKeys.has(prop)) {
-          transformStyles.push(() => {
-            value = resolveValue(originalValue, get, {
-              inlineVariables,
-              inheritedVariables,
-              renderGuards: guards,
-              calculateProps,
-            });
-            applyValue(target, prop, value);
+        transformStyles.push(() => {
+          value = resolveValue(originalValue, get, {
+            inlineVariables,
+            inheritedVariables,
+            renderGuards: guards,
+            calculateProps,
           });
-        } else {
-          delayedStyles.push(() => {
-            if (getDeepPath(target, prop) === value) {
-              delete target[prop];
-              value = resolveValue(originalValue, get, {
-                inlineVariables,
-                inheritedVariables,
-                renderGuards: guards,
-                calculateProps,
-              });
-              applyValue(target, prop, value);
-            }
-          });
-        }
+          applyValue(declarationTarget, prop, value);
+        });
+
+        applyValue(declarationTarget, prop, value);
       } else {
         value = resolveValue(value, get, {
           inlineVariables,
@@ -209,9 +180,14 @@ export function applyDeclarations(
           renderGuards: guards,
           calculateProps,
         });
-      }
 
-      applyValue(target, prop, value);
+        // A runtime value that resolves to nothing removes the property, as css-variables-1 §3.1 resets one a var() leaves without a value
+        if (value === undefined && declaration[2]) {
+          delete declarationTarget[prop];
+        } else {
+          applyValue(declarationTarget, prop, value);
+        }
+      }
     }
   }
 }
