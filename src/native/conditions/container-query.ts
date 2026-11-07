@@ -1,10 +1,7 @@
-/* eslint-disable */
-import type { MediaFeatureNameFor_ContainerSizeFeatureId } from "lightningcss";
 import type {
   ContainerQuery,
   MediaCondition,
   PseudoClassesQuery,
-  StyleDescriptor,
 } from "react-native-css/compiler";
 
 import {
@@ -17,7 +14,16 @@ import {
   type Getter,
 } from "../reactivity";
 import { testAttributes } from "./attributes";
+import {
+  compareMediaFeature,
+  evaluateCondition,
+  testMediaFeatureInterval,
+  type FeatureReader,
+  type MeasuredFeatureValue,
+  type MediaFeatureName,
+} from "./compare";
 import type { RenderGuard } from "./guards";
+import { matches, type Truth } from "./kleene";
 
 export const DEFAULT_CONTAINER_NAME = "c:___default___";
 
@@ -33,13 +39,13 @@ export function testContainerQueries(
 }
 
 export function testContainerQuery(
-  query: ContainerQuery,
-  inheritedContainers: ContainerContextValue,
+  query: Readonly<ContainerQuery>,
+  inheritedContainers: Readonly<ContainerContextValue>,
   guards: RenderGuard[],
   get: Getter,
 ): boolean {
   const name = query.n ?? DEFAULT_CONTAINER_NAME;
-  const container = inheritedContainers[name]!;
+  const container = inheritedContainers[name];
 
   guards.push(["c", name, container]);
 
@@ -53,7 +59,10 @@ export function testContainerQuery(
     return false;
   }
 
-  if (query.m && !testContainerMediaCondition(query.m, container.key, get)) {
+  if (
+    query.m &&
+    !matches(testContainerMediaCondition(query.m, container.key, get))
+  ) {
     return false;
   }
 
@@ -85,63 +94,41 @@ function testContainerMediaCondition(
   condition: MediaCondition,
   containerKey: WeakKey,
   get: Getter,
-): boolean {
-  switch (condition[0]) {
-    case "!":
-      return !testContainerMediaCondition(condition[1], containerKey, get);
-    case "&":
-      return condition[1].every((query) => {
-        return testContainerMediaCondition(query, containerKey, get);
-      });
-    case "|":
-      return condition[1].some((query) => {
-        return testContainerMediaCondition(query, containerKey, get);
-      });
-    case "!!":
-      return false;
-    case "[]":
-      return false;
-    case ">":
-    case ">=":
-    case "<":
-    case "<=":
-    case "=": {
-      const left = getContainerFeatureValue(condition[1], containerKey, get);
-      const right = condition[2];
-
-      if (condition[0] === "=") {
-        return left === right;
-      }
-
-      if (typeof left !== "number" || typeof right !== "number") {
-        return false;
-      }
-
-      switch (condition[0]) {
-        case ">":
-          return left > right;
-        case ">=":
-          return left >= right;
-        case "<":
-          return left < right;
-        case "<=":
-          return left <= right;
-        default:
-          condition[0] satisfies never;
-          return false;
-      }
-    }
-    default:
-      condition satisfies never;
-      return false;
-  }
+): Truth {
+  return evaluateCondition(condition, CONTAINER_FEATURES, {
+    containerKey,
+    get,
+  });
 }
 
+interface ContainerFeatureContext {
+  readonly containerKey: WeakKey;
+  readonly get: Getter;
+}
+
+const CONTAINER_FEATURES: FeatureReader<ContainerFeatureContext> = {
+  read: (name, { containerKey, get }) =>
+    getContainerFeatureValue(name, containerKey, get),
+  compare: (condition, { containerKey, get }) =>
+    condition[0] === "[]"
+      ? testMediaFeatureInterval(
+          condition,
+          getContainerFeatureValue(condition[1], containerKey, get),
+          get,
+        )
+      : compareMediaFeature(
+          condition[0],
+          getContainerFeatureValue(condition[1], containerKey, get),
+          condition[2],
+          get,
+        ),
+};
+
 function getContainerFeatureValue(
-  name: MediaFeatureNameFor_ContainerSizeFeatureId,
+  name: MediaFeatureName,
   containerKey: WeakKey,
   get: Getter,
-): StyleDescriptor {
+): MeasuredFeatureValue {
   switch (name) {
     case "width":
       return get(containerWidthFamily(containerKey));
@@ -152,13 +139,14 @@ function getContainerFeatureValue(
       const height = get(containerHeightFamily(containerKey));
       return width / height;
     }
-    case "orientation":
+    case "orientation": {
       const width = get(containerWidthFamily(containerKey));
       const height = get(containerHeightFamily(containerKey));
       return width > height ? "landscape" : "portrait";
+    }
     case "inline-size":
     case "block-size":
     default:
-      return;
+      return undefined;
   }
 }
