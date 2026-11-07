@@ -314,9 +314,8 @@ describe("Typography - Text Color", () => {
     expect(await renderCurrentTest()).toStrictEqual({
       props: {
         style: {
-          color: {
-            semantic: ["label", "labelColor"],
-          },
+          // The root seed, concrete on every platform — light arm.
+          color: "#000000",
         },
       },
     });

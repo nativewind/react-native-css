@@ -798,7 +798,7 @@ describe("@property defaults with shadow variables", () => {
     ]);
   });
 
-  test("currentcolor resolves to platform color object", () => {
+  test("currentcolor resolves to the concrete root seed", () => {
     registerCSS(`
       @property --my-shadow {
         syntax: "*";
@@ -827,8 +827,22 @@ describe("@property defaults with shadow variables", () => {
       blurRadius: 0,
       spreadDistance: 2,
     });
-    // currentcolor resolves to a platform color object, not a string
-    expect(typeof component.props.style.boxShadow[0].color).toBe("object");
+    expect(component.props.style.boxShadow[0].color).toBe("#000000");
+  });
+
+  test("a platformColor() color reaches the shadow as the platform's object", () => {
+    registerCSS(`
+      .test {
+        box-shadow: 0 0 0 2px platformColor(label);
+      }
+    `);
+
+    render(<View testID={testID} className="test" />);
+    const component = screen.getByTestId(testID);
+
+    expect(component.props.style.boxShadow[0].color).toStrictEqual({
+      semantic: ["label"],
+    });
   });
 
   test("three vars with two transparent (Tailwind ring pattern)", () => {

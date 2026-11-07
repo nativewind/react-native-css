@@ -14,9 +14,8 @@ describe("text-shadow", () => {
     render(<Text testID={testID} className="my-class" />);
 
     expect(screen.getByTestId(testID).props.style).toStrictEqual({
-      textShadowColor: {
-        semantic: ["label", "labelColor"],
-      },
+      // The root seed, concrete on every platform — light arm.
+      textShadowColor: "#000000",
       textShadowOffset: {
         height: 10,
         width: 10,
