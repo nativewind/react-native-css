@@ -277,6 +277,7 @@
     "react-refresh": "^0.17.0",
     "react-test-renderer": "19.2.3",
     "release-it": "^20.2.1",
+    "sass": "^1.106.1",
     "tailwindcss": "^4.1.12",
     "tailwindcss-safe-area": "^1.1.0",
     "typescript": "~6.0.3",
