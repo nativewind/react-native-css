@@ -156,8 +156,11 @@ function getContainerFeatureValue(
       const width = get(containerWidthFamily(containerKey));
       const height = get(containerHeightFamily(containerKey));
       return width > height ? "landscape" : "portrait";
+    // React Native lays out in one writing mode, so the inline axis is the width and the block axis the height
     case "inline-size":
+      return get(containerWidthFamily(containerKey));
     case "block-size":
+      return get(containerHeightFamily(containerKey));
     default:
       return;
   }
