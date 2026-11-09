@@ -35,6 +35,8 @@ const handler = shorthandHandler(
   "object",
 );
 
+const alreadyResolved = (value: unknown) => value;
+
 export const boxShadow: StyleFunctionResolver = (
   resolveValue,
   func,
@@ -47,15 +49,22 @@ export const boxShadow: StyleFunctionResolver = (
     return args;
   }
 
+  // A flat array of tokens (e.g. [0, 4, 6, -1, "#000"]) is a single shadow,
+  // written out or substituted from a variable. An array of arrays
+  // (e.g. [[0, 4, 6, -1, "#000"], [...]]) is a comma-separated list, one
+  // shadow per item. The compiler keeps the separator via the nested array.
   const shadows = isCommaList(args) ? args : [args];
+  const result: unknown[] = [];
 
-  return shadows
-    .map((shadow) =>
-      normalizeInsetValue(
-        omitTransparentShadows(handler(resolveValue, shadow, get, options)),
-      ),
-    )
-    .filter((v) => v !== undefined);
+  for (const shadow of shadows) {
+    const value = normalizeInsetValue(
+      // alreadyResolved rather than resolveValue: don't walk through tokens and resolve all shadows when we've already resolved this one
+      omitTransparentShadows(handler(alreadyResolved, shadow, get, options)),
+    );
+    if (value !== undefined) result.push(value);
+  }
+
+  return result;
 };
 
 function omitTransparentShadows(style: unknown) {
