@@ -101,13 +101,13 @@ export const dropShadow: StyleFunctionResolver = (
     : undefined;
 };
 
+/** A var() in a filter list joins it as its filters, which resolveValue splices in */
 export const filter: StyleFunctionResolver = (resolveValue, descriptor) => {
   const value: unknown = resolveValue(descriptor[2]);
   // filter-effects-1 §5: a filter list is space-separated, so a comma makes the declaration invalid at computed-value time
   if (isCommaList(value)) return null;
   if (Array.isArray(value)) {
-    const filters: readonly unknown[] = value;
-    return filters.filter(
+    return (value as unknown[]).filter(
       (entry) => entry !== undefined && entry !== "initial",
     );
   }

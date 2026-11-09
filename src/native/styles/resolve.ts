@@ -8,7 +8,6 @@ import type {
 import {
   isCommaList,
   isStyleDescriptorArray,
-  isStyleFunction,
 } from "react-native-css/utilities";
 
 import type { RenderGuard } from "../conditions/guards";
@@ -95,15 +94,7 @@ export function resolveValue(
       }
 
       if (isStyleDescriptorArray(value)) {
-        const first = value[0];
-
-        // An item is an array that does not start as a function does, with its marker object then its name, tested inline as Hermes pays for a call on every list
-        return Array.isArray(first) &&
-          (typeof first[0] !== "object" ||
-            Array.isArray(first[0]) ||
-            typeof first[1] !== "string")
-          ? resolveCommaList(value, get, options)
-          : resolveTokens(value, get, options);
+        return resolveList(value, get, options);
       }
 
       const name = value[1];
@@ -165,46 +156,28 @@ export function resolveValue(
   }
 }
 
-/** Resolves the items of a comma-separated list, each the array of its tokens. */
-function resolveCommaList(
+/**
+ * Resolves a list descriptor. A comma-separated list holds each item as the
+ * array of its tokens; anything else is a space-separated list of tokens.
+ *
+ * A token that resolves to a list is substituted by its tokens, as
+ * css-variables-1 §3 substitutes a var(): a space-separated list joins the
+ * current item, and a comma-separated one splits it.
+ *
+ * Resolved values are resolved again (variables cache them), so the result
+ * keeps the same shape: a flat array for a space-separated list, an array of
+ * arrays for a comma-separated one.
+ */
+function resolveList(
   list: StyleDescriptor[],
   get: Getter,
   options: ResolveValueOptions,
 ): unknown[] {
-  const items: unknown[] = [];
+  const isCommaSeparated = isStyleDescriptorArray(list[0]);
 
-  for (const tokens of list) {
-    // A function is one token though it is an array; a list taken for one is still resolved whole, as resolveValue tells them apart
-    const isTokens =
-      Array.isArray(tokens) &&
-      (typeof tokens[0] !== "object" ||
-        Array.isArray(tokens[0]) ||
-        typeof tokens[1] !== "string");
-    const item = resolveTokens(
-      isTokens ? (tokens as StyleDescriptor[]) : [tokens],
-      get,
-      options,
-    );
-
-    if (Array.isArray(item[0])) {
-      for (const split of item) items.push(split);
-    } else if (item.length > 0) {
-      items.push(item);
-    }
-  }
-
-  return items;
-}
-
-/** Resolves a space-separated list's tokens as css-variables-1 §3 substitutes a var(): a list joins it in its place, and a comma-separated one splits it. */
-function resolveTokens(
-  tokens: StyleDescriptor[],
-  get: Getter,
-  options: ResolveValueOptions,
-): unknown[] {
-  if (tokens.length === 1) {
-    // A lone token's value is the list
-    const resolved: unknown = resolveValue(tokens[0], get, options);
+  if (!isCommaSeparated && list.length === 1) {
+    // Fast path for a lone token: its list, if it resolves to one, is the value
+    const resolved: unknown = resolveValue(list[0], get, options);
     return Array.isArray(resolved)
       ? resolved
       : resolved === undefined
@@ -212,38 +185,61 @@ function resolveTokens(
         : [resolved];
   }
 
+  const items: unknown[][] = [];
   let item: unknown[] = [];
-  const items: unknown[][] = [item];
-  let isFirst = true;
 
-  for (const token of tokens) {
-    const resolved: unknown = resolveValue(token, get, options);
-
-    // Only a function or a nested list can resolve to a list
-    if (typeof token !== "object" || !Array.isArray(resolved)) {
-      if (resolved !== undefined) item.push(resolved);
-    } else if (isFirst && !isStyleFunction(token)) {
-      // A list led by an item, which here starts with an object as only a resolved list can, is comma-separated
-      return resolveCommaList(tokens, get, options);
-    } else if (!Array.isArray(resolved[0])) {
-      for (const value of resolved) item.push(value);
-    } else {
-      // A resolved list holds no functions, so one led by an array is comma-separated: its first item continues this one, each later one starts its own
-      let startsItem = false;
-
-      for (const group of resolved) {
-        if (startsItem) {
-          item = [];
-          items.push(item);
-        }
-
-        startsItem = true;
-        for (const value of group) item.push(value);
+  for (const entry of list) {
+    if (isCommaSeparated && isStyleDescriptorArray(entry)) {
+      for (const token of entry) {
+        item = appendToken(resolveValue(token, get, options), item, items);
       }
+    } else {
+      // A lone token in an item's place, or a space-separated list's token
+      item = appendToken(resolveValue(entry, get, options), item, items);
     }
 
-    isFirst = false;
+    if (isCommaSeparated) {
+      if (item.length > 0) items.push(item);
+      item = [];
+    }
   }
 
-  return items.length === 1 ? item : items;
+  if (items.length === 0) {
+    return item;
+  }
+
+  if (item.length > 0) items.push(item);
+  return items;
+}
+
+/**
+ * Appends a resolved token to the current item and returns the item later
+ * tokens join. Resolved values hold no style functions, so an array led by an
+ * array is a comma-separated list: its first item continues the current one
+ * and each later item starts its own.
+ */
+function appendToken(
+  resolved: unknown,
+  item: unknown[],
+  items: unknown[][],
+): unknown[] {
+  if (!Array.isArray(resolved)) {
+    if (resolved !== undefined) item.push(resolved);
+    return item;
+  }
+
+  if (!Array.isArray(resolved[0])) {
+    for (const value of resolved) item.push(value);
+    return item;
+  }
+
+  for (let index = 0; index < resolved.length; index++) {
+    if (index > 0) {
+      items.push(item);
+      item = [];
+    }
+    for (const value of resolved[index] as unknown[]) item.push(value);
+  }
+
+  return item;
 }

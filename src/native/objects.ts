@@ -86,7 +86,8 @@ export function applyValue(
     return;
   }
 
-  // commaListItems changes only a list of lists, and Hermes pays for a call on every declaration
+  // React Native's list props take a comma-separated list with one-token items bare.
+  // The guard is commaListItems' own test, inlined to skip a call on every declaration.
   target[prop] =
     Array.isArray(value) && Array.isArray(value[0])
       ? commaListItems(value)

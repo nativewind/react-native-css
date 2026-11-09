@@ -18,19 +18,21 @@ export function isStyleFunction(value: unknown): value is StyleFunction {
   );
 }
 
-/** A comma-separated list holds each item as the array of its tokens, and a token is never such an array, so its first item tells. */
-export function isCommaList(value: unknown): value is StyleDescriptor[][] {
-  return (
-    Array.isArray(value) &&
-    Array.isArray(value[0]) &&
-    !isStyleFunction(value[0])
-  );
+/**
+ * Whether a resolved value is a comma-separated list: an array of items, each
+ * the array of its tokens. A resolved value holds no style functions, so an
+ * array led by an array is one. For a descriptor, which can be led by a
+ * function, test its first entry with isStyleDescriptorArray instead.
+ */
+export function isCommaList(value: unknown): value is unknown[][] {
+  return Array.isArray(value) && Array.isArray(value[0]);
 }
 
-/** A comma-separated list with a lone token in place of its array, the form function arguments and React Native's list props take. */
-export function commaListItems(value: StyleDescriptor[]): StyleDescriptor[];
-export function commaListItems(value: StyleDescriptor): StyleDescriptor;
-export function commaListItems(value: unknown): unknown;
+/**
+ * A resolved comma-separated list with each one-token item unwrapped, the
+ * form function arguments and React Native's list props take. Anything else
+ * is returned as it is.
+ */
 export function commaListItems(value: unknown): unknown {
   return isCommaList(value)
     ? value.map((item) => (item.length === 1 ? item[0] : item))

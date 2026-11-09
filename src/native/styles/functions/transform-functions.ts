@@ -81,15 +81,25 @@ export const translate: StyleFunctionResolver = (resolveValue, descriptor) => {
   return;
 };
 
-/** The values in their written places, so one that resolves to nothing moves no other, or the items of a comma-separated list a lone value resolves to. */
+/**
+ * The arguments as written, each in its place so one that resolves to nothing
+ * moves no other, or the items of the comma-separated list a lone argument
+ * resolves to, as `translate(var(--t))` over `--t: 10px, 20px`.
+ */
 function transformArguments(
   resolveValue: SimpleResolveValue,
   args: StyleDescriptor,
 ): unknown[] {
   if (isStyleDescriptorArray(args)) {
-    return commaListItems(args).map((value) => resolveValue(value));
+    return args.map((arg) =>
+      resolveValue(
+        isStyleDescriptorArray(arg) && arg.length === 1 ? arg[0] : arg,
+      ),
+    );
   }
 
   const resolved: unknown = resolveValue(args);
-  return isCommaList(resolved) ? commaListItems(resolved) : [resolved];
+  return isCommaList(resolved)
+    ? (commaListItems(resolved) as unknown[])
+    : [resolved];
 }
