@@ -5,6 +5,8 @@ import type {
   Angle,
   BorderSideWidth,
   BorderStyle,
+  CalcFor_DimensionPercentageFor_LengthValue,
+  CalcFor_Length,
   ColorOrAuto,
   CssColor,
   CustomProperty,
@@ -1508,8 +1510,7 @@ export function parseLength(
   } else {
     switch (length.type) {
       case "calc": {
-        // TODO: Add the calc polyfill
-        return undefined;
+        return evaluateCalc(length.value, builder);
       }
       case "number": {
         return round(length.value);
@@ -1525,6 +1526,90 @@ export function parseLength(
   }
 
   return;
+}
+
+type CalcNode =
+  | number
+  | CalcFor_Length
+  | CalcFor_DimensionPercentageFor_LengthValue;
+
+function evaluateCalc(
+  calc: CalcNode,
+  builder: StylesheetBuilder,
+): StyleDescriptor {
+  if (typeof calc === "number") {
+    return round(calc);
+  }
+
+  switch (calc.type) {
+    case "number":
+      return round(calc.value);
+    case "value":
+      return parseLength(calc.value, builder);
+    case "sum": {
+      const values: StyleDescriptor[] = [
+        evaluateCalc(calc.value[0], builder),
+        evaluateCalc(calc.value[1], builder),
+      ];
+      if (values.some((v) => v === undefined)) return undefined;
+
+      const hasPercent = values.some(
+        (v) => typeof v === "string" && v.endsWith("%"),
+      );
+      const hasNumber = values.some((v) => typeof v === "number");
+
+      // React Native cannot mix percentage and length
+      if (hasPercent && hasNumber) {
+        return undefined;
+      }
+
+      if (values.every((v): v is number => typeof v === "number")) {
+        return round(values.reduce((a, b) => a + b, 0));
+      }
+      return [{}, "calc", values];
+    }
+    case "product": {
+      const a = evaluateCalc(calc.value[0], builder);
+      const b = evaluateCalc(calc.value[1], builder);
+      if (a === undefined || b === undefined) return undefined;
+      if (typeof a === "number" && typeof b === "number") {
+        return round(a * b);
+      }
+      return [{}, "calc", [a, "*", b]];
+    }
+    case "function": {
+      switch (calc.value.type) {
+        case "calc":
+          return evaluateCalc(calc.value.value, builder);
+        case "min":
+        case "max": {
+          const fn = calc.value.type;
+          const values: StyleDescriptor[] = calc.value.value.map((c) =>
+            evaluateCalc(c, builder),
+          );
+          if (values.every((v): v is number => typeof v === "number")) {
+            return round(Math[fn](...values));
+          }
+          return [{}, fn, values];
+        }
+        case "clamp": {
+          const min = evaluateCalc(calc.value.value[0], builder);
+          const val = evaluateCalc(calc.value.value[1], builder);
+          const max = evaluateCalc(calc.value.value[2], builder);
+          if (
+            typeof min === "number" &&
+            typeof val === "number" &&
+            typeof max === "number"
+          ) {
+            return round(Math.max(min, Math.min(val, max)));
+          }
+          return [{}, "clamp", [min, val, max]];
+        }
+        default:
+          return undefined;
+      }
+    }
+  }
 }
 
 export function parseAngle(angle: Angle | number, builder: StylesheetBuilder) {

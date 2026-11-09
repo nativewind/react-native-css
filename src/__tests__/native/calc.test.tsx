@@ -224,3 +224,70 @@ test("dynamic clamp prefers the minimum when bounds cross and follows new values
     expect(screen.getByTestId(testID).props.style.width).toBe(expected);
   }
 });
+
+test("calc(var(--radius) + 8px)", () => {
+  registerCSS(
+    `.my-class {
+        --radius: 0.5rem;
+        border-radius: calc(var(--radius) + 8px);
+      }`,
+  );
+
+  render(<View testID={testID} className="my-class" />);
+  const component = screen.getByTestId(testID);
+
+  expect(component.type).toBe("View");
+  expect(component.props.style).toStrictEqual({
+    borderRadius: 15,
+  });
+});
+
+test("calc(1rem - 4px)", () => {
+  registerCSS(
+    `.my-class {
+        width: calc(1rem - 4px);
+      }`,
+  );
+
+  render(<View testID={testID} className="my-class" />);
+  const component = screen.getByTestId(testID);
+
+  expect(component.type).toBe("View");
+  expect(component.props.style).toStrictEqual({
+    width: 10,
+  });
+});
+
+test("min & max with mixed units", () => {
+  registerCSS(
+    `.my-class {
+        width: min(1rem, 20px);
+        height: max(10px, 0.5rem);
+      }`,
+  );
+
+  render(<View testID={testID} className="my-class" />);
+  const component = screen.getByTestId(testID);
+
+  expect(component.type).toBe("View");
+  expect(component.props.style).toStrictEqual({
+    width: 14,
+    height: 10,
+  });
+});
+
+test("clamp with mixed units", () => {
+  registerCSS(
+    `.my-class {
+        width: clamp(8px, 1rem, 20px);
+      }`,
+  );
+
+  render(<View testID={testID} className="my-class" />);
+  const component = screen.getByTestId(testID);
+
+  expect(component.type).toBe("View");
+  expect(component.props.style).toStrictEqual({
+    width: 14,
+  });
+});
