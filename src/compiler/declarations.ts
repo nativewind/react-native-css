@@ -2801,17 +2801,14 @@ export function parseColorMix(
     return;
   }
 
-  return [
-    {},
-    "colorMix",
-    [
-      colorSpaceArg,
-      leftColorArg,
-      leftColorPercentage,
-      rightColorArg,
-      rightColorPercentage,
-    ],
-  ];
+  // Optional weights must not leave undefined array entries: Metro serializes
+  // them as null, which the native colorMix resolver cannot consume.
+  const args: StyleDescriptor[] = [colorSpaceArg, leftColorArg];
+  if (leftColorPercentage !== undefined) args.push(leftColorPercentage);
+  args.push(rightColorArg);
+  if (rightColorPercentage !== undefined) args.push(rightColorPercentage);
+
+  return [{}, "colorMix", args];
 }
 
 export function parseCalcArguments(
