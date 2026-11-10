@@ -165,16 +165,6 @@ describe.each([
         { transform: [{ scaleX: 3 }, { scaleY: 2 }] },
       ],
       [
-        "transform: translate(var(--t))",
-        "--t: 10px, 20px;",
-        { transform: [{ translateX: 10 }, { translateY: 20 }] },
-      ],
-      [
-        "transform: scale(var(--s))",
-        "--s: 2, 3;",
-        { transform: [{ scaleX: 2 }, { scaleY: 3 }] },
-      ],
-      [
         "transition-property: var(--p), height",
         "--p: width;",
         { transitionProperty: ["width", "height"] },
@@ -347,15 +337,6 @@ test("background-color: rgb(255 0 0 / var(--a)) over --a: 0.5 with the variable 
   expect(processColor(style()?.backgroundColor as string)).toBe(
     processColor("rgba(255, 0, 0, 0.5)"),
   );
-});
-
-// The compiler writes a folded translate() with its second offset, which defaults to 0
-test("transform: translate(var(--x)) over --x: 10px with the variable kept", () => {
-  registerCSS(`.a { --x: 10px; transform: translate(var(--x)); }`, {
-    inlineVariables: false,
-  });
-  render(<View testID={testID} className="a" />);
-  expect(style()).toStrictEqual({ transform: [{ translateX: 10 }] });
 });
 
 // React Native's list props and the variable hook's callers take a list of one-token items as a flat array
