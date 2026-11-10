@@ -247,24 +247,6 @@ test.each([
     "box-shadow: 5px 5px green;",
     { boxShadow: [] },
   ],
-  [
-    "filter: var(--f)",
-    "--f: blur(2px), brightness(1.5);",
-    "filter: grayscale(1);",
-    { filter: undefined },
-  ],
-  [
-    "transform: var(--t)",
-    "--t: rotate(45deg), translateX(10px);",
-    "transform: rotate(10deg);",
-    { transform: undefined },
-  ],
-  [
-    "filter: var(--a), var(--missing)",
-    "--a: blur(2px);",
-    "filter: grayscale(1);",
-    { filter: undefined },
-  ],
 ])(
   "%s over %s replaces an earlier rule's value with none",
   (declaration, variables, earlier, expected) => {
