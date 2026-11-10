@@ -1092,8 +1092,8 @@ export function reduceParseUnparsed(
     return undefined;
   }
 
-  let currentGroup: StyleDescriptor[] = [];
-  const groups: StyleDescriptor[][] = [currentGroup];
+  let currentGroup: StyleDescriptor = [];
+  let groups: StyleDescriptor[] = [currentGroup];
 
   for (const value of result) {
     if ((value as unknown) === CommaSeparator) {
@@ -1104,24 +1104,47 @@ export function reduceParseUnparsed(
     }
   }
 
-  const items = groups.filter((group) => group.length > 0).map(reduceRatio);
+  // Groups are the tokens grouped together by comma location. Each stays an
+  // array, so a one-token item of a comma-separated list stays distinct from
+  // a token of a space-separated one (css-variables-1 §2.1)
+  groups = groups.flatMap((group): StyleDescriptor[] => {
+    if (!Array.isArray(group)) {
+      return [];
+    }
 
-  if (items.length > 1) {
-    return items;
+    if (group.length === 0) {
+      return [];
+    } else if (group.length === 1) {
+      const first = group[0];
+
+      if (first === undefined) {
+        return [];
+      } else {
+        return [[first]];
+      }
+    } else if (
+      // This is a special case for <ratio> values
+      group.includes("/") &&
+      group.every((item) =>
+        typeof item === "string" && item === "/"
+          ? item
+          : typeof item === "number",
+      )
+    ) {
+      // eslint-disable-next-line @typescript-eslint/no-base-to-string
+      return [[group.join(" ")]];
+    } else {
+      return [group];
+    }
+  });
+
+  if (groups.length !== 1) {
+    return groups;
   }
 
-  const item = items[0] ?? [];
-  return item.length === 1 ? item[0] : item;
-}
-
-// React Native takes a <ratio> such as `16 / 9` as one string
-function reduceRatio(group: StyleDescriptor[]): StyleDescriptor[] {
-  return group.includes("/") &&
-    group.every((item): item is number | "/" => {
-      return item === "/" || typeof item === "number";
-    })
-    ? [group.join(" ")]
-    : group;
+  // A lone group is the value, and a lone token the group
+  const group = groups[0] as StyleDescriptor[];
+  return group.length === 1 ? group[0] : group;
 }
 
 export function unparsedFunction(
