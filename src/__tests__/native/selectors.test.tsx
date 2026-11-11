@@ -1,6 +1,7 @@
 import { act, render, screen } from "@testing-library/react-native";
 import { View } from "react-native-css/components/View";
 import { registerCSS, testID } from "react-native-css/jest";
+import { StyleCollection } from "react-native-css/native-internal";
 import { colorScheme } from "react-native-css/runtime";
 
 test("legacy class dark mode configuration is rejected with a migration path", () => {
@@ -59,6 +60,41 @@ test.each([undefined, false] as const)(
       colorScheme.set("light");
     });
     expect(screen.getByTestId(testID).props.style).toEqual({ color: "blue" });
+  },
+);
+
+test.each([undefined, false] as const)(
+  "root and universal variables track system dark mode on a second read of the stylesheet with inlineVariables=%s",
+  (inlineVariables) => {
+    const compiled = registerCSS(
+      `:root { --my-var: blue; } @media (prefers-color-scheme: dark) { :root { --my-var: red; } }
+      * { --my-fill: blue; } @media (prefers-color-scheme: dark) { * { --my-fill: red; } }
+      .my-class { color: var(--my-var); background-color: var(--my-fill); }`,
+      { inlineVariables },
+    );
+    StyleCollection.inject(compiled.stylesheet());
+    act(() => {
+      colorScheme.set("light");
+    });
+    render(<View testID={testID} className="my-class" />);
+    expect(screen.getByTestId(testID).props.style).toEqual({
+      color: "blue",
+      backgroundColor: "blue",
+    });
+    act(() => {
+      colorScheme.set("dark");
+    });
+    expect(screen.getByTestId(testID).props.style).toEqual({
+      color: "red",
+      backgroundColor: "red",
+    });
+    act(() => {
+      colorScheme.set("light");
+    });
+    expect(screen.getByTestId(testID).props.style).toEqual({
+      color: "blue",
+      backgroundColor: "blue",
+    });
   },
 );
 
