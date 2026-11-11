@@ -9,6 +9,7 @@ import { getDeepPath } from "../objects";
 import {
   activeFamily,
   cleanupEffect,
+  containerActiveFamily,
   containerLayoutFamily,
   focusFamily,
   hoverFamily,
@@ -118,7 +119,7 @@ export function updateRules(
 
       if (rule.c) {
         containers ??= inheritedContainers;
-        activeFamily(state.ruleEffectGetter);
+        observeContainerActivity(state, currentProps);
       }
 
       if (
@@ -168,7 +169,7 @@ export function updateRules(
 
         // Enable hover/active/focus/layout handlers
         hoverFamily(state.ruleEffectGetter);
-        activeFamily(state.ruleEffectGetter);
+        observeContainerActivity(state, currentProps);
         focusFamily(state.ruleEffectGetter);
         containerLayoutFamily(state.ruleEffectGetter);
       }
@@ -282,6 +283,22 @@ export function updateRules(
     animated,
     pressable,
   };
+}
+
+/**
+ * A container answers `:active` for its queries through the press it already
+ * handles, or else through the touches its subtree receives, so registering a
+ * container never makes it a touch target.
+ */
+function observeContainerActivity(
+  state: ComponentState,
+  props: ComponentState["currentProps"],
+) {
+  if (props?.onPress) {
+    activeFamily(state.ruleEffectGetter);
+  } else {
+    containerActiveFamily(state.ruleEffectGetter);
+  }
 }
 
 /**
