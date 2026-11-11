@@ -1,6 +1,7 @@
 import { Platform, PlatformColor } from "react-native";
 
 import type { StyleDescriptor, VariableValue } from "react-native-css/compiler";
+import { isDeepEqual } from "react-native-css/utilities";
 
 import { testMediaQuery } from "../native/conditions/media-query";
 import { family, observable, type Observable } from "../native/reactivity";
@@ -29,6 +30,17 @@ const rootVariableFamily = () => {
   });
 };
 
+// Static, since the compiler records only the @property rules no condition wraps
+const registeredInitialValueFamily = () => {
+  return family<string, Observable<StyleDescriptor>>(() =>
+    observable<StyleDescriptor>(undefined, isDeepEqual),
+  );
+};
+
+const registeredInheritanceFamily = () => {
+  return family<string, Observable<boolean>>(() => observable(true));
+};
+
 interface RootVariableRegistries {
   root: ReturnType<typeof rootVariableFamily>;
   universal: ReturnType<typeof rootVariableFamily>;
@@ -38,6 +50,25 @@ declare global {
   var __react_native_css_root_variable_registries:
     | RootVariableRegistries
     | undefined;
+  var __react_native_css_registered_initial_values:
+    | ReturnType<typeof registeredInitialValueFamily>
+    | undefined;
+  var __react_native_css_registered_inheritance:
+    | ReturnType<typeof registeredInheritanceFamily>
+    | undefined;
+}
+
+function seedRootRegistry(root: ReturnType<typeof rootVariableFamily>) {
+  root("__rn-css-rem").set([[14]]);
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+  root("__rn-css-color").set([
+    [
+      Platform.OS === "ios"
+        ? PlatformColor("label", "labelColor")
+        : PlatformColor("?attr/textColorPrimary", "SystemBaseHighColor"),
+    ],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ] as any);
 }
 
 // Seeded with the registries, so a copy that loads after the stylesheet inject keeps the project's rem
@@ -47,16 +78,7 @@ function createRootVariableRegistries(): RootVariableRegistries {
     universal: rootVariableFamily(),
   };
 
-  registries.root("__rn-css-rem").set([[14]]);
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-  registries.root("__rn-css-color").set([
-    [
-      Platform.OS === "ios"
-        ? PlatformColor("label", "labelColor")
-        : PlatformColor("?attr/textColorPrimary", "SystemBaseHighColor"),
-    ],
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ] as any);
+  seedRootRegistry(registries.root);
 
   return registries;
 }
@@ -69,3 +91,24 @@ export const rootVariables =
   globalThis.__react_native_css_root_variable_registries.root;
 export const universalVariables =
   globalThis.__react_native_css_root_variable_registries.universal;
+
+globalThis.__react_native_css_registered_initial_values ??=
+  registeredInitialValueFamily();
+globalThis.__react_native_css_registered_inheritance ??=
+  registeredInheritanceFamily();
+
+export const registeredInitialValues =
+  globalThis.__react_native_css_registered_initial_values;
+
+export const registeredInheritance =
+  globalThis.__react_native_css_registered_inheritance;
+
+// Clearing suffices between tests, where nothing stays mounted to strand
+export function resetVariableRegistries() {
+  rootVariables.clear();
+  universalVariables.clear();
+  registeredInitialValues.clear();
+  registeredInheritance.clear();
+
+  seedRootRegistry(rootVariables);
+}

@@ -320,6 +320,12 @@ export default withReactNativeCSS(defaultConfig, {
 });
 ```
 
+### Registered Custom Properties (`@property`)
+
+A custom property registered with `inherits: false` is inlined only when its single declaration is on a universal selector (`*`) outside a media or container query. A custom property whose value refers to one registered with `inherits: false` is never inlined.
+
+An `@property` rule inside `@media` is ignored on native, even when the media query matches.
+
 ## Contributing
 
 See the [contributing guide](CONTRIBUTING.md) to learn how to contribute to the repository and the development workflow.

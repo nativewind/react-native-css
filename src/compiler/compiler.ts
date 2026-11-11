@@ -38,6 +38,7 @@ import { inlineVariables } from "./inline-variables";
 import { extractKeyFrames } from "./keyframes";
 import { lightningcssLoader } from "./lightningcss-loader";
 import { parseMediaQuery } from "./media-query";
+import { isUniversalSelector } from "./selector-builder";
 import { StylesheetBuilder } from "./stylesheet";
 import { supportsConditionValid } from "./supports";
 
@@ -114,7 +115,35 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
     options.inlineRem = effectiveRem;
   }
 
+  const inlining = options.inlineVariables !== false;
+
   const firstPassVisitor: Visitor<CustomAtRules> = {
+    // Registered from the first pass, since lightningcss prints only the last @property of a name, valid or not
+    StyleSheetExit(sheet) {
+      const nonInheriting = registerProperties(
+        collectRegistrations(sheet.rules),
+        builder,
+      );
+
+      if (!inlining) {
+        return sheet;
+      }
+
+      const universalDeclarations = countUniversalDeclarations(sheet.rules);
+
+      // A non-inheriting property has one value on every element only when universal rules are all that declare it
+      const runtimeVariables = new Set(
+        Array.from(nonInheriting).filter((name) => {
+          const declarations = vars.get(name)?.count;
+          return (
+            declarations === undefined ||
+            universalDeclarations.get(name) !== declarations
+          );
+        }),
+      );
+
+      return inlineVariables(sheet, vars, runtimeVariables);
+    },
     Rule(rule) {
       if (
         rule.type === "unknown" &&
@@ -180,9 +209,6 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
         entry.count++;
         vars.set(decl.value.name, entry);
       }
-    };
-    firstPassVisitor.StyleSheetExit = (sheet) => {
-      return inlineVariables(sheet, vars);
     };
   }
 
@@ -354,8 +380,6 @@ function extractRule(
       }
       break;
     case "property":
-      extractPropertyRule(rule.value, builder);
-      break;
     case "custom":
     case "font-face":
     case "font-palette-values":
@@ -437,22 +461,98 @@ function extractContainer(
   }
 }
 
-function extractPropertyRule(
-  propertyRule: PropertyRule,
-  builder: StylesheetBuilder,
+// Browsers register the last @property of a name, in a layer, in @container and under an @supports that holds, and one in @media only while it matches
+function collectRegistrations(
+  rules: readonly Rule[],
+  conditional = false,
+  registrations = new Map<string, PropertyRule>(),
 ) {
-  const { initialValue, name } = propertyRule;
-
-  if (initialValue == null) {
-    return;
+  for (const rule of rules) {
+    switch (rule.type) {
+      case "property":
+        if (!conditional) {
+          registrations.set(rule.value.name, rule.value);
+        }
+        break;
+      case "media":
+        collectRegistrations(rule.value.rules, true, registrations);
+        break;
+      case "supports":
+        collectRegistrations(
+          rule.value.rules,
+          conditional || !supportsConditionValid(rule.value.condition),
+          registrations,
+        );
+        break;
+      case "container":
+      case "layer-block":
+        collectRegistrations(rule.value.rules, conditional, registrations);
+        break;
+    }
   }
 
-  const varName = name.startsWith("--") ? name.slice(2) : name;
-  const value = parsePropertyInitialValue(initialValue, builder);
+  return registrations;
+}
 
-  if (value !== undefined) {
-    builder.addRootVariable(varName, value);
+// Registers the properties whose initial value has a descriptor, and returns the names that do not inherit
+function registerProperties(
+  registrations: ReadonlyMap<string, PropertyRule>,
+  builder: StylesheetBuilder,
+): ReadonlySet<string> {
+  const nonInheriting = new Set<string>();
+
+  for (const [name, { inherits, initialValue }] of registrations) {
+    const value =
+      initialValue == null
+        ? undefined
+        : parsePropertyInitialValue(initialValue, builder);
+
+    // Left unregistered, since without its initial value the property would fall back where CSS gives that value
+    if (initialValue != null && value === undefined) {
+      continue;
+    }
+
+    builder.registerProperty(name.slice(2), inherits, value);
+    if (!inherits) {
+      nonInheriting.add(name);
+    }
   }
+
+  return nonInheriting;
+}
+
+// Counts each custom property's declarations in universal rules every element shares: at the top level, in a layer or under an @supports, whose declarations the inliner reads too, and not under @media or @container
+function countUniversalDeclarations(
+  rules: readonly Rule[],
+  counts = new Map<string, number>(),
+) {
+  for (const rule of rules) {
+    switch (rule.type) {
+      case "style":
+        if (rule.value.selectors.some(isUniversalSelector)) {
+          const { declarations = [], importantDeclarations = [] } =
+            rule.value.declarations ?? {};
+          for (const declaration of [
+            ...declarations,
+            ...importantDeclarations,
+          ]) {
+            if (declaration.property === "custom") {
+              const { name } = declaration.value;
+              counts.set(name, (counts.get(name) ?? 0) + 1);
+            }
+          }
+        }
+        break;
+      case "layer-block":
+        countUniversalDeclarations(rule.value.rules, counts);
+        break;
+      case "supports":
+        countUniversalDeclarations(rule.value.rules, counts);
+        break;
+    }
+  }
+
+  return counts;
 }
 
 function parsePropertyInitialValue(
@@ -479,9 +579,12 @@ function parsePropertyInitialValue(
     case "literal":
       return component.value;
     case "repeated": {
-      const results = component.value.components
-        .map((c) => parsePropertyInitialValue(c, builder))
-        .filter((v): v is NonNullable<StyleDescriptor> => v !== undefined);
+      const results = component.value.components.map((item) =>
+        parsePropertyInitialValue(item, builder),
+      );
+      if (results.includes(undefined)) {
+        return undefined;
+      }
       // Unwrap single-child repeated values so downstream consumers get a
       // scalar instead of a 1-element array. For example, `<length>+` with
       // initial-value `10px` should produce the same shape as `<length>`.
