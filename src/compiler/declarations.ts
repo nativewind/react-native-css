@@ -887,15 +887,15 @@ function parseScale(
 }
 
 export function parseScaleValue(
-  scale: Scale,
+  translate: Scale,
   prop: keyof Extract<Scale, object>,
   builder: StylesheetBuilder,
 ): StyleDescriptor {
-  if (scale === "none") {
+  if (translate === "none") {
     return 1;
   }
 
-  return parseLength(scale[prop], builder);
+  return parseLength(translate[prop], builder);
 }
 
 function parseLetterSpacing(

@@ -5,6 +5,7 @@ import { debug } from "debug";
 import {
   type ContainerRule,
   type CustomAtRules,
+  type Declaration,
   type MediaRule,
   type ParsedComponent,
   type PropertyRule,
@@ -191,29 +192,32 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
     };
   }
 
-  const exclusionList: string[] =
-    options.inlineVariables === false
-      ? []
-      : (options.inlineVariables?.exclude ?? []);
+  let countVariable: ((decl: Declaration) => void) | undefined;
+
+  if (options.inlineVariables !== false) {
+    const exclusionList: string[] = options.inlineVariables?.exclude ?? [];
+
+    countVariable = (decl) => {
+      if (
+        decl.property === "custom" &&
+        decl.value.name.startsWith("--") &&
+        !exclusionList.includes(decl.value.name)
+      ) {
+        const entry = vars.get(decl.value.name) ?? {
+          count: 0,
+          value: [
+            ...decl.value.value,
+            { type: "token", value: { type: "white-space", value: " " } },
+          ],
+        };
+        entry.count++;
+        vars.set(decl.value.name, entry);
+      }
+    };
+  }
 
   firstPassVisitor.Declaration = (decl) => {
-    if (
-      options.inlineVariables !== false &&
-      decl.property === "custom" &&
-      decl.value.name.startsWith("--") &&
-      !exclusionList.includes(decl.value.name)
-    ) {
-      const entry = vars.get(decl.value.name) ?? {
-        count: 0,
-        value: [
-          ...decl.value.value,
-          { type: "token", value: { type: "white-space", value: " " } },
-        ],
-      };
-      entry.count++;
-      vars.set(decl.value.name, entry);
-    }
-
+    countVariable?.(decl);
     return unparseIndividualTransform(decl);
   };
 
