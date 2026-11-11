@@ -386,9 +386,11 @@ test("a transform value the compiler cannot convert is ignored, with a warning",
   const compiled = compile(`
 .my-class {
     transform: translate(10px, 1cap);
-    translate: calc(1em + 5px) 5px;
     rotate: 1grad;
     scale: 2;
+}
+.alone {
+    translate: calc(1em + 5px) 5px;
 }`);
 
   expect(compiled.stylesheet()).toStrictEqual({
