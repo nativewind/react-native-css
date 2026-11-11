@@ -4,6 +4,11 @@ import { StyleCollection } from "react-native-css/native-internal";
 import { applyShorthand } from "../../objects";
 import type { StyleFunctionResolver } from "../resolve";
 import { shorthandHandler } from "./_handler";
+import {
+  ANIMATION_DIRECTIONS,
+  ANIMATION_FILL_MODES,
+  ANIMATION_PLAY_STATES,
+} from "./animation-longhands";
 
 const name = ["animationName", "string", "none"] as const;
 const delay = ["animationDelay", "number", 0] as const;
@@ -13,19 +18,15 @@ const iteration = [
   ["number", "infinite"],
   1,
 ] as const;
-const fill = [
-  "animationFillMode",
-  ["none", "forwards", "backwards", "both"],
-  "none",
-] as const;
+const fill = ["animationFillMode", ANIMATION_FILL_MODES, "none"] as const;
 const playState = [
   "animationPlayState",
-  ["running", "paused"],
+  ANIMATION_PLAY_STATES,
   "running",
 ] as const;
 const direction = [
   "animationDirection",
-  ["normal", "reverse", "alternate", "alternate-reverse"],
+  ANIMATION_DIRECTIONS,
   "normal",
 ] as const;
 const timingFunction = [
