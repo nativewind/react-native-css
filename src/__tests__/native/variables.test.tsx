@@ -53,6 +53,20 @@ test("combined inline variables", () => {
   });
 });
 
+test("a custom property declared as 0 keeps its value", () => {
+  // Two definitions, so the compiler cannot inline `--my-var`.
+  registerCSS(`
+    .zero { --my-var: 0; }
+    .one { --my-var: 1; }
+    .test { opacity: var(--my-var, 0.5); }
+  `);
+
+  render(<View testID={testID} className="test zero" />);
+
+  const component = screen.getByTestId(testID);
+  expect(component.props.style).toStrictEqual({ opacity: 0 });
+});
+
 test("inherit variables", () => {
   registerCSS(`
     .my-class-1 { width: var(--my-var); }
