@@ -1,5 +1,7 @@
-import type { StyleDescriptor } from "react-native-css/compiler";
-import { isStyleDescriptorArray } from "react-native-css/utilities";
+import {
+  isCommaList,
+  isStyleDescriptorArray,
+} from "react-native-css/utilities";
 
 import type { StyleFunctionResolver } from "../resolve";
 import { shorthandHandler } from "./_handler";
@@ -45,41 +47,16 @@ export const boxShadow: StyleFunctionResolver = (
     return args;
   }
 
-  // A flat array of primitives (e.g. [0, 4, 6, -1, "#000"]) is a single shadow
-  // resolved from a runtime variable. Pass it directly to the pattern handler.
-  // A nested array (e.g. [[0, 4, 6, -1, "#000"], [...]]) is multiple shadows.
-  if (args.length > 0 && !Array.isArray(args[0])) {
-    const result = handler(resolveValue, args, get, options);
-    if (result === undefined) {
-      return [];
-    }
-    const filtered = omitTransparentShadows(result);
-    return filtered !== undefined ? [normalizeInsetValue(filtered)] : [];
-  }
+  const shadows = isCommaList(args) ? args : [args];
 
-  return args
-    .flatMap(flattenShadowDescriptor)
-    .map((shadows) => {
-      if (shadows === undefined) {
-        return;
-      } else {
-        return normalizeInsetValue(
-          omitTransparentShadows(handler(resolveValue, shadows, get, options)),
-        );
-      }
-    })
+  return shadows
+    .map((shadow) =>
+      normalizeInsetValue(
+        omitTransparentShadows(handler(resolveValue, shadow, get, options)),
+      ),
+    )
     .filter((v) => v !== undefined);
 };
-
-function flattenShadowDescriptor(arg: StyleDescriptor): StyleDescriptor[] {
-  if (isStyleDescriptorArray(arg) && isStyleDescriptorArray(arg[0])) {
-    return arg.map((arg) => {
-      return flattenShadowDescriptor(arg);
-    });
-  }
-
-  return [arg];
-}
 
 function omitTransparentShadows(style: unknown) {
   if (typeof style === "object" && style && "color" in style) {
