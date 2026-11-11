@@ -351,3 +351,17 @@ test("variable overriding with classes", () => {
   const component = screen.getByTestId(testID);
   expect(component.props.style).toStrictEqual({ color: "#f00" });
 });
+
+test("a custom property declared as auto keeps its value", () => {
+  // Two definitions, so the compiler cannot inline `--my-var`.
+  registerCSS(`
+    .auto { --my-var: auto; }
+    .fixed { --my-var: 10px; }
+    .test { width: var(--my-var, 5px); }
+  `);
+
+  render(<View testID={testID} className="test auto" />);
+
+  const component = screen.getByTestId(testID);
+  expect(component.props.style).toStrictEqual({ width: "auto" });
+});
