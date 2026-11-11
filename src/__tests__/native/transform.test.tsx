@@ -240,9 +240,19 @@ describe("one property per entry", () => {
     "transform: scale3d(1, 2, 3);",
     "transform: scaleZ(2);",
     "transform: matrix(1, 0, 0, 1, 0, 0);",
+    "transform: translateZ(10px);",
   ])("%s renders no entry", (declaration) => {
     expect(renderStyle(`.my-class { ${declaration} }`)).toStrictEqual({
       transform: [],
+    });
+  });
+
+  test.each([
+    ["translate(10px, 20px)", [{ translateX: 10 }, { translateY: 20 }]],
+    ["translate(-50%, -50%)", [{ translateX: "-50%" }, { translateY: "-50%" }]],
+  ] as const)("transform: %s renders an entry per axis", (value, transform) => {
+    expect(renderStyle(`.my-class { transform: ${value}; }`)).toStrictEqual({
+      transform,
     });
   });
 
@@ -260,6 +270,12 @@ describe("one property per entry", () => {
         `.my-class { transform: translateX(10px) scale3d(1, 2, 3); }`,
       ),
     ).toStrictEqual({ transform: [{ translateX: 10 }] });
+  });
+
+  test("translateZ() leaves its neighbour", () => {
+    expect(
+      renderStyle(`.my-class { transform: translateZ(10px) rotate(45deg); }`),
+    ).toStrictEqual({ transform: [{ rotate: "45deg" }] });
   });
 });
 
