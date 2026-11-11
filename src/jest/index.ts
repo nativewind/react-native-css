@@ -35,7 +35,7 @@ const debugDefault = Boolean(
 
 export function registerCSS(
   css: string,
-  options: CompilerOptions & { debug?: boolean } = {},
+  options: CompilerOptions & { debug?: boolean | undefined } = {},
 ) {
   const { debug = debugDefault } = options;
   const compiled = compileWithAutoDebug(css, options);
@@ -62,7 +62,7 @@ export function compileWithAutoDebug(
   {
     debug = debugDefault,
     ...options
-  }: CompilerOptions & { debug?: boolean | "verbose" } = {},
+  }: CompilerOptions & { debug?: boolean | "verbose" | undefined } = {},
 ) {
   const logger = debug
     ? (text: string) => {

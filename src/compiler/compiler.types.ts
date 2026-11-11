@@ -8,20 +8,20 @@ import type {
 import { VAR_SYMBOL } from "../native/reactivity";
 
 export interface CompilerOptions {
-  filename?: string;
-  projectRoot?: string;
-  inlineRem?: number | false;
-  inlineVariables?: false | InlineVariableOptions;
-  selectorPrefix?: string;
-  stylesheetOrder?: number;
-  features?: FeatureFlagRecord;
-  logger?: (message: string) => void | Debugger;
-  hexColors?: boolean;
-  colorPrecision?: number;
+  filename?: string | undefined;
+  projectRoot?: string | undefined;
+  inlineRem?: number | false | undefined;
+  inlineVariables?: false | InlineVariableOptions | undefined;
+  selectorPrefix?: string | undefined;
+  stylesheetOrder?: number | undefined;
+  features?: FeatureFlagRecord | undefined;
+  logger?: ((message: string) => void) | Debugger | undefined;
+  hexColors?: boolean | undefined;
+  colorPrecision?: number | undefined;
 }
 
 export interface InlineVariableOptions {
-  exclude?: `--${string}`[];
+  exclude?: `--${string}`[] | undefined;
 }
 
 // A channel is absent when the compile recorded nothing on it
