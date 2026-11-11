@@ -92,13 +92,15 @@ for (const scenario of scenarios) {
             },
           },
         );
-      const before = parsed().fileNames;
+      const fileNames = () =>
+        parsed().fileNames.map((file) => path.resolve(file));
+      const before = fileNames();
       process.chdir(directory + (scenario.cwd ? "/" + scenario.cwd : ""));
       const env = scenario.env ?? "react-native-css-env.d.ts";
       setupTypeScript(scenario.env);
       const envFile = path.resolve(env);
       assert(fs.existsSync(envFile));
-      const after = parsed().fileNames;
+      const after = fileNames();
       assert(
         after.includes(envFile),
         "Generated declaration is absent from the TypeScript project",
@@ -171,3 +173,49 @@ for (const content of [
     }
   });
 }
+
+await test("TypeScript setup leaves a config that already includes the declaration untouched", () => {
+  const directory = fs.realpathSync(
+    fs.mkdtempSync(path.join(os.tmpdir(), "css-typescript-")),
+  );
+  const previous = process.cwd();
+  try {
+    process.chdir(directory);
+    fs.mkdirSync("types");
+    fs.mkdirSync("src");
+    fs.writeFileSync("src/app.ts", "export const value = 1;");
+    fs.writeFileSync(
+      "types/react-native-css-env.d.ts",
+      "// existing declaration\n",
+    );
+    const config =
+      '{\n  "include": ["src", "./types/react-native-css-env.d.ts"]\n}\n';
+    fs.writeFileSync("tsconfig.json", config);
+    setupTypeScript("./types/react-native-css-env.d.ts");
+    assert.equal(fs.readFileSync("tsconfig.json", "utf8"), config);
+  } finally {
+    process.chdir(previous);
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+await test("TypeScript setup writes the declaration's path with forward slashes", () => {
+  const directory = fs.realpathSync(
+    fs.mkdtempSync(path.join(os.tmpdir(), "css-typescript-")),
+  );
+  const previous = process.cwd();
+  try {
+    process.chdir(directory);
+    fs.mkdirSync("types");
+    fs.mkdirSync("src");
+    fs.writeFileSync("src/app.ts", "export const value = 1;");
+    fs.writeFileSync("tsconfig.json", '{"include":["src"]}');
+    setupTypeScript("types/react-native-css-env.d.ts");
+    const config = fs.readFileSync("tsconfig.json", "utf8");
+    assert(config.includes('"types/react-native-css-env.d.ts"'), config);
+    assert(!config.includes("\\"), config);
+  } finally {
+    process.chdir(previous);
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
