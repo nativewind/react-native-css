@@ -103,34 +103,51 @@ export function calculateProps(
 }
 
 // css-transforms-2 §6: an element's transform is its `translate`, then its `rotate`, then its `scale`, then its `transform` list
-const TRANSFORM_PROPERTIES = [
-  "translate",
-  "rotate",
-  "scale",
-  "transform",
-] as const;
+const TRANSFORM_SLOTS = 4;
 
-type TransformProperty = (typeof TRANSFORM_PROPERTIES)[number];
-
-// Compares, not TRANSFORM_PROPERTIES.includes(): this runs for every dynamic declaration
-function isTransformProperty(prop: string | number): prop is TransformProperty {
-  return (
-    prop === "transform" ||
-    prop === "translate" ||
-    prop === "rotate" ||
-    prop === "scale"
-  );
+// A transform property's cascade slot in composition order, or -1. This runs for every dynamic declaration
+function transformSlot(prop: string | number): number {
+  switch (prop) {
+    case "translate":
+      return 0;
+    case "rotate":
+      return 1;
+    case "scale":
+      return 2;
+    case "transform":
+      return 3;
+    default:
+      return -1;
+  }
 }
-
-type TransformSlots = Partial<Record<TransformProperty, StyleDescriptor>>;
 
 /** A transform property's declaration, kept until every rule has been walked */
 interface TransformRecord {
   readonly target: Record<string, any>;
   readonly path: string | readonly string[];
   readonly important: boolean;
-  readonly property: TransformProperty;
+  readonly slot: number;
   readonly value: StyleDescriptor;
+}
+
+/** One style target's slots: the normal ones, then the !important ones */
+interface TransformGroup {
+  readonly path: string | readonly string[];
+  target: Record<string, any>;
+  readonly slots: (StyleDescriptor | undefined)[];
+}
+
+function samePath(
+  a: string | readonly string[],
+  b: string | readonly string[],
+): boolean {
+  if (a === b) return true;
+  if (typeof a === "string" || typeof b === "string") return false;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
 }
 
 /**
@@ -143,40 +160,54 @@ function composeTransforms(
   records: readonly TransformRecord[],
   resolve: (value: StyleDescriptor) => unknown,
 ) {
-  const byPath = new Map<
-    string,
-    { target: Record<string, any>; normal: TransformSlots; important: TransformSlots }
-  >();
+  // Almost always one group, so a scan beats keying a Map by path
+  const groups: TransformGroup[] = [];
 
-  for (const record of records) {
-    const pathKey =
-      typeof record.path === "string" ? record.path : record.path.join("\0");
-    let slots = byPath.get(pathKey);
+  for (let r = 0; r < records.length; r++) {
+    const record = records[r]!;
+    let group: TransformGroup | undefined;
 
-    if (slots === undefined) {
-      slots = { target: record.target, normal: {}, important: {} };
-      byPath.set(pathKey, slots);
+    for (let g = 0; g < groups.length; g++) {
+      if (samePath(groups[g]!.path, record.path)) {
+        group = groups[g];
+        break;
+      }
+    }
+
+    if (group === undefined) {
+      group = {
+        path: record.path,
+        target: record.target,
+        slots: [
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+        ],
+      };
+      groups.push(group);
     }
 
     if (record.important) {
       // The important target is merged over the normal one, so it takes the composed list
-      slots.target = record.target;
-      slots.important[record.property] = record.value;
+      group.target = record.target;
+      group.slots[record.slot + TRANSFORM_SLOTS] = record.value;
     } else {
-      slots.normal[record.property] = record.value;
+      group.slots[record.slot] = record.value;
     }
   }
 
-  for (const { target, normal, important } of byPath.values()) {
+  for (let g = 0; g < groups.length; g++) {
+    const group = groups[g]!;
     let composed: unknown[] | undefined;
 
-    for (const property of TRANSFORM_PROPERTIES) {
-      const value =
-        property in important
-          ? important[property]
-          : property in normal
-            ? normal[property]
-            : undefined;
+    for (let slot = 0; slot < TRANSFORM_SLOTS; slot++) {
+      const important = group.slots[slot + TRANSFORM_SLOTS];
+      const value = important !== undefined ? important : group.slots[slot];
 
       if (value === undefined) {
         continue;
@@ -191,7 +222,7 @@ function composeTransforms(
     }
 
     if (composed !== undefined) {
-      target.transform = composed;
+      group.target.transform = composed;
     }
   }
 }
@@ -199,7 +230,7 @@ function composeTransforms(
 // A resolver returns a group for a two-axis function, so entries are spread into the list
 function pushEntries(entries: unknown[], value: unknown) {
   if (Array.isArray(value)) {
-    for (const entry of value) pushEntries(entries, entry);
+    for (let i = 0; i < value.length; i++) pushEntries(entries, value[i]);
   } else {
     entries.push(value);
   }
@@ -275,8 +306,10 @@ export function applyDeclarations(
         prop = propPath;
       }
 
-      if (target === originalTarget && isTransformProperty(prop)) {
-        transforms.push({ target, path, important, property: prop, value });
+      const slot = target === originalTarget ? transformSlot(prop) : -1;
+
+      if (slot !== -1) {
+        transforms.push({ target, path, important, slot, value });
         continue;
       }
 

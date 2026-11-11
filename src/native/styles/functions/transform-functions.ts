@@ -11,12 +11,14 @@ import { scaleFactor } from "../scale-factor";
 
 // A component left without a valid value makes the declaration invalid at computed-value time (css-variables-1 §3.1), which null carries
 export const scale: StyleFunctionResolver = (resolveValue, descriptor) => {
-  return scalePair(resolveOperands(resolveValue, descriptor[2]));
+  const operands = resolveOperands(resolveValue, descriptor[2]);
+
+  return scalePair(operands, operands.length);
 };
 
 export const rotate: StyleFunctionResolver = (resolveValue, descriptor) => {
   const operands = resolveOperands(resolveValue, descriptor[2]);
-  const [angle] = operands;
+  const angle = operands[0];
 
   return operands.length === 1 && isTransformComponent(angle)
     ? { rotate: angle }
@@ -24,7 +26,9 @@ export const rotate: StyleFunctionResolver = (resolveValue, descriptor) => {
 };
 
 export const translate: StyleFunctionResolver = (resolveValue, descriptor) => {
-  return translatePair(resolveOperands(resolveValue, descriptor[2]));
+  const operands = resolveOperands(resolveValue, descriptor[2]);
+
+  return translatePair(operands, operands.length);
 };
 
 // css-transforms-2 §3: `translate: none | <length-percentage> [<length-percentage> <length>?]?`, and React Native has no z axis to move along
@@ -41,7 +45,7 @@ export const individualTranslate: StyleFunctionResolver = (
   const z = operands.length > 2 ? operands[2] : 0;
 
   return operands.length <= 3 && typeof z === "number"
-    ? translatePair(operands.slice(0, 2))
+    ? translatePair(operands, Math.min(operands.length, 2))
     : null;
 };
 
@@ -59,7 +63,7 @@ export const individualScale: StyleFunctionResolver = (
   const z = operands.length > 2 ? operands[2] : 1;
 
   return operands.length <= 3 && scaleFactor(z) !== null
-    ? scalePair(operands.slice(0, 2))
+    ? scalePair(operands, Math.min(operands.length, 2))
     : null;
 };
 
@@ -71,7 +75,7 @@ export const individualRotate: StyleFunctionResolver = (
   const operands = resolveOperands(resolveValue, descriptor[2]);
 
   if (operands.length === 1) {
-    const [angle] = operands;
+    const angle = operands[0];
 
     if (isNoneKeyword(angle)) {
       return { rotateZ: "0deg" };
@@ -146,11 +150,12 @@ function isNoneKeyword(value: unknown): boolean {
   return typeof value === "string" && value.toLowerCase() === "none";
 }
 
-function scalePair(operands: readonly unknown[]): unknown {
+// The first `count` operands, so a caller can leave out a z without copying the list
+function scalePair(operands: readonly unknown[], count: number): unknown {
   const x = scaleFactor(operands[0]);
-  const y = operands.length > 1 ? scaleFactor(operands[1]) : x;
+  const y = count > 1 ? scaleFactor(operands[1]) : x;
 
-  if (operands.length > 2 || x === null || y === null) {
+  if (count > 2 || x === null || y === null) {
     return null;
   }
 
@@ -158,15 +163,11 @@ function scalePair(operands: readonly unknown[]): unknown {
 }
 
 // `translate(x)` is `translate(x, 0)` (css-transforms-1 §9)
-function translatePair(operands: readonly unknown[]): unknown {
+function translatePair(operands: readonly unknown[], count: number): unknown {
   const x = operands[0];
-  const y = operands.length > 1 ? operands[1] : 0;
+  const y = count > 1 ? operands[1] : 0;
 
-  if (
-    operands.length > 2 ||
-    !isTransformComponent(x) ||
-    !isTransformComponent(y)
-  ) {
+  if (count > 2 || !isTransformComponent(x) || !isTransformComponent(y)) {
     return null;
   }
 
@@ -191,14 +192,26 @@ function resolveOperands(
   resolveValue: SimpleResolveValue,
   args: StyleDescriptor,
 ): unknown[] {
-  // A lone var()'s comma-separated list supplies its items as the operands
-  const resolved = isStyleDescriptorArray(args)
-    ? args.map((arg) => argument(resolveValue, arg))
-    : [commaListItems(resolveValue(args))];
+  const operands: unknown[] = [];
 
-  return resolved.flatMap((operand): readonly unknown[] =>
-    Array.isArray(operand) ? operand : [operand],
-  );
+  if (isStyleDescriptorArray(args)) {
+    for (const arg of args) {
+      pushOperand(operands, argument(resolveValue, arg));
+    }
+  } else {
+    // A lone var()'s comma-separated list supplies its items as the operands
+    pushOperand(operands, commaListItems(resolveValue(args)));
+  }
+
+  return operands;
+}
+
+function pushOperand(operands: unknown[], operand: unknown) {
+  if (Array.isArray(operand)) {
+    for (const item of operand as unknown[]) operands.push(item);
+  } else {
+    operands.push(operand);
+  }
 }
 
 function isTransformComponent(value: unknown): value is string | number {
