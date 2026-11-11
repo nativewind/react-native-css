@@ -755,9 +755,11 @@ function parseTransform(
               parseLengthOrCoercePercentageToRuntime(t.value[0], builder),
             ],
             [
-              {},
-              "translateY",
-              parseLengthOrCoercePercentageToRuntime(t.value[1], builder),
+              [
+                {},
+                "translateY",
+                parseLengthOrCoercePercentageToRuntime(t.value[1], builder),
+              ],
             ],
           ];
         case "translateX":
@@ -809,7 +811,7 @@ function parseTransform(
         case "rotate3d":
         case "matrix":
         case "matrix3d":
-          return [];
+          return [[]];
       }
     }),
   ]);

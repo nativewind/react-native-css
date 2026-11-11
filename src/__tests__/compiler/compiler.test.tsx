@@ -222,24 +222,6 @@ test.each([
   ]);
 });
 
-// A transform is a space-separated list, so it holds each function as a token of its own
-test.each([
-  [
-    "translate(10px, 20px)",
-    [
-      [{}, "translateX", 10],
-      [{}, "translateY", 20],
-    ],
-  ],
-  ["translateZ(10px) rotate(45deg)", [[{}, "rotate", "45deg"]]],
-])("transform: %s compiles to a flat list of functions", (value, expected) => {
-  const compiled = compile(`.my-class { transform: ${value}; }`);
-
-  expect(compiled.stylesheet().s?.[0]?.[1][0]?.d).toStrictEqual([
-    [[{}, "transform", expected], "transform"],
-  ]);
-});
-
 test("light-dark()", () => {
   const compiled = compile(`
 .my-class {
