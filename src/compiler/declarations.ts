@@ -1169,7 +1169,7 @@ export function parseUnparsed(
     | null,
   builder: StylesheetBuilder,
   property: string,
-  allowAuto = allowAutoProperties.has(property),
+  allowAuto = allowAutoProperties.has(property) || property.startsWith("--"),
 ): StyleDescriptor {
   if (tokenOrValue === undefined || tokenOrValue === null) {
     return;
