@@ -1,0 +1,5 @@
+{
+  "plugins": {
+    "./from-postcss.ts": {}
+  }
+}
