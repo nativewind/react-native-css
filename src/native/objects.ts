@@ -1,4 +1,6 @@
 /* eslint-disable */
+import { narrowFontFamily } from "react-native-css/utilities";
+
 import { ShortHandSymbol } from "../native/styles/constants";
 import { transformKeys } from "../native/styles/defaults";
 
@@ -48,6 +50,11 @@ export function applyShorthand(value: any) {
   return target;
 }
 
+// applyDeclarations parks { [prop]: true } on the target while a delayed value resolves
+function isDelayedMarker(value: unknown): boolean {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 export function applyValue(
   target: Record<string, any>,
   prop: string,
@@ -81,6 +88,16 @@ export function applyValue(
   } else if (typeof value === "object" && value && ShortHandSymbol in value) {
     delete value[ShortHandSymbol];
     Object.assign(target, value);
+    return;
+  }
+
+  // React Native takes one family, and a var() value is the one stack the compiler could not narrow
+  if (prop === "fontFamily" && value !== undefined && !isDelayedMarker(value)) {
+    const narrowing = narrowFontFamily(value);
+
+    if (narrowing.kind === "family") {
+      target[prop] = narrowing.family;
+    }
     return;
   }
 

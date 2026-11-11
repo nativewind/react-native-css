@@ -1,5 +1,70 @@
 import { renderCurrentTest, renderSimple } from "./_tailwind";
 
+describe("Typography - Font Family", () => {
+  // React Native takes one family, so each stack renders as its first
+  test("font-sans", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: { style: { fontFamily: "ui-sans-serif" } },
+    });
+  });
+  test("font-serif", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: { style: { fontFamily: "ui-serif" } },
+    });
+  });
+  test("font-mono", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: { style: { fontFamily: "ui-monospace" } },
+    });
+  });
+  test("font-[Inter]", async () => {
+    expect(await renderCurrentTest()).toStrictEqual({
+      props: { style: { fontFamily: "Inter" } },
+    });
+  });
+
+  test("font-sans with an overridden --font-sans", async () => {
+    // A second definition stops the compiler inlining the variable, so the stack reaches render
+    expect(
+      await renderSimple({
+        className: "font-sans",
+        sourceInline: ["font-sans"],
+        extraCss: `.dark { --font-sans: Georgia, serif; }`,
+      }),
+    ).toStrictEqual({
+      props: { style: { fontFamily: "ui-sans-serif" } },
+    });
+  });
+
+  test.each([
+    ["font-serif", "--font-serif", "ui-serif"],
+    ["font-mono", "--font-mono", "ui-monospace"],
+  ])("%s with an overridden %s", async (className, variable, family) => {
+    // A second definition stops the compiler inlining the variable, so the stack reaches render
+    expect(
+      await renderSimple({
+        className,
+        sourceInline: [className],
+        extraCss: `.dark { ${variable}: Georgia, serif; }`,
+      }),
+    ).toStrictEqual({
+      props: { style: { fontFamily: family } },
+    });
+  });
+
+  test("font-sans overridden at :root", async () => {
+    expect(
+      await renderSimple({
+        className: "font-sans",
+        sourceInline: ["font-sans"],
+        extraCss: `:root { --font-sans: Georgia, serif; }`,
+      }),
+    ).toStrictEqual({
+      props: { style: { fontFamily: "Georgia" } },
+    });
+  });
+});
+
 describe("Typography - Font Size", () => {
   test("text-xs", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
