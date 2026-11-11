@@ -31,7 +31,7 @@ export function calculateProps(
   let important: Record<string, any> | undefined;
 
   const delayedStyles: (() => void)[] = [];
-  const transforms = createTransformComposition();
+  const transforms: TransformRecord[] = [];
 
   for (const rule of rules) {
     if (VAR_SYMBOL in rule) {
@@ -70,10 +70,12 @@ export function calculateProps(
         inlineVariables,
         inheritedVariables,
         delayedStyles,
-        transforms.recorderFor(target, ruleTarget, isImportant),
+        transforms,
         guards,
         target,
         topLevelTarget,
+        ruleTarget,
+        isImportant,
       );
     }
   }
@@ -82,14 +84,16 @@ export function calculateProps(
     delayedStyle();
   }
 
-  transforms.compose((value) =>
-    resolveValue(value, get, {
-      inlineVariables,
-      inheritedVariables,
-      renderGuards: guards,
-      calculateProps,
-    }),
-  );
+  if (transforms.length > 0) {
+    composeTransforms(transforms, (value) =>
+      resolveValue(value, get, {
+        inlineVariables,
+        inheritedVariables,
+        renderGuards: guards,
+        calculateProps,
+      }),
+    );
+  }
 
   return {
     normal,
@@ -108,89 +112,97 @@ const TRANSFORM_PROPERTIES = [
 
 type TransformProperty = (typeof TRANSFORM_PROPERTIES)[number];
 
+// Compares, not TRANSFORM_PROPERTIES.includes(): this runs for every dynamic declaration
 function isTransformProperty(prop: string | number): prop is TransformProperty {
-  return (TRANSFORM_PROPERTIES as readonly (string | number)[]).includes(prop);
+  return (
+    prop === "transform" ||
+    prop === "translate" ||
+    prop === "rotate" ||
+    prop === "scale"
+  );
 }
 
 type TransformSlots = Partial<Record<TransformProperty, StyleDescriptor>>;
 
-interface TransformTarget {
+/** A transform property's declaration, kept until every rule has been walked */
+interface TransformRecord {
   readonly target: Record<string, any>;
-  readonly slots: TransformSlots;
+  readonly path: string | readonly string[];
+  readonly important: boolean;
+  readonly property: TransformProperty;
+  readonly value: StyleDescriptor;
 }
 
-type RecordTransform = (
-  property: TransformProperty,
-  value: StyleDescriptor,
-) => void;
-
-/** Each transform property of each style target is a cascade slot of its own, and the slots compose into one `transform` once every declaration has been walked. */
-function createTransformComposition() {
+/**
+ * Each transform property of each style target is a cascade slot of its own,
+ * and the slots compose into one `transform`. Records arrive in cascade
+ * order, so a later one replaces an earlier one, and an !important slot
+ * replaces a normal one for the same path.
+ */
+function composeTransforms(
+  records: readonly TransformRecord[],
+  resolve: (value: StyleDescriptor) => unknown,
+) {
   const byPath = new Map<
     string,
-    { normal?: TransformTarget; important?: TransformTarget }
+    { target: Record<string, any>; normal: TransformSlots; important: TransformSlots }
   >();
 
-  return {
-    recorderFor(
-      target: Record<string, any>,
-      path: string | readonly string[],
-      important: boolean,
-    ): RecordTransform {
-      return (property, value) => {
-        const pathKey = typeof path === "string" ? path : path.join("\0");
-        const pair = byPath.get(pathKey) ?? {};
-        const side = important ? "important" : "normal";
-        const recorded = pair[side] ?? { target, slots: {} };
+  for (const record of records) {
+    const pathKey =
+      typeof record.path === "string" ? record.path : record.path.join("\0");
+    let slots = byPath.get(pathKey);
 
-        recorded.slots[property] = value;
-        pair[side] = recorded;
-        byPath.set(pathKey, pair);
-      };
-    },
-
-    compose(resolve: (value: StyleDescriptor) => unknown) {
-      for (const { normal, important } of byPath.values()) {
-        const destination = important ?? normal;
-        const entries = composeTransform(
-          { ...normal?.slots, ...important?.slots },
-          resolve,
-        );
-
-        if (destination !== undefined && entries !== undefined) {
-          destination.target.transform = entries;
-        }
-      }
-    },
-  };
-}
-
-function composeTransform(
-  slots: TransformSlots,
-  resolve: (value: StyleDescriptor) => unknown,
-): unknown[] | undefined {
-  let composed: unknown[] | undefined;
-
-  for (const property of TRANSFORM_PROPERTIES) {
-    if (!Object.hasOwn(slots, property)) {
-      continue;
+    if (slots === undefined) {
+      slots = { target: record.target, normal: {}, important: {} };
+      byPath.set(pathKey, slots);
     }
 
-    const entries = transformEntries(resolve(slots[property]));
-
-    if (entries !== undefined) {
-      composed = [...(composed ?? []), ...entries];
+    if (record.important) {
+      // The important target is merged over the normal one, so it takes the composed list
+      slots.target = record.target;
+      slots.important[record.property] = record.value;
+    } else {
+      slots.normal[record.property] = record.value;
     }
   }
 
-  return composed;
+  for (const { target, normal, important } of byPath.values()) {
+    let composed: unknown[] | undefined;
+
+    for (const property of TRANSFORM_PROPERTIES) {
+      const value =
+        property in important
+          ? important[property]
+          : property in normal
+            ? normal[property]
+            : undefined;
+
+      if (value === undefined) {
+        continue;
+      }
+
+      const resolved = resolve(value);
+
+      // A property that resolves to no value is `none` (css-variables-1 §3.1)
+      if (resolved !== undefined && resolved !== null) {
+        pushEntries((composed ??= []), resolved);
+      }
+    }
+
+    if (composed !== undefined) {
+      target.transform = composed;
+    }
+  }
 }
 
-// A property that resolves to no value is `none` (css-variables-1 §3.1)
-function transformEntries(value: unknown): unknown[] | undefined {
-  return value === undefined || value === null
-    ? undefined
-    : [value].flat(Number.POSITIVE_INFINITY);
+// A resolver returns a group for a two-axis function, so entries are spread into the list
+function pushEntries(entries: unknown[], value: unknown) {
+  if (Array.isArray(value)) {
+    for (const entry of value) pushEntries(entries, entry);
+  } else {
+    entries.push(value);
+  }
 }
 
 export function applyDeclarations(
@@ -199,10 +211,12 @@ export function applyDeclarations(
   inlineVariables: InlineVariable,
   inheritedVariables: VariableContextValue,
   delayedStyles: (() => void)[] = [],
-  recordTransform: RecordTransform = () => undefined,
+  transforms: TransformRecord[] = [],
   guards: RenderGuard[] = [],
   target: Record<string, any> = {},
   topLevelTarget = target,
+  path: string | readonly string[] = "style",
+  important = false,
 ) {
   const originalTarget = target;
 
@@ -262,7 +276,7 @@ export function applyDeclarations(
       }
 
       if (target === originalTarget && isTransformProperty(prop)) {
-        recordTransform(prop, value);
+        transforms.push({ target, path, important, property: prop, value });
         continue;
       }
 
