@@ -5,13 +5,17 @@ import type {
   StyleDescriptor,
   StyleFunction,
 } from "react-native-css/compiler";
-import { isStyleDescriptorArray } from "react-native-css/utilities";
+import {
+  isStyleDescriptorArray,
+  LIGHT_DARK_FUNCTION,
+} from "react-native-css/utilities";
 
 import type { RenderGuard } from "../conditions/guards";
 import { type Getter, type VariableContextValue } from "../reactivity";
 import type { calculateProps } from "./calculate-props";
 import { transformKeys } from "./defaults";
 import * as functions from "./functions";
+import { lightDark } from "./functions/light-dark";
 import { lineHeight } from "./line-height";
 import { scaleFactor } from "./scale-factor";
 import * as shorthands from "./shorthands";
@@ -40,6 +44,7 @@ export type StyleResolver = (
 const functionResolvers = {
   ...shorthands,
   ...functions,
+  [LIGHT_DARK_FUNCTION]: lightDark,
   lineHeight,
   em,
   rem,
