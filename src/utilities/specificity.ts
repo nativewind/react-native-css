@@ -22,6 +22,12 @@ const Order = Specificity.Order;
 export const inlineSpecificity: SpecificityArray = [];
 inlineSpecificity[Specificity.Inline] = 1;
 
+/** An unset slot ranks as zero, whether it is a hole in memory or the `null` the sheet's JSON transport writes for one. */
+const rank = (spec: SpecificityArray, slot: number): number => spec[slot] || 0;
+
+/** Most significant first. */
+const slots = [Important, Inline, PseudoElements, ClassName, Order];
+
 export const specificityCompareFn = (
   a: StyleRule | InlineStyleRecord,
   b: StyleRule | InlineStyleRecord,
@@ -29,17 +35,12 @@ export const specificityCompareFn = (
   const aSpec = a.s ? a.s : inlineSpecificity;
   const bSpec = b.s ? b.s : inlineSpecificity;
 
-  if (aSpec[Important] !== bSpec[Important]) {
-    return (aSpec[Important] || 0) - (bSpec[Important] || 0);
-  } else if (aSpec[Inline] !== bSpec[Inline]) {
-    return (aSpec[Inline] || 0) - (bSpec[Inline] || 0);
-  } else if (aSpec[PseudoElements] !== bSpec[PseudoElements]) {
-    return (aSpec[PseudoElements] || 0) - (bSpec[PseudoElements] || 0);
-  } else if (aSpec[ClassName] !== bSpec[ClassName]) {
-    return (aSpec[ClassName] || 0) - (bSpec[ClassName] || 0);
-  } else if (aSpec[Order] !== bSpec[Order]) {
-    return (aSpec[Order] || 0) - (bSpec[Order] || 0);
-  } else {
-    return 0;
+  for (const slot of slots) {
+    const difference = rank(aSpec, slot) - rank(bSpec, slot);
+    if (difference !== 0) {
+      return difference;
+    }
   }
+
+  return 0;
 };
