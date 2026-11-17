@@ -80,18 +80,22 @@ export function applyValue(
       target.transform.push(value);
     }
     return;
-  } else if (typeof value === "object" && value && ShortHandSymbol in value) {
-    delete value[ShortHandSymbol];
-    Object.assign(target, value);
-    return;
+  } else if (typeof value === "object" && value) {
+    if (ShortHandSymbol in value) {
+      delete value[ShortHandSymbol];
+      Object.assign(target, value);
+      return;
+    }
+
+    // React Native's list props take a comma-separated list with one-token
+    // items bare. Tested only here, for objects, so a string or number pays
+    // nothing for it: applyValue runs for every dynamic declaration.
+    if (Array.isArray(value[0])) {
+      value = commaListItems(value);
+    }
   }
 
-  // React Native's list props take a comma-separated list with one-token items bare.
-  // The guard is commaListItems' own test, inlined to skip a call on every declaration.
-  target[prop] =
-    Array.isArray(value) && Array.isArray(value[0])
-      ? commaListItems(value)
-      : value;
+  target[prop] = value;
 }
 
 export function setDeepPath(

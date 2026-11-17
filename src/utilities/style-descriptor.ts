@@ -34,7 +34,13 @@ export function isCommaList(value: unknown): value is unknown[][] {
  * is returned as it is.
  */
 export function commaListItems(value: unknown): unknown {
-  return isCommaList(value)
-    ? value.map((item) => (item.length === 1 ? item[0] : item))
-    : value;
+  if (!isCommaList(value)) return value;
+
+  // push, not map() or new Array(n), which Hermes runs slower: React
+  // Native's list props pass through here on every render
+  const items: unknown[] = [];
+  for (const item of value) {
+    items.push(item.length === 1 ? item[0] : item);
+  }
+  return items;
 }
