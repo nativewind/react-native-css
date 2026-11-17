@@ -88,7 +88,13 @@ export const translate: StyleFunctionResolver = (resolveValue, descriptor) => {
 
 /** A comma-separated argument list holds each argument as the array of its tokens */
 function argument(resolveValue: SimpleResolveValue, arg: StyleDescriptor) {
+  // A descriptor, never a resolved value: a style function starts with its {}
+  // marker, so an array of one entry that isn't a plain object is an item.
+  // This skips isStyleFunction's Object.keys, which resolveValue runs anyway
+  const token = Array.isArray(arg) && arg.length === 1 ? arg[0] : undefined;
   return resolveValue(
-    isStyleDescriptorArray(arg) && arg.length === 1 ? arg[0] : arg,
+    token !== undefined && (typeof token !== "object" || Array.isArray(token))
+      ? token
+      : arg,
   );
 }
