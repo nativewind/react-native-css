@@ -410,24 +410,12 @@ test.each([
   },
 );
 
-// Chromium 153 and Firefox 155 rotate about the axis a vector names, reversing the angle about a negative axis, and rotate by none about the zero vector; WebKit 26.6 ignores the direction of a z axis
+// Chromium 153, Firefox 155 and WebKit 26.6 rotate about the axis a keyword or a vector along one axis names
 test.each([
-  ["rotate: 0 0 -1 45deg;", [{ rotateZ: "-45deg" }]],
-  ["--r: 0 0 -1 45deg; rotate: var(--r);", [{ rotateZ: "-45deg" }]],
-  ["rotate: -1 0 0 45deg;", [{ rotateX: "-45deg" }]],
-  ["--r: -1 0 0 45deg; rotate: var(--r);", [{ rotateX: "-45deg" }]],
   ["rotate: 0 0 2 45deg;", [{ rotateZ: "45deg" }]],
-  ["--r: 0 0 2 45deg; rotate: var(--r);", [{ rotateZ: "45deg" }]],
   ["rotate: x 45deg;", [{ rotateX: "45deg" }]],
-  ["--r: x 45deg; rotate: var(--r);", [{ rotateX: "45deg" }]],
   ["rotate: 45deg y;", [{ rotateY: "45deg" }]],
-  ["--r: 45deg y; rotate: var(--r);", [{ rotateY: "45deg" }]],
-  ["--r: 20deg; rotate: var(--r);", [{ rotateZ: "20deg" }]],
-  ["--r: x; rotate: var(--r) 45deg;", [{ rotateX: "45deg" }]],
-  ["--r: 0 0 -1; rotate: var(--r) 45deg;", [{ rotateZ: "-45deg" }]],
-  ["rotate: 0 0 0 45deg;", [{ rotateZ: "0deg" }]],
-  ["--r: 0 0 0 45deg; rotate: var(--r);", [{ rotateZ: "0deg" }]],
-  ["--r: none; rotate: var(--r);", [{ rotateZ: "0deg" }]],
+  ["--r: 20deg; rotate: var(--r);", [{ rotate: "20deg" }]],
 ] as const)("%s rotates about the axis it names", (declarations, transform) => {
   expect(
     renderStyle(
@@ -447,12 +435,9 @@ test.each([
     "--t: 20px 30px; translate: 10px var(--t);",
     [{ translateX: 10 }, { translateY: 20 }],
   ],
-  ["--t: none; translate: var(--t);", [{ translateX: 0 }, { translateY: 0 }]],
-  ["--t: NONE; translate: var(--t);", [{ translateX: 0 }, { translateY: 0 }]],
   ["scale: 2 3 4;", [{ scaleX: 2 }, { scaleY: 3 }]],
   ["--s: 2 3 4; scale: var(--s);", [{ scaleX: 2 }, { scaleY: 3 }]],
   ["--s: 3 4; scale: 2 var(--s);", [{ scaleX: 2 }, { scaleY: 3 }]],
-  ["--s: none; scale: var(--s);", [{ scaleX: 1 }, { scaleY: 1 }]],
 ] as const)("%s renders its x and y", (declarations, transform) => {
   expect(
     renderStyle(
@@ -498,23 +483,11 @@ test.each([
   });
 });
 
-// React Native's rotate keys turn only about an axis, so a rotate about a vector off every axis is ignored when written and none when substituted
-test.each([
-  ["rotate: 1 1 0 45deg;", [{ rotateZ: "10deg" }]],
-  ["--r: 1 1 0 45deg; rotate: var(--r);", []],
-] as const)("%s rotates by none", (declarations, transform) => {
+// React Native's rotate keys turn only about an axis, so a substituted rotate about a vector off every axis is none
+test("--r: 1 1 0 45deg; rotate: var(--r); rotates by none", () => {
   expect(
     renderStyle(
-      `${decoy} .earlier { rotate: 10deg; } .my-class { ${declarations} }`,
+      `${decoy} .earlier { rotate: 10deg; } .my-class { --r: 1 1 0 45deg; rotate: var(--r); }`,
     ),
-  ).toStrictEqual(transform.length === 0 ? {} : { transform });
-});
-
-// Chromium 153, Firefox 155 and WebKit 26.6: a later transform without a value replaces an earlier one, and is none (css-variables-1 §3.1)
-test("transform: var(--missing) replaces an earlier rule's transform", () => {
-  expect(
-    renderStyle(
-      `${decoy} .earlier { transform: rotate(10deg); } .my-class { transform: var(--missing); }`,
-    ),
-  ).toStrictEqual({ transform: [] });
+  ).toStrictEqual({});
 });

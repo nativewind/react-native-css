@@ -36,7 +36,7 @@ import type {
   UnresolvedColor,
 } from "lightningcss";
 
-import { isStyleFunction, negateAngle, rotationAxis } from "../utilities";
+import { isStyleFunction } from "../utilities";
 import { isMappingProperty } from "./atRules";
 import type {
   StyleDescriptor,
@@ -102,9 +102,8 @@ const unparsedRuntimeParsing = new Set([
   "translate",
 ]);
 
-// css-transforms-2 §3: the individual transform properties each have a grammar of their own, which the transform function of the same name does not share
+// css-transforms-2 §3: the translate and scale properties take an optional z, which the functions of the same name do not
 const INDIVIDUAL_TRANSFORM_RESOLVERS: ReadonlyMap<string, string> = new Map([
-  ["rotate", "individualRotate"],
   ["scale", "individualScale"],
   ["translate", "individualTranslate"],
 ]);
@@ -836,50 +835,35 @@ function parseRotate(
   { value }: DeclarationType<"rotate">,
   builder: StylesheetBuilder,
 ) {
-  const rotation = rotationAxis(value.x, value.y, value.z);
+  const angle = parseAngle(value.angle, builder);
+  const rotations: TransformFunction[] = [];
 
-  switch (rotation.type) {
-    case "none":
-      builder.addDescriptor("rotate", [{}, "rotateZ", "0deg"]);
-      return;
-    case "axis": {
-      const angle = parseAngle(value.angle, builder);
-
-      if (angle !== undefined) {
-        builder.addDescriptor("rotate", [
-          {},
-          rotation.rotation,
-          rotation.reversed ? negateAngle(angle) : angle,
-        ]);
-      }
-      return;
-    }
-    // React Native's rotate keys turn only about an axis, so a vector off every axis has none to take it
-    case "oblique":
-      builder.addWarning(
-        "value",
-        `${value.x} ${value.y} ${value.z} ${value.angle.value}${value.angle.type}`,
-      );
-      return;
-    default:
-      rotation satisfies never;
+  if (value.x) {
+    rotations.push([{}, "rotateX", angle]);
   }
+
+  if (value.y) {
+    rotations.push([{}, "rotateY", angle]);
+  }
+
+  if (value.z) {
+    rotations.push([{}, "rotateZ", angle]);
+  }
+
+  if (hasUnconvertibleArgument(rotations)) {
+    return;
+  }
+
+  builder.addDescriptor(
+    "rotate",
+    rotations.length === 1 ? rotations[0] : rotations,
+  );
 }
 
 function parseScale(
   { value }: DeclarationType<"scale">,
   builder: StylesheetBuilder,
 ) {
-  // React Native has no z axis to scale along, and lightningcss holds a percentage as its fraction
-  if (value !== "none" && value.z.value !== 1) {
-    builder.addWarning(
-      "value",
-      value.z.type === "percentage"
-        ? `${round(value.z.value * 100)}%`
-        : `${round(value.z.value)}`,
-    );
-  }
-
   builder.addDescriptor("scale", [
     [{}, "scaleX", parseScaleValue(value, "x", builder)],
     [{}, "scaleY", parseScaleValue(value, "y", builder)],
