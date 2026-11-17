@@ -601,6 +601,7 @@ test("@property with a comma-separated repeated value keeps each item apart", ()
 }
 `);
 
-  const vrMap = new Map(compiled.stylesheet().vr);
-  expect(vrMap.get("my-offsets")).toStrictEqual([[[[10], [20]]]]);
+  expect(compiled.stylesheet().vp).toStrictEqual([
+    ["my-offsets", false, [[10], [20]]],
+  ]);
 });
