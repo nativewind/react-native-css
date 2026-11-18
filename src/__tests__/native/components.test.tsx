@@ -92,6 +92,16 @@ test("nativeStyleMapping with boolean true works alongside other styles", () => 
   expect(component.props.style).toStrictEqual({ color: "#f00" });
 });
 
+test("nativeStyleMapping with boolean true takes an !important class's value over the element's", () => {
+  registerCSS(`.text-center { text-align: center !important; }`);
+
+  const component = render(
+    <TextInput testID={testID} className="text-center" textAlign="left" />,
+  ).getByTestId(testID);
+
+  expect(component.props.textAlign).toBe("center");
+});
+
 test("nativeStyleMapping with boolean true on custom component", () => {
   registerCSS(`.text-right { text-align: right; }`);
 
