@@ -160,6 +160,19 @@ function composeTransforms(
   records: readonly TransformRecord[],
   resolve: (value: StyleDescriptor) => unknown,
 ) {
+  // One declaration, the usual case, has nothing to compose with
+  if (records.length === 1) {
+    const record = records[0]!;
+    const resolved = resolve(record.value);
+
+    if (resolved !== undefined && resolved !== null) {
+      const composed: unknown[] = [];
+      pushEntries(composed, resolved);
+      record.target.transform = composed;
+    }
+    return;
+  }
+
   // Almost always one group, so a scan beats keying a Map by path
   const groups: TransformGroup[] = [];
 
