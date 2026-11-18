@@ -1,6 +1,7 @@
+import type { StyleDescriptor } from "react-native-css/compiler";
 import { isStyleDescriptorArray } from "react-native-css/utilities";
 
-import type { StyleFunctionResolver } from "../resolve";
+import type { SimpleResolveValue, StyleFunctionResolver } from "../resolve";
 import { scaleFactor } from "../scale-factor";
 
 export const scale: StyleFunctionResolver = (resolveValue, descriptor) => {
@@ -10,8 +11,8 @@ export const scale: StyleFunctionResolver = (resolveValue, descriptor) => {
     return { scale: scaleFactor(resolveValue(args)) };
   }
 
-  const x = scaleFactor(resolveValue(args[0]));
-  const y = scaleFactor(resolveValue(args[1]));
+  const x = scaleFactor(argument(resolveValue, args[0]));
+  const y = scaleFactor(argument(resolveValue, args[1]));
 
   const isXValid = typeof x === "string" || typeof x === "number";
   const isYValid = typeof y === "string" || typeof y === "number";
@@ -34,9 +35,9 @@ export const rotate: StyleFunctionResolver = (resolveValue, descriptor) => {
     return { rotate: resolveValue(args) };
   }
 
-  const x = resolveValue(args[0]);
-  const y = resolveValue(args[1]);
-  const z = resolveValue(args[2]);
+  const x = argument(resolveValue, args[0]);
+  const y = argument(resolveValue, args[1]);
+  const z = argument(resolveValue, args[2]);
 
   const isXValid = typeof x === "string" || typeof x === "number";
   const isYValid = typeof y === "string" || typeof y === "number";
@@ -68,8 +69,8 @@ export const translate: StyleFunctionResolver = (resolveValue, descriptor) => {
     return;
   }
 
-  const x = resolveValue(args[0]);
-  const y = resolveValue(args[1]);
+  const x = argument(resolveValue, args[0]);
+  const y = argument(resolveValue, args[1]);
 
   const isXValid = typeof x === "string" || typeof x === "number";
   const isYValid = typeof y === "string" || typeof y === "number";
@@ -84,3 +85,16 @@ export const translate: StyleFunctionResolver = (resolveValue, descriptor) => {
 
   return;
 };
+
+/** A comma-separated argument list holds each argument as the array of its tokens */
+function argument(resolveValue: SimpleResolveValue, arg: StyleDescriptor) {
+  // A descriptor, never a resolved value: a style function starts with its {}
+  // marker, so an array of one entry that isn't a plain object is an item.
+  // This skips isStyleFunction's Object.keys, which resolveValue runs anyway
+  const token = Array.isArray(arg) && arg.length === 1 ? arg[0] : undefined;
+  return resolveValue(
+    token !== undefined && (typeof token !== "object" || Array.isArray(token))
+      ? token
+      : arg,
+  );
+}

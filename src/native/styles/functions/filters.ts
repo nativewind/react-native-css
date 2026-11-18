@@ -102,7 +102,8 @@ export const dropShadow: StyleFunctionResolver = (
 export const filter: StyleFunctionResolver = (resolveValue, descriptor) => {
   const value: unknown = resolveValue(descriptor[2]);
   if (Array.isArray(value)) {
-    const filters: unknown[] = value.flat(Infinity);
+    // resolveValue splices a var() in, so only a comma-separated list nests
+    const filters: unknown[] = Array.isArray(value[0]) ? value.flat() : value;
     return filters.filter(
       (entry) => entry !== undefined && entry !== "initial",
     );

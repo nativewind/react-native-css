@@ -1,9 +1,11 @@
 import { PixelRatio, PlatformColor, StyleSheet } from "react-native";
 
+import { commaListItems } from "react-native-css/utilities";
+
 import type { StyleFunctionResolver } from "../resolve";
 
 export const platformColor: StyleFunctionResolver = (resolveValue, value) => {
-  const color: unknown = resolveValue(value[2]);
+  const color: unknown = commaListItems(resolveValue(value[2]));
   if (Array.isArray(color)) {
     return PlatformColor(...(color as string[]));
   } else if (typeof color === "string") {

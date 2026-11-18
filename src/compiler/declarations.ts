@@ -1106,8 +1106,9 @@ export function reduceParseUnparsed(
     }
   }
 
-  // Groups are the tokens grouped together by comma location
-  // If a group only has 1 item, it shouldn't be an array
+  // Groups are the tokens grouped together by comma location. Each stays an
+  // array, so a one-token item of a comma-separated list stays distinct from
+  // a token of a space-separated one (css-variables-1 §2.1)
   groups = groups.flatMap((group): StyleDescriptor[] => {
     if (!Array.isArray(group)) {
       return [];
@@ -1121,7 +1122,7 @@ export function reduceParseUnparsed(
       if (first === undefined) {
         return [];
       } else {
-        return [first];
+        return [[first]];
       }
     } else if (
       // This is a special case for <ratio> values
@@ -1133,13 +1134,19 @@ export function reduceParseUnparsed(
       )
     ) {
       // eslint-disable-next-line @typescript-eslint/no-base-to-string
-      return [group.join(" ")];
+      return [[group.join(" ")]];
     } else {
       return [group];
     }
   });
 
-  return groups.length === 1 ? groups[0] : groups;
+  if (groups.length !== 1) {
+    return groups;
+  }
+
+  // A lone group is the value, and a lone token the group
+  const group = groups[0] as StyleDescriptor[];
+  return group.length === 1 ? group[0] : group;
 }
 
 export function unparsedFunction(
@@ -2936,10 +2943,10 @@ export function parseUnresolvedColor(
         {},
         "rgba",
         [
-          round(color.r * 255),
-          round(color.g * 255),
-          round(color.b * 255),
-          parseUnparsed(color.alpha, builder, property),
+          [round(color.r * 255)],
+          [round(color.g * 255)],
+          [round(color.b * 255)],
+          [parseUnparsed(color.alpha, builder, property)],
         ],
       ];
     case "hsl":
@@ -2947,10 +2954,10 @@ export function parseUnresolvedColor(
         {},
         color.type,
         [
-          color.h,
-          color.s,
-          color.l,
-          parseUnparsed(color.alpha, builder, property),
+          [color.h],
+          [color.s],
+          [color.l],
+          [parseUnparsed(color.alpha, builder, property)],
         ],
       ];
     case "light-dark": {
@@ -3220,8 +3227,8 @@ function parseGradient(
         {},
         "linear-gradient",
         [
-          parseLineDirection(gradient.direction, builder),
-          ...gradient.items.map((item) => parseGradientItem(item, builder)),
+          [parseLineDirection(gradient.direction, builder)],
+          ...gradient.items.map((item) => [parseGradientItem(item, builder)]),
         ],
       ];
     }

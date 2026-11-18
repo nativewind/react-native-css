@@ -1,4 +1,6 @@
 /* eslint-disable */
+import { commaListItems } from "react-native-css/utilities";
+
 import { ShortHandSymbol } from "../native/styles/constants";
 import { transformKeys } from "../native/styles/defaults";
 
@@ -78,10 +80,19 @@ export function applyValue(
       target.transform.push(value);
     }
     return;
-  } else if (typeof value === "object" && value && ShortHandSymbol in value) {
-    delete value[ShortHandSymbol];
-    Object.assign(target, value);
-    return;
+  } else if (typeof value === "object" && value) {
+    if (ShortHandSymbol in value) {
+      delete value[ShortHandSymbol];
+      Object.assign(target, value);
+      return;
+    }
+
+    // React Native's list props take a comma-separated list with one-token
+    // items bare. Tested only here, for objects, so a string or number pays
+    // nothing for it: applyValue runs for every dynamic declaration.
+    if (Array.isArray(value[0])) {
+      value = commaListItems(value);
+    }
   }
 
   target[prop] = value;
