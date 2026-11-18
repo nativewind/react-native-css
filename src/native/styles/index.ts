@@ -360,7 +360,7 @@ function deepMergeConfig(
       config.target[0] === "style"
     ) {
       // Special handling for style target when we have inline styles
-      result = { ...left, ...right };
+      result = mergeDefinedProps(left, right);
 
       // Handle null/undefined inline styles
       if (right?.style === null || right?.style === undefined) {
