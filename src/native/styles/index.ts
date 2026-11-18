@@ -356,6 +356,20 @@ function mergeDefinedProps(
   return result;
 }
 
+type StyleCallback = (state: unknown) => unknown;
+
+function isStyleCallback(value: unknown): value is StyleCallback {
+  return typeof value === "function";
+}
+
+// Pressable calls a function style with its pressed state, so a merge keeps a callback a callback
+function composeStyleCallback(left: unknown, right: unknown): StyleCallback {
+  return (state) => [
+    isStyleCallback(left) ? left(state) : left,
+    isStyleCallback(right) ? right(state) : right,
+  ];
+}
+
 function deepMergeConfig(
   config: Config,
   left: Record<string, any> | undefined,
@@ -382,50 +396,12 @@ function deepMergeConfig(
         if (left?.style) {
           result.style = left.style;
         }
-      } else if (rightIsInline && right?.style) {
-        // Filter inline styles if rightIsInline is true
-        const filteredRightStyle = filterCssVariables(right.style);
-
-        if (left?.style) {
-          if (!filteredRightStyle) {
-            // All inline styles were CSS variables, only use left
-            result.style = left.style;
-          } else {
-            const leftStyle = left.style;
-
-            // For arrays or objects, check if we need to create a style array
-            const leftIsObject =
-              typeof leftStyle === "object" && !Array.isArray(leftStyle);
-            const rightIsObject =
-              typeof filteredRightStyle === "object" &&
-              !Array.isArray(filteredRightStyle);
-
-            if (leftIsObject && rightIsObject) {
-              if (hasNonOverlappingProperties(leftStyle, filteredRightStyle)) {
-                result.style = [leftStyle, filteredRightStyle];
-              } else {
-                // All left properties are in right, right overrides
-                result.style = filteredRightStyle;
-              }
-            } else {
-              // One or both are arrays, merge them
-              result.style = [leftStyle, filteredRightStyle];
-            }
-          }
-        } else {
-          // No left style, just use filtered right
-          if (filteredRightStyle) {
-            result.style = filteredRightStyle;
-          } else {
-            // All filtered out, remove style prop
-            delete result.style;
-          }
-        }
       } else if (!rightIsInline && right?.style) {
         // Merging non-inline styles (e.g., important styles)
         if (left?.style) {
-          // If left.style is an array, append right.style
-          if (Array.isArray(left.style)) {
+          if (isStyleCallback(left.style) || isStyleCallback(right.style)) {
+            result.style = composeStyleCallback(left.style, right.style);
+          } else if (Array.isArray(left.style)) {
             const combined = [...left.style, right.style];
             result.style = flattenStyleArray(combined);
           } else if (
@@ -503,7 +479,9 @@ function deepMergeConfig(
           typeof rightValue === "object" &&
           rightValue !== null &&
           !Array.isArray(rightValue);
-        if (leftIsObj && rightIsObj) {
+        if (isStyleCallback(leftValue) || isStyleCallback(rightValue)) {
+          result[finalKey] = composeStyleCallback(leftValue, rightValue);
+        } else if (leftIsObj && rightIsObj) {
           if (hasNonOverlappingProperties(leftValue, rightValue)) {
             result[finalKey] = [leftValue, rightValue];
           } else {
@@ -536,8 +514,14 @@ function deepMergeConfig(
   }
 
   if (rightValue !== undefined) {
-    result[target] =
-      left && target in left ? [left[target], rightValue] : rightValue;
+    if (left && target in left) {
+      result[target] =
+        isStyleCallback(left[target]) || isStyleCallback(rightValue)
+          ? composeStyleCallback(left[target], rightValue)
+          : [left[target], rightValue];
+    } else {
+      result[target] = rightValue;
+    }
   }
 
   return result;
