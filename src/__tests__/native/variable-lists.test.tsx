@@ -397,9 +397,9 @@ test.each<[string, readonly unknown[], readonly unknown[]]>([
 
 test.each<[string, StyleDescriptor, unknown]>([
   [
-    "rotate() over three comma-separated arguments",
-    [{}, "rotate", [["10deg"], ["20deg"], ["30deg"]]],
-    [{ rotateX: "10deg" }, { rotateY: "20deg" }, { rotateZ: "30deg" }],
+    "translate() over two comma-separated arguments",
+    [{}, "translate", [[10], [20]]],
+    [{ translateX: 10 }, { translateY: 20 }],
   ],
   ["join() over one value", [{}, "join", "#123"], "#123"],
 ])("%s reads each argument", (_, descriptor, expected) => {

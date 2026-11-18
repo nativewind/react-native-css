@@ -2,7 +2,6 @@
 import { commaListItems } from "react-native-css/utilities";
 
 import { ShortHandSymbol } from "../native/styles/constants";
-import { transformKeys } from "../native/styles/defaults";
 
 export function getDeepPath(source: any, paths: string | string[] | false) {
   if (!source) {
@@ -25,10 +24,6 @@ export function getDeepPath(source: any, paths: string | string[] | false) {
     }
 
     return target;
-  } else if (transformKeys.has(paths)) {
-    return Array.isArray(source?.transform)
-      ? source.transform.find((t: any) => t[paths] !== undefined)
-      : source.transform;
   } else {
     return source?.[paths];
   }
@@ -64,23 +59,7 @@ export function applyValue(
     value = undefined;
   }
 
-  if (transformKeys.has(prop)) {
-    if (!Array.isArray(target.transform)) {
-      target.transform = [];
-    }
-
-    const transformArray: Record<string, unknown>[] = target.transform;
-
-    // Remove any existing values
-    target.transform = transformArray.filter((t) => !(prop in t));
-
-    if (Array.isArray(value)) {
-      target.transform.push(...value);
-    } else {
-      target.transform.push(value);
-    }
-    return;
-  } else if (typeof value === "object" && value) {
+  if (typeof value === "object" && value) {
     if (ShortHandSymbol in value) {
       delete value[ShortHandSymbol];
       Object.assign(target, value);

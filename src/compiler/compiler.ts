@@ -5,6 +5,7 @@ import { debug } from "debug";
 import {
   type ContainerRule,
   type CustomAtRules,
+  type Declaration,
   type MediaRule,
   type ParsedComponent,
   type PropertyRule,
@@ -34,6 +35,7 @@ import {
   reduceParseUnparsed,
   round,
 } from "./declarations";
+import { unparseIndividualTransform } from "./individual-transforms";
 import { inlineVariables } from "./inline-variables";
 import { extractKeyFrames } from "./keyframes";
 import { lightningcssLoader } from "./lightningcss-loader";
@@ -190,10 +192,12 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
     };
   }
 
+  let countVariable: ((decl: Declaration) => void) | undefined;
+
   if (options.inlineVariables !== false) {
     const exclusionList: string[] = options.inlineVariables?.exclude ?? [];
 
-    firstPassVisitor.Declaration = (decl) => {
+    countVariable = (decl) => {
       if (
         decl.property === "custom" &&
         decl.value.name.startsWith("--") &&
@@ -211,6 +215,11 @@ export function compile(code: Buffer | string, options: CompilerOptions = {}) {
       }
     };
   }
+
+  firstPassVisitor.Declaration = (decl) => {
+    countVariable?.(decl);
+    return unparseIndividualTransform(decl);
+  };
 
   const { code: firstPass, warnings: firstPassWarnings } = lightningcss({
     code: typeof code === "string" ? new TextEncoder().encode(code) : code,
