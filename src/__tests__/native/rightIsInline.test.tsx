@@ -9,6 +9,8 @@
  * runtime behavior with intentionally malformed data.
  */
 
+import { StyleSheet } from "react-native";
+
 import { render } from "@testing-library/react-native";
 import { Text } from "react-native-css/components/Text";
 import { View } from "react-native-css/components/View";
@@ -576,8 +578,8 @@ describe("rightIsInline - Important Style Interactions", () => {
       />,
     ).getByTestId(testID);
 
-    // Important overrides, VAR_SYMBOL filtered, literal kept
-    expect(component.props.style).toEqual({
+    // Important overrides, VAR_SYMBOL filtered, literal kept; the inline style stays a layer of its own
+    expect(StyleSheet.flatten(component.props.style)).toEqual({
       color: "#f00",
       fontSize: 12,
       lineHeight: 24,
@@ -604,13 +606,14 @@ describe("rightIsInline - Important Style Interactions", () => {
       <Text testID={testID} className="important-multi" style={inlineStyle} />,
     ).getByTestId(testID);
 
-    // All important properties override inline
-    expect(component.props.style).toEqual({
+    // All important properties override inline, which stays a layer of its own
+    expect(StyleSheet.flatten(component.props.style)).toEqual({
       color: "#f00",
       fontSize: 14,
       fontWeight: "bold",
       lineHeight: 24,
     });
+    expect(component.props.style).toContain(inlineStyle);
   });
 });
 
