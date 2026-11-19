@@ -80,17 +80,13 @@ function filterCssVariables(value: any, depth = 0): any | undefined {
     return value;
   }
 
-  // If the object itself has VAR_SYMBOL, filter it out (check own property only)
-  if (Object.prototype.hasOwnProperty.call(value, VAR_SYMBOL)) {
-    return undefined;
-  }
-
   // Nothing is copied until a CSS variable is found, so an inline style keeps its identity, as an animated style's handle needs
   if (Array.isArray(value)) {
     let filtered: any[] | undefined;
     for (let index = 0; index < value.length; index++) {
       const item = value[index];
       const kept = filterCssVariables(item, depth + 1);
+      // No copy yet: skip unchanged items, then copy them all with the slice once one changes
       if (filtered === undefined) {
         if (kept === item) continue;
         filtered = value.slice(0, index);
@@ -99,6 +95,11 @@ function filterCssVariables(value: any, depth = 0): any | undefined {
     }
     if (filtered === undefined) return value;
     return filtered.length > 0 ? filtered : undefined;
+  }
+
+  // If the object itself has VAR_SYMBOL, filter it out (check own property only)
+  if (Object.prototype.hasOwnProperty.call(value, VAR_SYMBOL)) {
+    return undefined;
   }
 
   // A class instance, such as an Animated.Value, passes as it is: a plain copy detaches it from its animation
@@ -114,8 +115,10 @@ function filterCssVariables(value: any, depth = 0): any | undefined {
     const key = keys[index] as string;
     const item = value[key];
     const kept = filterCssVariables(item, depth + 1);
+    // No copy yet: skip unchanged keys, then copy them all below once one changes
     if (filtered === undefined) {
       if (kept === item) continue;
+      // Objects have no slice: copy the unchanged keys before this one, performantly / avoiding allocations
       filtered = {};
       for (let earlier = 0; earlier < index; earlier++) {
         const earlierKey = keys[earlier] as string;
@@ -124,9 +127,12 @@ function filterCssVariables(value: any, depth = 0): any | undefined {
     }
     if (kept !== undefined) filtered[key] = kept;
   }
+
   // A style object with no string keys, such as {}, adds nothing, as before
-  if (filtered === undefined)
+  if (filtered === undefined) {
     return depth === 0 && keys.length === 0 ? undefined : value;
+  }
+
   for (const _ in filtered) return filtered;
   return undefined;
 }
