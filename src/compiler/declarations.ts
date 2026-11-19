@@ -2798,14 +2798,19 @@ export function parseColorMix(
     return;
   }
 
-  // Optional weights must not leave undefined array entries: Metro serializes
-  // them as null, which the native colorMix resolver cannot consume.
-  const args: StyleDescriptor[] = [colorSpaceArg, leftColorArg];
-  if (leftColorPercentage !== undefined) args.push(leftColorPercentage);
-  args.push(rightColorArg);
-  if (rightColorPercentage !== undefined) args.push(rightColorPercentage);
-
-  return [{}, "colorMix", args];
+  return [
+    {},
+    "colorMix",
+    // Omitted weights must not leave holes: Metro serializes them as null,
+    // which the native resolver rejects.
+    [
+      colorSpaceArg,
+      leftColorArg,
+      leftColorPercentage,
+      rightColorArg,
+      rightColorPercentage,
+    ].filter((arg) => arg !== undefined),
+  ];
 }
 
 export function parseCalcArguments(
