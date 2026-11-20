@@ -2801,13 +2801,15 @@ export function parseColorMix(
   return [
     {},
     "colorMix",
+    // Omitted weights must not leave holes: Metro serializes them as null,
+    // which the native resolver rejects.
     [
       colorSpaceArg,
       leftColorArg,
       leftColorPercentage,
       rightColorArg,
       rightColorPercentage,
-    ],
+    ].filter((arg) => arg !== undefined),
   ];
 }
 
