@@ -146,30 +146,35 @@ function parseComponents(
     case "pseudo-class": {
       switch (component.kind) {
         case "hover": {
+          attachContainerQuery(root, ref);
           getPseudoClassesQuery(ref).h = 1;
           specificity[Specificity.PseudoClass] =
             (specificity[Specificity.PseudoClass] ?? 0) + 1;
           return parseComponents(rest, options, root, ref, specificity);
         }
         case "active": {
+          attachContainerQuery(root, ref);
           getPseudoClassesQuery(ref).a = 1;
           specificity[Specificity.PseudoClass] =
             (specificity[Specificity.PseudoClass] ?? 0) + 1;
           return parseComponents(rest, options, root, ref, specificity);
         }
         case "focus": {
+          attachContainerQuery(root, ref);
           getPseudoClassesQuery(ref).f = 1;
           specificity[Specificity.PseudoClass] =
             (specificity[Specificity.PseudoClass] ?? 0) + 1;
           return parseComponents(rest, options, root, ref, specificity);
         }
         case "disabled": {
+          attachContainerQuery(root, ref);
           getAttributeQuery(ref).push(["a", "disabled"]);
           specificity[Specificity.PseudoClass] =
             (specificity[Specificity.PseudoClass] ?? 0) + 1;
           return parseComponents(rest, options, root, ref, specificity);
         }
         case "empty": {
+          attachContainerQuery(root, ref);
           getAttributeQuery(ref).push(["a", "children", "!"]);
           specificity[Specificity.PseudoClass] =
             (specificity[Specificity.PseudoClass] ?? 0) + 1;
@@ -306,6 +311,7 @@ function parseComponents(
             }
           }
         }
+        attachContainerQuery(root, ref);
         getAttributeQuery(ref).push(attributeQuery);
         specificity[Specificity.ClassName] =
           (specificity[Specificity.ClassName] ?? 0) + 1;
@@ -330,16 +336,7 @@ function parseComponents(
           component.name,
         ]);
       } else {
-        let containerQueries = containerQueryMap.get(root);
-        if (!containerQueries) {
-          containerQueries = [];
-          root.containerQuery = containerQueries;
-          containerQueryMap.set(root, containerQueries);
-        }
-        if (!ref.n) {
-          containerQueries.unshift(ref);
-        }
-
+        attachContainerQuery(root, ref);
         ref.n = ref.n ? `${ref.n}.${component.name}` : `g:${component.name}`;
       }
 
@@ -530,6 +527,27 @@ function isContainerQuery(
   value: PartialSelector | ContainerQuery,
 ): value is ContainerQuery {
   return !("type" in value);
+}
+
+// Every condition in an ancestor's compound must hold (Selectors 4 §14.1), whether or not the compound names a class
+function attachContainerQuery(
+  root: PartialSelector,
+  ref: PartialSelector | ContainerQuery,
+): void {
+  if (!isContainerQuery(ref)) {
+    return;
+  }
+
+  let containerQueries = containerQueryMap.get(root);
+  if (!containerQueries) {
+    containerQueries = [];
+    root.containerQuery = containerQueries;
+    containerQueryMap.set(root, containerQueries);
+  }
+
+  if (!containerQueries.includes(ref)) {
+    containerQueries.unshift(ref);
+  }
 }
 
 function getPseudoClassesQuery(key: PartialSelector | ContainerQuery) {
