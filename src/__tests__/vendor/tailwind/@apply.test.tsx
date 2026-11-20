@@ -20,8 +20,8 @@ test("@apply", async () => {
     borderRadius: 7,
     color: "#fff",
     fontWeight: 600,
-    paddingBlock: 7,
-    paddingInline: 14,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
     boxShadow: [
       {
         offsetX: 0,
