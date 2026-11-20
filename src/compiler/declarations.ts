@@ -79,14 +79,16 @@ const propertyRename: Record<string, string> = {
   "padding-inline": "padding-horizontal",
 };
 
-// React Native has one borderStyle for the whole border, so a per-edge style has no native equivalent; "solid" is its default
-const unsupportedEdgeStyles = new Set([
-  "border-block-style",
-  "border-block-start-style",
-  "border-block-end-style",
+// React Native only supports a uniform borderStyle, so per-side border
+// styles have no native equivalent and are dropped. "solid" is dropped
+// silently as it matches React Native's default rendering.
+const unsupportedLogicalStyles = new Set([
   "border-inline-style",
   "border-inline-start-style",
   "border-inline-end-style",
+  "border-block-style",
+  "border-block-start-style",
+  "border-block-end-style",
 ]);
 
 // One key set per property, so a later declaration replaces an earlier one; Android and iOS rank borderBlockColor against borderTopColor oppositely
@@ -148,13 +150,13 @@ const parsers: {
   "border-block-color": parseBorderColor,
   "border-block-end": parseBorderBlockEnd,
   "border-block-end-color": parseColorDeclaration,
-  "border-block-end-style": parseUnsupportedEdgeStyle,
+  "border-block-end-style": parseBorderInlineStyle,
   "border-block-end-width": parseBorderSideWidthDeclaration,
   "border-block-start": parseBorderBlockStart,
   "border-block-start-color": parseColorDeclaration,
-  "border-block-start-style": parseUnsupportedEdgeStyle,
+  "border-block-start-style": parseBorderInlineStyle,
   "border-block-start-width": parseBorderSideWidthDeclaration,
-  "border-block-style": parseUnsupportedEdgeStyle,
+  "border-block-style": parseBorderBlockStyle,
   "border-block-width": parseBorderBlockWidth,
   "border-bottom": parseBorderSide,
   "border-bottom-color": parseColorDeclaration,
@@ -169,13 +171,13 @@ const parsers: {
   "border-inline-color": parseBorderColor,
   "border-inline-end": parseBorderInlineEnd,
   "border-inline-end-color": parseColorDeclaration,
-  "border-inline-end-style": parseUnsupportedEdgeStyle,
+  "border-inline-end-style": parseBorderInlineStyle,
   "border-inline-end-width": parseBorderSideWidthDeclaration,
   "border-inline-start": parseBorderInlineStart,
   "border-inline-start-color": parseColorDeclaration,
-  "border-inline-start-style": parseUnsupportedEdgeStyle,
+  "border-inline-start-style": parseBorderInlineStyle,
   "border-inline-start-width": parseBorderSideWidthDeclaration,
-  "border-inline-style": parseUnsupportedEdgeStyle,
+  "border-inline-style": parseBorderInlineStyle,
   "border-inline-width": parseBorderInlineWidth,
   "border-left": parseBorderSide,
   "border-left-color": parseColorDeclaration,
@@ -503,7 +505,7 @@ function parseBorderBlock(
   builder.addDescriptor(blockColorEdges[1], color);
   builder.addDescriptor("border-top-width", width);
   builder.addDescriptor("border-bottom-width", width);
-  dropUnsupportedEdgeStyle(
+  dropUnsupportedInlineStyle(
     parseBorderStyle(value.style, builder),
     builder,
     "border-block-style",
@@ -522,7 +524,7 @@ function parseBorderBlockStart(
     "border-top-width",
     parseBorderSideWidth(value.width, builder),
   );
-  dropUnsupportedEdgeStyle(
+  dropUnsupportedInlineStyle(
     parseBorderStyle(value.style, builder),
     builder,
     "border-block-start-style",
@@ -541,7 +543,7 @@ function parseBorderBlockEnd(
     "border-bottom-width",
     parseBorderSideWidth(value.width, builder),
   );
-  dropUnsupportedEdgeStyle(
+  dropUnsupportedInlineStyle(
     parseBorderStyle(value.style, builder),
     builder,
     "border-block-end-style",
@@ -559,7 +561,7 @@ function parseBorderInline(
   builder.addDescriptor(inlineColorEdges[1], color);
   builder.addDescriptor("border-start-width", width);
   builder.addDescriptor("border-end-width", width);
-  dropUnsupportedEdgeStyle(
+  dropUnsupportedInlineStyle(
     parseBorderStyle(value.style, builder),
     builder,
     "border-inline-style",
@@ -578,7 +580,7 @@ function parseBorderInlineStart(
     "border-start-width",
     parseBorderSideWidth(value.width, builder),
   );
-  dropUnsupportedEdgeStyle(
+  dropUnsupportedInlineStyle(
     parseBorderStyle(value.style, builder),
     builder,
     "border-inline-start-style",
@@ -597,7 +599,7 @@ function parseBorderInlineEnd(
     "border-end-width",
     parseBorderSideWidth(value.width, builder),
   );
-  dropUnsupportedEdgeStyle(
+  dropUnsupportedInlineStyle(
     parseBorderStyle(value.style, builder),
     builder,
     "border-inline-end-style",
@@ -618,45 +620,37 @@ export function parseBorderInlineWidth(
   );
 }
 
-// React Native has no per-edge border style, so each of the six longhands drops and its warning names the edge
-function parseUnsupportedEdgeStyle(
+export function parseBorderInlineStyle(
   declaration: DeclarationType<
-    | "border-block-style"
-    | "border-block-start-style"
-    | "border-block-end-style"
     | "border-inline-style"
     | "border-inline-start-style"
     | "border-inline-end-style"
+    | "border-block-start-style"
+    | "border-block-end-style"
   >,
   builder: StylesheetBuilder,
 ) {
   if (typeof declaration.value === "string") {
-    dropUnsupportedEdgeStyle(
+    dropUnsupportedInlineStyle(
       parseBorderStyle(declaration.value, builder),
       builder,
       declaration.property,
     );
-    return;
+  } else {
+    dropUnsupportedInlineStyle(
+      parseBorderStyle(declaration.value.start, builder),
+      builder,
+      "border-inline-start-style",
+    );
+    dropUnsupportedInlineStyle(
+      parseBorderStyle(declaration.value.end, builder),
+      builder,
+      "border-inline-end-style",
+    );
   }
-
-  const [startProperty, endProperty] =
-    declaration.property === "border-block-style"
-      ? (["border-block-start-style", "border-block-end-style"] as const)
-      : (["border-inline-start-style", "border-inline-end-style"] as const);
-
-  dropUnsupportedEdgeStyle(
-    parseBorderStyle(declaration.value.start, builder),
-    builder,
-    startProperty,
-  );
-  dropUnsupportedEdgeStyle(
-    parseBorderStyle(declaration.value.end, builder),
-    builder,
-    endProperty,
-  );
 }
 
-function dropUnsupportedEdgeStyle(
+function dropUnsupportedInlineStyle(
   style: string | undefined,
   builder: StylesheetBuilder,
   property: string,
@@ -998,8 +992,8 @@ export function parseUnparsedDeclaration(
     return;
   }
 
-  // A var() keeps the value unknown, and an unknown value is not a known non-solid one, so it drops as quietly as solid
-  if (unsupportedEdgeStyles.has(property)) {
+  if (unsupportedLogicalStyles.has(property)) {
+    builder.addWarning("property", property);
     return;
   }
 
@@ -1038,11 +1032,6 @@ export function parseUnparsedDeclaration(
 
   if (unparsedRuntimeParsing.has(property)) {
     const args = parseUnparsed(declaration.value.value, builder, property);
-
-    // A value that compiled to nothing declares nothing, and its warning names it
-    if (args === undefined) {
-      return;
-    }
 
     if (property === "animation") {
       builder.addDescriptor("animation", [{}, property, args]);
@@ -2285,14 +2274,22 @@ export function parseBorderBlockWidth(
   declaration: DeclarationType<"border-block-width">,
   builder: StylesheetBuilder,
 ) {
-  builder.addDescriptor(
-    "border-top-width",
-    parseBorderSideWidth(declaration.value.start, builder),
-  );
-  builder.addDescriptor(
-    "border-bottom-width",
-    parseBorderSideWidth(declaration.value.end, builder),
-  );
+  const start = parseBorderSideWidth(declaration.value.start, builder);
+  const end = parseBorderSideWidth(declaration.value.end, builder);
+
+  builder.addDescriptor("border-top-width", start);
+  builder.addDescriptor("border-bottom-width", end);
+}
+
+function parseBorderBlockStyle(
+  declaration: DeclarationType<"border-block-style">,
+  builder: StylesheetBuilder,
+) {
+  const start = parseBorderStyle(declaration.value.start, builder);
+  const end = parseBorderStyle(declaration.value.end, builder);
+
+  dropUnsupportedInlineStyle(start, builder, "border-block-start-style");
+  dropUnsupportedInlineStyle(end, builder, "border-block-end-style");
 }
 
 export function parseBorderSideWidthDeclaration(
