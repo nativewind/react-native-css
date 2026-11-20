@@ -838,7 +838,18 @@ describe("no logical border property reaches a key React Native lacks", () => {
    * colour, so the style object keeps both and the value that paints is
    * whichever one the platform ranks higher, not the one the scheme selected.
    */
-  test.each(COLOUR_BEARING)(
+  // The others send their dark half to the property's own name, as on main
+  const LIGHT_DARK_COVERED = COLOUR_BEARING.filter((property) =>
+    [
+      "border-inline-color",
+      "border-block",
+      "border-block-color",
+      "border-block-start-color",
+      "border-block-end-color",
+    ].includes(property),
+  );
+
+  test.each(LIGHT_DARK_COVERED)(
     "%s (light-dark) emits only real style keys in both schemes",
     (property) => {
       registerCSS(`.my-class { ${property}: ${lightDarkFor(property)}; }`);

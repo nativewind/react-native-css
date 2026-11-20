@@ -338,17 +338,17 @@ export function parseDeclaration(
 function parseWithParser(declaration: Declaration, builder: StylesheetBuilder) {
   if (declaration.property in parsers) {
     const parser = parsers[declaration.property] as Parser;
-    const renamed =
-      propertyRename[declaration.property] ?? declaration.property;
 
-    // The renamed name, since light-dark() addresses its dark half to whatever this names
-    builder.descriptorProperties = [renamed];
+    builder.descriptorProperties = [declaration.property];
 
     builder.setWarningProperty(declaration.property);
     const value = parser(declaration, builder, declaration.property);
 
     if (value !== undefined) {
-      builder.addDescriptor(renamed, value);
+      builder.addDescriptor(
+        propertyRename[declaration.property] ?? declaration.property,
+        value,
+      );
     }
   } else {
     builder.addWarning("property", declaration.property);
@@ -518,7 +518,7 @@ function parseBorderBlockStart(
 ) {
   builder.addDescriptor(
     "border-block-start-color",
-    parseColorFor(["border-block-start-color"], value.color, builder),
+    parseColor(value.color, builder),
   );
   builder.addDescriptor(
     "border-top-width",
@@ -537,7 +537,7 @@ function parseBorderBlockEnd(
 ) {
   builder.addDescriptor(
     "border-block-end-color",
-    parseColorFor(["border-block-end-color"], value.color, builder),
+    parseColor(value.color, builder),
   );
   builder.addDescriptor(
     "border-bottom-width",
@@ -554,11 +554,11 @@ function parseBorderInline(
   { value }: DeclarationType<"border-inline">,
   builder: StylesheetBuilder,
 ) {
-  const color = parseColorFor(inlineColorEdges, value.color, builder);
+  const color = parseColor(value.color, builder);
   const width = parseBorderSideWidth(value.width, builder);
 
-  builder.addDescriptor(inlineColorEdges[0], color);
-  builder.addDescriptor(inlineColorEdges[1], color);
+  builder.addDescriptor("border-start-color", color);
+  builder.addDescriptor("border-end-color", color);
   builder.addDescriptor("border-start-width", width);
   builder.addDescriptor("border-end-width", width);
   dropUnsupportedInlineStyle(
@@ -572,10 +572,7 @@ function parseBorderInlineStart(
   { value }: DeclarationType<"border-inline-start">,
   builder: StylesheetBuilder,
 ) {
-  builder.addDescriptor(
-    "border-start-color",
-    parseColorFor(["border-start-color"], value.color, builder),
-  );
+  builder.addDescriptor("border-start-color", parseColor(value.color, builder));
   builder.addDescriptor(
     "border-start-width",
     parseBorderSideWidth(value.width, builder),
@@ -591,10 +588,7 @@ function parseBorderInlineEnd(
   { value }: DeclarationType<"border-inline-end">,
   builder: StylesheetBuilder,
 ) {
-  builder.addDescriptor(
-    "border-end-color",
-    parseColorFor(["border-end-color"], value.color, builder),
-  );
+  builder.addDescriptor("border-end-color", parseColor(value.color, builder));
   builder.addDescriptor(
     "border-end-width",
     parseBorderSideWidth(value.width, builder),
