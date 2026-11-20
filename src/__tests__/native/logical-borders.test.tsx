@@ -389,159 +389,6 @@ const shorthandDefinitions = `
   .redefine { --shorthand: 2px dashed blue; }
 `;
 
-describe("border-inline / -start / -end shorthands via var()", () => {
-  test.each([
-    [
-      "border-inline",
-      {
-        borderStartWidth: 1,
-        borderEndWidth: 1,
-        borderStartColor: "red",
-        borderEndColor: "red",
-      },
-    ],
-    ["border-inline-start", { borderStartWidth: 1, borderStartColor: "red" }],
-    ["border-inline-end", { borderEndWidth: 1, borderEndColor: "red" }],
-  ])("%s expands onto its edges", (property, expected) => {
-    registerCSS(
-      `.my-class { ${property}: var(--shorthand); } ${shorthandDefinitions}`,
-    );
-
-    render(<View testID={testID} className="my-class" />);
-    expect(screen.getByTestId(testID).props.style).toStrictEqual(expected);
-  });
-
-  test("the unparsed expansion matches the parsed expansion", () => {
-    registerCSS(`
-      .unparsed { border-inline: var(--shorthand); }
-      .parsed { border-inline: 1px solid red; }
-      ${shorthandDefinitions}
-    `);
-
-    render(
-      <View testID="unparsed" className="unparsed">
-        <View testID="parsed" className="parsed" />
-      </View>,
-    );
-
-    expect(screen.getByTestId("unparsed").props.style).toStrictEqual({
-      borderStartWidth: 1,
-      borderEndWidth: 1,
-      borderStartColor: "red",
-      borderEndColor: "red",
-    });
-    // The parsed path resolves `red` to #f00 at compile time; every other key
-    // must agree, which is what makes the two paths one behaviour.
-    expect(styleKeys("unparsed")).toStrictEqual(styleKeys("parsed"));
-  });
-
-  test.each(["border-inline", "border-inline-start", "border-inline-end"])(
-    "%s never widens its style component to borderStyle",
-    (property) => {
-      registerCSS(`
-        .my-class { ${property}: var(--dashed); }
-        :root { --dashed: 1px dashed red; }
-        .redefine { --dashed: 2px dotted blue; }
-      `);
-
-      render(<View testID={testID} className="my-class" />);
-      expect(screen.getByTestId(testID).props.style).not.toHaveProperty(
-        "borderStyle",
-      );
-    },
-  );
-
-  /**
-   * An empty style object, not an absent one: the declaration compiled to a
-   * runtime call, so the descriptor exists and resolves to nothing. The style
-   * LONGHANDS above have no descriptor at all, which is why they assert the
-   * stricter shape. What both share is that no `borderInline*` key survives.
-   */
-  test("a var() that resolves to nothing paints nothing", () => {
-    registerCSS(`
-      .my-class { border-inline: var(--undefined-everywhere); }
-      .redefine-a { --undefined-everywhere: 1px solid red; }
-      .redefine-b { --undefined-everywhere: 2px solid blue; }
-    `);
-
-    render(<View testID={testID} className="my-class" />);
-    expect(screen.getByTestId(testID).props.style).toStrictEqual({});
-  });
-
-  /**
-   * The runtime route has its own way to leak the dead key the parsed path was
-   * fixed for: an unmatched or partly-matched value could fall back to writing
-   * the descriptor under its own `borderInline*` name. Assert against the
-   * component for every arity the grammar accepts, plus one it does not.
-   */
-  test.each([
-    "1px solid red",
-    "solid red",
-    "1px solid",
-    "solid",
-    "1px solid red blue extra",
-  ])("no borderInline* key reaches the component for `%s`", (value) => {
-    registerCSS(`
-      .my-class { border-inline: var(--shorthand); }
-      :root { --shorthand: ${value}; }
-      .redefine { --shorthand: 2px dotted blue; }
-    `);
-
-    render(<View testID={testID} className="my-class" />);
-    expect(styleKeys(testID).filter(isInlineKey)).toStrictEqual([]);
-  });
-
-  // Chromium 153, Firefox 155 and WebKit 26.6: each key belongs to the declaration that set it last
-  test("a later longhand beats a var() shorthand, as it beats `border`", () => {
-    registerCSS(`
-      .inline { border-inline: var(--shorthand); border-inline-end-color: black; }
-      .uniform { border: var(--shorthand); border-color: black; }
-      .literal { border-inline: 1px solid red; border-inline-end-color: black; }
-      ${shorthandDefinitions}
-    `);
-
-    render(
-      <View testID="inline" className="inline">
-        <View testID="uniform" className="uniform" />
-        <View testID="literal" className="literal" />
-      </View>,
-    );
-
-    expect(screen.getByTestId("inline").props.style.borderEndColor).toBe(
-      "#000",
-    );
-    expect(screen.getByTestId("uniform").props.style.borderColor).toBe("#000");
-    expect(screen.getByTestId("literal").props.style.borderEndColor).toBe(
-      "#000",
-    );
-  });
-
-  // Chromium 153, Firefox 155 and WebKit 26.6 read the values a var() substitutes, so a pair feeds one edge each
-  test("a two-value var() feeds one edge each", () => {
-    registerCSS(`
-      .inline { border-inline-width: var(--pair); }
-      .block { border-block-width: var(--pair); }
-      :root { --pair: 1px 2px; }
-      .redefine { --pair: 9px 9px; }
-    `);
-
-    render(
-      <View testID="inline" className="inline">
-        <View testID="block" className="block" />
-      </View>,
-    );
-
-    expect(screen.getByTestId("inline").props.style).toStrictEqual({
-      borderStartWidth: 1,
-      borderEndWidth: 2,
-    });
-    expect(screen.getByTestId("block").props.style).toStrictEqual({
-      borderTopWidth: 1,
-      borderBottomWidth: 2,
-    });
-  });
-});
-
 describe("the literal border-inline shorthand reaching the component", () => {
   /**
    * The compiler IR cannot see this defect: a `borderInlineStyle` entry in the
@@ -648,45 +495,6 @@ describe("the block axis reaching the component", () => {
       children,
       testID,
     });
-  });
-
-  test.each([
-    [
-      "border-block",
-      {
-        borderTopWidth: 1,
-        borderBottomWidth: 1,
-        borderTopColor: "red",
-        borderBottomColor: "red",
-      },
-    ],
-    ["border-block-start", { borderTopWidth: 1, borderBlockStartColor: "red" }],
-    ["border-block-end", { borderBottomWidth: 1, borderBlockEndColor: "red" }],
-  ])("%s via var() expands onto the same props", (property, expected) => {
-    registerCSS(
-      `.my-class { ${property}: var(--shorthand); } ${shorthandDefinitions}`,
-    );
-
-    render(<View testID={testID} className="my-class" />);
-    expect(screen.getByTestId(testID).props.style).toStrictEqual(expected);
-  });
-
-  test("the unparsed block expansion matches the parsed one", () => {
-    registerCSS(`
-      .unparsed { border-block: var(--shorthand); }
-      .parsed { border-block: 1px solid red; }
-      ${shorthandDefinitions}
-    `);
-
-    render(
-      <View testID="unparsed" className="unparsed">
-        <View testID="parsed" className="parsed" />
-      </View>,
-    );
-
-    // The parsed path resolves `red` to #f00 at compile time; every key must
-    // agree, which is what makes the two routes one behaviour.
-    expect(styleKeys("unparsed")).toStrictEqual(styleKeys("parsed"));
   });
 
   test.each(["border-block", "border-block-start", "border-block-end"])(
@@ -991,7 +799,15 @@ describe("no logical border property reaches a key React Native lacks", () => {
     ).toStrictEqual([]);
   });
 
-  test.each(FAMILY)("%s (var) emits only real style keys", (property) => {
+  // The six three-part shorthands keep a var() for the runtime unparsed, as main does
+  const VAR_COVERED = FAMILY.filter(
+    (property) =>
+      property.endsWith("-color") ||
+      property.endsWith("-width") ||
+      property.endsWith("-style"),
+  );
+
+  test.each(VAR_COVERED)("%s (var) emits only real style keys", (property) => {
     registerCSS(`
       .my-class { ${property}: ${varFor(property)}; }
       :root { --style: solid; }

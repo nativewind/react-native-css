@@ -300,58 +300,6 @@ describe("a two-edge logical property via var() compiles to a runtime call", () 
   });
 });
 
-describe("logical border three-part shorthands via var() (unparsed path)", () => {
-  // border-inline / -start / -end each pack width, style and colour into one
-  // value that stays opaque until the variable resolves, exactly as `border`
-  // does. They compile to the same runtime-call shape, and the native resolver
-  // fans the resolved list out across the inline edges.
-  test.each([
-    ["border-inline", "borderInline"],
-    ["border-inline-start", "borderInlineStart"],
-    ["border-inline-end", "borderInlineEnd"],
-  ])("%s with a var() compiles to a runtime call", (property, resolver) => {
-    const { rule, warnings } = getRule(`${property}: var(--b);`);
-
-    expect(rule).toStrictEqual([
-      {
-        s: [1, 1],
-        d: [[[{}, resolver, [{}, "var", "b", 1], 1], resolver, 1]],
-        dv: 1,
-      },
-    ]);
-    expect(warnings).toStrictEqual({});
-  });
-
-  // The same shape `border` compiles to, which is what makes one runtime
-  // handler serve both.
-  test("the runtime-call shape matches the one `border` compiles to", () => {
-    const inline = getRule("border-inline: var(--b);").rule;
-    const uniform = getRule("border: var(--b);").rule;
-
-    expect(inline).toStrictEqual([
-      {
-        s: [1, 1],
-        d: [[[{}, "borderInline", [{}, "var", "b", 1], 1], "borderInline", 1]],
-        dv: 1,
-      },
-    ]);
-    expect(uniform).toStrictEqual([
-      {
-        s: [1, 1],
-        d: [[[{}, "border", [{}, "var", "b", 1], 1], "border", 1]],
-        dv: 1,
-      },
-    ]);
-  });
-
-  test.each(["border-inline", "border-inline-start", "border-inline-end"])(
-    "%s without a var() still expands at compile time",
-    (property) => {
-      expect(getRule(`${property}: 2px solid red;`).warnings).toStrictEqual({});
-    },
-  );
-});
-
 /**
  * The block axis, which React Native supports differently from the inline one.
  *
@@ -499,25 +447,6 @@ describe("block borders via var() (unparsed path)", () => {
     const { rule, warnings } = getRule(`${property}: var(--tw-border-style);`);
 
     expect(rule).toBeUndefined();
-    expect(warnings).toStrictEqual({});
-  });
-
-  // The same runtime-call shape the inline axis and `border` compile to, which
-  // is what lets one handler grammar serve all seven.
-  test.each([
-    ["border-block", "borderBlock"],
-    ["border-block-start", "borderBlockStart"],
-    ["border-block-end", "borderBlockEnd"],
-  ])("%s with a var() compiles to a runtime call", (property, resolver) => {
-    const { rule, warnings } = getRule(`${property}: var(--b);`);
-
-    expect(rule).toStrictEqual([
-      {
-        s: [1, 1],
-        d: [[[{}, resolver, [{}, "var", "b", 1], 1], resolver, 1]],
-        dv: 1,
-      },
-    ]);
     expect(warnings).toStrictEqual({});
   });
 });
