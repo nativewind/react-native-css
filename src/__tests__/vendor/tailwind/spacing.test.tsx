@@ -8,12 +8,12 @@ describe("Spacing - Padding", () => {
   });
   test("px-0", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: { style: { paddingInline: 0 } },
+      props: { style: { paddingHorizontal: 0 } },
     });
   });
   test("py-0", async () => {
     expect(await renderCurrentTest()).toStrictEqual({
-      props: { style: { paddingBlock: 0 } },
+      props: { style: { paddingVertical: 0 } },
     });
   });
   test("pt-0", async () => {

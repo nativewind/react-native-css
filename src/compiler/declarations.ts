@@ -72,6 +72,11 @@ const propertyRename: Record<string, string> = {
   "border-block-start-width": "border-top-width",
   "border-block-end-width": "border-bottom-width",
   "font-variant-caps": "font-variant",
+  // React Native maps paddingBlock/paddingInline to the same Yoga edges as
+  // paddingVertical/paddingHorizontal, but Android's TextInput only sees the
+  // latter and otherwise keeps its theme padding
+  "padding-block": "padding-vertical",
+  "padding-inline": "padding-horizontal",
 };
 
 // React Native only supports a uniform borderStyle, so per-side border
@@ -702,7 +707,7 @@ function parsePaddingBlock(
   { value }: DeclarationType<"padding-block">,
   builder: StylesheetBuilder,
 ) {
-  builder.addShorthand("padding-block", {
+  builder.addShorthand("padding-vertical", {
     "padding-block-start": parseLengthPercentageOrAuto(
       value.blockStart,
       builder,
@@ -715,7 +720,7 @@ function parsePaddingInline(
   { value }: DeclarationType<"padding-inline">,
   builder: StylesheetBuilder,
 ) {
-  builder.addShorthand("padding-inline", {
+  builder.addShorthand("padding-horizontal", {
     "padding-inline-start": parseLengthPercentageOrAuto(
       value.inlineStart,
       builder,
