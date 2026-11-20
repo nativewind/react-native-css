@@ -91,6 +91,18 @@ const unsupportedLogicalStyles = new Set([
   "border-block-end-style",
 ]);
 
+// One key set per property, so a later declaration replaces an earlier one; Android and iOS rank borderBlockColor against borderTopColor oppositely
+const blockColorEdges = [
+  "border-top-color",
+  "border-bottom-color",
+] as const satisfies readonly [string, string];
+
+// React Native has no borderInlineColor, so the RTL-aware pair is the inline axis's only target
+const inlineColorEdges = [
+  "border-start-color",
+  "border-end-color",
+] as const satisfies readonly [string, string];
+
 const unparsedRuntimeParsing = new Set([
   "animation",
   "animation-name",
@@ -327,7 +339,7 @@ function parseWithParser(declaration: Declaration, builder: StylesheetBuilder) {
   if (declaration.property in parsers) {
     const parser = parsers[declaration.property] as Parser;
 
-    builder.descriptorProperty = declaration.property;
+    builder.descriptorProperties = [declaration.property];
 
     builder.setWarningProperty(declaration.property);
     const value = parser(declaration, builder, declaration.property);
@@ -402,6 +414,16 @@ function parseBorderRadius(
   });
 }
 
+// light-dark() addresses its dark half to descriptorProperties, so a parser that expands onto other properties names them
+function parseColorFor(
+  targets: readonly string[],
+  cssColor: CssColor,
+  builder: StylesheetBuilder,
+) {
+  builder.descriptorProperties = targets;
+  return parseColor(cssColor, builder);
+}
+
 function parseBorderColor(
   declaration: DeclarationType<
     "border-color" | "border-block-color" | "border-inline-color"
@@ -416,18 +438,20 @@ function parseBorderColor(
       "border-right-color": parseColor(declaration.value.right, builder),
     });
   } else {
-    const start = parseColor(declaration.value.start, builder);
-    const end = parseColor(declaration.value.end, builder);
+    // Each edge parses its own colour, so a light-dark() component opens its dark rule over the edge it feeds
+    const [startProperty, endProperty] =
+      declaration.property === "border-inline-color"
+        ? inlineColorEdges
+        : blockColorEdges;
 
-    if (declaration.property === "border-inline-color") {
-      builder.addDescriptor("border-start-color", start);
-      builder.addDescriptor("border-end-color", end);
-    } else if (start === end) {
-      builder.addDescriptor(declaration.property, start);
-    } else {
-      builder.addDescriptor("border-top-color", start);
-      builder.addDescriptor("border-bottom-color", end);
-    }
+    builder.addDescriptor(
+      startProperty,
+      parseColorFor([startProperty], declaration.value.start, builder),
+    );
+    builder.addDescriptor(
+      endProperty,
+      parseColorFor([endProperty], declaration.value.end, builder),
+    );
   }
 }
 
@@ -474,8 +498,11 @@ function parseBorderBlock(
   { value }: DeclarationType<"border-block">,
   builder: StylesheetBuilder,
 ) {
-  builder.addDescriptor("border-block-color", parseColor(value.color, builder));
+  const color = parseColorFor(blockColorEdges, value.color, builder);
   const width = parseBorderSideWidth(value.width, builder);
+
+  builder.addDescriptor(blockColorEdges[0], color);
+  builder.addDescriptor(blockColorEdges[1], color);
   builder.addDescriptor("border-top-width", width);
   builder.addDescriptor("border-bottom-width", width);
   dropUnsupportedInlineStyle(
@@ -974,10 +1001,28 @@ export function parseUnparsedDeclaration(
     property = rename;
   }
 
+  // A var() axis colour lands on its edge pair as two declarations, so a later edge colour replaces it in cascade order
+  const edges =
+    property === "border-inline-color"
+      ? inlineColorEdges
+      : property === "border-block-color"
+        ? blockColorEdges
+        : undefined;
+
+  if (edges) {
+    builder.descriptorProperties = edges;
+    const value = parseUnparsed(declaration.value.value, builder, property);
+    const pair =
+      Array.isArray(value) && !isStyleFunction(value) && value.length === 2;
+    builder.addDescriptor(edges[0], pair ? value[0] : value);
+    builder.addDescriptor(edges[1], pair ? value[1] : value);
+    return;
+  }
+
   /**
    * Unparsed shorthand properties need to be parsed at runtime
    */
-  builder.descriptorProperty = property;
+  builder.descriptorProperties = [property];
 
   if (unparsedRuntimeParsing.has(property)) {
     const args = parseUnparsed(declaration.value.value, builder, property);
