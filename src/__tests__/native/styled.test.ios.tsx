@@ -163,6 +163,25 @@ test.each(["nativeStyleMapping", "nativeStyleToProp"] as const)(
   },
 );
 
+test("a mapping entry set to undefined maps nothing", () => {
+  registerCSS(`.subject { color: blue; background-color: red; }`);
+  const StyledView = styled(View, {
+    className: {
+      target: "style",
+      nativeStyleMapping: {
+        color: "accessibilityLabel",
+        backgroundColor: undefined,
+      },
+    },
+  });
+
+  render(<StyledView testID={testID} className="subject" />);
+
+  const props = screen.getByTestId(testID).props;
+  expect(props.accessibilityLabel).toBe("#00f");
+  expect(props.style).toEqual({ backgroundColor: "#f00" });
+});
+
 test.each([false, true])(
   "current mapping wins over deprecated alias (empty: %s)",
   (empty) => {

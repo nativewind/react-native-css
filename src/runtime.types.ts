@@ -31,7 +31,7 @@ export type StyledReactElement<
         : M[K] extends true | string | object
           ? K
           : never
-      : never]?: string;
+      : never]?: string | undefined;
   }
 >;
 
@@ -42,7 +42,7 @@ export type StyledProps<P, M extends StyledConfiguration<any>> = P & {
       : M[K] extends true | string | object
         ? K
         : never
-    : never]?: string;
+    : never]?: string | undefined;
 };
 
 export interface Styled {
@@ -50,7 +50,9 @@ export interface Styled {
     component: C,
     mapping?: undefined,
     options?: StyledOptions,
-  ): ComponentType<ComponentPropsWithRef<C> & { className?: string }>;
+  ): ComponentType<
+    ComponentPropsWithRef<C> & { className?: string | undefined }
+  >;
   <const C extends ReactComponent, const M extends StyledConfiguration<C>>(
     component: C,
     mapping: M & StyledConfiguration<C>,
@@ -69,7 +71,7 @@ type StyledComponent<
         : M[K] extends true | string | object
           ? K
           : never
-      : never]?: string;
+      : never]?: string | undefined;
   }
 >;
 
@@ -88,27 +90,32 @@ interface StyledConfigurationObject<
   T extends ComponentPropsDotNotation<C> | false,
 > {
   target: T;
-  nativeStyleMapping?: T extends false
-    ? NativeStyleMapping<string, ComponentProps<C>>
-    : NativeStyleMapping<
-        ResolveDotPath<T, ComponentProps<C>>,
-        ComponentProps<C>
-      >;
+  nativeStyleMapping?:
+    | (T extends false
+        ? NativeStyleMapping<string, ComponentProps<C>>
+        : NativeStyleMapping<
+            ResolveDotPath<T, ComponentProps<C>>,
+            ComponentProps<C>
+          >)
+    | undefined;
   /** @deprecated Please use nativeStyleMapping */
   nativeStyleToProp?: StyledConfigurationObject<C, T>["nativeStyleMapping"];
 }
 
 type NativeStyleMapping<T, S> = T extends object
   ? {
-      [K in keyof T as K extends string ? K : never]: true | DotNotation<S>;
+      [K in keyof T as K extends string ? K : never]:
+        | true
+        | DotNotation<S>
+        | undefined;
     } & {
-      fill?: true | DotNotation<S>;
-      stroke?: true | DotNotation<S>;
+      fill?: true | DotNotation<S> | undefined;
+      stroke?: true | DotNotation<S> | undefined;
     }
-  : Record<string, true | DotNotation<S>>;
+  : Record<string, true | DotNotation<S> | undefined>;
 
 export interface StyledOptions {
-  passThrough?: boolean;
+  passThrough?: boolean | undefined;
 }
 
 /***************************     React Helpers      ***************************/
