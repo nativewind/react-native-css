@@ -1201,7 +1201,7 @@ export function parseUnparsed(
       property,
       allowAuto,
     );
-    if (!args) return;
+    if (args === undefined) return;
     if (Array.isArray(args) && args.length === 1) {
       return args[0];
     } else if (
