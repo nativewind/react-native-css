@@ -106,12 +106,10 @@ const unparsedRuntimeParsing = new Set([
   "animation-name",
   "border",
   "border-block",
-  "border-block-color",
   "border-block-end",
   "border-block-start",
   "border-block-width",
   "border-inline",
-  "border-inline-color",
   "border-inline-end",
   "border-inline-start",
   "border-inline-width",
@@ -1019,6 +1017,24 @@ export function parseUnparsedDeclaration(
   const rename = propertyRename[property];
   if (rename) {
     property = rename;
+  }
+
+  // A var() axis colour lands on its edge pair as two declarations, so a later edge colour replaces it in cascade order
+  const edges =
+    property === "border-inline-color"
+      ? inlineColorEdges
+      : property === "border-block-color"
+        ? blockColorEdges
+        : undefined;
+
+  if (edges) {
+    builder.descriptorProperties = edges;
+    const value = parseUnparsed(declaration.value.value, builder, property);
+    const pair =
+      Array.isArray(value) && !isStyleFunction(value) && value.length === 2;
+    builder.addDescriptor(edges[0], pair ? value[0] : value);
+    builder.addDescriptor(edges[1], pair ? value[1] : value);
+    return;
   }
 
   /**

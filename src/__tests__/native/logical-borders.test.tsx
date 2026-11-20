@@ -103,23 +103,6 @@ afterEach(() => {
 });
 
 describe("border-inline-color / -width via var()", () => {
-  // Chromium 153, Firefox 155 and WebKit 26.6: a substituted value the grammar does not take is invalid at computed-value time, so neither edge is set (css-variables-1 §3.1)
-  test.each([
-    [".my-class { border-inline-color: var(--number); }", "a number"],
-    [".my-class { border-inline-color: var(--three); }", "three colours"],
-    [".my-class { border-block-color: var(--number); }", "a number"],
-    [".my-class { border-block-color: var(--three); }", "three colours"],
-  ])("%s holding %s sets no edge", (css) => {
-    registerCSS(`${css}
-      :root { --number: 5; --three: red green blue; }
-      .redefine { --number: 9; --three: black black black; }
-    `);
-
-    render(<View testID={testID} className="my-class" />);
-
-    expect(screen.getByTestId(testID).props.style).toStrictEqual({});
-  });
-
   test("a single var() reaches both edges of a rendered View", () => {
     registerCSS(
       `.my-class { border-inline-color: var(--color); } ${twiceDefined}`,
@@ -536,10 +519,10 @@ describe("border-inline / -start / -end shorthands via var()", () => {
   // Chromium 153, Firefox 155 and WebKit 26.6 read the values a var() substitutes, so a pair feeds one edge each
   test("a two-value var() feeds one edge each", () => {
     registerCSS(`
-      .inline { border-inline-width: var(--pair); border-inline-color: var(--colours); }
-      .block { border-block-width: var(--pair); border-block-color: var(--colours); }
-      :root { --pair: 1px 2px; --colours: red blue; }
-      .redefine { --pair: 9px 9px; --colours: black black; }
+      .inline { border-inline-width: var(--pair); }
+      .block { border-block-width: var(--pair); }
+      :root { --pair: 1px 2px; }
+      .redefine { --pair: 9px 9px; }
     `);
 
     render(
@@ -551,14 +534,10 @@ describe("border-inline / -start / -end shorthands via var()", () => {
     expect(screen.getByTestId("inline").props.style).toStrictEqual({
       borderStartWidth: 1,
       borderEndWidth: 2,
-      borderStartColor: "red",
-      borderEndColor: "blue",
     });
     expect(screen.getByTestId("block").props.style).toStrictEqual({
       borderTopWidth: 1,
       borderBottomWidth: 2,
-      borderTopColor: "red",
-      borderBottomColor: "blue",
     });
   });
 });

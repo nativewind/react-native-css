@@ -158,36 +158,74 @@ describe("logical border styles via var() (unparsed path)", () => {
 });
 
 describe("a two-edge logical property via var() compiles to a runtime call", () => {
-  // A var() can substitute any number of values, so the runtime handler reads the arity once it resolves, as it does for border
+  // An axis colour lands on its edge pair as two declarations, so a later edge colour replaces it in cascade order
   test.each([
     [
       "border-inline-color: hsl(var(--primary));",
-      "borderInlineColor",
+      ["borderStartColor", "borderEndColor"],
+      [{}, "hsl", [{}, "var", "primary", 1]],
       [{}, "hsl", [{}, "var", "primary", 1]],
     ],
     [
       "border-inline-color: var(--c);",
-      "borderInlineColor",
+      ["borderStartColor", "borderEndColor"],
+      [{}, "var", "c", 1],
       [{}, "var", "c", 1],
     ],
     [
       "border-inline-color: var(--c, red);",
-      "borderInlineColor",
+      ["borderStartColor", "borderEndColor"],
+      [{}, "var", ["c", "red"], 1],
       [{}, "var", ["c", "red"], 1],
     ],
     [
       "border-inline-color: var(--a) var(--b);",
-      "borderInlineColor",
-      [
-        [{}, "var", "a", 1],
-        [{}, "var", "b", 1],
-      ],
+      ["borderStartColor", "borderEndColor"],
+      [{}, "var", "a", 1],
+      [{}, "var", "b", 1],
     ],
     [
       "border-inline-color: red var(--b);",
-      "borderInlineColor",
-      ["red", [{}, "var", "b", 1]],
+      ["borderStartColor", "borderEndColor"],
+      "red",
+      [{}, "var", "b", 1],
     ],
+    [
+      "border-block-color: var(--c);",
+      ["borderTopColor", "borderBottomColor"],
+      [{}, "var", "c", 1],
+      [{}, "var", "c", 1],
+    ],
+    [
+      "border-block-color: var(--a) var(--b);",
+      ["borderTopColor", "borderBottomColor"],
+      [{}, "var", "a", 1],
+      [{}, "var", "b", 1],
+    ],
+  ] as const)(
+    "%s lands on its edge pair",
+    (css, [startKey, endKey], start, end) => {
+      const { rule, warnings } = getRule(css);
+
+      expect(rule).toStrictEqual([
+        {
+          s: [1, 1],
+          d: [
+            // A literal edge is static, a var() edge resolves in place
+            typeof start === "string"
+              ? { [startKey]: start }
+              : [start, startKey, 1],
+            [end, endKey, 1],
+          ],
+          dv: 1,
+        },
+      ]);
+      expect(warnings).toStrictEqual({});
+    },
+  );
+
+  // A var() can substitute any number of values, so the runtime handler reads the arity once it resolves, as it does for border
+  test.each([
     [
       "border-inline-width: var(--w);",
       "borderInlineWidth",
@@ -224,15 +262,6 @@ describe("a two-edge logical property via var() compiles to a runtime call", () 
       "border-inline-width: 1px var(--b);",
       "borderInlineWidth",
       [1, [{}, "var", "b", 1]],
-    ],
-    ["border-block-color: var(--c);", "borderBlockColor", [{}, "var", "c", 1]],
-    [
-      "border-block-color: var(--a) var(--b);",
-      "borderBlockColor",
-      [
-        [{}, "var", "a", 1],
-        [{}, "var", "b", 1],
-      ],
     ],
     ["border-block-width: var(--w);", "borderBlockWidth", [{}, "var", "w", 1]],
     [
