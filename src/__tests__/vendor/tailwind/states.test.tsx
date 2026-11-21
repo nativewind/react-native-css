@@ -134,6 +134,35 @@ test.each(["placeholder", "selection"])(
   },
 );
 
+// A pseudo-element rule ranks equal to both of its neighbours on main, so the sort cannot move them past it
+test.each(["placeholder:text-gray-400", "selection:text-blue-200"])(
+  "a pressed background outranks the resting one with %s between them once the sheet is serialised",
+  async (pseudoElementUtility) => {
+    const className = `active:bg-gray-100 ${pseudoElementUtility} bg-white`;
+    const { stylesheet } = await render(
+      <TextInput testID={testID} className={className} />,
+    );
+    const ruleSets = new Map(stylesheet().s ?? []);
+
+    // Metro injects the sheet as JSON, which writes each specificity hole as `null`.
+    const transported = className
+      .split(" ")
+      .flatMap((name) =>
+        (
+          JSON.parse(JSON.stringify(ruleSets.get(name) ?? [])) as StyleRule[]
+        ).map((rule) => ({ name, rule })),
+      );
+
+    const cascade = [...transported]
+      .sort((a, b) => specificityCompareFn(a.rule, b.rule))
+      .map(({ name }) => name);
+
+    expect(cascade.indexOf("bg-white")).toBeLessThan(
+      cascade.indexOf("active:bg-gray-100"),
+    );
+  },
+);
+
 test("disabled", async () => {
   const { rerender } = await render(
     <Switch testID={testID} className="disabled:bg-black" />,
