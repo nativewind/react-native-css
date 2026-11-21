@@ -1,0 +1,6 @@
+@import "tailwindcss/utilities.css";
+@theme {
+  --color-brand: oklch(62.3% 0.214 259.815);
+}
+@source not "**/*";
+@source inline("bg-[#00f] rtl:bg-[#f00] bg-brand");
