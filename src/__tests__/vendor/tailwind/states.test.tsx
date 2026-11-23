@@ -1,5 +1,10 @@
 import { fireEvent, screen } from "@testing-library/react-native";
+import type { StyleRule } from "react-native-css/compiler";
 import { Switch, TextInput, View } from "react-native-css/components";
+import {
+  Specificity,
+  specificityCompareFn,
+} from "react-native-css/utilities/specificity";
 
 import { render } from "./_tailwind";
 
@@ -99,6 +104,64 @@ test("placeholder", async () => {
     style: {},
   });
 });
+
+test.each(["placeholder", "selection"])(
+  "a %s: utility still sorts after its element utility once the sheet is serialised",
+  async (variant) => {
+    const { stylesheet } = await render(
+      <TextInput
+        testID={testID}
+        className={`text-red-500 ${variant}:text-blue-500`}
+      />,
+    );
+
+    const rules = (stylesheet().s ?? []).flatMap(([, ruleSet]) => ruleSet);
+    const pseudoElementCounts = (sorted: StyleRule[]) =>
+      sorted.map((rule) => rule.s[Specificity.PseudoElements] ?? 0);
+
+    expect(pseudoElementCounts([...rules].sort(specificityCompareFn))).toEqual([
+      0, 1,
+    ]);
+
+    // Metro injects the sheet as JSON, which writes each specificity hole as `null`.
+    const transported = JSON.parse(JSON.stringify(rules)) as StyleRule[];
+
+    for (const order of [transported, [...transported].reverse()]) {
+      expect(
+        pseudoElementCounts([...order].sort(specificityCompareFn)),
+      ).toEqual([0, 1]);
+    }
+  },
+);
+
+// A pseudo-element rule ranks equal to both of its neighbours on main, so the sort cannot move them past it
+test.each(["placeholder:text-gray-400", "selection:text-blue-200"])(
+  "a pressed background outranks the resting one with %s between them once the sheet is serialised",
+  async (pseudoElementUtility) => {
+    const className = `active:bg-gray-100 ${pseudoElementUtility} bg-white`;
+    const { stylesheet } = await render(
+      <TextInput testID={testID} className={className} />,
+    );
+    const ruleSets = new Map(stylesheet().s ?? []);
+
+    // Metro injects the sheet as JSON, which writes each specificity hole as `null`.
+    const transported = className
+      .split(" ")
+      .flatMap((name) =>
+        (
+          JSON.parse(JSON.stringify(ruleSets.get(name) ?? [])) as StyleRule[]
+        ).map((rule) => ({ name, rule })),
+      );
+
+    const cascade = [...transported]
+      .sort((a, b) => specificityCompareFn(a.rule, b.rule))
+      .map(({ name }) => name);
+
+    expect(cascade.indexOf("bg-white")).toBeLessThan(
+      cascade.indexOf("active:bg-gray-100"),
+    );
+  },
+);
 
 test("disabled", async () => {
   const { rerender } = await render(
