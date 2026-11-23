@@ -1,8 +1,12 @@
 import {
   ColorSpace,
   to as convert,
+  HSL,
+  Lab,
+  LCH,
   mix,
   OKLab,
+  OKLCH,
   P3,
   parse,
   sRGB,
@@ -13,6 +17,10 @@ import type { StyleFunctionResolver } from "../resolve";
 ColorSpace.register(sRGB);
 ColorSpace.register(P3);
 ColorSpace.register(OKLab);
+ColorSpace.register(OKLCH);
+ColorSpace.register(HSL);
+ColorSpace.register(Lab);
+ColorSpace.register(LCH);
 
 export const colorMix: StyleFunctionResolver = (resolveValue, value) => {
   const resolved = resolveValue(value[2]);

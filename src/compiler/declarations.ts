@@ -1891,7 +1891,13 @@ export function parseColor(cssColor: CssColor, builder: StylesheetBuilder) {
   if (!hexColors || colorPrecision) {
     return color?.toString({ precision: colorPrecision ?? 3 });
   } else {
-    return color?.toString({ format: "hex" });
+    // Clip out-of-gamut channels, as React Native and every browser do, so a
+    // folded color matches the same color resolved at runtime. toString()
+    // alone would gamut map it with the CSS Color 4 algorithm instead.
+    return color
+      ?.to("srgb")
+      .toGamut({ method: "clip" })
+      .toString({ format: "hex" });
   }
 }
 

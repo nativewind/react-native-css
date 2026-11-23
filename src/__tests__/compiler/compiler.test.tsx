@@ -43,6 +43,23 @@ test("reads global CSS variables", () => {
   });
 });
 
+test.each([
+  // Browsers read these back clipped in WPT css/css-color/canvas-srgb-gamut-mapping.html
+  ["oklch(80% 0.35 30)", "#f00"],
+  ["oklch(90% 0.35 0)", "#ff32d5"],
+  // Folded by lightningcss to an oklch()/lch() color outside sRGB
+  ["color-mix(in oklch, red, blue)", "#ba00c2"],
+  ["color-mix(in lch, red, blue)", "#f50086"],
+])("out-of-sRGB color %s is clipped, not gamut mapped", (value, expected) => {
+  const compiled = compile(`:root { --c: ${value}; }`, {
+    inlineVariables: false,
+  });
+
+  expect(compiled.stylesheet()).toStrictEqual({
+    vr: [["c", [[expected]]]],
+  });
+});
+
 test(":root CSS variables with media queries", () => {
   const compiled = compile(
     `:root {
