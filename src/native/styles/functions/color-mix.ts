@@ -29,24 +29,23 @@ export const colorMix: StyleFunctionResolver = (resolveValue, value) => {
   // Resolved descriptors may be cached and shared by another styled component.
   const args: unknown[] = [...(resolved as unknown[])];
   try {
-    if (args.length > 5) return;
-    const [space, leftValue, leftPct, rightValue, rightPct] = args;
-    if (
-      typeof space !== "string" ||
-      typeof leftValue !== "string" ||
-      typeof rightValue !== "string"
-    ) {
-      return;
-    }
+    const space = args.shift();
+    const leftValue = args.shift();
+    if (typeof space !== "string" || typeof leftValue !== "string") return;
     ColorSpace.get(space);
     const left = parse(leftValue);
-    const parseWeight = (val: unknown) => {
-      if (typeof val !== "string" || !val.endsWith("%")) return undefined;
-      return Number(val.slice(0, -1)) / 100;
+    const percentage = () => {
+      const next = args[0];
+      if (typeof next !== "string" || !next.endsWith("%")) return undefined;
+      args.shift();
+      return Number(next.slice(0, -1)) / 100;
     };
-    let leftWeight = parseWeight(leftPct);
+    let leftWeight = percentage();
+    const rightValue = args.shift();
+    if (typeof rightValue !== "string") return;
     const right = parse(rightValue);
-    let rightWeight = parseWeight(rightPct);
+    let rightWeight = percentage();
+    if (args.length) return;
 
     // CSS Color 5: omitted weights are complementary, then both are normalized.
     leftWeight ??= rightWeight === undefined ? 0.5 : 1 - rightWeight;
