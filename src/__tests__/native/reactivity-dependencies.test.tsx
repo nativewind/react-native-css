@@ -104,3 +104,35 @@ test("an explicit computed argument replaces its previous dependency", () => {
   cleanupEffect(subscriber);
   expect(second.observers.size).toBe(0);
 });
+
+test("an observed computed value runs once per change, not once per read", () => {
+  const source = observable(1);
+  let computed = 0;
+  const value = observable<number>((get) => {
+    computed += 1;
+    return get(source) * 2;
+  });
+  const subscriber: Effect = { observers: new Set(), run: jest.fn() };
+
+  for (let read = 0; read < 20; read += 1) {
+    expect(value.get(subscriber)).toBe(2);
+  }
+  expect(computed).toBe(1);
+
+  source.set(5);
+  expect(value.get(subscriber)).toBe(10);
+  expect(computed).toBe(2);
+});
+
+test("a family deletes a key by value only while the key still maps to it", () => {
+  const cached = family((key: string) => ({ key }));
+  const original = cached("shared");
+  cached.delete("shared");
+  const replacement = cached("shared");
+
+  expect(cached.deleteIf("shared", original)).toBe(false);
+  expect(cached("shared")).toBe(replacement);
+
+  expect(cached.deleteIf("shared", replacement)).toBe(true);
+  expect(cached.size()).toBe(0);
+});
