@@ -65,4 +65,20 @@ export default tseslint.config(
       "@typescript-eslint/no-unsafe-member-access": "off",
     },
   },
+  // Enforce new members automatically via linting rather than tests
+  // An optional prop this package adds to a React Native interface takes `| undefined`, as React Native's own do, so it accepts an explicit undefined under exactOptionalPropertyTypes
+  {
+    files: ["types.d.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "TSModuleDeclaration TSInterfaceBody > TSPropertySignature[optional=true] > TSTypeAnnotation > :not(TSUnionType:has(> TSUndefinedKeyword))",
+          message:
+            "Write `?: T | undefined`: under exactOptionalPropertyTypes a bare `?: T` rejects the explicit undefined React Native's own props accept.",
+        },
+      ],
+    },
+  },
 );
