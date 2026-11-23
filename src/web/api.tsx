@@ -68,7 +68,11 @@ export const colorScheme: ColorScheme = {
     return Appearance.getColorScheme();
   },
   set(name) {
-    Appearance.setColorScheme(name ?? "unspecified");
+    Appearance.setColorScheme(
+      name === "light" || name === "dark"
+        ? name
+        : ("unspecified" as Parameters<typeof Appearance.setColorScheme>[0]),
+    );
   },
 };
 

@@ -23,7 +23,9 @@ beforeEach(() => {
   StyleCollection.styles.clear();
   resetVariableRegistries();
   dimensions.set(Dimensions.get("window"));
-  Appearance.setColorScheme("unspecified");
+  Appearance.setColorScheme(
+    "unspecified" as Parameters<typeof Appearance.setColorScheme>[0],
+  );
   colorScheme.set(null);
 });
 

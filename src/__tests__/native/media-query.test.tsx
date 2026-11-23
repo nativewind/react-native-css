@@ -1,4 +1,4 @@
-import { PixelRatio } from "react-native";
+import { Appearance, PixelRatio } from "react-native";
 
 import { act, render, screen } from "@testing-library/react-native";
 import { View } from "react-native-css/components/View";
@@ -61,6 +61,40 @@ test("color scheme", () => {
     color: "#f00",
   });
 });
+
+// "unspecified" (react-native 0.82-0.86) and "auto" (0.87+) are not in every
+// version's ColorSchemeName, but both mean "follow the system" at runtime.
+test.each([null, undefined, "unspecified", "auto"])(
+  "color scheme %p follows the system",
+  (value) => {
+    registerCSS(`
+.my-class { color: blue; }
+
+@media (prefers-color-scheme: dark) {
+  .my-class { color: red; }
+}`);
+
+    render(<View testID={testID} className="my-class" />);
+    const component = screen.getByTestId(testID);
+
+    act(() => {
+      colorScheme.set("dark");
+    });
+
+    expect(component.props.style).toStrictEqual({
+      color: "#f00",
+    });
+
+    act(() => {
+      colorScheme.set(value as Parameters<typeof colorScheme.set>[0]);
+    });
+
+    expect(component.props.style).toStrictEqual({
+      color: "#00f",
+    });
+    expect(colorScheme.get()).toBe(Appearance.getColorScheme() ?? "light");
+  },
+);
 
 test("width (plain)", () => {
   registerCSS(`
