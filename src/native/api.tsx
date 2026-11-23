@@ -74,7 +74,9 @@ export const colorScheme: ColorScheme = {
     return colorSchemeObs.get() ?? Appearance.getColorScheme() ?? "light";
   },
   set(value) {
-    return colorSchemeObs.set(value === "unspecified" ? null : value);
+    return colorSchemeObs.set(
+      value === "light" || value === "dark" ? value : null,
+    );
   },
 };
 
