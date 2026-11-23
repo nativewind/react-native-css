@@ -351,3 +351,73 @@ test("variable overriding with classes", () => {
   const component = screen.getByTestId(testID);
   expect(component.props.style).toStrictEqual({ color: "#f00" });
 });
+
+// css-variables-1 §2.2: a custom property set to `initial` is a declaration of the guaranteed-invalid value, or of a registered initial value, so it hides an earlier rule's value and its parent's
+describe.each([
+  ["inlined", {}],
+  ["kept", { inlineVariables: false }],
+] as const)(
+  "a custom property set to initial, with variables %s",
+  (_mode, options) => {
+    test.each([
+      [
+        "an earlier rule",
+        ".red { --x: red; } .clear { --x: initial; } .reader { color: var(--x, green); }",
+        "red clear reader",
+        undefined,
+        { color: "green" },
+      ],
+      [
+        "a later rule, with !important",
+        ".clear { --x: initial !important; } .red { --x: red; } .reader { color: var(--x, green); }",
+        "red clear reader",
+        undefined,
+        { color: "green" },
+      ],
+      [
+        "an earlier rule, inside @media",
+        ".red { --x: red; } .clear { @media (min-width: 1px) { --x: initial; } } .reader { color: var(--x, green); }",
+        "red clear reader",
+        undefined,
+        { color: "green" },
+      ],
+      [
+        "its parent's value",
+        ".red { --x: red; } .clear { --x: initial; } .reader { color: var(--x, green); }",
+        "clear reader",
+        "red",
+        { color: "green" },
+      ],
+      [
+        "an earlier rule, leaving a registered initial value",
+        "@property --x { syntax: '<color>'; inherits: false; initial-value: blue; } .red { --x: red; } .clear { --x: initial; } .reader { color: var(--x, green); }",
+        "red clear reader",
+        undefined,
+        { color: "#00f" },
+      ],
+    ])("overrides %s", (_overrides, css, className, parentClassName, style) => {
+      registerCSS(css, options);
+
+      render(
+        <View className={parentClassName}>
+          <View testID={testID} className={className} />
+        </View>,
+      );
+
+      expect(screen.getByTestId(testID).props.style).toStrictEqual(style);
+    });
+
+    test("is overridden by a later rule", () => {
+      registerCSS(
+        ".clear { --x: initial; } .red { --x: red; } .reader { color: var(--x, green); }",
+        options,
+      );
+
+      render(<View testID={testID} className="red clear reader" />);
+
+      expect(screen.getByTestId(testID).props.style).toStrictEqual({
+        color: "red",
+      });
+    });
+  },
+);
