@@ -1111,6 +1111,12 @@ export function parseCustomDeclaration(
       builder.addDescriptor(property, parsedFontVariant);
     }
   } else if (
+    property.startsWith("--") &&
+    isSoleInitial(declaration.value.value)
+  ) {
+    // css-variables-1 §2.2: the guaranteed-invalid value, which still overrides an earlier declaration
+    builder.addDescriptor(property, [{}, "initial"]);
+  } else if (
     validProperties.has(property) ||
     property.startsWith("--") ||
     property.startsWith("-rn-")
@@ -1122,6 +1128,18 @@ export function parseCustomDeclaration(
   } else {
     builder.addWarning("property", declaration.value.name);
   }
+}
+
+function isSoleInitial(tokens: TokenOrValue[]) {
+  const value = tokens.filter(
+    (token) => token.type !== "token" || token.value.type !== "white-space",
+  );
+  return (
+    value.length === 1 &&
+    value[0]?.type === "token" &&
+    value[0].value.type === "ident" &&
+    value[0].value.value.toLowerCase() === "initial"
+  );
 }
 
 export function reduceParseUnparsed(

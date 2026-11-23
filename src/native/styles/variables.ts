@@ -64,6 +64,11 @@ export function varResolver(
       return value;
     }
 
+    // `initial` resolves to nothing, and hides every other declaration and the ancestor's value, leaving the registered initial value or the fallback
+    if (isInitial(inlineVariables?.[name])) {
+      return resolve(get(registeredInitialValues(name))) ?? resolve(fallback);
+    }
+
     // A universal selector declares the variable on this element. It has lower
     // specificity than the element's class declarations, but beats inheritance.
     value = resolve(get(universalVariables(name)));
@@ -121,6 +126,10 @@ export function varResolver(
   } finally {
     variableHistory.delete(name);
   }
+}
+
+function isInitial(value: unknown) {
+  return Array.isArray(value) && value.length === 2 && value[1] === "initial";
 }
 
 function inherits(name: string, get: Getter) {
