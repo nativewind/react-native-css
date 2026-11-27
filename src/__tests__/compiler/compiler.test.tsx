@@ -1,3 +1,4 @@
+import { debug } from "debug";
 import { compile } from "react-native-css/compiler";
 
 test("hello world", () => {
@@ -24,6 +25,39 @@ test("hello world", () => {
       ],
     ],
   });
+});
+
+test("compiles bytes exactly as it compiles their text", () => {
+  const css = `:root { font-size: 16px; } .my-class { padding: 1rem; }`;
+  const fromText = compile(css).stylesheet();
+
+  expect(compile(new TextEncoder().encode(css)).stylesheet()).toStrictEqual(
+    fromText,
+  );
+  expect(compile(Buffer.from(css)).stylesheet()).toStrictEqual(fromText);
+});
+
+test("the debug log is handed the decoded text, not the byte values", () => {
+  const css = `:root { font-size: 16px; }`;
+  const written: string[] = [];
+  const emit = debug.log;
+
+  // `enable` flips the instance the compiler module already built, so no reload is needed.
+  debug.enable("react-native-css:compiler");
+  debug.log = (...args: unknown[]): void => {
+    written.push(args.map(String).join(" "));
+  };
+
+  try {
+    compile(new TextEncoder().encode(css));
+  } finally {
+    debug.log = emit;
+    debug.disable();
+  }
+
+  const joined = written.join("\n");
+  expect(joined).toContain("font-size: 16px");
+  expect(joined).not.toContain("58,114");
 });
 
 test("reads global CSS variables", () => {
