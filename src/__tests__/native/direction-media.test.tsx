@@ -33,3 +33,17 @@ test.each([false, true])(
     expect(screen.getByTestId("ltr")).toHaveStyle({ width: isRTL ? 10 : 37 });
   },
 );
+
+test.each([
+  ['[dir="RTL"]', true],
+  ['[dir="RTL" i]', true],
+  ['[dir="RTL" s]', false],
+])(".t%s matches a right-to-left layout: %s", (attribute, matches) => {
+  Object.defineProperty(I18nManager, "isRTL", {
+    configurable: true,
+    value: true,
+  });
+  registerCSS(`.t { width: 10px; } .t${attribute} { width: 37px; }`);
+  render(<View testID="t" className="t" />);
+  expect(screen.getByTestId("t")).toHaveStyle({ width: matches ? 37 : 10 });
+});
