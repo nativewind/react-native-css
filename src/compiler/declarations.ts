@@ -36,7 +36,7 @@ import type {
   UnresolvedColor,
 } from "lightningcss";
 
-import { isStyleFunction } from "../utilities";
+import { isStyleFunction, toRNProperty } from "../utilities";
 import { isMappingProperty } from "./atRules";
 import type {
   StyleDescriptor,
@@ -44,7 +44,6 @@ import type {
   StyleRule,
 } from "./compiler.types";
 import { parseEasingFunction, parseIterationCount } from "./keyframes";
-import { toRNProperty } from "./selectors";
 import type { StylesheetBuilder } from "./stylesheet";
 
 const CommaSeparator = Symbol("CommaSeparator");
