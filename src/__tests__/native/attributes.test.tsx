@@ -280,3 +280,94 @@ test.each(["=", "|=", "~=", "^=", "$=", "*="] as const)(
     expect(screen.getByTestId(testID).props.style.width).toBe(40);
   },
 );
+
+// react-native-web writes a dataSet value as a data-* attribute unless it is null or undefined
+describe("a dataSet value projects as react-native-web writes it", () => {
+  test.each([
+    [false, true],
+    [0, true],
+    ["", true],
+    [null, false],
+    [undefined, false],
+  ])("[data-test] over %p is present: %s", (value, present) => {
+    registerCSS(`.test { width: 40px; } .test[data-test] { width: 80px; }`);
+    render(
+      <View
+        testID={testID}
+        className="test"
+        {...{ dataSet: { test: value } }}
+      />,
+    );
+    expect(screen.getByTestId(testID).props.style.width).toBe(
+      present ? 80 : 40,
+    );
+  });
+
+  test("a false plain prop is an absent boolean attribute", () => {
+    registerCSS(`.test { width: 40px; } .test[disabled] { width: 80px; }`);
+    render(<View testID={testID} className="test" {...{ disabled: false }} />);
+    expect(screen.getByTestId(testID).props.style.width).toBe(40);
+  });
+
+  test.each([
+    ['[data-test="a,b"]', true],
+    ['[data-test~="a"]', false],
+  ])("%s over the array [a, b] matches: %s", (attribute, matches) => {
+    registerCSS(`.test { width: 40px; } .test${attribute} { width: 80px; }`);
+    render(
+      <View
+        testID={testID}
+        className="test"
+        {...{ dataSet: { test: ["a", "b"] } }}
+      />,
+    );
+    expect(screen.getByTestId(testID).props.style.width).toBe(
+      matches ? 80 : 40,
+    );
+  });
+});
+
+test.each([
+  ["[class='test example']", "example", true],
+  ["[class='example']", "example", false],
+  ["[class~='example']", "example", true],
+  ["[class~='example']", "other", false],
+  ["[class*='xamp']", "example", true],
+  ["[class]", "example", true],
+])(
+  ".test%s over the class list test %s matches: %s",
+  (selector, name, matches) => {
+    registerCSS(`.test { width: 40px; } .test${selector} { width: 80px; }`);
+    render(<View testID={testID} className={`test ${name}`} />);
+    expect(screen.getByTestId(testID).props.style.width).toBe(
+      matches ? 80 : 40,
+    );
+  },
+);
+
+test.each([
+  ["group active", true],
+  ["group", false],
+])("an ancestor class list %p answers [class~=…]: %s", (name, matches) => {
+  registerCSS(
+    `.child { width: 40px; } .child:is(:where(.group)[class~="active"] *) { width: 80px; }`,
+  );
+  render(
+    <View className={name}>
+      <View testID={testID} className="child" />
+    </View>,
+  );
+  expect(screen.getByTestId(testID).props.style.width).toBe(matches ? 80 : 40);
+});
+
+test.each([
+  ['[|data-x="a"]', true],
+  ['[*|data-x="a"]', true],
+  ['[undeclared|data-x="a"]', false],
+])(".test%s over data-x=a matches: %s", (attribute, matches) => {
+  registerCSS(`.test { width: 40px; } .test${attribute} { width: 80px; }`);
+  render(
+    <View testID={testID} className="test" {...{ dataSet: { x: "a" } }} />,
+  );
+  expect(screen.getByTestId(testID).props.style.width).toBe(matches ? 80 : 40);
+});
